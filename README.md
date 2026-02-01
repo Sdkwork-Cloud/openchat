@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./docs/assets/logo.svg" width="150" alt="OpenChat Logo">
+<img src="./docs/assets/logo.png" width="150" alt="OpenChat Logo">
 
 # OpenChat
 
@@ -369,7 +369,7 @@ Join our community to get help, share ideas, and contribute to the project!
 | Email | [![Email](https://img.shields.io/badge/Email-D14836?logo=gmail&logoColor=white)](mailto:contact@sdkwork.com) |
 
 <div align="center">
-  <img src="./docs/assets/wechat-qr.png" width="200" alt="WeChat Official Account QR Code">
+  <img src="./docs/assets/wechat-mp-qr.jpg" width="200" alt="WeChat Official Account QR Code">
   <p>OpenChat Official Account</p>
 </div>
 

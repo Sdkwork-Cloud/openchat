@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./docs/assets/logo.svg" width="150" alt="OpenChat Logo">
+<img src="./docs/assets/logo.png" width="150" alt="OpenChat Logo">
 
 # OpenChat
 
@@ -209,7 +209,7 @@ OpenChat 是开源软件，使用 [MIT 许可证](LICENSE)。
 - [邮箱](mailto:contact@sdkwork.com)
 
 <div align="center">
-  <img src="./docs/assets/wechat-qr.png" width="200" alt="微信公众号二维码">
+  <img src="./docs/assets/wechat-mp-qr.jpg" width="200" alt="微信公众号二维码">
   <p>OpenChat 官方公众号</p>
 </div>
 
