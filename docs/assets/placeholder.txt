@@ -1,0 +1,14 @@
+# Asset Placeholders
+
+This directory contains placeholders for the following files:
+
+1. logo.svg - Project logo
+2. wechat-qr.png - WeChat Official Account QR code
+3. screenshots/ - Directory for interface screenshots
+   - web-chat.png - Web chat interface
+   - web-group.png - Web group interface
+   - mobile-chat.png - Mobile chat interface
+   - mobile-profile.png - Mobile profile interface
+   - video-call.png - Video call interface
+
+Please replace these placeholders with actual image files.

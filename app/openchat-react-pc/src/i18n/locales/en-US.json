@@ -1,0 +1,92 @@
+{
+  "app": {
+    "name": "OpenChat",
+    "title": "OpenChat - Instant Messaging"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search",
+    "send": "Send",
+    "copy": "Copy",
+    "paste": "Paste"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "username": "Username",
+    "password": "Password",
+    "loginButton": "Login",
+    "loginError": "Invalid username or password",
+    "loggingIn": "Logging in..."
+  },
+  "chat": {
+    "title": "AI Chat",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "sending": "Sending...",
+    "empty": "Select a conversation to start chatting",
+    "aiConnected": "AI Assistant Connected",
+    "newMessage": "New Message",
+    "typing": "Typing..."
+  },
+  "message": {
+    "status": {
+      "sending": "Sending",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "failed": "Failed"
+    },
+    "type": {
+      "text": "Text",
+      "image": "Image",
+      "video": "Video",
+      "file": "File",
+      "audio": "Audio"
+    }
+  },
+  "contacts": {
+    "title": "Contacts",
+    "friends": "Friends",
+    "groups": "Groups",
+    "searchPlaceholder": "Search contacts...",
+    "empty": "No contacts",
+    "addFriend": "Add Friend",
+    "createGroup": "Create Group"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "appearance": "Appearance",
+    "notifications": "Notifications",
+    "language": "Language",
+    "about": "About"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "newTab": "New Tab",
+    "closeTab": "Close Tab",
+    "clear": "Clear"
+  },
+  "rtc": {
+    "call": "Call",
+    "videoCall": "Video Call",
+    "voiceCall": "Voice Call",
+    "incomingCall": "Incoming Call",
+    "calling": "Calling...",
+    "inCall": "In Call",
+    "endCall": "End Call",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "enableVideo": "Enable Video",
+    "disableVideo": "Disable Video"
+  }
+}

@@ -1,0 +1,321 @@
+#!/bin/bash
+# ============================================
+# OpenChat - Linux/Mac 启动脚本
+# 版本: 1.0.0
+# ============================================
+
+set -e
+
+# 应用配置
+APP_NAME="OpenChat"
+APP_VERSION="1.0.0"
+APP_HOME="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIG_FILE="${APP_HOME}/etc/config.json"
+PID_FILE="${APP_HOME}/var/run/openchat.pid"
+LOG_DIR="${APP_HOME}/var/logs"
+DATA_DIR="${APP_HOME}/var/data"
+
+# 默认配置
+NODE_ENV="${NODE_ENV:-production}"
+PORT="${PORT:-3000}"
+HOST="${HOST:-0.0.0.0}"
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# ============================================
+# 工具函数
+# ============================================
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 检查 Node.js
+check_node() {
+    if ! command -v node &> /dev/null; then
+        log_error "未找到 Node.js，请先安装 Node.js"
+        exit 1
+    fi
+    
+    NODE_VERSION=$(node --version)
+    log_info "Node.js 版本: $NODE_VERSION"
+}
+
+# 检查服务是否运行
+is_running() {
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# 创建必要的目录
+ensure_directories() {
+    mkdir -p "$LOG_DIR" "$DATA_DIR" "${APP_HOME}/var/run"
+}
+
+# ============================================
+# 服务管理命令
+# ============================================
+
+# 启动服务
+start_service() {
+    check_node
+    
+    if is_running; then
+        log_warn "${APP_NAME} 服务已经在运行中 (PID: $(cat "$PID_FILE"))"
+        exit 1
+    fi
+    
+    log_info "正在启动 ${APP_NAME}..."
+    ensure_directories
+    
+    # 设置环境变量
+    export OPENCHAT_HOME="$APP_HOME"
+    export OPENCHAT_CONFIG="$CONFIG_FILE"
+    export OPENCHAT_LOG_DIR="$LOG_DIR"
+    export OPENCHAT_DATA_DIR="$DATA_DIR"
+    export NODE_ENV="$NODE_ENV"
+    export PORT="$PORT"
+    export HOST="$HOST"
+    
+    # 启动服务（后台运行）
+    cd "$APP_HOME"
+    nohup node dist/main.js > "${LOG_DIR}/stdout.log" 2>&1 &
+    PID=$!
+    
+    # 记录 PID
+    echo $PID > "$PID_FILE"
+    
+    # 等待服务启动
+    sleep 2
+    
+    if ps -p "$PID" > /dev/null 2>&1; then
+        log_success "${APP_NAME} 服务已启动，PID: $PID"
+        log_info "日志文件: ${LOG_DIR}/stdout.log"
+        log_info "访问地址: http://${HOST}:${PORT}"
+    else
+        log_error "${APP_NAME} 服务启动失败"
+        rm -f "$PID_FILE"
+        exit 1
+    fi
+}
+
+# 停止服务
+stop_service() {
+    if ! is_running; then
+        log_warn "${APP_NAME} 服务未运行"
+        rm -f "$PID_FILE"
+        return 0
+    fi
+    
+    PID=$(cat "$PID_FILE")
+    log_info "正在停止 ${APP_NAME} 服务 (PID: $PID)..."
+    
+    # 尝试优雅停止
+    if kill -TERM "$PID" 2>/dev/null; then
+        # 等待进程结束
+        for i in {1..10}; do
+            if ! ps -p "$PID" > /dev/null 2>&1; then
+                break
+            fi
+            sleep 1
+        done
+    fi
+    
+    # 强制停止
+    if ps -p "$PID" > /dev/null 2>&1; then
+        log_warn "服务未响应，强制停止..."
+        kill -KILL "$PID" 2>/dev/null || true
+    fi
+    
+    rm -f "$PID_FILE"
+    log_success "${APP_NAME} 服务已停止"
+}
+
+# 重启服务
+restart_service() {
+    log_info "正在重启 ${APP_NAME}..."
+    stop_service
+    sleep 2
+    start_service
+}
+
+# 查看状态
+status_service() {
+    if is_running; then
+        PID=$(cat "$PID_FILE")
+        log_success "${APP_NAME} 服务状态: 运行中"
+        log_info "进程 PID: $PID"
+        
+        # 显示进程信息
+        if command -v ps &> /dev/null; then
+            ps -p "$PID" -o pid,ppid,cmd,%mem,%cpu 2>/dev/null || true
+        fi
+        
+        # 显示端口监听
+        if command -v netstat &> /dev/null; then
+            log_info "端口监听:"
+            netstat -tlnp 2>/dev/null | grep "$PID" || true
+        elif command -v ss &> /dev/null; then
+            log_info "端口监听:"
+            ss -tlnp 2>/dev/null | grep "$PID" || true
+        fi
+    else
+        log_warn "${APP_NAME} 服务状态: 未运行"
+        if [ -f "$PID_FILE" ]; then
+            rm -f "$PID_FILE"
+        fi
+    fi
+}
+
+# 前台运行（调试模式）
+console_service() {
+    check_node
+    log_info "以前台模式启动 ${APP_NAME}（按 Ctrl+C 停止）..."
+    ensure_directories
+    
+    export OPENCHAT_HOME="$APP_HOME"
+    export OPENCHAT_CONFIG="$CONFIG_FILE"
+    export OPENCHAT_LOG_DIR="$LOG_DIR"
+    export OPENCHAT_DATA_DIR="$DATA_DIR"
+    export NODE_ENV="development"
+    export PORT="$PORT"
+    export HOST="$HOST"
+    
+    cd "$APP_HOME"
+    node dist/main.js
+}
+
+# 健康检查
+health_check() {
+    if ! is_running; then
+        log_error "${APP_NAME} 服务未运行"
+        exit 1
+    fi
+    
+    log_info "检查 ${APP_NAME} 服务健康状态..."
+    
+    # 尝试访问健康检查端点
+    if command -v curl &> /dev/null; then
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${HOST}:${PORT}/health" 2>/dev/null || echo "000")
+        if [ "$HTTP_CODE" = "200" ]; then
+            log_success "健康检查通过 (HTTP $HTTP_CODE)"
+        else
+            log_warn "健康检查异常 (HTTP $HTTP_CODE)"
+        fi
+    else
+        log_warn "未找到 curl，跳过 HTTP 健康检查"
+    fi
+}
+
+# 查看日志
+tail_logs() {
+    LOG_FILE="${LOG_DIR}/stdout.log"
+    if [ -f "$LOG_FILE" ]; then
+        log_info "查看日志文件: $LOG_FILE"
+        tail -f "$LOG_FILE"
+    else
+        log_warn "日志文件不存在: $LOG_FILE"
+    fi
+}
+
+# 清理日志
+clean_logs() {
+    log_info "清理日志文件..."
+    find "$LOG_DIR" -name "*.log" -type f -mtime +7 -delete 2>/dev/null || true
+    log_success "日志清理完成"
+}
+
+# 显示帮助
+show_help() {
+    cat << EOF
+============================================
+ ${APP_NAME} v${APP_VERSION}
+============================================
+
+用法: openchat [命令]
+
+命令:
+  start       启动服务（后台模式）
+  stop        停止服务
+  restart     重启服务
+  status      查看服务状态
+  console     前台运行（调试模式）
+  health      健康检查
+  logs        查看实时日志
+  clean       清理旧日志
+  help        显示帮助信息
+
+环境变量:
+  NODE_ENV    运行环境 (development/production)
+  PORT        服务端口 (默认: 3000)
+  HOST        监听地址 (默认: 0.0.0.0)
+
+示例:
+  openchat start
+  openchat stop
+  openchat restart
+  openchat status
+
+EOF
+}
+
+# ============================================
+# 主程序
+# ============================================
+
+case "${1:-help}" in
+    start)
+        start_service
+        ;;
+    stop)
+        stop_service
+        ;;
+    restart)
+        restart_service
+        ;;
+    status)
+        status_service
+        ;;
+    console)
+        console_service
+        ;;
+    health)
+        health_check
+        ;;
+    logs)
+        tail_logs
+        ;;
+    clean)
+        clean_logs
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        log_error "未知命令: $1"
+        show_help
+        exit 1
+        ;;
+esac

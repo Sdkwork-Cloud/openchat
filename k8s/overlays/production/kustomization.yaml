@@ -1,0 +1,41 @@
+# ============================================
+# OpenChat - Production Overlay
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openchat
+
+resources:
+  - ../../base
+
+namePrefix: prod-
+
+commonLabels:
+  environment: production
+
+replicas:
+  - name: openchat
+    count: 3
+
+images:
+  - name: openchat/server
+    newTag: v1.0.0
+
+patchesStrategicMerge:
+  - deployment-patch.yaml
+
+configMapGenerator:
+  - name: openchat-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=warn
+      - NODE_ENV=production
+
+secretGenerator:
+  - name: openchat-secrets
+    behavior: merge
+    literals:
+      - DB_PASSWORD=prod_password_change_this
+      - JWT_SECRET=prod_jwt_secret_change_this

@@ -1,0 +1,168 @@
+# ============================================
+# OpenChat Server - Docker Compose 配置
+# 集成悟空IM，实现一键部署
+# ============================================
+
+version: '3.8'
+
+services:
+  # ============================================
+  # PostgreSQL 数据库
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: openchat-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openchat
+      POSTGRES_PASSWORD: openchat_password
+      POSTGRES_DB: openchat
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"  # 仅本地访问，安全考虑
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openchat -d openchat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - openchat-network
+
+  # ============================================
+  # Redis 缓存
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: openchat-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"  # 仅本地访问
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - openchat-network
+
+  # ============================================
+  # 悟空IM 服务
+  # ============================================
+  wukongim:
+    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2
+    container_name: openchat-wukongim
+    restart: unless-stopped
+    environment:
+      - "WK_CLUSTER_NODEID=1001"
+      - "WK_MODE=release"
+      - "WK_EXTERNAL_IP=${EXTERNAL_IP:-127.0.0.1}"  # 服务器外网IP，需要配置
+      - "WK_CLUSTER_SERVERADDR=${INTERNAL_IP:-wukongim}:11110"  # 节点内部通信地址
+      - "WK_CLUSTER_APIURL=http://wukongim:5001"  # API内网地址
+      - "WK_TRACE_PROMETHEUSAPIURL=http://prometheus:9090"  # Prometheus监控
+      # - "WK_TOKENAUTHON=true"  # 生产环境建议开启token认证
+    healthcheck:
+      test: "wget -q -Y off -O /dev/null http://localhost:5001/health > /dev/null 2>&1"
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - wukongim_data:/root/wukongim
+    ports:
+      # 注意：生产环境应该通过防火墙限制5001端口仅内网访问
+      - "5001:5001"     # HTTP API 端口（仅内部使用）
+      - "5100:5100"     # TCP 端口（App端需要访问）
+      - "5200:5200"     # WebSocket 端口（Web端需要访问）
+      - "5300:5300"     # 管理后台端口
+      - "5172:5172"     # Demo 端口
+      - "11110:11110"   # 分布式节点通讯端口
+    networks:
+      - openchat-network
+
+  # ============================================
+  # Prometheus 监控（悟空IM依赖）
+  # ============================================
+  prometheus:
+    image: registry.cn-shanghai.aliyuncs.com/wukongim/prometheus:v2.53.1
+    container_name: openchat-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"  # 仅本地访问
+    networks:
+      - openchat-network
+
+  # ============================================
+  # OpenChat 应用
+  # ============================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: openchat
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      wukongim:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      # 数据库配置
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: openchat
+      DB_PASSWORD: openchat_password
+      DB_DATABASE: openchat
+      # Redis 配置
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password
+      # JWT 密钥
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key-change-this-in-production}
+      # 悟空IM 配置（内部API地址）
+      WUKONGIM_API_URL: http://wukongim:5001
+      WUKONGIM_TCP_ADDR: wukongim:5100
+      WUKONGIM_WS_URL: ws://wukongim:5200
+      WUKONGIM_MANAGER_URL: http://wukongim:5300
+    volumes:
+      - ./var/logs:/app/var/logs
+      - ./var/data:/app/var/data
+      - ./etc/config.json:/app/etc/config.json:ro
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - openchat-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  wukongim_data:
+    driver: local
+  prometheus_data:
+    driver: local
+
+networks:
+  openchat-network:
+    driver: bridge

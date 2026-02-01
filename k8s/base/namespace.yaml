@@ -1,0 +1,11 @@
+# ============================================
+# OpenChat Server - Kubernetes Namespace
+# ============================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openchat
+  labels:
+    app: openchat
+    version: v1.0.0

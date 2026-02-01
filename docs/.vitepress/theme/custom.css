@@ -1,0 +1,235 @@
+/* OpenChat 文档自定义样式 */
+
+:root {
+  /* 品牌色 */
+  --vp-c-brand-1: #3b82f6;
+  --vp-c-brand-2: #2563eb;
+  --vp-c-brand-3: #1d4ed8;
+  --vp-c-brand-soft: rgba(59, 130, 246, 0.14);
+
+  /* 自定义颜色 */
+  --vp-c-indigo-1: #6366f1;
+  --vp-c-indigo-2: #4f46e5;
+  --vp-c-indigo-3: #4338ca;
+  --vp-c-indigo-soft: rgba(99, 102, 241, 0.14);
+
+  /* 首页 Hero */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #6366f1 30%, #3b82f6);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #6366f1 50%, #3b82f6 50%);
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+/* 暗色主题 */
+.dark {
+  --vp-c-brand-1: #60a5fa;
+  --vp-c-brand-2: #3b82f6;
+  --vp-c-brand-3: #2563eb;
+}
+
+/* 导航栏样式 */
+.VPNav {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.dark .VPNav {
+  background-color: rgba(17, 24, 39, 0.8) !important;
+}
+
+/* 侧边栏样式 */
+.VPSidebar {
+  background-color: var(--vp-c-bg) !important;
+}
+
+/* 特性卡片样式 */
+.VPFeature {
+  border-radius: 16px;
+  padding: 28px;
+  background: var(--vp-c-bg-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+  border-color: var(--vp-c-brand-soft);
+}
+
+.VPFeature .icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+/* 代码块样式 */
+.vp-doc div[class*='language-'] {
+  border-radius: 12px;
+  margin: 24px 0;
+}
+
+.vp-doc pre {
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+/* 表格样式 */
+.vp-doc table {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.vp-doc th {
+  background-color: var(--vp-c-brand-soft);
+  font-weight: 600;
+}
+
+.vp-doc tr:nth-child(2n) {
+  background-color: var(--vp-c-bg-soft);
+}
+
+/* 按钮样式 */
+.VPButton {
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.VPButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.4);
+}
+
+/* 链接样式 */
+.vp-doc a {
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.vp-doc a:hover {
+  color: var(--vp-c-brand-2);
+}
+
+/* 标题样式 */
+.vp-doc h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(120deg, var(--vp-c-brand-1), var(--vp-c-indigo-1));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.vp-doc h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-top: 3rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--vp-c-divider);
+}
+
+.vp-doc h3 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* 引用块样式 */
+.vp-doc blockquote {
+  border-radius: 8px;
+  border-left: 4px solid var(--vp-c-brand-1);
+  background-color: var(--vp-c-brand-soft);
+  padding: 16px 20px;
+  margin: 24px 0;
+}
+
+/* 提示框样式 */
+.vp-doc .tip {
+  border-radius: 12px;
+  border: 1px solid var(--vp-c-brand-1);
+  background-color: var(--vp-c-brand-soft);
+}
+
+.vp-doc .warning {
+  border-radius: 12px;
+}
+
+.vp-doc .danger {
+  border-radius: 12px;
+}
+
+/* 代码组样式 */
+.vp-code-group {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.vp-code-group .tabs {
+  background-color: var(--vp-c-bg-soft);
+}
+
+/* 搜索框样式 */
+.VPLocalSearchBox {
+  border-radius: 12px;
+}
+
+/* 返回顶部按钮 */
+.VPBackToTop {
+  border-radius: 50%;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--vp-c-bg-soft);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vp-c-brand-1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vp-c-brand-2);
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.VPFeature {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .vp-doc h1 {
+    font-size: 2rem;
+  }
+  
+  .vp-doc h2 {
+    font-size: 1.5rem;
+  }
+  
+  .VPFeature {
+    padding: 20px;
+  }
+}

@@ -1,0 +1,22 @@
+# ============================================
+# Prometheus 配置文件 - 悟空IM监控
+# ============================================
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  # 悟空IM 监控
+  - job_name: wukongim-metrics
+    static_configs:
+      - targets: ['wukongim:5300']
+        labels:
+          id: "1001"
+    metrics_path: /metrics
+
+  # OpenChat Server 监控（可选）
+  - job_name: openchat-server-metrics
+    static_configs:
+      - targets: ['app:3000']
+    metrics_path: /metrics

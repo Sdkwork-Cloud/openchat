@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "OpenChat Server",
+    "version": "1.0.0",
+    "description": "OpenChat 即时通讯服务端 - 集成悟空IM",
+    "env": "production",
+    "debug": false
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "baseUrl": "http://localhost:3000"
+  },
+  "database": {
+    "type": "postgres",
+    "host": "${DB_HOST:-localhost}",
+    "port": 5432,
+    "username": "${DB_USERNAME:-openchat}",
+    "password": "${DB_PASSWORD:-openchat_password}",
+    "database": "${DB_DATABASE:-openchat}",
+    "synchronize": false,
+    "logging": false,
+    "ssl": false,
+    "poolSize": 10
+  },
+  "redis": {
+    "enabled": true,
+    "host": "${REDIS_HOST:-localhost}",
+    "port": 6379,
+    "password": "${REDIS_PASSWORD:-redis_password}",
+    "db": 0
+  },
+  "jwt": {
+    "secret": "${JWT_SECRET:-your-jwt-secret-key-change-this-in-production}",
+    "expiresIn": "7d",
+    "refreshExpiresIn": "30d"
+  },
+  "im": {
+    "provider": "wukongim",
+    "enabled": true,
+    "wukongim": {
+      "apiUrl": "${WUKONGIM_API_URL:-http://localhost:5001}",
+      "tcpAddr": "${WUKONGIM_TCP_ADDR:-localhost:5100}",
+      "wsUrl": "${WUKONGIM_WS_URL:-ws://localhost:5200}",
+      "managerUrl": "${WUKONGIM_MANAGER_URL:-http://localhost:5300}",
+      "tokenAuth": false,
+      "appKey": "${WUKONGIM_APP_KEY:-}",
+      "appSecret": "${WUKONGIM_APP_SECRET:-}",
+      "externalIp": "${EXTERNAL_IP:-127.0.0.1}"
+    }
+  },
+  "rtc": {
+    "enabled": true,
+    "defaultProvider": "volcengine",
+    "providers": {
+      "volcengine": {
+        "appId": "${VOLCENGINE_APP_ID:-}",
+        "appKey": "${VOLCENGINE_APP_KEY:-}",
+        "appSecret": "${VOLCENGINE_APP_SECRET:-}",
+        "region": "cn-north-1"
+      },
+      "tencent": {
+        "appId": "${TENCENT_APP_ID:-}",
+        "appKey": "${TENCENT_APP_KEY:-}",
+        "appSecret": "${TENCENT_APP_SECRET:-}",
+        "region": "ap-guangzhou"
+      }
+    }
+  },
+  "ai": {
+    "enabled": true,
+    "defaultProvider": "openai",
+    "providers": {
+      "openai": {
+        "apiKey": "${OPENAI_API_KEY:-}",
+        "baseUrl": "https://api.openai.com/v1",
+        "model": "gpt-3.5-turbo"
+      }
+    }
+  },
+  "thirdParty": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "${TELEGRAM_BOT_TOKEN:-}"
+    },
+    "whatsapp": {
+      "enabled": false,
+      "apiKey": "${WHATSAPP_API_KEY:-}"
+    }
+  },
+  "security": {
+    "cors": {
+      "enabled": true,
+      "origins": ["http://localhost:3000", "http://localhost:5173", "http://localhost:5172"],
+      "credentials": true
+    },
+    "rateLimit": {
+      "enabled": true,
+      "windowMs": 900000,
+      "max": 100
+    }
+  },
+  "logging": {
+    "level": "${LOG_LEVEL:-info}",
+    "format": "combined",
+    "file": {
+      "enabled": true,
+      "path": "var/logs",
+      "maxSize": "100m",
+      "maxFiles": 10
+    }
+  },
+  "upload": {
+    "maxFileSize": 104857600,
+    "allowedTypes": ["image/*", "video/*", "audio/*", "application/pdf"],
+    "storage": {
+      "type": "local",
+      "path": "var/data/uploads"
+    }
+  }
+}

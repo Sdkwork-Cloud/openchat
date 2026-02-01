@@ -1,0 +1,82 @@
+# ============================================
+# OpenChat Server - Docker 构建忽略文件
+# ============================================
+
+# 依赖目录
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# 构建输出
+dist
+build
+*.tsbuildinfo
+
+# 测试文件
+*.spec.ts
+*.test.ts
+test
+tests
+coverage
+.nyc_output
+
+# 开发环境文件
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# 编辑器配置
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 版本控制
+.git
+.gitignore
+.gitattributes
+
+# 文档
+*.md
+!README.md
+docs
+
+# 日志
+logs
+*.log
+var/logs/*
+
+# 运行时数据
+var/run/*
+var/data/*
+!var/.gitkeep
+
+# Docker 文件
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# 脚本（保留 bin 目录下的启动脚本）
+scripts/*.sh
+scripts/*.bat
+!scripts/.gitkeep
+
+# 数据库（保留 schema.sql 和 seed.sql）
+database/*.backup
+database/*.dump
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# 其他
+*.tar.gz
+*.zip
+*.rar

@@ -1,0 +1,24 @@
+# ============================================
+# OpenChat Server - Kustomization Base
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openchat
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+commonLabels:
+  app: openchat
+  version: v1.0.0
+
+images:
+  - name: openchat/server
+    newTag: latest
