@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./docs/assets/logo.png" width="150" alt="OpenChat Logo">
+<img src="./docs/assets/images/branding/logo.png" width="150" alt="OpenChat Logo">
 
 # OpenChat
 
@@ -122,10 +122,21 @@ openchat/
 │   ├── openchat-react-pc/ # React PC 端
 │   └── openchat-rn/       # React Native
 ├── 📁 docs/                # 文档
-│   └── 📁 assets/           # 图片资源
-│       ├── logo.svg       # 项目 logo
-│       ├── screenshots/   # 界面截图
-│       └── wechat-qr.png  # 微信公众号二维码
+│   └── 📁 assets/           # 资源目录
+│       ├── 📁 images/       # 图片文件
+│       │   ├── 📁 branding/ # 品牌图片
+│       │   │   ├── logo.png # 项目 logo
+│       │   │   ├── favicon.ico # 浏览器图标
+│       │   │   └── banner.png # 项目横幅
+│       │   ├── 📁 screenshots/ # 截图
+│       │   │   ├── 📁 web/    # Web 界面截图
+│       │   │   ├── 📁 mobile/ # 移动界面截图
+│       │   │   └── 📁 video/  # 视频通话截图
+│       │   └── 📁 social/    # 社交媒体图片
+│       │       ├── wechat-qr.png # 微信公众号二维码
+│       │       └── banner.jpg # 社交媒体横幅
+│       ├── 📁 videos/       # 视频文件
+│       └── 📁 icons/        # 图标文件
 ├── 📁 database/            # 数据库脚本
 ├── 📁 scripts/             # 部署脚本
 ├── 📁 k8s/                 # Kubernetes 配置
@@ -209,7 +220,7 @@ OpenChat 是开源软件，使用 [MIT 许可证](LICENSE)。
 - [邮箱](mailto:contact@sdkwork.com)
 
 <div align="center">
-  <img src="./docs/assets/wechat-mp-qr.jpg" width="200" alt="微信公众号二维码">
+  <img src="./docs/assets/images/social/wechat-qr.png" width="200" alt="微信公众号二维码">
   <p>OpenChat 官方公众号</p>
 </div>
 
@@ -218,15 +229,15 @@ OpenChat 是开源软件，使用 [MIT 许可证](LICENSE)。
 <div align="center">
 
 ### Web 界面
-<img src="./docs/assets/screenshots/web-chat.png" width="300" alt="Web 聊天界面">
-<img src="./docs/assets/screenshots/web-group.png" width="300" alt="Web 群组界面">
+<img src="./docs/assets/images/screenshots/web/chat.png" width="300" alt="Web 聊天界面">
+<img src="./docs/assets/images/screenshots/web/group.png" width="300" alt="Web 群组界面">
 
 ### 移动界面
-<img src="./docs/assets/screenshots/mobile-chat.png" width="200" alt="移动聊天界面">
-<img src="./docs/assets/screenshots/mobile-profile.png" width="200" alt="移动个人资料界面">
+<img src="./docs/assets/images/screenshots/mobile/chat.png" width="200" alt="移动聊天界面">
+<img src="./docs/assets/images/screenshots/mobile/profile.png" width="200" alt="移动个人资料界面">
 
 ### 视频通话
-<img src="./docs/assets/screenshots/video-call.png" width="300" alt="视频通话界面">
+<img src="./docs/assets/images/screenshots/video/call.png" width="300" alt="视频通话界面">
 
 </div>
 

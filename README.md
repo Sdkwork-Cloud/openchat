@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./docs/assets/logo.png" width="150" alt="OpenChat Logo">
+<img src="./docs/assets/images/branding/logo.png" width="150" alt="OpenChat Logo">
 
 # OpenChat
 
@@ -216,10 +216,21 @@ openchat/
 │   ├── main.ts            # Application entry
 │   └── typings/           # Type definitions
 ├── docs/                 # Documentation
-│   └── assets/            # Images and resources
-│       ├── logo.svg       # Project logo
-│       ├── screenshots/   # Interface screenshots
-│       └── wechat-qr.png  # WeChat Official Account QR code
+│   └── assets/            # Assets directory
+│       ├── images/        # Image files
+│       │   ├── branding/  # Branding images
+│       │   │   ├── logo.png # Project logo
+│       │   │   ├── favicon.ico # Browser icon
+│       │   │   └── banner.png # Project banner
+│       │   ├── screenshots/ # Screenshots
+│       │   │   ├── web/    # Web interface screenshots
+│       │   │   ├── mobile/ # Mobile interface screenshots
+│       │   │   └── video/  # Video call screenshots
+│       │   └── social/     # Social media images
+│       │       ├── wechat-qr.png # WeChat Official Account QR code
+│       │       └── banner.jpg # Social media banner
+│       ├── videos/        # Video files
+│       └── icons/         # Icon files
 ├── database/             # Database scripts
 ├── k8s/                  # Kubernetes configuration
 ├── docker-compose.yml     # Docker Compose configuration
@@ -369,7 +380,7 @@ Join our community to get help, share ideas, and contribute to the project!
 | Email | [![Email](https://img.shields.io/badge/Email-D14836?logo=gmail&logoColor=white)](mailto:contact@sdkwork.com) |
 
 <div align="center">
-  <img src="./docs/assets/wechat-mp-qr.jpg" width="200" alt="WeChat Official Account QR Code">
+  <img src="./docs/assets/images/social/wechat-qr.png" width="200" alt="WeChat Official Account QR Code">
   <p>OpenChat Official Account</p>
 </div>
 
@@ -378,15 +389,15 @@ Join our community to get help, share ideas, and contribute to the project!
 <div align="center">
 
 ### Web Interface
-<img src="./docs/assets/screenshots/web-chat.png" width="300" alt="Web Chat Interface">
-<img src="./docs/assets/screenshots/web-group.png" width="300" alt="Web Group Interface">
+<img src="./docs/assets/images/screenshots/web/chat.png" width="300" alt="Web Chat Interface">
+<img src="./docs/assets/images/screenshots/web/group.png" width="300" alt="Web Group Interface">
 
 ### Mobile Interface
-<img src="./docs/assets/screenshots/mobile-chat.png" width="200" alt="Mobile Chat Interface">
-<img src="./docs/assets/screenshots/mobile-profile.png" width="200" alt="Mobile Profile Interface">
+<img src="./docs/assets/images/screenshots/mobile/chat.png" width="200" alt="Mobile Chat Interface">
+<img src="./docs/assets/images/screenshots/mobile/profile.png" width="200" alt="Mobile Profile Interface">
 
 ### Video Call
-<img src="./docs/assets/screenshots/video-call.png" width="300" alt="Video Call Interface">
+<img src="./docs/assets/images/screenshots/video/call.png" width="300" alt="Video Call Interface">
 
 </div>
 
