@@ -15,12 +15,12 @@ interface CallModalProps {
   session: CallSession | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
-  onAccept: () => void;
-  onReject: () => void;
-  onHangup: () => void;
-  onToggleMute: () => void;
-  onToggleCamera: () => void;
-  onToggleSpeaker: () => void;
+  onAccept: () => Promise<void>;
+  onReject: () => Promise<void>;
+  onHangup: () => Promise<void>;
+  onToggleMute: () => Promise<void>;
+  onToggleCamera: () => Promise<void>;
+  onToggleSpeaker: () => Promise<void>;
 }
 
 // 无设备时自动结束通话的倒计时（秒）
@@ -217,7 +217,7 @@ export const CallModal = memo(({
             {isRinging && isIncoming && (
               <>
                 <button
-                  onClick={onReject}
+                  onClick={async () => await onReject()}
                   className="w-16 h-16 rounded-full bg-[#EF4444] hover:bg-[#DC2626] flex items-center justify-center transition-transform hover:scale-110"
                 >
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +225,7 @@ export const CallModal = memo(({
                   </svg>
                 </button>
                 <button
-                  onClick={onAccept}
+                  onClick={async () => await onAccept()}
                   className="w-16 h-16 rounded-full bg-[#10B981] hover:bg-[#059669] flex items-center justify-center transition-transform hover:scale-110"
                 >
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,7 +238,7 @@ export const CallModal = memo(({
             {/* 去电拨号中/响铃中 - 只显示挂断按钮 */}
             {(isCalling || (isRinging && !isIncoming)) && (
               <button
-                onClick={onHangup}
+                onClick={async () => await onHangup()}
                 className="w-16 h-16 rounded-full bg-[#EF4444] hover:bg-[#DC2626] flex items-center justify-center transition-transform hover:scale-110"
               >
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,7 +252,7 @@ export const CallModal = memo(({
               <>
                 {/* 静音 */}
                 <button
-                  onClick={onToggleMute}
+                  onClick={async () => await onToggleMute()}
                   className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
                     session.isMuted
                       ? 'bg-[#EF4444] text-white'
@@ -274,7 +274,7 @@ export const CallModal = memo(({
                 {/* 摄像头（仅视频通话） */}
                 {isVideo && (
                   <button
-                    onClick={onToggleCamera}
+                    onClick={async () => await onToggleCamera()}
                     className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
                       session.isCameraOff
                         ? 'bg-[#EF4444] text-white'
@@ -296,7 +296,7 @@ export const CallModal = memo(({
 
                 {/* 扬声器 */}
                 <button
-                  onClick={onToggleSpeaker}
+                  onClick={async () => await onToggleSpeaker()}
                   className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
                     session.isSpeakerOff
                       ? 'bg-[#EF4444] text-white'
@@ -317,7 +317,7 @@ export const CallModal = memo(({
 
                 {/* 挂断 */}
                 <button
-                  onClick={onHangup}
+                  onClick={async () => await onHangup()}
                   className="w-16 h-16 rounded-full bg-[#EF4444] hover:bg-[#DC2626] flex items-center justify-center transition-transform hover:scale-110"
                 >
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

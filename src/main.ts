@@ -219,6 +219,7 @@ async function bootstrap() {
     const { IMProviderService } = await import('./modules/im-provider/im-provider.service');
     const imProviderService = app.get(IMProviderService);
     await imProviderService.initializeProvider('wukongim', {
+      provider: 'wukongim',
       endpoint: configService.get('WUKONGIM_API_URL') || 'http://localhost:5001',
       timeout: 10000,
     });

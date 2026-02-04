@@ -1,0 +1,141 @@
+{
+  "common": {
+    "yes": "是",
+    "no": "否",
+    "submit": "提交",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "view": "查看",
+    "search": "搜索",
+    "reset": "重置",
+    "back": "返回",
+    "confirm": "确认",
+    "cancel": "取消",
+    "loading": "加载中...",
+    "success": "操作成功",
+    "error": "操作失败",
+    "warning": "警告",
+    "info": "信息",
+    "deleteConfirm": "确定要删除吗？",
+    "batchDeleteConfirm": "确定要删除选中的项目吗？"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "stats": {
+      "users": "用户数",
+      "devices": "设备数",
+      "messages": "消息数",
+      "onlineUsers": "在线用户"
+    },
+    "systemStatus": "系统状态",
+    "recentActivities": "最近活动"
+  },
+  "user": {
+    "title": "用户管理",
+    "list": "用户列表",
+    "create": "创建用户",
+    "edit": "编辑用户",
+    "detail": "用户详情",
+    "fields": {
+      "id": "ID",
+      "username": "用户名",
+      "email": "邮箱",
+      "phone": "手机号",
+      "role": "角色",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "lastLogin": "最后登录",
+      "actions": "操作"
+    },
+    "roles": {
+      "admin": "管理员",
+      "user": "普通用户",
+      "guest": "访客"
+    },
+    "statuses": {
+      "active": "活跃",
+      "inactive": "禁用",
+      "pending": "待审核"
+    }
+  },
+  "device": {
+    "title": "设备管理",
+    "list": "设备列表",
+    "create": "创建设备",
+    "edit": "编辑设备",
+    "detail": "设备详情",
+    "fields": {
+      "id": "ID",
+      "name": "设备名称",
+      "type": "设备类型",
+      "status": "状态",
+      "ip": "IP地址",
+      "mac": "MAC地址",
+      "userId": "所属用户",
+      "createdAt": "创建时间",
+      "lastActive": "最后活跃",
+      "actions": "操作"
+    },
+    "statuses": {
+      "online": "在线",
+      "offline": "离线",
+      "warning": "警告"
+    }
+  },
+  "message": {
+    "title": "消息管理",
+    "list": "消息列表",
+    "settings": "消息设置",
+    "fields": {
+      "id": "ID",
+      "content": "内容",
+      "type": "类型",
+      "sender": "发送者",
+      "receiver": "接收者",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "actions": "操作"
+    },
+    "statuses": {
+      "sent": "已发送",
+      "delivered": "已送达",
+      "read": "已读",
+      "failed": "失败"
+    }
+  },
+  "system": {
+    "title": "系统管理",
+    "settings": "系统设置",
+    "logs": "系统日志",
+    "monitor": "系统监控",
+    "general": "通用设置",
+    "security": "安全设置",
+    "email": "邮件设置",
+    "storage": "存储设置"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "forgotPassword": "忘记密码",
+    "username": "用户名",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "email": "邮箱",
+    "phone": "手机号",
+    "loginSuccess": "登录成功",
+    "loginFailed": "登录失败",
+    "registerSuccess": "注册成功",
+    "registerFailed": "注册失败"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "users": "用户管理",
+    "devices": "设备管理",
+    "messages": "消息管理",
+    "system": "系统管理",
+    "logout": "退出登录"
+  }
+}

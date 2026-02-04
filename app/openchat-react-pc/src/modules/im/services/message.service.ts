@@ -23,7 +23,98 @@ import {
   markMessageAsRead as sdkMarkMessageAsRead,
   convertFrontendContentToSDK,
   convertSDKMessageToFrontend,
+  registerSDKEvents,
 } from '../adapters/sdk-adapter';
+
+// 消息队列管理
+class MessageQueue {
+  private queue: Array<{ id: string; params: SendMessageParams; resolve: (message: Message) => void; reject: (error: Error) => void }> = [];
+  private processing = false;
+
+  async add(params: SendMessageParams): Promise<Message> {
+    return new Promise((resolve, reject) => {
+      const id = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      this.queue.push({ id, params, resolve, reject });
+      this.process();
+    });
+  }
+
+  private async process() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const item = this.queue.shift();
+      if (!item) continue;
+
+      try {
+        const message = await this.sendMessageInternal(item.params);
+        item.resolve(message);
+      } catch (error) {
+        item.reject(error as Error);
+      }
+    }
+
+    this.processing = false;
+  }
+
+  private async sendMessageInternal(params: SendMessageParams): Promise<Message> {
+    const { conversationId, content, isGroup = false } = params;
+
+    switch (content.type) {
+      case 'text':
+        return await sendTextMessage(conversationId, content.text || '', isGroup);
+      
+      case 'image':
+        return await sendImageMessage(conversationId, content.url || '', {
+          width: content.width,
+          height: content.height,
+          fileSize: content.fileSize,
+        }, isGroup);
+      
+      default:
+        return await this.sendCustomMessage(conversationId, content, isGroup);
+    }
+  }
+
+  private async sendCustomMessage(
+    conversationId: string,
+    content: MessageContent,
+    isGroup: boolean
+  ): Promise<Message> {
+    const client = getSDKClient();
+    const sdkContent = convertFrontendContentToSDK(content);
+
+    const sendParams = isGroup
+      ? { groupId: conversationId, customType: content.type, data: sdkContent }
+      : { toUserId: conversationId, customType: content.type, data: sdkContent };
+
+    const sdkMessage = await client.im.messages.sendCustom(sendParams);
+    return convertSDKMessageToFrontend(sdkMessage);
+  }
+}
+
+const messageQueue = new MessageQueue();
+
+// 消息状态缓存
+const messageStatusCache = new Map<string, MessageStatus>();
+
+// 注册消息状态更新监听
+export function registerMessageEventListeners() {
+  try {
+    registerSDKEvents({
+      onMessageSent: (message) => {
+        messageStatusCache.set(message.id, message.status);
+      },
+      onMessageReceived: (message) => {
+        messageStatusCache.set(message.id, message.status);
+      },
+    });
+  } catch (error) {
+    console.warn('Failed to register message event listeners:', error);
+  }
+}
 
 // 消息类型扩展
 export type MessageContentType = 'text' | 'image' | 'file' | 'voice' | 'video' | 'location' | 'card';
@@ -70,41 +161,11 @@ export interface MessageQueryParams {
 
 /**
  * 发送消息
- * 通过SDK发送到服务器，支持多种消息类型
+ * 通过消息队列发送到服务器，支持多种消息类型
  */
 export async function sendMessage(params: SendMessageParams): Promise<Message> {
-  const { conversationId, content, isGroup = false } = params;
-
   try {
-    let message: Message;
-
-    switch (content.type) {
-      case 'text':
-        message = await sendTextMessage(conversationId, content.text || '', isGroup);
-        break;
-
-      case 'image':
-        message = await sendImageMessage(conversationId, content.url || '', {
-          width: content.width,
-          height: content.height,
-          fileSize: content.fileSize,
-        }, isGroup);
-        break;
-
-      case 'voice':
-      case 'video':
-      case 'file':
-      case 'location':
-      case 'card':
-        // 使用SDK的通用发送方法
-        message = await sendCustomMessage(conversationId, content, isGroup);
-        break;
-
-      default:
-        throw new Error(`不支持的消息类型: ${content.type}`);
-    }
-
-    return message;
+    return await messageQueue.add(params);
   } catch (error) {
     console.error('发送消息失败:', error);
     throw error;
@@ -112,27 +173,30 @@ export async function sendMessage(params: SendMessageParams): Promise<Message> {
 }
 
 /**
- * 发送自定义类型消息
+ * 发送消息（批量）
  */
-async function sendCustomMessage(
-  conversationId: string,
-  content: MessageContent,
-  isGroup: boolean
-): Promise<Message> {
-  const client = getSDKClient();
+export async function sendBatchMessages(paramsList: SendMessageParams[]): Promise<Message[]> {
+  try {
+    const promises = paramsList.map(params => messageQueue.add(params));
+    return await Promise.all(promises);
+  } catch (error) {
+    console.error('批量发送消息失败:', error);
+    throw error;
+  }
+}
 
-  // 转换内容为SDK格式
-  const sdkContent = convertFrontendContentToSDK(content);
+/**
+ * 获取消息状态
+ */
+export function getMessageStatus(messageId: string): MessageStatus | undefined {
+  return messageStatusCache.get(messageId);
+}
 
-  // 构建发送参数
-  const sendParams = isGroup
-    ? { groupId: conversationId, customType: content.type, data: sdkContent }
-    : { toUserId: conversationId, customType: content.type, data: sdkContent };
-
-  // 发送自定义消息
-  const sdkMessage = await client.im.sendCustom(sendParams);
-
-  return convertSDKMessageToFrontend(sdkMessage);
+/**
+ * 清空消息状态缓存
+ */
+export function clearMessageStatusCache(): void {
+  messageStatusCache.clear();
 }
 
 /**
@@ -171,10 +235,6 @@ export async function updateMessageStatus(
     switch (status) {
       case 'read':
         await sdkMarkMessageAsRead(messageId);
-        break;
-
-      case 'recalled':
-        await sdkRecallMessage(messageId);
         break;
 
       default:
@@ -260,7 +320,7 @@ export async function markMessagesAsRead(
     } else {
       // 标记整个会话为已读
       const client = getSDKClient();
-      await client.im.markConversationAsRead(conversationId);
+      await client.im.messages.markConversationAsRead(conversationId);
     }
   } catch (error) {
     console.error('标记已读失败:', error);
@@ -275,7 +335,7 @@ export async function markMessagesAsRead(
 export async function getUnreadCount(conversationId: string): Promise<number> {
   try {
     const client = getSDKClient();
-    const conversation = await client.im.getConversation(conversationId);
+    const conversation = await client.im.conversations.getConversation(conversationId);
 
     return conversation?.unreadCount || 0;
   } catch (error) {

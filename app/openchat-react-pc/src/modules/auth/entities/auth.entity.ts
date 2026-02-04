@@ -11,6 +11,8 @@
 export interface User {
   id: string;
   username: string;
+  email: string;
+  phone: string;
   nickname: string;
   avatar?: string;
   status?: string;
@@ -53,6 +55,8 @@ export interface LoginResponse {
  */
 export interface RegisterRequest {
   username: string;
+  email: string;
+  phone: string;
   password: string;
   confirmPassword: string;
   nickname: string;
@@ -72,8 +76,8 @@ export interface RegisterResponse {
  * 忘记密码请求
  */
 export interface ForgotPasswordRequest {
-  username: string;
   email?: string;
+  phone?: string;
 }
 
 /**

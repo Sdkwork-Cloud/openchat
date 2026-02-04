@@ -122,13 +122,26 @@ export class WukongIMService extends EventEmitter implements IIMService {
       const { WKIM, WKIMEvent } = await this.loadWKIMSDK();
 
       // 初始化WKIM
-      this.wkim = WKIM.init({
+      const wkimConfig = {
         uid: config.uid,
         token: config.token,
         serverUrl: config.serverUrl,
         deviceId: config.deviceId,
         deviceFlag: config.deviceFlag || 2,
-      });
+      };
+
+      // 添加可选参数
+      if (config.appId) {
+        (wkimConfig as any).appId = config.appId;
+      }
+      if (config.appKey) {
+        (wkimConfig as any).appKey = config.appKey;
+      }
+      if (config.thirdPartyAuth) {
+        (wkimConfig as any).thirdPartyAuth = config.thirdPartyAuth;
+      }
+
+      this.wkim = WKIM.init(wkimConfig);
 
       // 绑定事件
       this.bindWKEvents(WKIMEvent);
@@ -533,6 +546,65 @@ export class WukongIMService extends EventEmitter implements IIMService {
     }
   }
 
+  async replyMessage(messageId: string, replyToId: string, content: string, conversationType: ConversationType): Promise<Message> {
+    const originalMessage = await this.getMessage(replyToId);
+    if (!originalMessage) {
+      throw this.createError(ErrorCode.MESSAGE_NOT_FOUND, 'Reply to message not found');
+    }
+
+    // 根据会话类型确定使用 toUserId 还是 groupId
+    const replyParams = conversationType === ConversationType.SINGLE
+      ? { toUserId: originalMessage.fromUid }
+      : { groupId: originalMessage.channelId || '' };
+
+    return this.sendCustom({
+      ...replyParams,
+      customType: 'reply',
+      data: {
+        replyToId,
+        originalMessage: {
+          id: originalMessage.id,
+          fromUid: originalMessage.fromUid,
+          content: originalMessage.content,
+          type: originalMessage.type,
+        },
+        replyContent: content,
+      },
+    });
+  }
+
+  async translateMessage(messageId: string, targetLanguage: string): Promise<{ original: string; translated: string }> {
+    const message = await this.getMessage(messageId);
+    if (!message) {
+      throw this.createError(ErrorCode.MESSAGE_NOT_FOUND, 'Message not found');
+    }
+
+    let original = '';
+    switch (message.type) {
+      case MessageType.TEXT:
+        original = message.content.text || '';
+        break;
+      case MessageType.AUDIO:
+        original = message.content.audio?.text || '';
+        break;
+      default:
+        throw this.createError(ErrorCode.INVALID_PARAM, 'Cannot translate this message type');
+    }
+
+    if (!original) {
+      throw this.createError(ErrorCode.INVALID_PARAM, 'No content to translate');
+    }
+
+    // 这里可以集成真实的翻译API，如Google Translate、百度翻译等
+    // 暂时返回模拟的翻译结果
+    const translated = `[Translated to ${targetLanguage}]: ${original}`;
+
+    return {
+      original,
+      translated,
+    };
+  }
+
   // ==================== 消息操作 ====================
 
   async recallMessage(messageId: string): Promise<boolean> {
@@ -739,6 +811,23 @@ export class WukongIMService extends EventEmitter implements IIMService {
     });
   }
 
+  async getConversationDraft(conversationId: string): Promise<string | null> {
+    return this.executeWithConnection(async () => {
+      try {
+        const draft = await this.wkim.getConversationDraft(conversationId);
+        return draft || null;
+      } catch (error) {
+        return null;
+      }
+    });
+  }
+
+  async clearConversationDraft(conversationId: string): Promise<void> {
+    return this.executeWithConnection(async () => {
+      await this.wkim.setConversationDraft(conversationId, '');
+    });
+  }
+
   async getConversationMembers(conversationId: string): Promise<ConversationMember[]> {
     return this.executeWithConnection(async () => {
       const members = await this.wkim.getConversationMembers(conversationId);
@@ -785,8 +874,6 @@ export class WukongIMService extends EventEmitter implements IIMService {
     }
 
     throw new Error('EasyJSSDK is not available in this environment');
-
-
   }
 
   private loadScript(src: string): Promise<void> {

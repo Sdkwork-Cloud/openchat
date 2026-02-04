@@ -43,10 +43,10 @@ export const LOG_LEVEL = import.meta.env.VITE_LOG_LEVEL || (IS_DEV ? 'debug' : '
 // ============================================
 
 // OpenChat Server API 地址
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+export const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:3000';
 
 // 悟空IM WebSocket 地址
-export const IM_WS_URL = import.meta.env.VITE_IM_WS_URL || 'ws://localhost:5200';
+export const IM_WS_URL = import.meta.env.VITE_APP_IM_WS_URL || 'ws://localhost:3000/ws';
 
 // ============================================
 // RTC 配置

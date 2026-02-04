@@ -22,26 +22,38 @@ import {
   login as loginService,
   logout as logoutService,
   register as registerService,
+  forgotPassword as forgotPasswordService,
   restoreAuth,
   loadAuthData,
   validatePasswordStrength,
   validateUsername,
+  validateEmail,
+  validatePhone,
   validateNickname,
+  loginWithThirdParty as loginWithThirdPartyService,
 } from '../services/auth.service';
 
 export interface UseAuthReturn extends AuthState {
   /** 登录 - 传入用户名和密码 */
   login: (username: string, password: string) => Promise<boolean>;
+  /** 第三方登录 - 传入第三方提供商 */
+  loginWithThirdParty: (provider: string) => Promise<boolean>;
   /** 注册 - 传入注册信息 */
   register: (request: RegisterRequest) => Promise<boolean>;
   /** 登出 */
   logout: () => Promise<void>;
+  /** 忘记密码 */
+  forgotPassword: (email?: string, phone?: string) => Promise<boolean>;
   /** 清除错误 */
   clearError: () => void;
   /** 验证密码强度 */
   checkPasswordStrength: (password: string) => PasswordStrength;
   /** 验证用户名 */
   checkUsername: (username: string) => { isValid: boolean; error?: string };
+  /** 验证邮箱 */
+  checkEmail: (email: string) => { isValid: boolean; error?: string };
+  /** 验证手机号 */
+  checkPhone: (phone: string) => { isValid: boolean; error?: string };
   /** 验证昵称 */
   checkNickname: (nickname: string) => { isValid: boolean; error?: string };
 }
@@ -180,6 +192,35 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   /**
+   * 第三方登录
+   * 调用SDK服务进行第三方登录
+   */
+  const loginWithThirdParty = useCallback(async (provider: string): Promise<boolean> => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const response = await loginWithThirdPartyService(provider);
+
+      setState({
+        isAuthenticated: true,
+        user: response.user,
+        imConfig: response.imConfig,
+        isLoading: false,
+        error: null,
+      });
+
+      return true;
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : '第三方登录失败',
+      }));
+      return false;
+    }
+  }, []);
+
+  /**
    * 清除错误
    */
   const clearError = useCallback(() => {
@@ -201,20 +242,73 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   /**
+   * 验证邮箱
+   */
+  const checkEmail = useCallback((email: string): { isValid: boolean; error?: string } => {
+    return validateEmail(email);
+  }, []);
+
+  /**
+   * 验证手机号
+   */
+  const checkPhone = useCallback((phone: string): { isValid: boolean; error?: string } => {
+    return validatePhone(phone);
+  }, []);
+
+  /**
    * 验证昵称
    */
   const checkNickname = useCallback((nickname: string): { isValid: boolean; error?: string } => {
     return validateNickname(nickname);
   }, []);
 
+  /**
+   * 忘记密码
+   */
+  const forgotPassword = useCallback(async (email?: string, phone?: string): Promise<boolean> => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const response = await forgotPasswordService(email, phone);
+
+      if (!response.success) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: response.error || '发送失败',
+        }));
+        return false;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: null,
+      }));
+
+      return true;
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : '发送失败',
+      }));
+      return false;
+    }
+  }, []);
+
   return {
     ...state,
     login,
+    loginWithThirdParty,
     register,
     logout,
+    forgotPassword,
     clearError,
     checkPasswordStrength,
     checkUsername,
+    checkEmail,
+    checkPhone,
     checkNickname,
   };
 }

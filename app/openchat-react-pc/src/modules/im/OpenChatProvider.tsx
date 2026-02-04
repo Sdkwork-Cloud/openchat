@@ -6,8 +6,9 @@
  */
 
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
-import { createOpenChatClient, OpenChatClient, OpenChatEvent } from '@openchat/typescript-sdk';
+import { OpenChatClient } from '@openchat/typescript-sdk';
 import { API_BASE_URL, IM_WS_URL } from '../../app/env';
+import { initializeSDK, getSDKClient, getSDKState, subscribeToSDKState, isSDKInitialized } from './adapters/sdk-adapter';
 
 interface OpenChatContextValue {
   client: OpenChatClient | null;
@@ -60,77 +61,78 @@ export function OpenChatProvider({ children }: OpenChatProviderProps) {
       return;
     }
 
+    // 订阅SDK状态变化
+    const unsubscribe = subscribeToSDKState((state) => {
+      setIsConnected(state.connected);
+      setIsConnecting(state.connecting);
+      setError(state.error ? new Error(state.error) : null);
+      if (state.initialized) {
+        try {
+          const sdkClient = getSDKClient();
+          setClient(sdkClient);
+        } catch (error) {
+          console.warn('Failed to get SDK client:', error);
+        }
+      }
+    });
+
     // 从本地存储获取用户信息
     const initClient = async () => {
       try {
-        setIsConnecting(true);
-
         // TODO: 从登录状态获取 uid 和 token
         const uid = localStorage.getItem('uid') || '';
         const token = localStorage.getItem('token') || '';
 
         if (!uid || !token) {
           // 未登录状态，不初始化 SDK
-          setIsConnecting(false);
           return;
         }
 
-        const newClient = createOpenChatClient({
+        // 使用统一的SDK初始化函数
+        await initializeSDK({
           apiBaseUrl: API_BASE_URL,
           imWsUrl: IM_WS_URL,
           uid,
           token,
-          debug: true,
         });
-
-        await newClient.init();
-
-        // 存储客户端引用
-        clientRef.current = newClient;
-        setClient(newClient);
-        setIsConnected(true);
-        setIsConnecting(false);
-
-        // 注册事件监听器并存储处理器引用
-        newClient.on(OpenChatEvent.CONNECTED, handleConnected);
-        newClient.on(OpenChatEvent.DISCONNECTED, handleDisconnected);
-        newClient.on(OpenChatEvent.ERROR, handleError);
-
-        // 存储处理器以便 cleanup
-        handlersRef.current.set(OpenChatEvent.CONNECTED, handleConnected);
-        handlersRef.current.set(OpenChatEvent.DISCONNECTED, handleDisconnected);
-        handlersRef.current.set(OpenChatEvent.ERROR, handleError);
 
         // 标记已初始化
         isInitializedRef.current = true;
 
       } catch (err) {
+        console.error('Failed to initialize OpenChat:', err);
         setError(err instanceof Error ? err : new Error('Failed to initialize OpenChat'));
-        setIsConnecting(false);
       }
     };
 
-    initClient();
+    // 检查SDK是否已初始化
+    if (!isSDKInitialized()) {
+      initClient();
+    } else {
+      // SDK已初始化，同步状态
+      const state = getSDKState();
+      setIsConnected(state.connected);
+      setIsConnecting(state.connecting);
+      setError(state.error ? new Error(state.error) : null);
+      if (state.initialized) {
+        try {
+          const sdkClient = getSDKClient();
+          setClient(sdkClient);
+        } catch (error) {
+          console.warn('Failed to get SDK client:', error);
+        }
+      }
+      isInitializedRef.current = true;
+    }
 
     // Cleanup 函数：组件卸载时清理所有资源
     return () => {
-      const currentClient = clientRef.current;
-      if (currentClient) {
-        // 移除所有事件监听器
-        handlersRef.current.forEach((handler, event) => {
-          currentClient.off(event, handler);
-        });
-        handlersRef.current.clear();
-
-        // 销毁客户端
-        currentClient.destroy();
-        clientRef.current = null;
-      }
+      unsubscribe();
       
       // 重置初始化标记
       isInitializedRef.current = false;
     };
-  }, [handleConnected, handleDisconnected, handleError]);
+  }, []);
 
   const value: OpenChatContextValue = {
     client,

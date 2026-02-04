@@ -20,6 +20,24 @@ export class User extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
+    unique: true,
+    nullable: false,
+    comment: '用户邮箱，唯一标识',
+  })
+  email: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    unique: true,
+    nullable: false,
+    comment: '用户手机号，唯一标识',
+  })
+  phone: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
     nullable: false,
     comment: '用户昵称',
   })

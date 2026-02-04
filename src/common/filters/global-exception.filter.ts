@@ -5,7 +5,6 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-  WebSocketException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { WsException } from '@nestjs/websockets';

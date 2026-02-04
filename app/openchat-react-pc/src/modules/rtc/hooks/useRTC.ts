@@ -27,9 +27,9 @@ export interface UseRTCReturn {
   acceptCall: () => Promise<boolean>;
   rejectCall: () => Promise<boolean>;
   hangup: () => Promise<boolean>;
-  toggleMute: () => boolean;
-  toggleCamera: () => boolean;
-  toggleSpeaker: () => boolean;
+  toggleMute: () => Promise<void>;
+  toggleCamera: () => Promise<void>;
+  toggleSpeaker: () => Promise<void>;
 
   // 处理来电
   handleIncomingCall: (
@@ -42,7 +42,7 @@ export interface UseRTCReturn {
   ) => void;
 
   // 处理信令
-  handleSignal: (signal: CallSignal) => void;
+  handleSignal: (signal: CallSignal) => Promise<void>;
 }
 
 /**
@@ -109,18 +109,18 @@ export function useRTC(): UseRTCReturn {
   }, []);
 
   // 切换麦克风
-  const toggleMute = useCallback((): boolean => {
-    return serviceRef.current.toggleMute();
+  const toggleMute = useCallback(async (): Promise<void> => {
+    await serviceRef.current.toggleMute();
   }, []);
 
   // 切换摄像头
-  const toggleCamera = useCallback((): boolean => {
-    return serviceRef.current.toggleCamera();
+  const toggleCamera = useCallback(async (): Promise<void> => {
+    await serviceRef.current.toggleCamera();
   }, []);
 
   // 切换扬声器
-  const toggleSpeaker = useCallback((): boolean => {
-    return serviceRef.current.toggleSpeaker();
+  const toggleSpeaker = useCallback(async (): Promise<void> => {
+    await serviceRef.current.toggleSpeaker();
   }, []);
 
   // 处理来电
@@ -136,8 +136,8 @@ export function useRTC(): UseRTCReturn {
   }, []);
 
   // 处理信令
-  const handleSignal = useCallback((signal: CallSignal) => {
-    serviceRef.current.handleSignal(signal);
+  const handleSignal = useCallback(async (signal: CallSignal) => {
+    await serviceRef.current.handleSignal(signal);
   }, []);
 
   // 清理

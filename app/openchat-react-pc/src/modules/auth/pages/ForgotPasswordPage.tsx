@@ -20,21 +20,27 @@ interface ForgotPasswordPageProps {
  * 忘记密码页面
  */
 export function ForgotPasswordPage({ auth, onSwitchToLogin }: ForgotPasswordPageProps) {
-  const [username, setUsername] = useState('');
+  const [recoveryMethod, setRecoveryMethod] = useState<'email' | 'phone'>('email');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim()) {
+    if ((recoveryMethod === 'email' && !email.trim()) || (recoveryMethod === 'phone' && !phone.trim())) {
       return;
     }
 
-    // 这里可以调用忘记密码服务
-    // await auth.forgotPassword({ username: username.trim() });
+    // 调用忘记密码服务
+    const success = await auth.forgotPassword(
+      recoveryMethod === 'email' ? email.trim() : undefined,
+      recoveryMethod === 'phone' ? phone.trim() : undefined
+    );
     
-    // 模拟提交成功
-    setIsSubmitted(true);
+    if (success) {
+      setIsSubmitted(true);
+    }
   };
 
   if (isSubmitted) {
@@ -59,18 +65,26 @@ export function ForgotPasswordPage({ auth, onSwitchToLogin }: ForgotPasswordPage
               </svg>
             </div>
             <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
-              密码重置邮件已发送
+              {recoveryMethod === 'email' ? '密码重置邮件已发送' : '密码重置验证码已发送'}
             </h2>
             <p className="text-sm text-[var(--text-secondary)] mb-6">
-              我们已向您的邮箱发送了密码重置链接，请查收邮件并按照提示操作。
+              {recoveryMethod === 'email' 
+                ? '我们已向您的邮箱发送了密码重置链接，请查收邮件并按照提示操作。' 
+                : '我们已向您的手机号发送了密码重置验证码，请查收短信并按照提示操作。'}
             </p>
             <div className="space-y-3">
               <p className="text-xs text-[var(--text-muted)]">
                 ⏰ 链接将在24小时后失效
               </p>
-              <p className="text-xs text-[var(--text-muted)]">
-                📧 如果没有收到邮件，请检查垃圾邮件文件夹
-              </p>
+              {recoveryMethod === 'email' ? (
+                <p className="text-xs text-[var(--text-muted)]">
+                  📧 如果没有收到邮件，请检查垃圾邮件文件夹
+                </p>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">
+                  📱 如果没有收到短信，请检查手机号是否正确
+                </p>
+              )}
             </div>
             <button
               onClick={onSwitchToLogin}
@@ -108,25 +122,79 @@ export function ForgotPasswordPage({ auth, onSwitchToLogin }: ForgotPasswordPage
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-6">忘记密码？</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* 用户名 */}
+            {/* 找回方式选择 */}
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                用户名
+                找回方式
               </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入您的用户名"
-                className="w-full px-4 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] focus:ring-1 focus:ring-[var(--ai-primary)] transition-colors"
-                disabled={auth.isLoading}
-              />
+              <div className="flex space-x-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="recoveryMethod"
+                    value="email"
+                    checked={recoveryMethod === 'email'}
+                    onChange={() => setRecoveryMethod('email')}
+                    className="h-4 w-4 text-[var(--ai-primary)] focus:ring-[var(--ai-primary)] border-[var(--border-color)]"
+                    disabled={auth.isLoading}
+                  />
+                  <span className="ml-2 text-sm text-[var(--text-secondary)]">邮箱</span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="recoveryMethod"
+                    value="phone"
+                    checked={recoveryMethod === 'phone'}
+                    onChange={() => setRecoveryMethod('phone')}
+                    className="h-4 w-4 text-[var(--ai-primary)] focus:ring-[var(--ai-primary)] border-[var(--border-color)]"
+                    disabled={auth.isLoading}
+                  />
+                  <span className="ml-2 text-sm text-[var(--text-secondary)]">手机号</span>
+                </label>
+              </div>
             </div>
+
+            {/* 邮箱输入 */}
+            {recoveryMethod === 'email' && (
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  邮箱
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="请输入您的邮箱地址"
+                  className="w-full px-4 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] focus:ring-1 focus:ring-[var(--ai-primary)] transition-colors"
+                  disabled={auth.isLoading}
+                />
+              </div>
+            )}
+
+            {/* 手机号输入 */}
+            {recoveryMethod === 'phone' && (
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                  手机号
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="请输入您的手机号"
+                  className="w-full px-4 py-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] focus:ring-1 focus:ring-[var(--ai-primary)] transition-colors"
+                  disabled={auth.isLoading}
+                />
+              </div>
+            )}
 
             {/* 说明 */}
             <div className="p-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl">
               <p className="text-xs text-[var(--text-secondary)]">
-                请输入您的用户名，我们将向您的注册邮箱发送密码重置链接。
+                {recoveryMethod === 'email' 
+                  ? '请输入您的邮箱，我们将向您的邮箱发送密码重置链接。' 
+                  : '请输入您的手机号，我们将向您的手机号发送密码重置验证码。'}
               </p>
             </div>
 
@@ -140,7 +208,7 @@ export function ForgotPasswordPage({ auth, onSwitchToLogin }: ForgotPasswordPage
             {/* 提交按钮 */}
             <button
               type="submit"
-              disabled={!username.trim() || auth.isLoading}
+              disabled={((recoveryMethod === 'email' && !email.trim()) || (recoveryMethod === 'phone' && !phone.trim())) || auth.isLoading}
               className="w-full py-3 bg-[var(--ai-primary)] hover:bg-[var(--ai-primary-hover)] disabled:bg-[var(--bg-tertiary)] disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors flex items-center justify-center"
             >
               {auth.isLoading ? (
@@ -152,7 +220,7 @@ export function ForgotPasswordPage({ auth, onSwitchToLogin }: ForgotPasswordPage
                   发送中...
                 </>
               ) : (
-                '发送重置链接'
+                recoveryMethod === 'email' ? '发送重置链接' : '发送验证码'
               )}
             </button>
           </form>

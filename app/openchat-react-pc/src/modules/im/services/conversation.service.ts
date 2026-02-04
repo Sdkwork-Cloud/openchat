@@ -65,7 +65,7 @@ export async function getConversations(params?: ConversationQueryParams): Promis
 export async function getConversation(conversationId: string): Promise<Conversation | null> {
   try {
     const client = getSDKClient();
-    const sdkConversation = await client.im.getConversation(conversationId);
+    const sdkConversation = await client.im.conversations.getConversation(conversationId);
 
     if (!sdkConversation) {
       return null;
@@ -84,7 +84,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
 export async function deleteConversation(conversationId: string): Promise<void> {
   try {
     const client = getSDKClient();
-    await client.im.deleteConversation(conversationId);
+    await client.im.conversations.deleteConversation(conversationId);
   } catch (error) {
     console.error('删除会话失败:', error);
     throw error;
@@ -100,7 +100,7 @@ export async function pinConversation(
 ): Promise<void> {
   try {
     const client = getSDKClient();
-    await client.im.pinConversation(conversationId, isPinned);
+    await client.im.conversations.pinConversation(conversationId, isPinned);
   } catch (error) {
     console.error('置顶会话失败:', error);
     throw error;
@@ -116,7 +116,7 @@ export async function muteConversation(
 ): Promise<void> {
   try {
     const client = getSDKClient();
-    await client.im.muteConversation(conversationId, isMuted);
+    await client.im.conversations.muteConversation(conversationId, isMuted);
   } catch (error) {
     console.error('设置免打扰失败:', error);
     throw error;
@@ -129,7 +129,7 @@ export async function muteConversation(
 export async function markConversationAsRead(conversationId: string): Promise<void> {
   try {
     const client = getSDKClient();
-    await client.im.markConversationAsRead(conversationId);
+    await client.im.messages.markConversationAsRead(conversationId);
   } catch (error) {
     console.error('标记会话已读失败:', error);
     throw error;
@@ -145,7 +145,7 @@ export async function setConversationDraft(
 ): Promise<void> {
   try {
     const client = getSDKClient();
-    await client.im.setConversationDraft(conversationId, draft);
+    await client.im.conversations.setConversationDraft(conversationId, draft);
   } catch (error) {
     console.error('设置会话草稿失败:', error);
     throw error;

@@ -37,6 +37,10 @@ export const ROUTES = {
   AGENT_CREATE: '/agents/create',
   AGENT_CHAT: '/agents/chat/:conversationId',
 
+  // 设备管理
+  DEVICES: '/devices',
+  DEVICE_DETAIL: '/devices/:deviceId',
+
   // 认证
   LOGIN: '/login',
   REGISTER: '/register',

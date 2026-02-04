@@ -1,23 +1,21 @@
-import { Entity, Column } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { IMMessageContent } from '../im-provider/im-provider.interface';
 
 @Entity({
-  name: 'chat_messages',
-  indices: [
-    // 单聊消息索引（正向和反向）
-    { columns: ['fromUserId', 'toUserId', 'createdAt'], name: 'idx_chat_messages_from_to_created' },
-    { columns: ['toUserId', 'fromUserId', 'createdAt'], name: 'idx_chat_messages_to_from_created' },
-    // 群聊消息索引
-    { columns: ['groupId', 'createdAt'], name: 'idx_chat_messages_group_created' },
-    // 按发送者查询索引
-    { columns: ['fromUserId', 'createdAt'], name: 'idx_chat_messages_from_created' },
-    // 按接收者查询索引
-    { columns: ['toUserId', 'createdAt'], name: 'idx_chat_messages_to_created' },
-    // 客户端序列号去重索引
-    { columns: ['fromUserId', 'clientSeq'], name: 'idx_chat_messages_client_seq', unique: false },
-  ],
+  name: 'chat_messages'
 })
+// 单聊消息索引（正向和反向）
+@Index('idx_chat_messages_from_to_created', (message: any) => [message.fromUserId, message.toUserId, message.createdAt])
+@Index('idx_chat_messages_to_from_created', (message: any) => [message.toUserId, message.fromUserId, message.createdAt])
+// 群聊消息索引
+@Index('idx_chat_messages_group_created', (message: any) => [message.groupId, message.createdAt])
+// 按发送者查询索引
+@Index('idx_chat_messages_from_created', (message: any) => [message.fromUserId, message.createdAt])
+// 按接收者查询索引
+@Index('idx_chat_messages_to_created', (message: any) => [message.toUserId, message.createdAt])
+// 客户端序列号去重索引
+@Index('idx_chat_messages_client_seq', (message: any) => [message.fromUserId, message.clientSeq], { unique: false })
 export class Message extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: false, default: 'text' })
   type: 'text' | 'image' | 'audio' | 'video' | 'file' | 'card' | 'custom' | 'system';

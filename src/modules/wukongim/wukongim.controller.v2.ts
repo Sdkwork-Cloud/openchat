@@ -147,8 +147,4 @@ export class WukongIMControllerV2 {
     }
   }
 
-  /**
-   * 标记消息已读
-   */
-  @Post('message/read')
-  @UseGuards(Jwt
+}

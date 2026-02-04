@@ -1,29 +1,85 @@
 // OpenChat SDK - Core Type Definitions
 // 基础类型定义，与UI框架无关
 
+import {
+  RTCManagerConfig
+} from '../rtc/types';
+
 // ==================== 配置类型 ====================
 
-export interface OpenChatSDKConfig {
+/**
+ * 服务端API配置
+ */
+export interface ServerConfig {
   /** OpenChat Server API地址 */
-  apiBaseUrl: string;
-  /** 悟空IM WebSocket地址 */
-  imWsUrl: string;
-  /** 用户ID */
-  uid: string;
-  /** 认证Token */
-  token: string;
+  baseUrl: string;
   /** API密钥（可选） */
   apiKey?: string;
   /** 请求超时时间（毫秒） */
   timeout?: number;
   /** 最大重试次数 */
   maxRetries?: number;
-  /** 是否启用调试日志 */
-  debug?: boolean;
+  /** 自定义请求头 */
+  headers?: Record<string, string>;
+  /** 缓存配置 */
+  cache?: {
+    /** 最大缓存大小 */
+    maxSize?: number;
+    /** 默认缓存TTL（毫秒） */
+    defaultTTL?: number;
+  };
+}
+
+/**
+ * 悟空IM配置
+ */
+export interface WukongIMConfig {
+  /** 悟空IM WebSocket地址 */
+  wsUrl: string;
+  /** 悟空IM API地址（可选，用于REST API调用） */
+  apiUrl?: string;
   /** 设备标识 */
   deviceId?: string;
   /** 设备类型 */
   deviceFlag?: DeviceFlag;
+  /** 悟空IM应用ID */
+  appId?: string;
+  /** 悟空IM应用密钥 */
+  appKey?: string;
+}
+
+/**
+ * 认证配置
+ */
+export interface AuthConfig {
+  /** 用户ID */
+  uid: string;
+  /** 认证Token */
+  token: string;
+  /** 是否使用第三方认证系统 */
+  useThirdPartyAuth?: boolean;
+  /** 第三方认证配置 */
+  thirdPartyAuth?: {
+    /** 认证类型 */
+    type: string;
+    /** 认证信息 */
+    info: Record<string, any>;
+  };
+}
+
+export interface OpenChatSDKConfig {
+  /** 服务端API配置 */
+  server: ServerConfig;
+  /** 悟空IM配置 */
+  im: WukongIMConfig;
+  /** 认证配置 */
+  auth: AuthConfig;
+  /** RTC配置 */
+  rtc?: RTCManagerConfig;
+  /** 是否启用调试日志 */
+  debug?: boolean;
+  /** 全局扩展字段 */
+  extras?: Record<string, any>;
 }
 
 export enum DeviceFlag {
@@ -425,6 +481,11 @@ export enum ErrorCode {
   // IM连接错误
   IM_CONNECT_FAILED = 2000,
   IM_DISCONNECTED = 2001,
+  
+  // RTC错误
+  RTC_NOT_INITIALIZED = 2100,
+  RTC_CONNECT_FAILED = 2101,
+  RTC_CALL_FAILED = 2102,
 }
 
 export interface OpenChatError extends Error {

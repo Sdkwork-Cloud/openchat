@@ -57,6 +57,23 @@ export interface IMServiceConfig {
   deviceId?: string;
   /** 设备类型 */
   deviceFlag?: number;
+  /** 悟空IM应用ID */
+  appId?: string;
+  /** 悟空IM应用密钥 */
+  appKey?: string;
+  /** 第三方认证信息 */
+  thirdPartyAuth?: {
+    /** 认证类型 */
+    type: string;
+    /** 认证信息 */
+    info: Record<string, any>;
+  };
+  /** 是否自动重连 */
+  autoReconnect?: boolean;
+  /** 最大重连尝试次数 */
+  reconnectMaxAttempts?: number;
+  /** 重连延迟时间（毫秒） */
+  reconnectDelay?: number;
 }
 
 // ==================== 会话操作参数 ====================
@@ -317,6 +334,16 @@ export interface IIMService {
    */
   forwardMessage(messageId: string, targetId: string, conversationType: ConversationType): Promise<Message>;
 
+  /**
+   * 引用回复消息
+   */
+  replyMessage(messageId: string, replyToId: string, content: string, conversationType: ConversationType): Promise<Message>;
+
+  /**
+   * 翻译消息
+   */
+  translateMessage(messageId: string, targetLanguage: string): Promise<{ original: string; translated: string }>;
+
   // ==================== 消息操作 ====================
   
   /**
@@ -400,6 +427,16 @@ export interface IIMService {
    * 设置会话草稿
    */
   setConversationDraft(conversationId: string, draft: string): Promise<void>;
+  
+  /**
+   * 获取会话草稿
+   */
+  getConversationDraft(conversationId: string): Promise<string | null>;
+  
+  /**
+   * 清空会话草稿
+   */
+  clearConversationDraft(conversationId: string): Promise<void>;
   
   /**
    * 获取会话成员

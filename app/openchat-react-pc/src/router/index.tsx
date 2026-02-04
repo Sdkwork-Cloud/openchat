@@ -17,6 +17,7 @@ import { ContactsPage } from '../modules/contacts/pages/ContactsPage';
 import { TerminalPage } from '../pages/TerminalPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { AgentMarketPage, AgentDetailPage } from '../modules/agent';
+import { DeviceListPage, DeviceDetailPage } from '../modules/device';
 
 /**
  * 应用路由组件
@@ -42,6 +43,10 @@ export function AppRouter() {
       {/* Agent 市场页面 */}
       <Route path={ROUTES.AGENTS} element={<AgentMarketPage />} />
       <Route path={ROUTES.AGENT_DETAIL} element={<AgentDetailPage />} />
+
+      {/* 设备管理页面 */}
+      <Route path={ROUTES.DEVICES} element={<DeviceListPage />} />
+      <Route path={ROUTES.DEVICE_DETAIL} element={<DeviceDetailPage />} />
 
       {/* 404 页面 */}
       <Route path="*" element={<Navigate to={ROUTES.CHAT} replace />} />

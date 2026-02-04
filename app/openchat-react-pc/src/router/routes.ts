@@ -49,6 +49,15 @@ export const routes: AppRouteObject[] = [
     },
   },
   {
+    path: ROUTES.DEVICES,
+    element: null,
+    meta: {
+      title: '设备管理',
+      icon: 'devices',
+      keepAlive: true,
+    },
+  },
+  {
     path: ROUTES.TERMINAL,
     element: null,
     meta: {

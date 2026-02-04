@@ -3,9 +3,10 @@
  * 
  * 设计原则：
  * 1. 统一连接管理，用户只需调用client.init()即可连接所有服务
- * 2. 提供client.im.xxx和client.rtc.xxx的简洁接口
+ * 2. 提供client.im.messages.xxx、client.im.contacts.xxx和client.auth.xxx的简洁接口
  * 3. 隐藏底层实现细节（悟空IM、火山引擎等）
  * 4. 符合开闭原则，易于扩展
+ * 5. 严格遵循OpenAPI 3.x标准
  * 
  * 使用示例：
  * ```typescript
@@ -13,13 +14,17 @@
  * await client.init(); // 一键连接所有服务
  * 
  * // 发送消息
- * await client.im.sendText({ targetId: 'user1', content: 'Hello' });
+ * await client.im.messages.sendText({ targetId: 'user1', content: 'Hello' });
  * 
- * // 开始音视频通话
- * await client.rtc.startCall('room-id');
+ * // 管理联系人
+ * await client.im.contacts.add('user1');
+ * 
+ * // 登录
+ * await client.auth.login({ username: 'user', password: 'pass' });
  * ```
  */
 
+import { EventEmitter } from 'eventemitter3';
 import {
   OpenChatSDKConfig,
   OpenChatEvent,
@@ -40,6 +45,9 @@ import {
   QueryMessagesOptions,
   QueryConversationsOptions,
   DeviceFlag,
+  ServerConfig,
+  WukongIMConfig,
+  AuthConfig,
 } from './types';
 
 import {
@@ -64,14 +72,26 @@ import { RTCManager } from './rtc/rtc-manager';
 import { RTCProviderType, RTCManagerConfig } from './rtc/types';
 
 // SDK配置默认值
-const DEFAULT_CONFIG: Partial<OpenChatSDKConfig> = {
+const DEFAULT_SERVER_CONFIG: Partial<ServerConfig> = {
   timeout: 30000,
   maxRetries: 3,
-  debug: false,
+  headers: {},
+};
+
+const DEFAULT_IM_CONFIG: Partial<WukongIMConfig> = {
   deviceFlag: DeviceFlag.WEB,
 };
 
-export class OpenChatClient {
+const DEFAULT_AUTH_CONFIG: Partial<AuthConfig> = {
+  useThirdPartyAuth: false,
+};
+
+const DEFAULT_CONFIG: Partial<OpenChatSDKConfig> = {
+  debug: false,
+  extras: {},
+};
+
+export class OpenChatClient extends EventEmitter {
   // 配置
   private config: OpenChatSDKConfig;
 
@@ -83,14 +103,40 @@ export class OpenChatClient {
   // 状态
   private initialized: boolean = false;
   private currentUser: User | null = null;
-  private eventListeners: Map<string, Set<EventCallback>> = new Map();
+
+  // 模块
+  public readonly auth: AuthModule;
+  public readonly im: IMModule;
+  public readonly rtc: RTCModule;
 
   constructor(config: OpenChatSDKConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config } as OpenChatSDKConfig;
+    super();
+    // 合并默认配置
+    this.config = {
+      ...DEFAULT_CONFIG,
+      ...config,
+      server: {
+        ...DEFAULT_SERVER_CONFIG,
+        ...config.server,
+      },
+      im: {
+        ...DEFAULT_IM_CONFIG,
+        ...config.im,
+      },
+      auth: {
+        ...DEFAULT_AUTH_CONFIG,
+        ...config.auth,
+      },
+    } as OpenChatSDKConfig;
 
     // 初始化服务
     this.api = new ApiService(this.config);
     this.imService = new WukongIMService();
+
+    // 初始化模块
+    this.auth = new AuthModule(this);
+    this.im = new IMModule(this);
+    this.rtc = new RTCModule(this);
 
     // 绑定IM事件
     this.bindIMEvents();
@@ -114,15 +160,62 @@ export class OpenChatClient {
 
       // 连接IM服务器（内部封装，用户无感知）
       await this.imService.connect({
-        uid: this.config.uid,
-        token: this.config.token,
-        serverUrl: this.config.imWsUrl,
-        deviceId: this.config.deviceId,
-        deviceFlag: this.config.deviceFlag,
+        uid: this.config.auth.uid,
+        token: this.config.auth.token,
+        serverUrl: this.config.im.wsUrl,
+        deviceId: this.config.im.deviceId,
+        deviceFlag: this.config.im.deviceFlag,
+        appId: this.config.im.appId,
+        appKey: this.config.im.appKey,
+        autoReconnect: true,
+        reconnectMaxAttempts: this.config.server.maxRetries || 5,
+        reconnectDelay: 1000,
       });
 
       this.initialized = true;
-      this.emit(OpenChatEvent.CONNECTED, { uid: this.config.uid });
+      this.emit(OpenChatEvent.CONNECTED, { uid: this.config.auth.uid });
+
+    } catch (error) {
+      const openChatError = error instanceof OpenChatError 
+        ? error 
+        : new OpenChatError(ErrorCode.NETWORK_ERROR, 'Initialization failed', error);
+      this.emit(OpenChatEvent.ERROR, openChatError);
+      throw openChatError;
+    }
+  }
+
+  /**
+   * 使用第三方认证初始化
+   * @param thirdPartyAuth 第三方认证信息
+   */
+  async initWithThirdPartyAuth(thirdPartyAuth: {
+    type: string;
+    info: Record<string, any>;
+  }): Promise<void> {
+    if (this.initialized) {
+      console.warn('OpenChatClient already initialized');
+      return;
+    }
+
+    try {
+      // 更新认证配置
+      this.config.auth.useThirdPartyAuth = true;
+      this.config.auth.thirdPartyAuth = thirdPartyAuth;
+
+      // 连接IM服务器
+      await this.imService.connect({
+        uid: this.config.auth.uid,
+        token: this.config.auth.token,
+        serverUrl: this.config.im.wsUrl,
+        deviceId: this.config.im.deviceId,
+        deviceFlag: this.config.im.deviceFlag,
+        appId: this.config.im.appId,
+        appKey: this.config.im.appKey,
+        thirdPartyAuth,
+      });
+
+      this.initialized = true;
+      this.emit(OpenChatEvent.CONNECTED, { uid: this.config.auth.uid });
 
     } catch (error) {
       this.emit(OpenChatEvent.ERROR, error);
@@ -145,7 +238,7 @@ export class OpenChatClient {
 
     this.initialized = false;
     this.currentUser = null;
-    this.eventListeners.clear();
+    this.removeAllListeners();
   }
 
   /**
@@ -162,513 +255,7 @@ export class OpenChatClient {
     return this.initialized && this.imService.isConnected();
   }
 
-  // ==================== 事件系统 ====================
-
-  on(event: OpenChatEvent, callback: EventCallback): void {
-    if (!this.eventListeners.has(event)) {
-      this.eventListeners.set(event, new Set());
-    }
-    this.eventListeners.get(event)!.add(callback);
-  }
-
-  off(event: OpenChatEvent, callback: EventCallback): void {
-    this.eventListeners.get(event)?.delete(callback);
-  }
-
-  private emit(event: OpenChatEvent, data?: any): void {
-    this.eventListeners.get(event)?.forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in event listener for ${event}:`, error);
-      }
-    });
-  }
-
-  // ==================== 认证模块 ====================
-
-  auth = {
-    register: async (username: string, password: string, nickname?: string): Promise<UserInfo> => {
-      const userInfo = await this.api.register(username, password, nickname);
-      this.currentUser = userInfo.user;
-      return userInfo;
-    },
-
-    login: async (username: string, password: string): Promise<UserInfo> => {
-      const userInfo = await this.api.login(username, password);
-      this.currentUser = userInfo.user;
-      this.config.token = userInfo.token;
-      this.api.setToken(userInfo.token);
-      await this.init();
-      return userInfo;
-    },
-
-    logout: async (): Promise<void> => {
-      await this.api.logout();
-      this.destroy();
-    },
-
-    getCurrentUser: (): User | null => {
-      return this.currentUser;
-    },
-
-    refreshToken: async (): Promise<string> => {
-      const token = await this.api.refreshToken();
-      this.config.token = token;
-      return token;
-    },
-  };
-
-  // ==================== 用户模块 ====================
-
-  user = {
-    getInfo: async (uid: string): Promise<User> => {
-      return this.api.getUser(uid);
-    },
-
-    getBatch: async (uids: string[]): Promise<User[]> => {
-      return this.api.getUsers(uids);
-    },
-
-    update: async (uid: string, data: Partial<User>): Promise<User> => {
-      const user = await this.api.updateUser(uid, data);
-      if (uid === this.currentUser?.id) {
-        this.currentUser = { ...this.currentUser, ...user };
-      }
-      return user;
-    },
-
-    search: async (keyword: string, limit?: number): Promise<User[]> => {
-      return this.api.searchUsers(keyword, limit);
-    },
-  };
-
-  // ==================== IM模块 (即时通讯核心) ====================
-
-  im = {
-    // ----- 连接状态 -----
-    isConnected: (): boolean => {
-      return this.imService.isConnected();
-    },
-
-    getConnectionState: () => {
-      return this.imService.getConnectionState();
-    },
-
-    // ----- 发送消息 - 采用MediaResource标准 -----
-
-    /**
-     * 发送文本消息
-     * @example
-     * ```typescript
-     * await client.im.sendText({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   text: 'Hello, World!'
-     * });
-     * ```
-     */
-    sendText: async (params: SendTextMessageParams): Promise<Message> => {
-      return this.imService.sendText(params);
-    },
-
-    /**
-     * 发送图片消息
-     * @example
-     * ```typescript
-     * await client.im.sendImage({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resource: ResourceBuilder.image('https://example.com/image.jpg', {
-     *     width: 1920,
-     *     height: 1080
-     *   })
-     * });
-     * ```
-     */
-    sendImage: async (params: SendMediaMessageParams<ImageResource>): Promise<Message> => {
-      return this.imService.sendImage(params);
-    },
-
-    /**
-     * 发送语音消息
-     * @example
-     * ```typescript
-     * await client.im.sendAudio({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resource: ResourceBuilder.audio('https://example.com/audio.mp3', 60)
-     * });
-     * ```
-     */
-    sendAudio: async (params: SendMediaMessageParams<AudioResource>): Promise<Message> => {
-      return this.imService.sendAudio(params);
-    },
-
-    /**
-     * 发送视频消息
-     * @example
-     * ```typescript
-     * await client.im.sendVideo({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resource: ResourceBuilder.video('https://example.com/video.mp4', 120, {
-     *     coverUrl: 'https://example.com/cover.jpg'
-     *   })
-     * });
-     * ```
-     */
-    sendVideo: async (params: SendMediaMessageParams<VideoResource>): Promise<Message> => {
-      return this.imService.sendVideo(params);
-    },
-
-    /**
-     * 发送文件消息
-     * @example
-     * ```typescript
-     * await client.im.sendFile({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resource: ResourceBuilder.file('https://example.com/file.pdf', 'document.pdf')
-     * });
-     * ```
-     */
-    sendFile: async (params: SendMediaMessageParams<FileResource>): Promise<Message> => {
-      return this.imService.sendFile(params);
-    },
-
-    /**
-     * 发送位置消息
-     * @example
-     * ```typescript
-     * await client.im.sendLocation({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resource: ResourceBuilder.location(39.9042, 116.4074, {
-     *     name: '天安门广场',
-     *     address: '北京市东城区'
-     *   })
-     * });
-     * ```
-     */
-    sendLocation: async (params: SendMediaMessageParams<LocationResource>): Promise<Message> => {
-      return this.imService.sendLocation(params);
-    },
-
-    /**
-     * 发送名片消息
-     * @example
-     * ```typescript
-     * await client.im.sendCard({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resource: ResourceBuilder.card('user', {
-     *     title: '张三',
-     *     description: '产品经理',
-     *     imageUrl: 'https://example.com/avatar.jpg'
-     *   })
-     * });
-     * ```
-     */
-    sendCard: async (params: SendMediaMessageParams<CardResource>): Promise<Message> => {
-      return this.imService.sendCard(params);
-    },
-
-    /**
-     * 发送自定义消息
-     * @example
-     * ```typescript
-     * await client.im.sendCustom({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   customType: 'order',
-     *   data: { orderId: '123', status: 'paid' }
-     * });
-     * ```
-     */
-    sendCustom: async (params: SendCustomMessageParams): Promise<Message> => {
-      return this.imService.sendCustom(params);
-    },
-
-    /**
-     * 发送组合消息（支持多个资源）
-     * @example
-     * ```typescript
-     * await client.im.sendCombined({
-     *   targetId: 'user-123',
-     *   conversationType: ConversationType.SINGLE,
-     *   resources: [
-     *     ResourceBuilder.image('https://example.com/1.jpg'),
-     *     ResourceBuilder.image('https://example.com/2.jpg')
-     *   ],
-     *   caption: '看看这些照片'
-     * });
-     * ```
-     */
-    sendCombined: async (params: SendCombinedMessageParams): Promise<Message> => {
-      return this.imService.sendCombined(params);
-    },
-
-    // ----- 消息操作 -----
-    recallMessage: async (messageId: string): Promise<boolean> => {
-      return this.imService.recallMessage(messageId);
-    },
-
-    deleteMessage: async (messageId: string): Promise<boolean> => {
-      return this.imService.deleteMessage(messageId);
-    },
-
-    getMessage: async (messageId: string): Promise<Message | null> => {
-      return this.imService.getMessage(messageId);
-    },
-
-    getMessageList: async (conversationId: string, options?: QueryMessagesOptions): Promise<Message[]> => {
-      return this.imService.getMessageList(conversationId, options);
-    },
-
-    searchMessages: async (keyword: string, conversationId?: string): Promise<Message[]> => {
-      return this.imService.searchMessages(keyword, conversationId);
-    },
-
-    markMessageAsRead: async (messageId: string): Promise<void> => {
-      return this.imService.markMessageAsRead(messageId);
-    },
-
-    markConversationAsRead: async (conversationId: string): Promise<void> => {
-      return this.imService.markConversationAsRead(conversationId);
-    },
-
-    // ----- 会话管理 -----
-    getConversationList: async (options?: QueryConversationsOptions): Promise<Conversation[]> => {
-      return this.imService.getConversationList(options);
-    },
-
-    getConversation: async (conversationId: string): Promise<Conversation | null> => {
-      return this.imService.getConversation(conversationId);
-    },
-
-    deleteConversation: async (conversationId: string): Promise<void> => {
-      return this.imService.deleteConversation(conversationId);
-    },
-
-    pinConversation: async (conversationId: string, isPinned: boolean = true): Promise<void> => {
-      return this.imService.setConversationPinned(conversationId, isPinned);
-    },
-
-    muteConversation: async (conversationId: string, isMuted: boolean = true): Promise<void> => {
-      return this.imService.setConversationMuted(conversationId, isMuted);
-    },
-
-    setConversationDraft: async (conversationId: string, draft: string): Promise<void> => {
-      return this.imService.setConversationDraft(conversationId, draft);
-    },
-
-    // ----- 事件监听 -----
-    on: (event: string, callback: EventCallback): void => {
-      this.imService.on(event, callback);
-    },
-
-    off: (event: string, callback: EventCallback): void => {
-      this.imService.off(event, callback);
-    },
-  };
-
-  // ==================== RTC模块 (实时音视频) ====================
-
-  rtc = {
-    // ----- 初始化 -----
-    init: async (config?: RTCManagerConfig): Promise<void> => {
-      if (this.rtcManager) {
-        await this.rtcManager.destroy();
-      }
-
-      this.rtcManager = new RTCManager({
-        imService: this.imService,
-        uid: this.config.uid,
-      });
-
-      const defaultConfig: RTCManagerConfig = {
-        provider: RTCProviderType.VOLCENGINE,
-        providerConfig: {
-          appId: '', // 需要从配置或服务器获取
-        },
-        ...config,
-      };
-
-      await this.rtcManager.initialize(defaultConfig);
-    },
-
-    destroy: async (): Promise<void> => {
-      if (this.rtcManager) {
-        await this.rtcManager.destroy();
-        this.rtcManager = null;
-      }
-    },
-
-    // ----- 通话控制 -----
-    startCall: async (roomId: string, options?: { autoPublish?: boolean; autoSubscribe?: boolean }): Promise<void> => {
-      if (!this.rtcManager) {
-        throw new Error('RTC not initialized. Call client.rtc.init() first.');
-      }
-      return this.rtcManager.startCall(roomId, options);
-    },
-
-    endCall: async (): Promise<void> => {
-      if (!this.rtcManager) return;
-      return this.rtcManager.endCall();
-    },
-
-    // ----- 流控制 -----
-    createLocalStream: async (options?: { video?: boolean; audio?: boolean }) => {
-      if (!this.rtcManager) {
-        throw new Error('RTC not initialized');
-      }
-      return this.rtcManager.createLocalStream(options);
-    },
-
-    publishStream: async (streamId: string): Promise<void> => {
-      if (!this.rtcManager) return;
-      return this.rtcManager.publishStream(streamId);
-    },
-
-    unpublishStream: async (streamId: string): Promise<void> => {
-      if (!this.rtcManager) return;
-      return this.rtcManager.unpublishStream(streamId);
-    },
-
-    subscribeStream: async (userId: string, options?: { video?: boolean; audio?: boolean }) => {
-      if (!this.rtcManager) {
-        throw new Error('RTC not initialized');
-      }
-      return this.rtcManager.subscribeStream(userId, options);
-    },
-
-    // ----- 设备控制 -----
-    enableVideo: async (enabled: boolean): Promise<void> => {
-      if (!this.rtcManager) return;
-      return this.rtcManager.enableVideo(enabled);
-    },
-
-    enableAudio: async (enabled: boolean): Promise<void> => {
-      if (!this.rtcManager) return;
-      return this.rtcManager.enableAudio(enabled);
-    },
-
-    switchCamera: async (): Promise<void> => {
-      if (!this.rtcManager) return;
-      return this.rtcManager.switchCamera();
-    },
-
-    // ----- 状态查询 -----
-    isInCall: (): boolean => {
-      return this.rtcManager?.inCall || false;
-    },
-
-    getRoomId: (): string | null => {
-      return this.rtcManager?.roomId || null;
-    },
-
-    // ----- 事件监听 -----
-    on: (event: string, callback: EventCallback): void => {
-      if (!this.rtcManager) return;
-      this.rtcManager.on(event, callback);
-    },
-
-    off: (event: string, callback: EventCallback): void => {
-      if (!this.rtcManager) return;
-      this.rtcManager.off(event, callback);
-    },
-  };
-
-  // ==================== 好友模块 ====================
-
-  friend = {
-    getList: async (): Promise<Friend[]> => {
-      return this.api.getFriends();
-    },
-
-    sendRequest: async (uid: string, message?: string): Promise<FriendRequest> => {
-      const request = await this.api.sendFriendRequest(uid, message);
-      this.emit(OpenChatEvent.FRIEND_REQUEST_RECEIVED, request);
-      return request;
-    },
-
-    acceptRequest: async (requestId: string): Promise<Friend> => {
-      const friend = await this.api.acceptFriendRequest(requestId);
-      this.emit(OpenChatEvent.FRIEND_ADDED, friend);
-      return friend;
-    },
-
-    rejectRequest: async (requestId: string): Promise<void> => {
-      await this.api.rejectFriendRequest(requestId);
-    },
-
-    remove: async (uid: string): Promise<void> => {
-      await this.api.removeFriend(uid);
-      this.emit(OpenChatEvent.FRIEND_REMOVED, { uid });
-    },
-
-    block: async (uid: string): Promise<void> => {
-      await this.api.blockFriend(uid);
-      this.emit(OpenChatEvent.FRIEND_BLOCKED, { uid });
-    },
-
-    unblock: async (uid: string): Promise<void> => {
-      await this.api.unblockFriend(uid);
-    },
-
-    setRemark: async (uid: string, remark: string): Promise<void> => {
-      await this.api.setFriendRemark(uid, remark);
-    },
-  };
-
-  // ==================== 群组模块 ====================
-
-  group = {
-    create: async (name: string, memberUids: string[], options?: { avatar?: string; notice?: string }): Promise<Group> => {
-      const group = await this.api.createGroup(name, memberUids, options);
-      this.emit(OpenChatEvent.GROUP_INFO_UPDATED, group);
-      return group;
-    },
-
-    getInfo: async (groupId: string): Promise<Group> => {
-      return this.api.getGroup(groupId);
-    },
-
-    getMyList: async (): Promise<Group[]> => {
-      return this.api.getMyGroups();
-    },
-
-    updateInfo: async (groupId: string, data: Partial<Group>): Promise<Group> => {
-      const group = await this.api.updateGroup(groupId, data);
-      this.emit(OpenChatEvent.GROUP_INFO_UPDATED, group);
-      return group;
-    },
-
-    dissolve: async (groupId: string): Promise<void> => {
-      await this.api.dissolveGroup(groupId);
-    },
-
-    getMembers: async (groupId: string): Promise<GroupMember[]> => {
-      return this.api.getGroupMembers(groupId);
-    },
-
-    addMember: async (groupId: string, uid: string): Promise<void> => {
-      await this.api.addGroupMember(groupId, uid);
-      this.emit(OpenChatEvent.GROUP_MEMBER_ADDED, { groupId, uid });
-    },
-
-    removeMember: async (groupId: string, uid: string): Promise<void> => {
-      await this.api.removeGroupMember(groupId, uid);
-      this.emit(OpenChatEvent.GROUP_MEMBER_REMOVED, { groupId, uid });
-    },
-
-    quit: async (groupId: string): Promise<void> => {
-      await this.api.quitGroup(groupId);
-    },
-  };
-
-  // ==================== 私有方法 ====================
+  // ==================== 内部方法 ====================
 
   private bindIMEvents(): void {
     // 连接成功
@@ -696,9 +283,931 @@ export class OpenChatClient {
       this.emit(OpenChatEvent.ERROR, error);
     });
   }
+
+  // ==================== Getters ====================
+
+  getConfig(): OpenChatSDKConfig {
+    return this.config;
+  }
+
+  getCurrentUser(): User | null {
+    return this.currentUser;
+  }
+
+  setCurrentUser(user: User | null): void {
+    this.currentUser = user;
+  }
+
+  getApiService(): ApiService {
+    return this.api;
+  }
+
+  getIMService(): WukongIMService {
+    return this.imService;
+  }
+
+  getRTCManager(): RTCManager | null {
+    return this.rtcManager;
+  }
+
+  setRTCManager(rtcManager: RTCManager): void {
+    this.rtcManager = rtcManager;
+  }
+
+  setToken(token: string): void {
+    this.config.auth.token = token;
+    this.api.setToken(token);
+  }
+
+  /**
+   * 获取服务端API配置
+   */
+  getServerConfig(): ServerConfig {
+    return this.config.server;
+  }
+
+  /**
+   * 获取悟空IM配置
+   */
+  getIMConfig(): WukongIMConfig {
+    return this.config.im;
+  }
+
+  /**
+   * 获取认证配置
+   */
+  getAuthConfig(): AuthConfig {
+    return this.config.auth;
+  }
+
+  /**
+   * 更新认证配置
+   */
+  updateAuthConfig(authConfig: Partial<AuthConfig>): void {
+    this.config.auth = {
+      ...this.config.auth,
+      ...authConfig,
+    };
+  }
+
+  /**
+   * 更新服务端API配置
+   */
+  updateServerConfig(serverConfig: Partial<ServerConfig>): void {
+    this.config.server = {
+      ...this.config.server,
+      ...serverConfig,
+    };
+  }
+
+  /**
+   * 更新悟空IM配置
+   */
+  updateIMConfig(imConfig: Partial<WukongIMConfig>): void {
+    this.config.im = {
+      ...this.config.im,
+      ...imConfig,
+    };
+  }
+}
+
+/**
+ * 认证模块
+ */
+class AuthModule {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 登录
+   * @param credentials 登录凭证
+   */
+  async login(credentials: { username: string; password: string }): Promise<UserInfo> {
+    const { username, password } = credentials;
+    const userInfo = await this.client.getApiService().login(username, password);
+    this.client.setCurrentUser(userInfo.user);
+    this.client.setToken(userInfo.token);
+    await this.client.init();
+    return userInfo;
+  }
+
+  /**
+   * 注册
+   * @param userInfo 用户信息
+   */
+  async register(userInfo: { username: string; password: string; nickname?: string }): Promise<UserInfo> {
+    const { username, password, nickname } = userInfo;
+    const result = await this.client.getApiService().register(username, password, nickname);
+    this.client.setCurrentUser(result.user);
+    this.client.setToken(result.token);
+    return result;
+  }
+
+  /**
+   * 登出
+   */
+  async logout(): Promise<void> {
+    await this.client.getApiService().logout();
+    this.client.destroy();
+  }
+
+  /**
+   * 刷新令牌
+   */
+  async refreshToken(): Promise<string> {
+    const token = await this.client.getApiService().refreshToken();
+    this.client.setToken(token);
+    return token;
+  }
+
+  /**
+   * 获取当前用户
+   */
+  getCurrentUser(): User | null {
+    return this.client.getCurrentUser();
+  }
+
+  /**
+   * 验证令牌
+   * @param token 令牌
+   */
+  async validateToken(token: string): Promise<{ valid: boolean; userId?: string }> {
+    return this.client.getApiService().validateToken(token);
+  }
+}
+
+/**
+ * IM模块
+ */
+class IMModule {
+  private client: OpenChatClient;
+  
+  public readonly messages: MessagesModule;
+  public readonly contacts: ContactsModule;
+  public readonly conversations: ConversationsModule;
+  public readonly groups: GroupsModule;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+    this.messages = new MessagesModule(client);
+    this.contacts = new ContactsModule(client);
+    this.conversations = new ConversationsModule(client);
+    this.groups = new GroupsModule(client);
+  }
+
+  /**
+   * 是否连接
+   */
+  isConnected(): boolean {
+    return this.client.getIMService().isConnected();
+  }
+
+  /**
+   * 获取连接状态
+   */
+  getConnectionState() {
+    return this.client.getIMService().getConnectionState();
+  }
+
+  /**
+   * 重新连接
+   */
+  async reconnect(): Promise<void> {
+    const config = this.client.getConfig();
+    await this.client.getIMService().connect({
+      uid: config.auth.uid,
+      token: config.auth.token,
+      serverUrl: config.im.wsUrl,
+      deviceId: config.im.deviceId,
+      deviceFlag: config.im.deviceFlag,
+      appId: config.im.appId,
+      appKey: config.im.appKey,
+    });
+  }
+}
+
+/**
+ * 消息模块
+ */
+class MessagesModule {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 发送文本消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendText({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   text: 'Hello, World!'
+   * });
+   * ```
+   */
+  async sendText(params: any): Promise<Message> {
+    return this.client.getIMService().sendText(params);
+  }
+
+  /**
+   * 发送图片消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendImage({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resource: ResourceBuilder.image('https://example.com/image.jpg', {
+   *     width: 1920,
+   *     height: 1080
+   *   })
+   * });
+   * ```
+   */
+  async sendImage(params: any): Promise<Message> {
+    return this.client.getIMService().sendImage(params);
+  }
+
+  /**
+   * 发送语音消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendAudio({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resource: ResourceBuilder.audio('https://example.com/audio.mp3', 60)
+   * });
+   * ```
+   */
+  async sendAudio(params: any): Promise<Message> {
+    return this.client.getIMService().sendAudio(params);
+  }
+
+  /**
+   * 发送视频消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendVideo({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resource: ResourceBuilder.video('https://example.com/video.mp4', 120, {
+   *     coverUrl: 'https://example.com/cover.jpg'
+   *   })
+   * });
+   * ```
+   */
+  async sendVideo(params: any): Promise<Message> {
+    return this.client.getIMService().sendVideo(params);
+  }
+
+  /**
+   * 发送文件消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendFile({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resource: ResourceBuilder.file('https://example.com/file.pdf', 'document.pdf')
+   * });
+   * ```
+   */
+  async sendFile(params: any): Promise<Message> {
+    return this.client.getIMService().sendFile(params);
+  }
+
+  /**
+   * 发送位置消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendLocation({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resource: ResourceBuilder.location(39.9042, 116.4074, {
+   *     name: '天安门广场',
+   *     address: '北京市东城区'
+   *   })
+   * });
+   * ```
+   */
+  async sendLocation(params: any): Promise<Message> {
+    return this.client.getIMService().sendLocation(params);
+  }
+
+  /**
+   * 发送名片消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendCard({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resource: ResourceBuilder.card('user', {
+   *     title: '张三',
+   *     description: '产品经理',
+   *     imageUrl: 'https://example.com/avatar.jpg'
+   *   })
+   * });
+   * ```
+   */
+  async sendCard(params: any): Promise<Message> {
+    return this.client.getIMService().sendCard(params);
+  }
+
+  /**
+   * 发送自定义消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendCustom({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   customType: 'order',
+   *   data: { orderId: '123', status: 'paid' }
+   * });
+   * ```
+   */
+  async sendCustom(params: any): Promise<Message> {
+    return this.client.getIMService().sendCustom(params);
+  }
+
+  /**
+   * 发送组合消息（支持多个资源）
+   * @example
+   * ```typescript
+   * await client.im.messages.sendCombined({
+   *   targetId: 'user-123',
+   *   conversationType: ConversationType.SINGLE,
+   *   resources: [
+   *     ResourceBuilder.image('https://example.com/1.jpg'),
+   *     ResourceBuilder.image('https://example.com/2.jpg')
+   *   ],
+   *   caption: '看看这些照片'
+   * });
+   * ```
+   */
+  async sendCombined(params: any): Promise<Message> {
+    return this.client.getIMService().sendCombined(params);
+  }
+
+  /**
+   * 撤回消息
+   * @param messageId 消息ID
+   */
+  async recallMessage(messageId: string): Promise<boolean> {
+    return this.client.getIMService().recallMessage(messageId);
+  }
+
+  /**
+   * 删除消息
+   * @param messageId 消息ID
+   */
+  async deleteMessage(messageId: string): Promise<boolean> {
+    return this.client.getIMService().deleteMessage(messageId);
+  }
+
+  /**
+   * 获取消息
+   * @param messageId 消息ID
+   */
+  async getMessage(messageId: string): Promise<Message | null> {
+    return this.client.getIMService().getMessage(messageId);
+  }
+
+  /**
+   * 获取消息列表
+   * @param conversationId 会话ID
+   * @param options 查询选项
+   */
+  async getMessageList(conversationId: string, options?: QueryMessagesOptions): Promise<Message[]> {
+    return this.client.getIMService().getMessageList(conversationId, options);
+  }
+
+  /**
+   * 搜索消息
+   * @param keyword 关键词
+   * @param conversationId 会话ID（可选）
+   */
+  async searchMessages(keyword: string, conversationId?: string): Promise<Message[]> {
+    return this.client.getIMService().searchMessages(keyword, conversationId);
+  }
+
+  /**
+   * 标记消息已读
+   * @param messageId 消息ID
+   */
+  async markMessageAsRead(messageId: string): Promise<void> {
+    return this.client.getIMService().markMessageAsRead(messageId);
+  }
+
+  /**
+   * 标记会话已读
+   * @param conversationId 会话ID
+   */
+  async markConversationAsRead(conversationId: string): Promise<void> {
+    return this.client.getIMService().markConversationAsRead(conversationId);
+  }
+
+  /**
+   * 引用回复消息
+   * @param messageId 消息ID
+   * @param replyToId 被回复的消息ID
+   * @param content 回复内容
+   * @param conversationType 会话类型
+   */
+  async replyMessage(messageId: string, replyToId: string, content: string, conversationType: ConversationType): Promise<Message> {
+    return this.client.getIMService().replyMessage(messageId, replyToId, content, conversationType);
+  }
+
+  /**
+   * 翻译消息
+   * @param messageId 消息ID
+   * @param targetLanguage 目标语言
+   */
+  async translateMessage(messageId: string, targetLanguage: string): Promise<{ original: string; translated: string }> {
+    return this.client.getIMService().translateMessage(messageId, targetLanguage);
+  }
+
+  /**
+   * 获取会话草稿
+   * @param conversationId 会话ID
+   */
+  async getConversationDraft(conversationId: string): Promise<string | null> {
+    return this.client.getIMService().getConversationDraft(conversationId);
+  }
+
+  /**
+   * 清空会话草稿
+   * @param conversationId 会话ID
+   */
+  async clearConversationDraft(conversationId: string): Promise<void> {
+    return this.client.getIMService().clearConversationDraft(conversationId);
+  }
+}
+
+/**
+ * 联系人模块
+ */
+class ContactsModule {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 获取好友列表
+   */
+  async getFriends(): Promise<Friend[]> {
+    return this.client.getApiService().getFriends();
+  }
+
+  /**
+   * 发送好友请求
+   * @param uid 用户ID
+   * @param message 验证消息
+   */
+  async sendFriendRequest(uid: string, message?: string): Promise<FriendRequest> {
+    return this.client.getApiService().sendFriendRequest(uid, message);
+  }
+
+  /**
+   * 接受好友请求
+   * @param requestId 请求ID
+   */
+  async acceptFriendRequest(requestId: string): Promise<Friend> {
+    return this.client.getApiService().acceptFriendRequest(requestId);
+  }
+
+  /**
+   * 拒绝好友请求
+   * @param requestId 请求ID
+   */
+  async rejectFriendRequest(requestId: string): Promise<void> {
+    return this.client.getApiService().rejectFriendRequest(requestId);
+  }
+
+  /**
+   * 删除好友
+   * @param uid 用户ID
+   */
+  async removeFriend(uid: string): Promise<void> {
+    return this.client.getApiService().removeFriend(uid);
+  }
+
+  /**
+   * 屏蔽好友
+   * @param uid 用户ID
+   */
+  async blockFriend(uid: string): Promise<void> {
+    return this.client.getApiService().blockFriend(uid);
+  }
+
+  /**
+   * 取消屏蔽
+   * @param uid 用户ID
+   */
+  async unblockFriend(uid: string): Promise<void> {
+    return this.client.getApiService().unblockFriend(uid);
+  }
+
+  /**
+   * 设置好友备注
+   * @param uid 用户ID
+   * @param remark 备注
+   */
+  async setFriendRemark(uid: string, remark: string): Promise<void> {
+    return this.client.getApiService().setFriendRemark(uid, remark);
+  }
+
+  /**
+   * 获取联系人列表
+   */
+  async getContacts(): Promise<Contact[]> {
+    return this.client.getApiService().getContacts();
+  }
+
+  /**
+   * 添加联系人
+   * @param uid 用户ID
+   */
+  async addContact(uid: string): Promise<Contact> {
+    return this.client.getApiService().addContact(uid);
+  }
+
+  /**
+   * 删除联系人
+   * @param id 联系人ID
+   */
+  async deleteContact(id: string): Promise<void> {
+    return this.client.getApiService().deleteContact(id);
+  }
+
+  /**
+   * 更新联系人
+   * @param id 联系人ID
+   * @param data 更新数据
+   */
+  async updateContact(id: string, data: Partial<Contact>): Promise<Contact> {
+    return this.client.getApiService().updateContact(id, data);
+  }
+}
+
+/**
+ * 会话模块
+ */
+class ConversationsModule {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 获取会话列表
+   * @param options 查询选项
+   */
+  async getConversationList(options?: QueryConversationsOptions): Promise<Conversation[]> {
+    return this.client.getIMService().getConversationList(options);
+  }
+
+  /**
+   * 获取会话
+   * @param conversationId 会话ID
+   */
+  async getConversation(conversationId: string): Promise<Conversation | null> {
+    return this.client.getIMService().getConversation(conversationId);
+  }
+
+  /**
+   * 删除会话
+   * @param conversationId 会话ID
+   */
+  async deleteConversation(conversationId: string): Promise<void> {
+    return this.client.getIMService().deleteConversation(conversationId);
+  }
+
+  /**
+   * 置顶会话
+   * @param conversationId 会话ID
+   * @param isPinned 是否置顶
+   */
+  async pinConversation(conversationId: string, isPinned: boolean = true): Promise<void> {
+    return this.client.getIMService().setConversationPinned(conversationId, isPinned);
+  }
+
+  /**
+   * 静音会话
+   * @param conversationId 会话ID
+   * @param isMuted 是否静音
+   */
+  async muteConversation(conversationId: string, isMuted: boolean = true): Promise<void> {
+    return this.client.getIMService().setConversationMuted(conversationId, isMuted);
+  }
+
+  /**
+   * 设置会话草稿
+   * @param conversationId 会话ID
+   * @param draft 草稿内容
+   */
+  async setConversationDraft(conversationId: string, draft: string): Promise<void> {
+    return this.client.getIMService().setConversationDraft(conversationId, draft);
+  }
+
+  /**
+   * 创建会话
+   * @param targetId 目标ID
+   * @param type 会话类型
+   */
+  async createConversation(targetId: string, type: ConversationType): Promise<Conversation> {
+    return this.client.getApiService().createConversation(targetId, type);
+  }
+}
+
+/**
+ * 群组模块
+ */
+class GroupsModule {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 创建群组
+   * @param name 群组名称
+   * @param memberUids 成员ID列表
+   * @param options 选项
+   */
+  async createGroup(name: string, memberUids: string[], options?: { avatar?: string; notice?: string }): Promise<Group> {
+    return this.client.getApiService().createGroup(name, memberUids, options);
+  }
+
+  /**
+   * 获取群组信息
+   * @param groupId 群组ID
+   */
+  async getGroup(groupId: string): Promise<Group> {
+    return this.client.getApiService().getGroup(groupId);
+  }
+
+  /**
+   * 获取我的群组列表
+   */
+  async getMyGroups(): Promise<Group[]> {
+    return this.client.getApiService().getMyGroups();
+  }
+
+  /**
+   * 更新群组信息
+   * @param groupId 群组ID
+   * @param data 更新数据
+   */
+  async updateGroup(groupId: string, data: Partial<Group>): Promise<Group> {
+    return this.client.getApiService().updateGroup(groupId, data);
+  }
+
+  /**
+   * 解散群组
+   * @param groupId 群组ID
+   */
+  async dissolveGroup(groupId: string): Promise<void> {
+    return this.client.getApiService().dissolveGroup(groupId);
+  }
+
+  /**
+   * 获取群成员列表
+   * @param groupId 群组ID
+   */
+  async getGroupMembers(groupId: string): Promise<GroupMember[]> {
+    return this.client.getApiService().getGroupMembers(groupId);
+  }
+
+  /**
+   * 添加群成员
+   * @param groupId 群组ID
+   * @param uid 用户ID
+   */
+  async addGroupMember(groupId: string, uid: string): Promise<void> {
+    return this.client.getApiService().addGroupMember(groupId, uid);
+  }
+
+  /**
+   * 移除群成员
+   * @param groupId 群组ID
+   * @param uid 用户ID
+   */
+  async removeGroupMember(groupId: string, uid: string): Promise<void> {
+    return this.client.getApiService().removeGroupMember(groupId, uid);
+  }
+
+  /**
+   * 退出群组
+   * @param groupId 群组ID
+   */
+  async quitGroup(groupId: string): Promise<void> {
+    return this.client.getApiService().quitGroup(groupId);
+  }
+
+  /**
+   * 转让群主
+   * @param groupId 群组ID
+   * @param uid 新群主ID
+   */
+  async transferGroupOwner(groupId: string, uid: string): Promise<void> {
+    return this.client.getApiService().transferGroupOwner(groupId, uid);
+  }
+}
+
+/**
+ * RTC模块
+ */
+class RTCModule {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 初始化RTC
+   * @param config RTC配置
+   */
+  async init(config?: any): Promise<void> {
+    const { RTCManager } = await import('./rtc/rtc-manager');
+    
+    if (this.client.getRTCManager()) {
+      await this.client.getRTCManager()?.destroy();
+    }
+
+    const rtcManager = new RTCManager({
+      imService: this.client.getIMService(),
+      uid: this.client.getConfig().auth.uid,
+    });
+
+    // 优先使用客户端配置中的RTC配置
+    const clientRTCConfig = this.client.getConfig().rtc;
+    const defaultConfig = {
+      provider: RTCProviderType.VOLCENGINE,
+      providerConfig: {
+        appId: '', // 需要从配置或服务器获取
+      },
+      ...clientRTCConfig,
+      ...config,
+    };
+
+    await rtcManager.initialize(defaultConfig);
+    this.client.setRTCManager(rtcManager);
+  }
+
+  /**
+   * 销毁RTC
+   */
+  async destroy(): Promise<void> {
+    if (this.client.getRTCManager()) {
+      await this.client.getRTCManager()?.destroy();
+      this.client.setRTCManager(null as any);
+    }
+  }
+
+  /**
+   * 开始通话
+   * @param roomId 房间ID
+   * @param options 选项
+   */
+  async startCall(roomId: string, options?: { autoPublish?: boolean; autoSubscribe?: boolean }): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) {
+      throw new OpenChatError(ErrorCode.RTC_NOT_INITIALIZED, 'RTC not initialized. Call client.rtc.init() first.');
+    }
+    return rtcManager.startCall(roomId, options);
+  }
+
+  /**
+   * 结束通话
+   */
+  async endCall(): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    return rtcManager.endCall();
+  }
+
+  /**
+   * 创建本地流
+   * @param options 选项
+   */
+  async createLocalStream(options?: { video?: boolean; audio?: boolean }) {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) {
+      throw new OpenChatError(ErrorCode.RTC_NOT_INITIALIZED, 'RTC not initialized');
+    }
+    return rtcManager.createLocalStream(options);
+  }
+
+  /**
+   * 发布流
+   * @param streamId 流ID
+   */
+  async publishStream(streamId: string): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    return rtcManager.publishStream(streamId);
+  }
+
+  /**
+   * 取消发布流
+   * @param streamId 流ID
+   */
+  async unpublishStream(streamId: string): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    return rtcManager.unpublishStream(streamId);
+  }
+
+  /**
+   * 订阅流
+   * @param userId 用户ID
+   * @param options 选项
+   */
+  async subscribeStream(userId: string, options?: { video?: boolean; audio?: boolean }) {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) {
+      throw new OpenChatError(ErrorCode.RTC_NOT_INITIALIZED, 'RTC not initialized');
+    }
+    return rtcManager.subscribeStream(userId, options);
+  }
+
+  /**
+   * 启用视频
+   * @param enabled 是否启用
+   */
+  async enableVideo(enabled: boolean): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    return rtcManager.enableVideo(enabled);
+  }
+
+  /**
+   * 启用音频
+   * @param enabled 是否启用
+   */
+  async enableAudio(enabled: boolean): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    return rtcManager.enableAudio(enabled);
+  }
+
+  /**
+   * 切换摄像头
+   */
+  async switchCamera(): Promise<void> {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    return rtcManager.switchCamera();
+  }
+
+  /**
+   * 是否在通话中
+   */
+  isInCall(): boolean {
+    return this.client.getRTCManager()?.inCall || false;
+  }
+
+  /**
+   * 获取房间ID
+   */
+  getRoomId(): string | null {
+    return this.client.getRTCManager()?.roomId || null;
+  }
+
+  /**
+   * 监听事件
+   * @param event 事件
+   * @param callback 回调
+   */
+  on(event: string, callback: EventCallback): void {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    rtcManager.on(event, callback);
+  }
+
+  /**
+   * 取消监听事件
+   * @param event 事件
+   * @param callback 回调
+   */
+  off(event: string, callback: EventCallback): void {
+    const rtcManager = this.client.getRTCManager();
+    if (!rtcManager) return;
+    rtcManager.off(event, callback);
+  }
 }
 
 // 导出工厂函数
 export function createOpenChatClient(config: OpenChatSDKConfig): OpenChatClient {
   return new OpenChatClient(config);
 }
+
+export default OpenChatClient;

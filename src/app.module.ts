@@ -12,6 +12,7 @@ import { GatewayModule } from './gateways/gateway.module';
 import { IMProviderModule } from './modules/im-provider/im-provider.module';
 import { ConversationModule } from './modules/conversation/conversation.module';
 import { ContactModule } from './modules/contact/contact.module';
+import { IoTModule } from './modules/iot/iot.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ThrottlerModule } from './common/throttler/throttler.module';
 import { QueueModule } from './common/queue/queue.module';
@@ -20,6 +21,7 @@ import { AppConfigModule } from './common/config/config.module';
 import { CacheModule } from './common/cache/cache.module';
 import { AuthModule } from './common/auth/auth.module';
 import { MetricsModule } from './common/metrics/metrics.module';
+import { EventBusModule } from './common/events/event-bus.module';
 import { User } from './modules/user/user.entity';
 import { Friend } from './modules/friend/friend.entity';
 import { FriendRequest } from './modules/friend/friend-request.entity';
@@ -39,6 +41,8 @@ import { ContactEntity } from './modules/contact/contact.entity';
 import { BotPlatformModule } from './modules/bot-platform/bot-platform.module';
 import { BotEntity } from './modules/bot-platform/entities/bot.entity';
 import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.entity';
+import { DeviceEntity } from './modules/iot/entities/device.entity';
+import { DeviceMessageEntity } from './modules/iot/entities/device-message.entity';
 
 @Module({
   imports: [
@@ -71,6 +75,9 @@ import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.en
 
     // 性能监控模块（全局）
     MetricsModule,
+
+    // 事件总线模块（全局）
+    EventBusModule,
 
     // 数据库模块（优化连接池配置）
     TypeOrmModule.forRootAsync({
@@ -114,6 +121,8 @@ import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.en
         ContactEntity,
         BotEntity,
         BotCommandEntity,
+        DeviceEntity,
+        DeviceMessageEntity,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production', // 生产环境禁用同步
         logging: configService.get('DB_LOGGING', 'false') === 'true',
@@ -144,6 +153,7 @@ import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.en
     ConversationModule,
     ContactModule,
     BotPlatformModule,
+    IoTModule,
   ],
 })
 export class AppModule {}

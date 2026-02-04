@@ -18,6 +18,8 @@ import {
   ChannelType,
 } from '../types';
 import { createHttpClient, HttpClient, HttpRequestConfig } from '../utils/http-client';
+import { HttpCache } from '../core/cache/http-cache';
+import { sleep } from '../utils/helpers';
 
 // API响应格式
 interface ApiResponse<T> {
@@ -33,17 +35,27 @@ interface RequestOptions {
   data?: any;
   params?: Record<string, any>;
   headers?: Record<string, string>;
+  retry?: boolean;
+  retryCount?: number;
+  retryDelay?: number;
+  cache?: boolean;
+  cacheTTL?: number;
 }
 
 export class ApiService {
   private config: OpenChatSDKConfig;
   private token: string | null = null;
   private httpClient: HttpClient;
+  private cache: HttpCache;
 
   constructor(config: OpenChatSDKConfig) {
     this.config = config;
-    this.token = config.token;
+    this.token = config.auth.token;
     this.httpClient = createHttpClient();
+    this.cache = new HttpCache({
+      maxSize: config.server.cache?.maxSize || 100,
+      defaultTTL: config.server.cache?.defaultTTL || 300000, // 默认5分钟
+    });
   }
 
   // 设置Token
@@ -461,15 +473,93 @@ export class ApiService {
     return this.unwrapResponse(response);
   }
 
+  // 验证令牌
+  async validateToken(token: string): Promise<{ valid: boolean; userId?: string }> {
+    const response = await this.request<{ valid: boolean; userId?: string }>({
+      method: 'POST',
+      url: '/auth/validate-token',
+      data: { token },
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 创建会话
+  async createConversation(targetId: string, type: string): Promise<Conversation> {
+    const response = await this.request<Conversation>({
+      method: 'POST',
+      url: '/conversations',
+      data: { targetId, type },
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 转让群组所有权
+  async transferGroupOwner(groupId: string, uid: string): Promise<void> {
+    await this.request({
+      method: 'PUT',
+      url: `/groups/${groupId}/owner`,
+      data: { uid },
+    });
+  }
+
+  // 添加联系人
+  async addContact(uid: string): Promise<Contact> {
+    const response = await this.request<Contact>({
+      method: 'POST',
+      url: '/contacts',
+      data: { uid },
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 删除联系人
+  async deleteContact(id: string): Promise<void> {
+    await this.request({
+      method: 'DELETE',
+      url: `/contacts/${id}`,
+    });
+  }
+
+  // 更新联系人
+  async updateContact(id: string, data: Partial<Contact>): Promise<Contact> {
+    const response = await this.request<Contact>({
+      method: 'PUT',
+      url: `/contacts/${id}`,
+      data,
+    });
+    return this.unwrapResponse(response);
+  }
+
   // ==================== 私有方法 ====================
+
+  // 生成缓存键
+  private generateCacheKey(options: RequestOptions): string {
+    const { method, url, params, data } = options;
+    if (method !== 'GET') return '';
+    
+    const queryString = params ? JSON.stringify(params) : '';
+    return `${url}?${queryString}`;
+  }
 
   // 发送HTTP请求
   private async request<T>(options: RequestOptions): Promise<ApiResponse<T>> {
-    const { method, url, data, params, headers: customHeaders } = options;
+    const { 
+      method, 
+      url, 
+      data, 
+      params, 
+      headers: customHeaders,
+      retry = true,
+      retryCount = 3,
+      retryDelay = 1000,
+      cache = true,
+      cacheTTL = this.config.server.cache?.defaultTTL || 300000
+    } = options;
 
     // 构建请求头
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.config.server.headers,
       ...customHeaders,
     };
 
@@ -479,44 +569,97 @@ export class ApiService {
     }
 
     // 添加API Key
-    if (this.config.apiKey) {
-      headers['X-API-Key'] = this.config.apiKey;
+    if (this.config.server.apiKey) {
+      headers['X-API-Key'] = this.config.server.apiKey;
     }
 
     const requestConfig: HttpRequestConfig = {
-      url: `${this.config.apiBaseUrl}${url}`,
+      url: `${this.config.server.baseUrl}/api${url}`,
       method,
       headers,
       data,
       params,
     };
 
-    try {
-      // 使用平台特定的HTTP客户端发送请求
-      const response = await this.httpClient<ApiResponse<T>>(requestConfig);
-      const result = response.data;
-
-      // 处理错误
-      if (response.status < 200 || response.status >= 300) {
-        throw this.createError(
-          this.mapHttpStatusToErrorCode(response.status),
-          result.message || 'Request failed',
-          result
-        );
+    // 尝试从缓存获取
+    if (cache && method === 'GET') {
+      const cacheKey = this.generateCacheKey(options);
+      if (cacheKey) {
+        const cachedData = this.cache.get<ApiResponse<T>>(cacheKey);
+        if (cachedData) {
+          return cachedData;
+        }
       }
-
-      return result;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'OpenChatError') {
-        throw error;
-      }
-
-      throw this.createError(
-        ErrorCode.NETWORK_ERROR,
-        error instanceof Error ? error.message : 'Network error',
-        error
-      );
     }
+
+    let attempts = 0;
+    let lastError: any = null;
+
+    while (attempts <= retryCount) {
+      try {
+        // 使用平台特定的HTTP客户端发送请求
+        const response = await this.httpClient<ApiResponse<T>>(requestConfig);
+        const result = response.data;
+
+        // 处理错误
+        if (response.status < 200 || response.status >= 300) {
+          throw this.createError(
+            this.mapHttpStatusToErrorCode(response.status),
+            result.message || 'Request failed',
+            result
+          );
+        }
+
+        // 缓存成功的GET请求响应
+        if (cache && method === 'GET') {
+          const cacheKey = this.generateCacheKey(options);
+          if (cacheKey) {
+            this.cache.set(cacheKey, result, cacheTTL);
+          }
+        }
+
+        return result;
+      } catch (error) {
+        lastError = error;
+        attempts++;
+
+        // 检查是否需要重试
+        if (!retry || attempts > retryCount) {
+          break;
+        }
+
+        // 检查是否是可以重试的错误类型
+        const isRetryableError = this.isRetryableError(error);
+        if (!isRetryableError) {
+          break;
+        }
+
+        // 指数退避
+        const delay = retryDelay * Math.pow(2, attempts - 1);
+        await sleep(delay);
+      }
+    }
+
+    if (lastError instanceof Error && lastError.name === 'OpenChatError') {
+      throw lastError;
+    }
+
+    throw this.createError(
+      ErrorCode.NETWORK_ERROR,
+      lastError instanceof Error ? lastError.message : 'Network error',
+      lastError
+    );
+  }
+
+  // 检查是否是可重试的错误
+  private isRetryableError(error: any): boolean {
+    // 网络错误、超时等可以重试
+    if (error instanceof Error && error.message.includes('network') || 
+        error instanceof Error && error.message.includes('timeout') ||
+        error instanceof Error && error.message.includes('connection')) {
+      return true;
+    }
+    return false;
   }
 
   // 解包响应

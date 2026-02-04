@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #0ea5e9;
+  --secondary-color: #64748b;
+  --background-color: #f8fafc;
+  --card-background: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 通用动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* 加载动画 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* 卡片样式 */
+.card {
+  @apply bg-white rounded-lg shadow-card p-6 transition-all duration-300;
+}
+
+.card:hover {
+  @apply shadow-card-hover;
+}
+
+/* 按钮样式 */
+.btn {
+  @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.btn-primary {
+  @apply bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500;
+}
+
+.btn-secondary {
+  @apply bg-secondary-100 text-secondary-700 hover:bg-secondary-200 focus:ring-secondary-300;
+}
+
+.btn-danger {
+  @apply bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500;
+}
+
+.btn-success {
+  @apply bg-success-500 text-white hover:bg-success-600 focus:ring-success-500;
+}
+
+/* 输入框样式 */
+.input {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+}
+
+/* 表格样式 */
+.table {
+  @apply w-full border-collapse;
+}
+
+.table th {
+  @apply px-4 py-3 text-left text-sm font-medium text-secondary-600 uppercase tracking-wider border-b border-gray-200;
+}
+
+.table td {
+  @apply px-4 py-3 text-sm text-gray-900 border-b border-gray-200;
+}
+
+.table tr:hover {
+  @apply bg-secondary-50;
+}
+
+/* 徽章样式 */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-primary-100 text-primary-800;
+}
+
+.badge-success {
+  @apply bg-success-100 text-success-800;
+}
+
+.badge-warning {
+  @apply bg-warning-100 text-warning-800;
+}
+
+.badge-danger {
+  @apply bg-danger-100 text-danger-800;
+}
+
+/* 工具提示样式 */
+.tooltip {
+  @apply relative inline-block;
+}
+
+.tooltip .tooltip-text {
+  @apply invisible absolute z-10 py-1 px-2 bg-secondary-800 text-white text-xs rounded opacity-0 transition-opacity duration-300;
+  width: 120px;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -60px;
+}
+
+.tooltip:hover .tooltip-text {
+  @apply visible opacity-100;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .container {
+    @apply px-4;
+  }
+  
+  .card {
+    @apply p-4;
+  }
+}
+
+/* 暗黑模式 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background-color: #0f172a;
+    --card-background: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+  }
+  
+  body {
+    @apply bg-secondary-900 text-white;
+  }
+  
+  .card {
+    @apply bg-secondary-800 shadow-lg;
+  }
+  
+  .card:hover {
+    @apply shadow-xl;
+  }
+  
+  .table tr:hover {
+    @apply bg-secondary-700;
+  }
+  
+  .input {
+    @apply bg-secondary-700 border-secondary-600 text-white;
+  }
+}

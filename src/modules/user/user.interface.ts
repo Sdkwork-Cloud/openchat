@@ -4,6 +4,7 @@ export class User {
   id: string;
   uuid?: string;
   username: string;
+  email: string;
   nickname: string;
   password: string;
   avatar?: string | ImageMediaResource; // 支持URL或结构化图片资源
@@ -26,6 +27,7 @@ export interface LoginRequest {
 
 export interface RegisterRequest {
   username: string;
+  email: string;
   password: string;
   nickname: string;
 }
@@ -37,4 +39,5 @@ export interface UserManager {
   updateUser(id: string, user: Partial<User>): Promise<User | null>;
   deleteUser(id: string): Promise<boolean>;
   getUsers(ids: string[]): Promise<User[]>;
+  getUserRepository?(): any; // 用于特殊查询
 }

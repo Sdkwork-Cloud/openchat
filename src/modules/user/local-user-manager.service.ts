@@ -253,4 +253,11 @@ export class LocalUserManagerService implements UserManager {
     }
     return this.userCacheService.getCacheStats();
   }
+
+  /**
+   * 获取用户仓库（用于特殊查询）
+   */
+  getUserRepository(): Repository<User> {
+    return this.userRepository;
+  }
 }

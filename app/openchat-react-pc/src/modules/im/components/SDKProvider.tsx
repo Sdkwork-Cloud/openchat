@@ -11,6 +11,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { OpenChatClient } from '@openchat/typescript-sdk';
 import { initializeSDK, destroySDK, isSDKInitialized, SDKAdapterConfig } from '../adapters/sdk-adapter';
+import { registerMessageEventListeners } from '../services/message.service';
 
 // SDK上下文类型
 interface SDKContextType {
@@ -63,6 +64,10 @@ export function SDKProvider({
       setClient(sdkClient);
       setIsInitialized(true);
       setIsConnected(true);
+      
+      // 注册消息事件监听器
+      registerMessageEventListeners();
+      
       onInitialized?.();
     } catch (err) {
       const error = err instanceof Error ? err : new Error('SDK初始化失败');

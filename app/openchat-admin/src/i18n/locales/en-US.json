@@ -1,0 +1,141 @@
+{
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "view": "View",
+    "search": "Search",
+    "reset": "Reset",
+    "back": "Back",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "success": "Operation successful",
+    "error": "Operation failed",
+    "warning": "Warning",
+    "info": "Info",
+    "deleteConfirm": "Are you sure you want to delete?",
+    "batchDeleteConfirm": "Are you sure you want to delete the selected items?"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "stats": {
+      "users": "Users",
+      "devices": "Devices",
+      "messages": "Messages",
+      "onlineUsers": "Online Users"
+    },
+    "systemStatus": "System Status",
+    "recentActivities": "Recent Activities"
+  },
+  "user": {
+    "title": "User Management",
+    "list": "User List",
+    "create": "Create User",
+    "edit": "Edit User",
+    "detail": "User Detail",
+    "fields": {
+      "id": "ID",
+      "username": "Username",
+      "email": "Email",
+      "phone": "Phone",
+      "role": "Role",
+      "status": "Status",
+      "createdAt": "Created At",
+      "lastLogin": "Last Login",
+      "actions": "Actions"
+    },
+    "roles": {
+      "admin": "Admin",
+      "user": "User",
+      "guest": "Guest"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "pending": "Pending"
+    }
+  },
+  "device": {
+    "title": "Device Management",
+    "list": "Device List",
+    "create": "Create Device",
+    "edit": "Edit Device",
+    "detail": "Device Detail",
+    "fields": {
+      "id": "ID",
+      "name": "Device Name",
+      "type": "Device Type",
+      "status": "Status",
+      "ip": "IP Address",
+      "mac": "MAC Address",
+      "userId": "User ID",
+      "createdAt": "Created At",
+      "lastActive": "Last Active",
+      "actions": "Actions"
+    },
+    "statuses": {
+      "online": "Online",
+      "offline": "Offline",
+      "warning": "Warning"
+    }
+  },
+  "message": {
+    "title": "Message Management",
+    "list": "Message List",
+    "settings": "Message Settings",
+    "fields": {
+      "id": "ID",
+      "content": "Content",
+      "type": "Type",
+      "sender": "Sender",
+      "receiver": "Receiver",
+      "status": "Status",
+      "createdAt": "Created At",
+      "actions": "Actions"
+    },
+    "statuses": {
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "failed": "Failed"
+    }
+  },
+  "system": {
+    "title": "System Management",
+    "settings": "System Settings",
+    "logs": "System Logs",
+    "monitor": "System Monitor",
+    "general": "General Settings",
+    "security": "Security Settings",
+    "email": "Email Settings",
+    "storage": "Storage Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "forgotPassword": "Forgot Password",
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "email": "Email",
+    "phone": "Phone",
+    "loginSuccess": "Login successful",
+    "loginFailed": "Login failed",
+    "registerSuccess": "Registration successful",
+    "registerFailed": "Registration failed"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "User Management",
+    "devices": "Device Management",
+    "messages": "Message Management",
+    "system": "System Management",
+    "logout": "Logout"
+  }
+}

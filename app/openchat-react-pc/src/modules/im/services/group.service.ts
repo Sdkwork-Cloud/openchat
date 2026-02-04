@@ -14,14 +14,15 @@
 import type { Group, GroupMember, GroupNotice, GroupSettings } from '../entities/group.entity';
 import {
   getSDKClient,
-  getGroupList,
-  getGroupDetail,
+  getGroupList as sdkGetGroupList,
+  getGroupDetail as sdkGetGroupDetail,
   createGroup as sdkCreateGroup,
   addGroupMembers as sdkAddGroupMembers,
   removeGroupMember as sdkRemoveGroupMember,
   quitGroup as sdkQuitGroup,
   dissolveGroup as sdkDissolveGroup,
   convertSDKGroupToFrontend,
+  convertSDKGroupMemberToFrontend,
 } from '../adapters/sdk-adapter';
 
 export interface CreateGroupRequest {
@@ -92,7 +93,7 @@ export async function createGroup(request: CreateGroupRequest): Promise<CreateGr
  */
 export async function getGroupList(): Promise<Group[]> {
   try {
-    return await getGroupList();
+    return await sdkGetGroupList();
   } catch (error) {
     console.error('获取群聊列表失败:', error);
     throw error;
@@ -105,7 +106,7 @@ export async function getGroupList(): Promise<Group[]> {
  */
 export async function getGroupDetail(groupId: string): Promise<Group | null> {
   try {
-    return await getGroupDetail(groupId);
+    return await sdkGetGroupDetail(groupId);
   } catch (error) {
     console.error('获取群聊详情失败:', error);
     return null;
@@ -158,7 +159,7 @@ export async function setMemberRole(
   try {
     const client = getSDKClient();
     const roleValue = role === 'admin' ? 1 : 0;
-    await client.group.setGroupMemberRole(groupId, memberId, roleValue);
+    await client.im.groups.setMemberRole(groupId, memberId, roleValue);
     return { success: true };
   } catch (error: any) {
     console.error('设置成员角色失败:', error);
@@ -176,10 +177,10 @@ export async function muteMember(request: MuteMemberRequest): Promise<{ success:
 
     if (request.duration === 0) {
       // 取消禁言
-      await client.group.unmuteMember(request.groupId, request.memberId);
+      await client.im.groups.unmuteMember(request.groupId, request.memberId);
     } else {
       // 设置禁言
-      await client.group.muteMember(request.groupId, request.memberId, request.duration);
+      await client.im.groups.muteMember(request.groupId, request.memberId, request.duration);
     }
 
     return { success: true };
@@ -201,7 +202,7 @@ export async function publishNotice(
   try {
     const client = getSDKClient();
 
-    const notice = await client.group.publishNotice(groupId, {
+    const notice = await client.im.groups.publishNotice(groupId, {
       content: content.trim(),
       isPinned,
     });
@@ -223,7 +224,7 @@ export async function deleteNotice(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = getSDKClient();
-    await client.group.deleteNotice(groupId, noticeId);
+    await client.im.groups.deleteNotice(groupId, noticeId);
     return { success: true };
   } catch (error: any) {
     console.error('删除公告失败:', error);
@@ -240,7 +241,7 @@ export async function updateGroupSettings(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = getSDKClient();
-    await client.group.updateInfo(request.groupId, {
+    await client.im.groups.updateGroupInfo(request.groupId, {
       settings: request.settings,
     });
     return { success: true };
@@ -288,7 +289,7 @@ export async function transferOwnership(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = getSDKClient();
-    await client.group.transferOwnership(groupId, newOwnerId);
+    await client.im.groups.transferOwnership(groupId, newOwnerId);
     return { success: true };
   } catch (error: any) {
     console.error('转让群主失败:', error);

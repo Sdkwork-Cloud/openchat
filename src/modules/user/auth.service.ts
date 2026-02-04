@@ -1,11 +1,13 @@
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { User } from './user.interface';
+import { User as UserEntity } from './user.entity';
 import { LocalUserManagerService } from './local-user-manager.service';
 import { UserSyncService } from './user-sync.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { VerificationCodeService } from './verification-code.service';
+import { RegisterDto, LoginDto, ForgotPasswordDto, SendVerificationCodeDto, VerifyVerificationCodeDto, PhoneRegisterDto, EmailRegisterDto } from './dto/auth.dto';
 
 // 认证响应类型
 export class AuthResponse {
@@ -38,6 +40,7 @@ export class AuthService {
     private jwtService: JwtService,
     private userSyncService: UserSyncService,
     private configService: ConfigService,
+    private verificationCodeService: VerificationCodeService,
   ) {
     // 从配置中读取 JWT 配置，确保有默认值
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') || 'default-secret-key-change-in-production';
@@ -61,12 +64,32 @@ export class AuthService {
       throw new ConflictException('用户名已存在');
     }
 
+    // 检查邮箱是否已存在
+    const existingEmailUser = await this.localUserManager.getUserRepository().findOne({
+      where: { email: registerData.email, isDeleted: false },
+    });
+
+    if (existingEmailUser) {
+      throw new ConflictException('邮箱已存在');
+    }
+
+    // 检查手机号是否已存在
+    const existingPhoneUser = await this.localUserManager.getUserRepository().findOne({
+      where: { phone: registerData.phone, isDeleted: false },
+    });
+
+    if (existingPhoneUser) {
+      throw new ConflictException('手机号已存在');
+    }
+
     // 加密密码
     const hashedPassword = await bcrypt.hash(registerData.password, 10);
 
     // 创建新用户
     const user = await this.localUserManager.createUser({
       username: registerData.username,
+      email: registerData.email,
+      phone: registerData.phone,
       password: hashedPassword,
       nickname: registerData.nickname,
       status: 'offline',
@@ -302,6 +325,236 @@ export class AuthService {
     return {
       isValid: errors.length === 0,
       errors,
+    };
+  }
+
+  /**
+   * 发送验证码
+   */
+  async sendVerificationCode(sendCodeData: SendVerificationCodeDto): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    const { email, phone, type } = sendCodeData;
+
+    try {
+      await this.verificationCodeService.sendAndStoreCode(email, phone, type);
+      return {
+        success: true,
+        message: '验证码已发送，请查收',
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || '发送验证码失败',
+      };
+    }
+  }
+
+  /**
+   * 验证验证码
+   */
+  async verifyVerificationCode(verifyCodeData: VerifyVerificationCodeDto): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    const { email, phone, code, type } = verifyCodeData;
+
+    try {
+      await this.verificationCodeService.verifyCodeByTarget(email, phone, code, type);
+      return {
+        success: true,
+        message: '验证码验证成功',
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || '验证码验证失败',
+      };
+    }
+  }
+
+  /**
+   * 手机注册
+   */
+  async phoneRegister(registerData: PhoneRegisterDto): Promise<AuthResponse> {
+    const { phone, code, username, password, nickname } = registerData;
+
+    // 验证手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      throw new BadRequestException('手机号格式不正确');
+    }
+
+    // 验证验证码
+    await this.verificationCodeService.verifyCodeByTarget(undefined, phone, code, 'register');
+
+    // 检查用户名是否已存在
+    const existingUser = await this.localUserManager.getUserByUsername(username);
+    if (existingUser) {
+      throw new ConflictException('用户名已存在');
+    }
+
+    // 检查手机号是否已存在
+    const existingPhoneUser = await this.localUserManager.getUserRepository().findOne({
+      where: { phone, isDeleted: false },
+    });
+    if (existingPhoneUser) {
+      throw new ConflictException('手机号已存在');
+    }
+
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 创建新用户
+    const user = await this.localUserManager.createUser({
+      username,
+      email: '', // 邮箱为空
+      phone,
+      password: hashedPassword,
+      nickname,
+      status: 'offline',
+      isDeleted: false,
+    });
+
+    // 同步用户到IM系统（异步执行，不阻塞注册流程）
+    this.userSyncService.syncUserOnRegister(user).catch(error => {
+      this.logger.error('Failed to sync user to IM on register:', error);
+    });
+
+    // 生成JWT令牌
+    const token = this.generateToken(user.id);
+    const refreshToken = this.generateRefreshToken(user.id);
+
+    // 移除密码字段后返回
+    const { password: _, ...userWithoutPassword } = user as User;
+
+    return {
+      user: userWithoutPassword as Omit<User, 'password'>,
+      token,
+      refreshToken,
+      expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
+    };
+  }
+
+  /**
+   * 邮箱注册
+   */
+  async emailRegister(registerData: EmailRegisterDto): Promise<AuthResponse> {
+    const { email, code, username, password, nickname } = registerData;
+
+    // 验证邮箱格式
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      throw new BadRequestException('邮箱格式不正确');
+    }
+
+    // 验证验证码
+    await this.verificationCodeService.verifyCodeByTarget(email, undefined, code, 'register');
+
+    // 检查用户名是否已存在
+    const existingUser = await this.localUserManager.getUserByUsername(username);
+    if (existingUser) {
+      throw new ConflictException('用户名已存在');
+    }
+
+    // 检查邮箱是否已存在
+    const existingEmailUser = await this.localUserManager.getUserRepository().findOne({
+      where: { email, isDeleted: false },
+    });
+    if (existingEmailUser) {
+      throw new ConflictException('邮箱已存在');
+    }
+
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 创建新用户
+    const user = await this.localUserManager.createUser({
+      username,
+      email,
+      phone: '', // 手机号为空
+      password: hashedPassword,
+      nickname,
+      status: 'offline',
+      isDeleted: false,
+    });
+
+    // 同步用户到IM系统（异步执行，不阻塞注册流程）
+    this.userSyncService.syncUserOnRegister(user).catch(error => {
+      this.logger.error('Failed to sync user to IM on register:', error);
+    });
+
+    // 生成JWT令牌
+    const token = this.generateToken(user.id);
+    const refreshToken = this.generateRefreshToken(user.id);
+
+    // 移除密码字段后返回
+    const { password: _, ...userWithoutPassword } = user as User;
+
+    return {
+      user: userWithoutPassword as Omit<User, 'password'>,
+      token,
+      refreshToken,
+      expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
+    };
+  }
+
+  /**
+   * 忘记密码
+   * 支持通过邮箱或手机号找回
+   */
+  async forgotPassword(forgotPasswordData: ForgotPasswordDto): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    const { email, phone } = forgotPasswordData;
+
+    // 验证输入
+    if (!email && !phone) {
+      return {
+        success: false,
+        error: '邮箱或手机号不能为空',
+      };
+    }
+
+    // 查找用户
+    let user: UserEntity | null = null;
+    if (email) {
+      user = await this.localUserManager.getUserRepository().findOne({
+        where: { email, isDeleted: false },
+      });
+    } else if (phone) {
+      user = await this.localUserManager.getUserRepository().findOne({
+        where: { phone, isDeleted: false },
+      });
+    }
+
+    if (!user) {
+      return {
+        success: false,
+        error: '用户不存在',
+      };
+    }
+
+    // 生成密码重置令牌
+    const resetToken = this.generateToken(user.id);
+
+    // 这里应该发送邮件或短信，包含重置链接
+    // 由于是演示，暂时只返回成功消息
+    let message = '';
+    if (email) {
+      message = '密码重置链接已发送到您的邮箱';
+    } else if (phone) {
+      message = '密码重置验证码已发送到您的手机';
+    }
+
+    return {
+      success: true,
+      message,
     };
   }
 }

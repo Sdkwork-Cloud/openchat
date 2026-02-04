@@ -82,7 +82,8 @@ export class WukongIMProtocol implements IMProtocol {
       const { WKIM, WKIMEvent } = await this.loadWKIMSDK();
       
       // 初始化WKIM
-      this.wkim = WKIM.init(this.config?.imWsUrl || '', {
+      // 注意：这里的config参数已经是WKIMConfig类型，包含了所需的所有信息
+      this.wkim = WKIM.init('ws://localhost:3000/ws', {
         uid: config.uid,
         token: config.token,
         deviceId: config.deviceId,

@@ -17,9 +17,15 @@ import {
   createRoom,
   endRoom,
   getToken,
-  WebRTCConnection,
 } from '../repositories/rtc.repository';
 import { generateUUID } from '@/utils/uuid';
+import {
+  createRTCSDK,
+  RTCConfig,
+  DEFAULT_RTC_CONFIG,
+  DeviceType,
+  DeviceInfo,
+} from './rtc-sdk-abstract';
 
 // 当前用户 ID（应该从用户服务获取）
 const CURRENT_USER_ID = 'current-user';
@@ -37,7 +43,8 @@ const RTC_SERVICE_VERSION = '1.0.9';
  */
 export class RTCService {
   private session: CallSession | null = null;
-  private connection: WebRTCConnection | null = null;
+  private rtcSdk: any = null;
+  private rtcConfig: RTCConfig = DEFAULT_RTC_CONFIG;
   private onSessionChange: ((session: CallSession | null) => void) | null = null;
   private onLocalStream: ((stream: MediaStream) => void) | null = null;
   private onRemoteStream: ((stream: MediaStream) => void) | null = null;
@@ -48,11 +55,42 @@ export class RTCService {
     onLocalStream?: (stream: MediaStream) => void;
     onRemoteStream?: (stream: MediaStream) => void;
     onSignal?: (signal: CallSignal) => void;
-  }) {
+  }, config?: RTCConfig) {
     this.onSessionChange = callbacks?.onSessionChange || null;
     this.onLocalStream = callbacks?.onLocalStream || null;
     this.onRemoteStream = callbacks?.onRemoteStream || null;
     this.signalHandler = callbacks?.onSignal || null;
+    this.rtcConfig = config || DEFAULT_RTC_CONFIG;
+    this.initRTCSDK();
+  }
+
+  /**
+   * 初始化 RTC SDK
+   */
+  private async initRTCSDK() {
+    try {
+      this.rtcSdk = createRTCSDK(this.rtcConfig);
+      await this.rtcSdk.init(this.rtcConfig);
+      
+      // 注册事件监听
+      this.rtcSdk.on('stream-added', (event: any) => {
+        console.log('[RTC] Stream added:', event);
+      });
+      
+      this.rtcSdk.on('stream-updated', (event: any) => {
+        console.log('[RTC] Stream updated:', event);
+      });
+      
+      this.rtcSdk.on('stream-removed', (event: any) => {
+        console.log('[RTC] Stream removed:', event);
+      });
+      
+      this.rtcSdk.on('room-state-changed', (event: any) => {
+        console.log('[RTC] Room state changed:', event);
+      });
+    } catch (error) {
+      console.error('[RTC] Failed to initialize RTC SDK:', error);
+    }
   }
 
   /**
@@ -98,11 +136,12 @@ export class RTCService {
       this.session.status = 'ringing';
       this.notifySessionChange();
 
-      // 初始化 WebRTC 连接（错误不影响通话流程）
+      // 初始化 RTC SDK 连接（错误不影响通话流程）
       try {
-        await this.initWebRTC(callType);
-      } catch (webrtcError) {
-        // WebRTC 初始化失败（如无设备），但继续通话流程
+        await this.initRTCConnection(callType, room.id, token.token);
+      } catch (rtcError) {
+        // RTC 初始化失败（如无设备），但继续通话流程
+        console.error('[RTC] Failed to initialize RTC connection:', rtcError);
       }
 
       // 发送呼叫信令（通过 IM 或其他方式）
@@ -159,10 +198,10 @@ export class RTCService {
       this.notifySessionChange();
 
       // 获取令牌
-      await getToken(roomId);
+      const tokenResult = await getToken(roomId);
 
-      // 初始化 WebRTC 连接
-      await this.initWebRTC(callType);
+      // 初始化 RTC 连接
+      await this.initRTCConnection(callType, roomId, tokenResult.token);
 
       // 发送接受信令
       this.sendSignal({
@@ -208,7 +247,11 @@ export class RTCService {
     this.session.endTime = new Date().toISOString();
     this.notifySessionChange();
 
-    this.cleanup();
+    try {
+      await this.cleanup();
+    } catch (error) {
+      console.error('[RTC] Error during cleanup:', error);
+    }
     return true;
   }
 
@@ -237,14 +280,19 @@ export class RTCService {
 
     // 结束房间
     if (roomId) {
-      await endRoom(roomId);
+      try {
+        await endRoom(roomId);
+        console.log('[RTC] Ended room:', roomId);
+      } catch (error) {
+        console.error('[RTC] Error ending room:', error);
+      }
     }
 
     this.session.status = 'ended';
     this.session.endTime = new Date().toISOString();
     this.notifySessionChange();
 
-    this.cleanup();
+    await this.cleanup();
     return true;
   }
 
@@ -284,68 +332,92 @@ export class RTCService {
   /**
    * 处理信令
    */
-  handleSignal(signal: CallSignal) {
+  async handleSignal(signal: CallSignal) {
     console.log('[RTC] Received signal:', signal.type);
 
     if (!this.session || this.session.id !== signal.callId) {
       return;
     }
 
-    switch (signal.type) {
-      case 'accept':
-        this.handleAccept();
-        break;
-      case 'reject':
-        this.handleReject();
-        break;
-      case 'hangup':
-        this.handleHangup();
-        break;
-      case 'offer':
-        this.handleOffer(signal.payload as RTCSessionDescriptionInit);
-        break;
-      case 'answer':
-        this.handleAnswer(signal.payload as RTCSessionDescriptionInit);
-        break;
-      case 'ice-candidate':
-        this.handleIceCandidate(signal.payload as RTCIceCandidateInit);
-        break;
+    try {
+      switch (signal.type) {
+        case 'accept':
+          await this.handleAccept();
+          break;
+        case 'reject':
+          await this.handleReject();
+          break;
+        case 'hangup':
+          await this.handleHangup();
+          break;
+        case 'offer':
+          // 信令处理现在由 RTC SDK 抽象层管理
+          console.log('[RTC] Received offer signal, handled by SDK');
+          break;
+        case 'answer':
+          // 信令处理现在由 RTC SDK 抽象层管理
+          console.log('[RTC] Received answer signal, handled by SDK');
+          break;
+        case 'ice-candidate':
+          // 信令处理现在由 RTC SDK 抽象层管理
+          console.log('[RTC] Received ice-candidate signal, handled by SDK');
+          break;
+      }
+    } catch (error) {
+      console.error('[RTC] Error handling signal:', error);
     }
   }
 
   /**
    * 切换麦克风
    */
-  toggleMute(): boolean {
-    const enabled = this.connection?.toggleMute();
-    if (this.session) {
-      this.session.isMuted = !enabled;
-      this.notifySessionChange();
+  async toggleMute(): Promise<boolean> {
+    try {
+      if (this.session) {
+        const newMuteState = !this.session.isMuted;
+        await this.rtcSdk.setLocalStreamEnabled(!newMuteState, !this.session.isCameraOff);
+        this.session.isMuted = newMuteState;
+        this.notifySessionChange();
+      }
+      return this.session?.isMuted || false;
+    } catch (error) {
+      console.error('[RTC] Failed to toggle mute:', error);
+      return this.session?.isMuted || false;
     }
-    return this.session?.isMuted || false;
   }
 
   /**
    * 切换摄像头
    */
-  toggleCamera(): boolean {
-    const enabled = this.connection?.toggleCamera();
-    if (this.session) {
-      this.session.isCameraOff = !enabled;
-      this.notifySessionChange();
+  async toggleCamera(): Promise<boolean> {
+    try {
+      if (this.session) {
+        const newCameraState = !this.session.isCameraOff;
+        await this.rtcSdk.setLocalStreamEnabled(!this.session.isMuted, !newCameraState);
+        this.session.isCameraOff = newCameraState;
+        this.notifySessionChange();
+      }
+      return this.session?.isCameraOff || false;
+    } catch (error) {
+      console.error('[RTC] Failed to toggle camera:', error);
+      return this.session?.isCameraOff || false;
     }
-    return this.session?.isCameraOff || false;
   }
 
   /**
    * 切换扬声器
    */
-  toggleSpeaker(): boolean {
-    if (this.session) {
-      this.session.isSpeakerOff = !this.session.isSpeakerOff;
-      this.notifySessionChange();
+  async toggleSpeaker(): Promise<boolean> {
+    try {
+      if (this.session) {
+        this.session.isSpeakerOff = !this.session.isSpeakerOff;
+        this.notifySessionChange();
+      }
+      return this.session?.isSpeakerOff || false;
+    } catch (error) {
+      console.error('[RTC] Failed to toggle speaker:', error);
+      return this.session?.isSpeakerOff || false;
     }
-    return this.session?.isSpeakerOff || false;
   }
 
   /**
@@ -356,79 +428,54 @@ export class RTCService {
   }
 
   /**
-   * 初始化 WebRTC 连接
+   * 初始化 RTC 连接
    */
-  private async initWebRTC(callType: CallType) {
-    this.connection = new WebRTCConnection(undefined, {
-      onIceCandidate: (candidate) => {
-        if (!this.session) return;
-        this.sendSignal({
-          type: 'ice-candidate',
-          callId: this.session.id,
-          from: CURRENT_USER_ID,
-          to: this.session.remoteUserId || '',
-          payload: candidate.toJSON(),
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onRemoteStream: (stream) => {
-        console.log('[RTC] Remote stream received');
-        this.onRemoteStream?.(stream);
-        if (this.session) {
-          this.session.status = 'connected';
-          this.notifySessionChange();
+  private async initRTCConnection(callType: CallType, roomId: string, token: string) {
+    if (!this.rtcSdk) {
+      throw new Error('RTC SDK not initialized');
+    }
+
+    try {
+      // 加入房间
+      await this.rtcSdk.joinRoom(roomId, CURRENT_USER_ID, token, callType);
+      console.log('[RTC] Joined room:', roomId);
+
+      // 获取本地媒体流
+      console.log('[RTC] Getting local stream...');
+      const localStream = await this.rtcSdk.getLocalStream({
+        video: callType === 'video',
+        audio: true
+      });
+      
+      if (localStream) {
+        console.log('[RTC] Local stream obtained');
+        this.onLocalStream?.(localStream);
+
+        // 发布本地流
+        await this.rtcSdk.publishStream(localStream);
+        console.log('[RTC] Local stream published');
+
+        // 订阅远程流
+        if (this.session?.remoteUserId) {
+          await this.rtcSdk.subscribeStream(this.session.remoteUserId);
+          console.log('[RTC] Subscribed to remote stream');
         }
-      },
-      onConnectionStateChange: (state) => {
-        console.log('[RTC] Connection state:', state);
-        if (state === 'failed' || state === 'closed') {
-          if (this.session && this.session.status !== 'ended') {
-            this.session.status = 'failed';
+      } else {
+        // 在模拟模式下，即使没有设备也继续通话流程
+        if (MOCK_SIGNALING) {
+          // 更新会话状态，标记没有媒体设备
+          if (this.session) {
+            this.session.isCameraOff = true;
+            this.session.isMuted = true;
+            // 添加错误信息提示用户
+            this.session.error = '未检测到摄像头或麦克风设备';
             this.notifySessionChange();
           }
         }
-      },
-    });
-
-    // 获取本地媒体流
-    console.log('[RTC] Getting local stream...');
-    const { stream: localStream, error: mediaError } = await this.connection.getLocalStream(
-      callType === 'video',
-      true
-    );
-    
-    if (localStream) {
-      console.log('[RTC] Local stream obtained');
-      this.onLocalStream?.(localStream);
-
-      // 添加本地流到连接
-      this.connection.addLocalStream();
-
-      // 如果是发起方，创建 offer
-      if (this.session?.direction === 'outgoing') {
-        console.log('[RTC] Creating offer...');
-        const offer = await this.connection.createOffer();
-        this.sendSignal({
-          type: 'offer',
-          callId: this.session.id,
-          from: CURRENT_USER_ID,
-          to: this.session.remoteUserId || '',
-          payload: offer,
-          timestamp: new Date().toISOString(),
-        });
       }
-    } else {
-      // 在模拟模式下，即使没有设备也继续通话流程
-      if (MOCK_SIGNALING) {
-        // 更新会话状态，标记没有媒体设备
-        if (this.session) {
-          this.session.isCameraOff = true;
-          this.session.isMuted = true;
-          // 添加错误信息提示用户
-          this.session.error = mediaError || '未检测到摄像头或麦克风设备';
-          this.notifySessionChange();
-        }
-      }
+    } catch (error) {
+      console.error('[RTC] Failed to initialize RTC connection:', error);
+      throw error;
     }
   }
 
@@ -459,7 +506,7 @@ export class RTCService {
    * 处理接受
    */
   private async handleAccept() {
-    if (!this.session || !this.connection) return;
+    if (!this.session) return;
 
     console.log('[RTC] Call accepted');
     this.session.status = 'connecting';
@@ -470,7 +517,7 @@ export class RTCService {
   /**
    * 处理拒绝
    */
-  private handleReject() {
+  private async handleReject() {
     if (!this.session) return;
 
     console.log('[RTC] Call rejected');
@@ -478,13 +525,13 @@ export class RTCService {
     this.session.endTime = new Date().toISOString();
     this.notifySessionChange();
 
-    this.cleanup();
+    await this.cleanup();
   }
 
   /**
    * 处理挂断
    */
-  private handleHangup() {
+  private async handleHangup() {
     if (!this.session) return;
 
     console.log('[RTC] Call hung up by remote');
@@ -492,46 +539,35 @@ export class RTCService {
     this.session.endTime = new Date().toISOString();
     this.notifySessionChange();
 
-    this.cleanup();
+    await this.cleanup();
   }
 
   /**
-   * 处理 Offer
+   * 设备管理方法
    */
-  private async handleOffer(offer: RTCSessionDescriptionInit) {
-    if (!this.connection || !this.session) return;
-
-    console.log('[RTC] Handling offer');
-    await this.connection.setRemoteDescription(offer);
-    const answer = await this.connection.createAnswer();
-
-    this.sendSignal({
-      type: 'answer',
-      callId: this.session.id,
-      from: CURRENT_USER_ID,
-      to: this.session.remoteUserId || '',
-      payload: answer,
-      timestamp: new Date().toISOString(),
-    });
+  async getDevices(deviceType: DeviceType): Promise<DeviceInfo[]> {
+    try {
+      if (!this.rtcSdk) {
+        throw new Error('RTC SDK not initialized');
+      }
+      return await this.rtcSdk.getDevices(deviceType);
+    } catch (error) {
+      console.error('[RTC] Failed to get devices:', error);
+      return [];
+    }
   }
 
-  /**
-   * 处理 Answer
-   */
-  private async handleAnswer(answer: RTCSessionDescriptionInit) {
-    if (!this.connection) return;
-
-    console.log('[RTC] Handling answer');
-    await this.connection.setRemoteDescription(answer);
-  }
-
-  /**
-   * 处理 ICE 候选
-   */
-  private async handleIceCandidate(candidate: RTCIceCandidateInit) {
-    if (!this.connection) return;
-
-    await this.connection.addIceCandidate(candidate);
+  async switchDevice(deviceType: DeviceType, deviceId: string): Promise<boolean> {
+    try {
+      if (!this.rtcSdk) {
+        throw new Error('RTC SDK not initialized');
+      }
+      await this.rtcSdk.switchDevice(deviceType, deviceId);
+      return true;
+    } catch (error) {
+      console.error('[RTC] Failed to switch device:', error);
+      return false;
+    }
   }
 
   /**
@@ -569,11 +605,20 @@ export class RTCService {
   /**
    * 清理资源
    */
-  private cleanup() {
+  private async cleanup() {
     console.log('[RTC] Cleaning up resources');
-    this.connection?.close();
-    this.connection = null;
-    this.session = null;
+    
+    try {
+      if (this.rtcSdk && this.session?.roomId) {
+        await this.rtcSdk.leaveRoom(this.session.roomId);
+        console.log('[RTC] Left room:', this.session.roomId);
+      }
+    } catch (error) {
+      console.error('[RTC] Error during cleanup:', error);
+    } finally {
+      this.rtcSdk = null;
+      this.session = null;
+    }
   }
 }
 
