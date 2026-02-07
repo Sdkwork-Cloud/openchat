@@ -1,0 +1,19 @@
+
+.mobile-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--bg-body);
+  overflow: hidden;
+}
+
+.mobile-layout__content {
+  flex: 1;
+  overflow-y: auto;
+  /* iOS momentum scrolling */
+  -webkit-overflow-scrolling: touch; 
+  /* Safe area padding handled by individual pages if needed, or globally here */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: 0; /* Tabbar handles bottom padding */
+  position: relative;
+}

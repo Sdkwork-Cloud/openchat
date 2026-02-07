@@ -1,0 +1,137 @@
+
+/* Cell Group */
+.cell-group {
+  margin-bottom: 12px;
+}
+
+.cell-group__title {
+  padding: 16px 16px 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 16px;
+}
+
+.cell-group__content {
+  background-color: var(--bg-card);
+  position: relative;
+}
+
+/* Borders for Group Content */
+.cell-group__content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--border-color);
+  transform: scaleY(0.5);
+  z-index: 1;
+}
+
+.cell-group__content::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--border-color);
+  transform: scaleY(0.5);
+  z-index: 1;
+}
+
+/* Cell */
+.cell {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 16px;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 24px;
+  background-color: var(--bg-card);
+  align-items: center;
+  transition: background-color 0.1s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cell--active {
+  background-color: var(--bg-cell-active);
+}
+
+/* Inner Border (except last item) */
+.cell::after {
+  content: '';
+  position: absolute;
+  box-sizing: border-box;
+  bottom: 0;
+  right: 0;
+  left: 16px; /* Indent */
+  border-bottom: 1px solid var(--border-color);
+  transform: scaleY(0.5);
+  pointer-events: none;
+}
+
+.cell:last-child::after {
+  display: none;
+}
+
+/* With Icon indent adjustment */
+.cell:has(.cell__icon)::after {
+  left: 56px; 
+}
+
+.cell__icon {
+  margin-right: 16px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px; /* For emoji icons */
+}
+
+.cell__content {
+  flex: 1;
+  min-width: 0; 
+}
+
+.cell__title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cell__label {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.cell__value {
+  position: relative;
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-align: right;
+  vertical-align: middle;
+  word-wrap: break-word;
+  display: flex;
+  align-items: center;
+}
+
+.cell__value-text {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.cell__arrow {
+  color: #c5c9cf;
+  font-size: 18px;
+  font-weight: 600;
+  margin-left: 4px;
+  margin-right: -4px; /* Optical alignment */
+}

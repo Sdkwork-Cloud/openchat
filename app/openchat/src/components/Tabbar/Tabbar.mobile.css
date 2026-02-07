@@ -1,0 +1,82 @@
+
+.tabbar {
+  display: flex;
+  background-color: var(--navbar-bg);
+  border-top: 0.5px solid var(--border-color);
+  height: 50px; /* Standard tabbar height */
+  padding-bottom: env(safe-area-inset-bottom);
+  user-select: none;
+  z-index: 100;
+}
+
+.tabbar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+  /* Touch target optimization */
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabbar__item:active {
+  background-color: rgba(0,0,0,0.02);
+}
+
+.tabbar__item--active {
+  color: var(--primary-color);
+}
+
+.tabbar__icon-container {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    margin-bottom: 2px;
+}
+
+.tabbar__icon {
+  font-size: 20px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabbar__label {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* Badge Styles */
+.tabbar__badge {
+    position: absolute;
+    top: -2px;
+    right: -8px;
+    background-color: var(--danger);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 1px solid var(--navbar-bg); /* Cutout effect */
+}
+
+.tabbar__dot {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--danger);
+    border-radius: 50%;
+    border: 1px solid var(--navbar-bg);
+}

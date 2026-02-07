@@ -1,0 +1,54 @@
+
+.navbar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--navbar-bg);
+  border-bottom: 0.5px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding-top: env(safe-area-inset-top);
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+}
+
+.navbar--transparent {
+  background: transparent;
+  padding-top: 0; /* Handled by parent container usually in immersive mode */
+}
+
+.navbar__left {
+  width: 60px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.navbar__back-btn {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  opacity: 0.9;
+  padding-right: 20px;
+}
+
+.navbar__title {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  font-size: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navbar__right {
+  width: 60px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
