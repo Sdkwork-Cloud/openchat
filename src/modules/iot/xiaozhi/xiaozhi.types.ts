@@ -82,8 +82,10 @@ export interface BinaryProtocol3 {
  * 设备连接信息
  */
 export interface DeviceConnection {
-  // WebSocket连接
+  // WebSocket连接 (原生 ws 库)
   websocket?: WebSocket;
+  // Socket.io 连接
+  socket?: any;
   // MQTT连接
   mqttClient?: any;
   // UDP连接

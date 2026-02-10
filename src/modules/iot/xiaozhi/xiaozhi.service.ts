@@ -79,7 +79,7 @@ export class XiaoZhiService {
   // ==================== 连接管理 ====================
 
   /**
-   * 处理WebSocket连接
+   * 处理WebSocket连接 (原生 ws 库)
    */
   handleWebSocketConnection(websocket: WebSocket, request: any): void {
     const deviceId = request.headers['device-id'] || crypto.randomUUID();
@@ -108,6 +108,43 @@ export class XiaoZhiService {
   }
 
   /**
+   * 处理 Socket.io 连接
+   */
+  handleSocketIOConnection(socket: any, request: any): void {
+    const deviceId = request.headers['device-id'] || socket.id || crypto.randomUUID();
+    this.logger.log(`Socket.io connection from device: ${deviceId}`);
+
+    // 验证设备认证
+    if (!this.validateDeviceAuth(deviceId, request.headers['authorization'])) {
+      this.logger.warn(`Unauthorized connection attempt from device: ${deviceId}`);
+      socket.disconnect(true);
+      return;
+    }
+
+    // 处理连接
+    const connection = this.processSocketIOConnection(deviceId, socket, request);
+
+    // 初始化设备信息
+    this.initializeDeviceInfo(deviceId, request);
+
+    // 发布设备连接事件
+    this.publishDeviceConnectedEvent(deviceId, TransportType.WEBSOCKET, connection.sessionId, request.headers['device-name']);
+
+    // 接收消息
+    socket.on('message', (data: any) => {
+      this.handleWebSocketMessage(deviceId, data);
+    });
+
+    // 接收二进制数据
+    socket.on('binary', (data: Buffer) => {
+      const conn = this.stateService.getConnection(deviceId);
+      if (conn) {
+        this.audioService.handleBinaryAudioData(deviceId, conn, data);
+      }
+    });
+  }
+
+  /**
    * 验证设备认证
    */
   private validateDeviceAuth(deviceId: string, token: string): boolean {
@@ -119,7 +156,7 @@ export class XiaoZhiService {
   }
 
   /**
-   * 处理WebSocket连接
+   * 处理WebSocket连接 (原生 ws 库)
    */
   private processWebSocketConnection(deviceId: string, websocket: WebSocket, request: any): DeviceConnection {
     // 生成会话ID
@@ -127,6 +164,37 @@ export class XiaoZhiService {
 
     // 处理连接
     const connection = this.connectionService.handleWebSocketConnection(websocket, request, deviceId, sessionId);
+
+    // 存储连接
+    this.stateService.addConnection(deviceId, connection);
+
+    return connection;
+  }
+
+  /**
+   * 处理 Socket.io 连接
+   */
+  private processSocketIOConnection(deviceId: string, socket: any, request: any): DeviceConnection {
+    // 生成会话ID
+    const sessionId = this.securityService.generateSecureSessionId(deviceId);
+
+    // 创建连接对象
+    const connection: DeviceConnection = {
+      socket,
+      transport: TransportType.WEBSOCKET,
+      protocolVersion: XiaoZhiProtocolVersion.V1,
+      binaryProtocolVersion: BinaryProtocolVersion.V1,
+      sessionId,
+      deviceState: DeviceState.IDLE,
+      connectionState: ConnectionState.CHANNEL_OPENED,
+      lastActivity: Date.now(),
+      audioParams: {
+        format: 'opus',
+        sample_rate: 16000,
+        channels: 1,
+        frame_duration: 60,
+      },
+    };
 
     // 存储连接
     this.stateService.addConnection(deviceId, connection);

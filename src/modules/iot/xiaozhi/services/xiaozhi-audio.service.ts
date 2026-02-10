@@ -1,12 +1,21 @@
 /**
  * 小智音频处理服务
  * 负责处理音频数据的接收和发送
+ * 
+ * 功能：
+ * - 接收设备音频数据（Opus 格式）
+ * - 解码 Opus 到 PCM
+ * - 音频处理：降噪、AGC、VAD
+ * - 编码 PCM 到 Opus（发送给设备）
+ * - 支持 WebSocket 和 UDP 传输
  */
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeviceConnection, BinaryProtocolVersion } from '../xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../common/events/event-bus.service';
+import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { XiaozhiOpusService } from './xiaozhi-opus.service';
+import { XiaozhiAudioProcessingService, AudioProcessingConfig } from './xiaozhi-audio-processing.service';
 import * as crypto from 'crypto';
 import * as dgram from 'dgram';
 
@@ -72,26 +81,45 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   private readonly processingConfig: AudioProcessingConfig;
   private flushIntervals: Map<string, NodeJS.Timeout> = new Map();
 
+  // 性能监控
+  private performanceMetrics = {
+    totalProcessedPackets: 0,
+    totalProcessingTime: 0,
+    averageProcessingTime: 0,
+    maxProcessingTime: 0,
+    errors: 0,
+  };
+
+  // 音频缓冲池（减少内存分配）
+  private bufferPool: Buffer[] = [];
+  private readonly MAX_POOL_SIZE = 100;
+
   constructor(
     private eventBusService: EventBusService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private opusService: XiaozhiOpusService,
+    private audioProcessingService: XiaozhiAudioProcessingService,
   ) {
     // 音频缓存配置
     this.cacheConfig = {
-      maxCacheSize: 10 * 1024 * 1024, // 10MB
-      batchSize: 4096, // 4KB
-      flushInterval: 100, // 100ms
+      maxCacheSize: this.configService.get<number>('XIAOZHI_MAX_CACHE_SIZE') ?? 10 * 1024 * 1024, // 10MB
+      batchSize: this.configService.get<number>('XIAOZHI_BATCH_SIZE') ?? 4096, // 4KB
+      flushInterval: this.configService.get<number>('XIAOZHI_FLUSH_INTERVAL') ?? 100, // 100ms
     };
 
     // 音频处理配置
     this.processingConfig = {
-      enableNoiseReduction: this.configService.get<boolean>('XIAOZHI_ENABLE_NOISE_REDUCTION') || true,
-      enableVoiceActivityDetection: this.configService.get<boolean>('XIAOZHI_ENABLE_VAD') || true,
-      enableAutomaticGainControl: this.configService.get<boolean>('XIAOZHI_ENABLE_AGC') || true,
-      silenceThreshold: this.configService.get<number>('XIAOZHI_SILENCE_THRESHOLD') || 0.02,
-      voiceActivityTimeout: this.configService.get<number>('XIAOZHI_VOICE_TIMEOUT') || 3000,
-      minSilenceDuration: this.configService.get<number>('XIAOZHI_MIN_SILENCE') || 200,
-      maxSilenceDuration: this.configService.get<number>('XIAOZHI_MAX_SILENCE') || 3000,
+      enableNoiseReduction: this.configService.get<boolean>('XIAOZHI_ENABLE_NOISE_REDUCTION') ?? true,
+      enableVoiceActivityDetection: this.configService.get<boolean>('XIAOZHI_ENABLE_VAD') ?? true,
+      enableAutomaticGainControl: this.configService.get<boolean>('XIAOZHI_ENABLE_AGC') ?? true,
+      silenceThreshold: this.configService.get<number>('XIAOZHI_SILENCE_THRESHOLD') ?? 0.02,
+      voiceActivityTimeout: this.configService.get<number>('XIAOZHI_VOICE_TIMEOUT') ?? 3000,
+      minSilenceDuration: this.configService.get<number>('XIAOZHI_MIN_SILENCE') ?? 200,
+      maxSilenceDuration: this.configService.get<number>('XIAOZHI_MAX_SILENCE') ?? 3000,
+      targetLevel: this.configService.get<number>('XIAOZHI_TARGET_LEVEL') ?? 0.3,
+      maxGain: this.configService.get<number>('XIAOZHI_MAX_GAIN') ?? 10.0,
+      minGain: this.configService.get<number>('XIAOZHI_MIN_GAIN') ?? 0.1,
+      vadMode: (this.configService.get<string>('XIAOZHI_VAD_MODE') as any) ?? 'NORMAL',
     };
   }
 
@@ -186,28 +214,35 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 处理音频数据
+   * 处理音频数据（完整流程）
+   * 
+   * 处理流程：
+   * 1. 解析二进制协议获取 Opus 数据
+   * 2. Opus 解码为 PCM
+   * 3. 音频处理（降噪、AGC、VAD）
+   * 4. 发布音频数据事件（供 STT 服务消费）
+   * 5. 缓存处理
    */
   private processAudioData(deviceId: string, connection: DeviceConnection, audioData: Buffer): void {
+    const startTime = Date.now();
+    
     // 获取或创建音频流状态
     const streamKey = `${deviceId}:${connection.sessionId}`;
     let streamState = this.audioStreams.get(streamKey);
     
     if (!streamState) {
-      streamState = {
-        deviceId,
-        sessionId: connection.sessionId,
-        isStreaming: true,
-        lastActivity: Date.now(),
-        cache: [],
-        cacheSize: 0,
-        packetCount: 0,
-        byteCount: 0,
-        lastVoiceActivity: Date.now(),
-        silenceDuration: 0,
-        audioLevel: 0,
-      };
+      streamState = this.createStreamState(deviceId, connection);
       this.audioStreams.set(streamKey, streamState);
+      
+      // 初始化 Opus 编解码器
+      this.opusService.initialize(
+        deviceId, 
+        connection.audioParams.sample_rate, 
+        connection.audioParams.channels
+      );
+      
+      // 初始化音频处理
+      this.audioProcessingService.initialize(deviceId, this.processingConfig);
       
       // 启动定时刷新
       this.startFlushInterval(streamKey, streamState);
@@ -218,6 +253,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         {
           deviceId,
           sessionId: connection.sessionId,
+          sampleRate: connection.audioParams.sample_rate,
         },
         {
           priority: EventPriority.MEDIUM,
@@ -232,191 +268,189 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
     streamState.packetCount++;
     streamState.byteCount += audioData.length;
 
-    // 音频处理
-    let processedData = audioData;
-
-    // 计算音频电平
-    const audioLevel = this.calculateAudioLevel(audioData);
-    streamState.audioLevel = audioLevel;
-
-    // 自动增益控制
-    if (this.processingConfig.enableAutomaticGainControl) {
-      processedData = this.applyAutomaticGainControl(processedData, audioLevel);
-    }
-
-    // 降噪处理
-    if (this.processingConfig.enableNoiseReduction) {
-      processedData = this.applyNoiseReduction(processedData);
-    }
-
-    // 语音活动检测
-    if (this.processingConfig.enableVoiceActivityDetection) {
-      const isVoice = this.detectVoiceActivity(processedData, audioLevel);
+    try {
+      // 1. Opus 解码为 PCM
+      const pcmData = this.opusService.decode(deviceId, audioData);
       
-      if (isVoice) {
-        streamState.lastVoiceActivity = now;
-        streamState.silenceDuration = 0;
-        
-        // 发布语音活动开始事件
-        if (streamState.silenceDuration > this.processingConfig.minSilenceDuration) {
-          this.eventBusService.publish(
-            EventType.VOICE_ACTIVITY_STARTED,
-            {
-              deviceId,
-              sessionId: connection.sessionId,
-              timestamp: now,
-              audioLevel,
-            },
-            {
-              priority: EventPriority.MEDIUM,
-              source: 'XiaoZhiAudioService',
-            }
-          );
-        }
-      } else {
-        streamState.silenceDuration += 10; // 假设10ms的音频帧
+      if (pcmData.length === 0) {
+        this.logger.warn(`Decoded PCM data is empty for device ${deviceId}`);
+        return;
+      }
+
+      // 2. 音频处理（降噪、AGC、VAD）
+      const processingResult = this.audioProcessingService.processAudio(deviceId, pcmData);
+      
+      if (!processingResult.hasVoice) {
+        this.logger.debug(`Silence detected for device ${deviceId}, skipping`);
+        streamState.silenceDuration += 60; // 60ms 帧
         
         // 检查是否超过最大静音时长
         if (streamState.silenceDuration > this.processingConfig.maxSilenceDuration) {
-          // 发布语音活动结束事件
-          this.eventBusService.publish(
-            EventType.VOICE_ACTIVITY_ENDED,
-            {
-              deviceId,
-              sessionId: connection.sessionId,
-              timestamp: now,
-              silenceDuration: streamState.silenceDuration,
-            },
-            {
-              priority: EventPriority.MEDIUM,
-              source: 'XiaoZhiAudioService',
-            }
-          );
-          
-          // 刷新缓存，确保语音片段被及时处理
-          this.flushAudioCache(streamKey, streamState, connection);
+          this.handleSilenceTimeout(deviceId, connection, streamState, now);
         }
+        return;
       }
-    }
 
-    // 添加到缓存
-    streamState.cache.push(processedData);
-    streamState.cacheSize += processedData.length;
+      // 有语音，更新状态
+      streamState.lastVoiceActivity = now;
+      streamState.silenceDuration = 0;
+      streamState.audioLevel = processingResult.voiceLevel;
 
-    // 检查是否需要立即刷新
-    if (streamState.cacheSize >= this.cacheConfig.batchSize) {
-      this.flushAudioCache(streamKey, streamState, connection);
-    }
+      // 3. 发布音频数据事件（供 STT 服务消费）
+      this.eventBusService.publish(
+        EventType.AUDIO_DATA_RECEIVED,
+        {
+          deviceId,
+          sessionId: connection.sessionId,
+          pcmData: processingResult.processed,
+          sampleRate: connection.audioParams.sample_rate,
+          channels: connection.audioParams.channels,
+          timestamp: now,
+          metadata: {
+            noiseLevel: processingResult.noiseLevel,
+            voiceLevel: processingResult.voiceLevel,
+            appliedGain: processingResult.appliedGain,
+            processingTime: Date.now() - startTime,
+          },
+        },
+        {
+          priority: EventPriority.HIGH,
+          source: 'XiaoZhiAudioService',
+        }
+      );
 
-    // 更新音频质量统计
-    this.updateAudioQuality(deviceId, false, audioLevel);
+      // 4. 重新编码为 Opus（用于缓存或转发）
+      const processedOpus = this.opusService.encode(deviceId, processingResult.processed);
 
-    this.logger.debug(`Processing audio data from device ${deviceId}, size: ${processedData.length}, cache size: ${streamState.cacheSize}, level: ${audioLevel.toFixed(3)}`);
-  }
+      // 5. 添加到缓存
+      streamState.cache.push(processedOpus);
+      streamState.cacheSize += processedOpus.length;
 
-  /**
-   * 计算音频电平
-   */
-  private calculateAudioLevel(audioData: Buffer): number {
-    // 简单的电平计算：计算RMS值
-    let sum = 0;
-    for (let i = 0; i < audioData.length; i += 2) {
-      const sample = audioData.readInt16LE(i);
-      sum += sample * sample;
-    }
-    const rms = Math.sqrt(sum / (audioData.length / 2));
-    const level = Math.min(rms / 32768, 1); // 归一化到0-1
-    return level;
-  }
-
-  /**
-   * 应用自动增益控制
-   */
-  private applyAutomaticGainControl(audioData: Buffer, level: number): Buffer {
-    // 简单的自动增益控制：调整增益使电平保持在目标水平
-    const targetLevel = 0.3; // 目标电平
-    const gain = Math.min(targetLevel / (level || 0.01), 10); // 最大增益10倍
-    
-    const output = Buffer.alloc(audioData.length);
-    for (let i = 0; i < audioData.length; i += 2) {
-      const sample = audioData.readInt16LE(i);
-      const amplified = Math.max(-32768, Math.min(32767, Math.round(sample * gain)));
-      output.writeInt16LE(amplified, i);
-    }
-    
-    return output;
-  }
-
-  /**
-   * 应用降噪处理
-   */
-  private applyNoiseReduction(audioData: Buffer): Buffer {
-    // 简单的降噪处理：基于阈值的噪声门
-    const threshold = 0.05; // 噪声阈值
-    
-    const output = Buffer.alloc(audioData.length);
-    for (let i = 0; i < audioData.length; i += 2) {
-      const sample = audioData.readInt16LE(i);
-      const level = Math.abs(sample) / 32768;
-      
-      if (level < threshold) {
-        // 低于阈值的视为噪声，衰减
-        const reduced = Math.round(sample * 0.2); // 衰减80%
-        output.writeInt16LE(reduced, i);
-      } else {
-        // 保留语音信号
-        output.writeInt16LE(sample, i);
+      // 检查是否需要立即刷新
+      if (streamState.cacheSize >= this.cacheConfig.batchSize) {
+        this.flushAudioCache(streamKey, streamState, connection);
       }
+
+      // 更新音频质量统计
+      this.updateAudioQuality(deviceId, false, processingResult.voiceLevel);
+
+      this.logger.debug(
+        `Audio processed for device ${deviceId}, ` +
+        `opus: ${audioData.length}B -> pcm: ${pcmData.length}B -> processed: ${processedOpus.length}B, ` +
+        `level: ${processingResult.voiceLevel.toFixed(3)}, gain: ${processingResult.appliedGain.toFixed(2)}, ` +
+        `time: ${Date.now() - startTime}ms`
+      );
+    } catch (error) {
+      this.logger.error(`Audio processing failed for device ${deviceId}:`, error);
+      this.updateAudioQuality(deviceId, true);
+      this.updatePerformanceMetrics(Date.now() - startTime, true);
     }
+  }
+
+  /**
+   * 创建音频流状态
+   */
+  private createStreamState(deviceId: string, connection: DeviceConnection): AudioStreamState {
+    return {
+      deviceId,
+      sessionId: connection.sessionId,
+      isStreaming: true,
+      lastActivity: Date.now(),
+      cache: [],
+      cacheSize: 0,
+      packetCount: 0,
+      byteCount: 0,
+      lastVoiceActivity: Date.now(),
+      silenceDuration: 0,
+      audioLevel: 0,
+    };
+  }
+
+  /**
+   * 处理静音超时
+   */
+  private handleSilenceTimeout(
+    deviceId: string, 
+    connection: DeviceConnection, 
+    streamState: AudioStreamState, 
+    now: number
+  ): void {
+    // 发布语音活动结束事件
+    this.eventBusService.publish(
+      EventType.VOICE_ACTIVITY_ENDED,
+      {
+        deviceId,
+        sessionId: connection.sessionId,
+        timestamp: now,
+        silenceDuration: streamState.silenceDuration,
+      },
+      {
+        priority: EventPriority.MEDIUM,
+        source: 'XiaoZhiAudioService',
+      }
+    );
     
-    return output;
+    // 刷新缓存
+    this.flushAudioCache(`${deviceId}:${connection.sessionId}`, streamState, connection);
   }
 
   /**
-   * 检测语音活动
+   * 发送音频数据到设备（TTS 音频）
+   * 
+   * 流程：
+   * 1. 将 PCM 音频编码为 Opus
+   * 2. 构建二进制协议
+   * 3. 发送到设备
    */
-  private detectVoiceActivity(audioData: Buffer, level: number): boolean {
-    // 基于电平的语音活动检测
-    return level > this.processingConfig.silenceThreshold;
-  }
-
-  /**
-   * 发送音频数据到设备
-   */
-  sendAudioData(deviceId: string, connection: DeviceConnection, audioData: Buffer): void {
+  async sendAudioData(deviceId: string, connection: DeviceConnection, pcmData: Buffer): Promise<void> {
+    const startTime = Date.now();
+    
     try {
+      // 1. 确保 Opus 编码器已初始化
+      if (!this.opusService.isInitialized(deviceId)) {
+        this.opusService.initialize(
+          deviceId,
+          connection.audioParams.sample_rate,
+          connection.audioParams.channels
+        );
+      }
+
+      // 2. PCM 编码为 Opus
+      const opusData = this.opusService.encode(deviceId, pcmData);
+      
+      if (opusData.length === 0) {
+        this.logger.warn(`Encoded Opus data is empty for device ${deviceId}`);
+        return;
+      }
+
+      // 3. 构建二进制协议
+      const binaryData = this.buildBinaryProtocol(
+        opusData,
+        connection.binaryProtocolVersion,
+        Date.now()
+      );
+
+      // 4. 发送音频数据
       let sent = false;
       
       if (connection.transport === 'websocket') {
-        // 通过WebSocket发送
-        if (connection.websocket && connection.websocket.readyState === connection.websocket.OPEN) {
-          connection.websocket.send(audioData);
-          sent = true;
-          this.logger.debug(`Sent audio data via WebSocket to device ${deviceId}, size: ${audioData.length}`);
-        } else {
-          this.logger.warn(`WebSocket not available for device ${deviceId}, readyState: ${connection.websocket?.readyState}`);
-        }
+        sent = await this.sendWebSocketAudio(deviceId, connection, binaryData);
       } else if (connection.transport === 'udp') {
-        // 通过UDP发送（加密）
-        if (connection.udpSocket && connection.udpInfo) {
-          this.sendEncryptedUdpAudio(deviceId, connection, audioData);
-          sent = true;
-        } else {
-          // 尝试创建UDP连接
-          this.logger.warn(`UDP connection not available for device ${deviceId}, creating new connection`);
-          this.createUdpConnection(deviceId, connection);
-        }
+        sent = await this.sendUdpAudio(deviceId, connection, binaryData);
       }
 
-      // 发布事件
+      // 5. 发布事件
       this.eventBusService.publish(
         EventType.AUDIO_DATA_SENT,
         {
           deviceId,
           sessionId: connection.sessionId,
-          size: audioData.length,
+          pcmSize: pcmData.length,
+          opusSize: opusData.length,
+          binarySize: binaryData.length,
           sent,
-          transport: connection.transport
+          transport: connection.transport,
+          processingTime: Date.now() - startTime,
         },
         {
           priority: EventPriority.MEDIUM,
@@ -426,6 +460,12 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
 
       if (!sent) {
         this.logger.warn(`Failed to send audio data to device ${deviceId}, no available transport`);
+      } else {
+        this.logger.debug(
+          `Sent audio to device ${deviceId}: ` +
+          `pcm=${pcmData.length}B -> opus=${opusData.length}B -> binary=${binaryData.length}B, ` +
+          `time=${Date.now() - startTime}ms`
+        );
       }
     } catch (error) {
       this.logger.error(`Failed to send audio data to device ${deviceId}:`, error);
@@ -434,9 +474,8 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         {
           deviceId,
           error: error.message,
-          type: 'audio',
+          type: 'audio_send',
           transport: connection.transport,
-          details: typeof error === 'object' ? JSON.stringify(error) : String(error),
         },
         {
           priority: EventPriority.HIGH,
@@ -447,39 +486,144 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 发送加密的UDP音频数据
+   * 构建二进制协议
    */
-  private sendEncryptedUdpAudio(deviceId: string, connection: DeviceConnection, audioData: Buffer): void {
+  private buildBinaryProtocol(
+    opusData: Buffer,
+    version: BinaryProtocolVersion,
+    timestamp: number
+  ): Buffer {
+    switch (version) {
+      case BinaryProtocolVersion.V1:
+        // V1: 直接发送 Opus 数据
+        return opusData;
+        
+      case BinaryProtocolVersion.V2:
+        // V2: 带时间戳的协议
+        // | version (2B) | type (2B) | reserved (4B) | timestamp (4B) | payload_size (4B) | payload |
+        const v2Header = Buffer.alloc(16);
+        v2Header.writeUInt16BE(2, 0);           // version
+        v2Header.writeUInt16BE(0, 2);           // type (0 = opus)
+        v2Header.writeUInt32BE(0, 4);           // reserved
+        v2Header.writeUInt32BE(timestamp, 8);   // timestamp
+        v2Header.writeUInt32BE(opusData.length, 12); // payload_size
+        return Buffer.concat([v2Header, opusData]);
+        
+      case BinaryProtocolVersion.V3:
+        // V3: 简化协议
+        // | type (1B) | reserved (1B) | payload_size (2B) | payload |
+        const v3Header = Buffer.alloc(4);
+        v3Header.writeUInt8(0, 0);              // type (0 = opus)
+        v3Header.writeUInt8(0, 1);              // reserved
+        v3Header.writeUInt16BE(opusData.length, 2); // payload_size
+        return Buffer.concat([v3Header, opusData]);
+        
+      default:
+        return opusData;
+    }
+  }
+
+  /**
+   * 通过 WebSocket/Socket.io 发送音频
+   */
+  private async sendWebSocketAudio(
+    deviceId: string,
+    connection: DeviceConnection,
+    audioData: Buffer
+  ): Promise<boolean> {
+    // 优先使用 Socket.io
+    if (connection.socket) {
+      return this.sendSocketIOAudio(deviceId, connection, audioData);
+    }
+
+    // 使用原生 WebSocket
+    return new Promise((resolve) => {
+      if (!connection.websocket || connection.websocket.readyState !== 1) { // WebSocket.OPEN = 1
+        this.logger.warn(`WebSocket not available for device ${deviceId}, readyState: ${connection.websocket?.readyState}`);
+        resolve(false);
+        return;
+      }
+
+      connection.websocket.send(audioData, (error) => {
+        if (error) {
+          this.logger.error(`WebSocket send error for device ${deviceId}:`, error);
+          this.updateAudioQuality(deviceId, true);
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  /**
+   * 通过 Socket.io 发送音频
+   */
+  private async sendSocketIOAudio(
+    deviceId: string,
+    connection: DeviceConnection,
+    audioData: Buffer
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!connection.socket || !connection.socket.connected) {
+        this.logger.warn(`Socket.io not available for device ${deviceId}, connected: ${connection.socket?.connected}`);
+        resolve(false);
+        return;
+      }
+
+      connection.socket.emit('binary', audioData, (error: any) => {
+        if (error) {
+          this.logger.error(`Socket.io send error for device ${deviceId}:`, error);
+          this.updateAudioQuality(deviceId, true);
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  /**
+   * 通过 UDP 发送音频
+   */
+  private async sendUdpAudio(
+    deviceId: string,
+    connection: DeviceConnection,
+    audioData: Buffer
+  ): Promise<boolean> {
     if (!connection.udpSocket || !connection.udpInfo) {
-      return;
+      this.logger.warn(`UDP connection not available for device ${deviceId}`);
+      return false;
     }
 
     try {
-      // 生成加密密钥
-      const key = Buffer.from(connection.udpInfo.key, 'hex');
-      const nonce = Buffer.from(connection.udpInfo.nonce, 'hex');
-      
-      // 这里可以实现UDP音频数据的加密和发送
-      // 使用AES-CTR加密
-      const encryptedData = this.encryptAudioData(audioData, key, nonce);
-      
-      // 发送加密数据
-      connection.udpSocket.send(
-        encryptedData,
-        connection.udpInfo.port,
-        connection.udpInfo.server,
-        (error) => {
-          if (error) {
-            this.logger.error(`Failed to send UDP audio to device ${deviceId}:`, error);
-            this.updateAudioQuality(deviceId, true);
-          }
-        }
+      // 加密音频数据
+      const encryptedData = this.encryptAudioData(
+        audioData,
+        Buffer.from(connection.udpInfo.key, 'hex'),
+        Buffer.from(connection.udpInfo.nonce, 'hex')
       );
 
-      this.logger.debug(`Sending encrypted UDP audio to device ${deviceId}, size: ${encryptedData.length}`);
+      // 发送数据
+      return new Promise((resolve) => {
+        connection.udpSocket!.send(
+          encryptedData,
+          connection.udpInfo!.port,
+          connection.udpInfo!.server,
+          (error) => {
+            if (error) {
+              this.logger.error(`UDP send error for device ${deviceId}:`, error);
+              this.updateAudioQuality(deviceId, true);
+              resolve(false);
+            } else {
+              resolve(true);
+            }
+          }
+        );
+      });
     } catch (error) {
-      this.logger.error(`Failed to encrypt UDP audio for device ${deviceId}:`, error);
-      this.updateAudioQuality(deviceId, true);
+      this.logger.error(`Failed to send UDP audio for device ${deviceId}:`, error);
+      return false;
     }
   }
 
@@ -487,8 +631,6 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
    * 加密音频数据
    */
   private encryptAudioData(data: Buffer, key: Buffer, nonce: Buffer): Buffer {
-    // 这里实现简单的加密逻辑
-    // 实际应用中应该使用更安全的加密算法
     const cipher = crypto.createCipheriv('aes-128-ctr', key, nonce);
     const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
     return encrypted;
@@ -738,6 +880,103 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         this.stopAudioStream(streamKey, streamState);
       }
     }
+  }
+
+  /**
+   * 获取性能指标
+   */
+  getPerformanceMetrics() {
+    return {
+      ...this.performanceMetrics,
+      activeStreams: this.audioStreams.size,
+      bufferPoolSize: this.bufferPool.length,
+    };
+  }
+
+  /**
+   * 重置性能指标
+   */
+  resetPerformanceMetrics(): void {
+    this.performanceMetrics = {
+      totalProcessedPackets: 0,
+      totalProcessingTime: 0,
+      averageProcessingTime: 0,
+      maxProcessingTime: 0,
+      errors: 0,
+    };
+  }
+
+  /**
+   * 从缓冲池获取 Buffer
+   */
+  private getBufferFromPool(size: number): Buffer {
+    // 查找合适大小的 buffer
+    const index = this.bufferPool.findIndex(b => b.length >= size);
+    if (index !== -1) {
+      return this.bufferPool.splice(index, 1)[0];
+    }
+    // 没有合适的，创建新的
+    return Buffer.alloc(size);
+  }
+
+  /**
+   * 归还 Buffer 到缓冲池
+   */
+  private returnBufferToPool(buffer: Buffer): void {
+    if (this.bufferPool.length < this.MAX_POOL_SIZE) {
+      // 清空 buffer 内容
+      buffer.fill(0);
+      this.bufferPool.push(buffer);
+    }
+  }
+
+  /**
+   * 更新性能指标
+   */
+  private updatePerformanceMetrics(processingTime: number, isError: boolean = false): void {
+    this.performanceMetrics.totalProcessedPackets++;
+    this.performanceMetrics.totalProcessingTime += processingTime;
+    this.performanceMetrics.averageProcessingTime = 
+      this.performanceMetrics.totalProcessingTime / this.performanceMetrics.totalProcessedPackets;
+    this.performanceMetrics.maxProcessingTime = 
+      Math.max(this.performanceMetrics.maxProcessingTime, processingTime);
+    
+    if (isError) {
+      this.performanceMetrics.errors++;
+    }
+
+    // 如果平均处理时间超过阈值，记录警告
+    if (this.performanceMetrics.averageProcessingTime > 50) { // 50ms
+      this.logger.warn(
+        `Audio processing performance warning: ` +
+        `avg=${this.performanceMetrics.averageProcessingTime.toFixed(2)}ms, ` +
+        `max=${this.performanceMetrics.maxProcessingTime}ms`
+      );
+    }
+  }
+
+  /**
+   * 获取音频流统计
+   */
+  getAudioStreamStats(deviceId: string): {
+    streamCount: number;
+    totalPackets: number;
+    totalBytes: number;
+    averageLevel: number;
+  } | null {
+    const streams = Array.from(this.audioStreams.values()).filter(s => s.deviceId === deviceId);
+    if (streams.length === 0) return null;
+
+    const totalPackets = streams.reduce((sum, s) => sum + s.packetCount, 0);
+    const totalBytes = streams.reduce((sum, s) => sum + s.byteCount, 0);
+    const averageLevel = streams.reduce((sum, s) => sum + s.audioLevel, 0) / streams.length;
+
+    return {
+      streamCount: streams.length,
+      totalPackets,
+      totalBytes,
+      averageLevel,
+    };
   }
 }
 
