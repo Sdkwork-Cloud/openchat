@@ -1,15 +1,19 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { GroupService } from './group.service';
+import { GroupBlacklistService } from './group-blacklist.service';
 import { Group, GroupMember, GroupInvitation } from './group.interface';
-import { JwtAuthGuard } from '../user/jwt-auth.guard';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 
 @ApiTags('groups')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('groups')
 export class GroupController {
-  constructor(private groupService: GroupService) {}
+  constructor(
+    private groupService: GroupService,
+    private groupBlacklistService: GroupBlacklistService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: '创建群组' })
@@ -139,5 +143,146 @@ export class GroupController {
   @ApiResponse({ status: 400, description: '邀请不存在或状态不正确' })
   async cancelGroupInvitation(@Param('id') id: string): Promise<boolean> {
     return this.groupService.cancelGroupInvitation(id);
+  }
+
+  @Post(':groupId/blacklist')
+  @ApiOperation({ summary: '添加用户到群黑名单' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiBody({ description: '用户ID', required: true, schema: { type: 'object', properties: { userId: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: '成功添加到黑名单' })
+  async addToBlacklist(
+    @Param('groupId') groupId: string,
+    @Body('userId') userId: string,
+  ): Promise<boolean> {
+    return this.groupBlacklistService.addUserToBlacklist(groupId, userId);
+  }
+
+  @Delete(':groupId/blacklist/:userId')
+  @ApiOperation({ summary: '从群黑名单移除用户' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiParam({ name: 'userId', description: '用户ID' })
+  @ApiResponse({ status: 200, description: '成功移除黑名单' })
+  async removeFromBlacklist(
+    @Param('groupId') groupId: string,
+    @Param('userId') userId: string,
+  ): Promise<boolean> {
+    return this.groupBlacklistService.removeUserFromBlacklist(groupId, userId);
+  }
+
+  @Get(':groupId/blacklist')
+  @ApiOperation({ summary: '获取群黑名单列表' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiResponse({ status: 200, description: '成功获取黑名单列表' })
+  async getBlacklist(@Param('groupId') groupId: string): Promise<string[]> {
+    return this.groupBlacklistService.getBlacklist(groupId);
+  }
+
+  @Post(':groupId/whitelist')
+  @ApiOperation({ summary: '添加用户到群白名单' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiBody({ description: '用户ID', required: true, schema: { type: 'object', properties: { userId: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: '成功添加到白名单' })
+  async addToWhitelist(
+    @Param('groupId') groupId: string,
+    @Body('userId') userId: string,
+  ): Promise<boolean> {
+    return this.groupBlacklistService.addUserToWhitelist(groupId, userId);
+  }
+
+  @Delete(':groupId/whitelist/:userId')
+  @ApiOperation({ summary: '从群白名单移除用户' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiParam({ name: 'userId', description: '用户ID' })
+  @ApiResponse({ status: 200, description: '成功移除白名单' })
+  async removeFromWhitelist(
+    @Param('groupId') groupId: string,
+    @Param('userId') userId: string,
+  ): Promise<boolean> {
+    return this.groupBlacklistService.removeUserFromWhitelist(groupId, userId);
+  }
+
+  @Get(':groupId/whitelist')
+  @ApiOperation({ summary: '获取群白名单列表' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiResponse({ status: 200, description: '成功获取白名单列表' })
+  async getWhitelist(@Param('groupId') groupId: string): Promise<string[]> {
+    return this.groupBlacklistService.getWhitelist(groupId);
+  }
+
+  @Post(':groupId/kick/:userId')
+  @ApiOperation({ summary: '踢出群成员并加入黑名单' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiParam({ name: 'userId', description: '用户ID' })
+  @ApiResponse({ status: 200, description: '成功踢出成员' })
+  async kickMember(
+    @Param('groupId') groupId: string,
+    @Param('userId') userId: string,
+  ): Promise<boolean> {
+    return this.groupBlacklistService.kickMember(groupId, userId);
+  }
+
+  @Post(':groupId/quit')
+  @ApiOperation({ summary: '退出群组' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiBody({ description: '用户ID', required: true, schema: { type: 'object', properties: { userId: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: '成功退出群组' })
+  @ApiResponse({ status: 400, description: '群主不能退出群组' })
+  async quitGroup(
+    @Param('groupId') groupId: string,
+    @Body('userId') userId: string,
+  ): Promise<boolean> {
+    return this.groupService.quitGroup(groupId, userId);
+  }
+
+  @Put(':groupId/announcement')
+  @ApiOperation({ summary: '更新群公告' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiBody({ description: '群公告', required: true, schema: { type: 'object', properties: { announcement: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: '成功更新群公告', type: Group })
+  async updateAnnouncement(
+    @Param('groupId') groupId: string,
+    @Body('announcement') announcement: string,
+  ): Promise<Group | null> {
+    return this.groupService.updateGroup(groupId, { announcement } as Partial<Group>);
+  }
+
+  @Put(':groupId/mute-all')
+  @ApiOperation({ summary: '全员禁言设置' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiBody({ description: '禁言设置', required: true, schema: { type: 'object', properties: { muteAll: { type: 'boolean' } } } })
+  @ApiResponse({ status: 200, description: '成功设置全员禁言', type: Group })
+  async setMuteAll(
+    @Param('groupId') groupId: string,
+    @Body('muteAll') muteAll: boolean,
+  ): Promise<Group | null> {
+    return this.groupService.updateGroup(groupId, { muteAll } as Partial<Group>);
+  }
+
+  @Put(':groupId/members/:userId/mute')
+  @ApiOperation({ summary: '禁言群成员' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiParam({ name: 'userId', description: '用户ID' })
+  @ApiBody({ description: '禁言时长（秒，0表示取消禁言）', required: true, schema: { type: 'object', properties: { duration: { type: 'number' } } } })
+  @ApiResponse({ status: 200, description: '成功设置成员禁言' })
+  async muteMember(
+    @Param('groupId') groupId: string,
+    @Param('userId') userId: string,
+    @Body('duration') duration: number,
+  ): Promise<boolean> {
+    return this.groupService.muteMember(groupId, userId, duration);
+  }
+
+  @Post(':groupId/transfer')
+  @ApiOperation({ summary: '转让群主' })
+  @ApiParam({ name: 'groupId', description: '群组ID' })
+  @ApiBody({ description: '新群主ID', required: true, schema: { type: 'object', properties: { newOwnerId: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: '成功转让群主', type: Group })
+  @ApiResponse({ status: 400, description: '操作者不是群主或新群主不是群成员' })
+  async transferGroup(
+    @Param('groupId') groupId: string,
+    @Body('newOwnerId') newOwnerId: string,
+    @Body('operatorId') operatorId: string,
+  ): Promise<Group | null> {
+    return this.groupService.transferGroup(groupId, operatorId, newOwnerId);
   }
 }

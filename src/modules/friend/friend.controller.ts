@@ -2,7 +2,7 @@ import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards } from '@n
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { FriendService } from './friend.service';
 import { FriendRequest } from './friend.interface';
-import { JwtAuthGuard } from '../user/jwt-auth.guard';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 
 @ApiTags('friends')
 @ApiBearerAuth()

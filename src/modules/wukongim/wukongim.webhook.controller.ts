@@ -16,8 +16,9 @@ import {
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Message } from '../message/message.entity';
+import { MessageStatus } from '../message/message.interface';
 import { WukongIMWebhookEvent } from './wukongim.constants';
 
 /**
@@ -156,8 +157,7 @@ export class WukongIMWebhookController {
     await this.messageRepository.update(
       { id: data.message_id },
       {
-        status: 'delivered',
-        // 可以添加 deliveredAt 字段记录送达时间
+        status: MessageStatus.DELIVERED,
       },
     );
 
@@ -171,14 +171,10 @@ export class WukongIMWebhookController {
   private async handleMessageRead(data: MessageReadData): Promise<void> {
     this.logger.debug(`消息已读: ${data.message_ids.join(',')}, 阅读者: ${data.uid}`);
 
-    // 批量更新消息状态为已读
-    for (const messageId of data.message_ids) {
+    if (data.message_ids.length > 0) {
       await this.messageRepository.update(
-        { id: messageId },
-        {
-          status: 'read',
-          // 可以添加 readAt 字段记录阅读时间
-        },
+        { id: In(data.message_ids) },
+        { status: MessageStatus.READ },
       );
     }
 

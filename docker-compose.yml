@@ -1,104 +1,219 @@
 # ============================================
 # OpenChat Server - Docker Compose 配置
-# 集成悟空IM，实现一键部署
+# 开发环境版本
+# 支持使用外部数据库、Redis 和 WukongIM
 # ============================================
 
 version: '3.8'
 
 services:
   # ============================================
-  # PostgreSQL 数据库
+  # PostgreSQL 数据库 (可选 - 可配置为外部数据库)
   # ============================================
   postgres:
-    image: postgres:15-alpine
+    image: postgres:${POSTGRES_VERSION:-15-alpine}
     container_name: openchat-postgres
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
+    profiles:
+      - database
     environment:
-      POSTGRES_USER: openchat
-      POSTGRES_PASSWORD: openchat_password
-      POSTGRES_DB: openchat
+      POSTGRES_USER: ${DB_USER:-openchat}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-openchat_password}
+      POSTGRES_DB: ${DB_NAME:-openchat}
       PGDATA: /var/lib/postgresql/data/pgdata
+      # PostgreSQL 性能优化配置
+      POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS:-200}
+      POSTGRES_SHARED_BUFFERS: ${POSTGRES_SHARED_BUFFES:-128MB}
+      POSTGRES_EFFECTIVE_CACHE_SIZE: ${POSTGRES_EFFECTIVE_CACHE_SIZE:-512MB}
+      POSTGRES_MAINTENANCE_WORK_MEM: ${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: ${POSTGRES_CHECKPOINT_COMPLETION_TARGET:-0.9}
+      POSTGRES_WAL_BUFFERS: ${POSTGRES_WAL_BUFFERS:-16MB}
+      POSTGRES_DEFAULT_STATISTICS_TARGET: ${POSTGRES_DEFAULT_STATISTICS_TARGET:-100}
+      POSTGRES_RANDOM_PAGE_COST: ${POSTGRES_RANDOM_PAGE_COST:-1.1}
+      POSTGRES_EFFECTIVE_IO_CONCURRENCY: ${POSTGRES_EFFECTIVE_IO_CONCURRENCY:-200}
+      POSTGRES_WORK_MEM: ${POSTGRES_WORK_MEM:-4MB}
+      POSTGRES_MIN_WAL_SIZE: ${POSTGRES_MIN_WAL_SIZE:-1GB}
+      POSTGRES_MAX_WAL_SIZE: ${POSTGRES_MAX_WAL_SIZE:-4GB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     ports:
-      - "127.0.0.1:5432:5432"  # 仅本地访问，安全考虑
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openchat -d openchat"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-openchat} -d ${DB_NAME:-openchat}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - openchat-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMORY_LIMIT:-1G}
+        reservations:
+          memory: ${POSTGRES_MEMORY_RESERVE:-512M}
 
   # ============================================
-  # Redis 缓存
+  # Redis 缓存 (可选 - 可配置为外部 Redis)
   # ============================================
   redis:
-    image: redis:7-alpine
+    image: redis:${REDIS_VERSION:-7-alpine}
     container_name: openchat-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass redis_password
+    restart: ${RESTART_POLICY:-unless-stopped}
+    profiles:
+      - cache
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-redis_password}
+      --maxmemory ${REDIS_MAX_MEMORY:-256mb}
+      --maxmemory-policy ${REDIS_MAX_MEMORY_POLICY:-allkeys-lru}
+      --timeout 0
+      --tcp-keepalive 300
+      --save 900 1
+      --save 300 10
+      --save 60 10000
     volumes:
       - redis_data:/data
     ports:
-      - "127.0.0.1:6379:6379"  # 仅本地访问
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_password}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 10s
     networks:
       - openchat-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEMORY_LIMIT:-512M}
+        reservations:
+          memory: ${REDIS_MEMORY_RESERVE:-256M}
 
   # ============================================
-  # 悟空IM 服务
+  # 悟空IM 服务 (可选)
   # ============================================
   wukongim:
-    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2
+    image: ${WUKONGIM_IMAGE:-registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2}
     container_name: openchat-wukongim
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
+    profiles:
+      - im
     environment:
-      - "WK_CLUSTER_NODEID=1001"
-      - "WK_MODE=release"
-      - "WK_EXTERNAL_IP=${EXTERNAL_IP:-127.0.0.1}"  # 服务器外网IP，需要配置
-      - "WK_CLUSTER_SERVERADDR=${INTERNAL_IP:-wukongim}:11110"  # 节点内部通信地址
-      - "WK_CLUSTER_APIURL=http://wukongim:5001"  # API内网地址
-      - "WK_TRACE_PROMETHEUSAPIURL=http://prometheus:9090"  # Prometheus监控
-      # - "WK_TOKENAUTHON=true"  # 生产环境建议开启token认证
+      # 集群配置
+      - "WK_CLUSTER_NODEID=${WK_CLUSTER_NODEID:-1001}"
+      - "WK_MODE=${WK_MODE:-release}"
+      - "WK_EXTERNAL_IP=${EXTERNAL_IP:-127.0.0.1}"
+      - "WK_CLUSTER_SERVERADDR=${INTERNAL_IP:-wukongim}:11110"
+      - "WK_CLUSTER_APIURL=http://wukongim:5001"
+      - "WK_TRACE_PROMETHEUSAPIURL=http://prometheus:9090"
+      - "WK_TOKENAUTHON=${WUKONGIM_TOKEN_AUTH:-false}"
+      
+      # 端口配置
+      - "WK_HTTP_PORT=5001"
+      - "WK_TCP_PORT=5100"
+      - "WK_WS_PORT=5200"
+      - "WK_MANAGER_PORT=5300"
+      - "WK_CLUSTER_PORT=11110"
+      - "WK_NODEID=${WK_CLUSTER_NODEID:-1001}"
+      - "WK_DATA_DIR=/root/wukongim"
+      
+      # 性能配置
+      - "WK_CONN_MAX=${WK_CONN_MAX:-10000}"
+      - "WK_CHANNEL_MAX=${WK_CHANNEL_MAX:-1000}"
+      - "WK_MAX_CHANNELS_PER_USER=${WK_MAX_CHANNELS_PER_USER:-100}"
+      
+      # 日志配置
+      - "WK_LOG_LEVEL=${WK_LOG_LEVEL:-info}"
+      - "WK_LOG_MAX_SIZE=${WK_LOG_MAX_SIZE:-100}"
+      - "WK_LOG_MAX_FILES=${WK_LOG_MAX_FILES:-7}"
+      
+      # 消息配置
+      - "WK_MSG_MAX_SIZE=${WK_MSG_MAX_SIZE:-4096}"
+      - "WK_MSG_CACHE_SIZE=${WK_MSG_CACHE_SIZE:-1000}"
+      - "WK_MSG_GC_INTERVAL=${WK_MSG_GC_INTERVAL:-300}"
+      
+      # 存储配置
+      - "WK_STORE_TYPE=${WK_STORE_TYPE:-sqlite}"
+      - "WK_STORE_PATH=/root/wukongim/data"
+      
+      # Redis 配置（用于分布式）
+      - "WK_REDIS_HOST=${WK_REDIS_HOST:-}"
+      - "WK_REDIS_PORT=${WK_REDIS_PORT:-6379}"
+      - "WK_REDIS_PASSWORD=${WK_REDIS_PASSWORD:-}"
+      - "WK_REDIS_DB=${WK_REDIS_DB:-0}"
+      
+      # Token 配置
+      - "WK_TOKEN_SECRET=${WK_TOKEN_SECRET:-}"
+      - "WK_TOKEN_EXPIRE=${WK_TOKEN_EXPIRE:-86400}"
+      
+      # Webhook 配置
+      - "WK_WEBHOOK_ENABLED=${WK_WEBHOOK_ENABLED:-false}"
+      - "WK_WEBHOOK_URL=${WK_WEBHOOK_URL:-}"
+      - "WK_WEBHOOK_TIMEOUT=${WK_WEBHOOK_TIMEOUT:-5000}"
+      
+      # 限流配置
+      - "WK_RATE_LIMIT_ENABLED=${WK_RATE_LIMIT_ENABLED:-true}"
+      - "WK_RATE_LIMIT_MAX=${WK_RATE_LIMIT_MAX:-100}"
+      - "WK_RATE_LIMIT_WINDOW=${WK_RATE_LIMIT_WINDOW:-60}"
     healthcheck:
       test: "wget -q -Y off -O /dev/null http://localhost:5001/health > /dev/null 2>&1"
       interval: 10s
       timeout: 10s
       retries: 3
+      start_period: 30s
     volumes:
       - wukongim_data:/root/wukongim
     ports:
-      # 注意：生产环境应该通过防火墙限制5001端口仅内网访问
-      - "5001:5001"     # HTTP API 端口（仅内部使用）
-      - "5100:5100"     # TCP 端口（App端需要访问）
-      - "5200:5200"     # WebSocket 端口（Web端需要访问）
-      - "5300:5300"     # 管理后台端口
-      - "5172:5172"     # Demo 端口
-      - "11110:11110"   # 分布式节点通讯端口
+      - "5001:5001"
+      - "5100:5100"
+      - "5200:5200"
+      - "5300:5300"
+      - "5172:5172"
+      - "11110:11110"
     networks:
       - openchat-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
-  # Prometheus 监控（悟空IM依赖）
+  # Prometheus 监控 (可选)
   # ============================================
   prometheus:
-    image: registry.cn-shanghai.aliyuncs.com/wukongim/prometheus:v2.53.1
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v2.48.0}
     container_name: openchat-prometheus
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
+    profiles:
+      - monitoring
     volumes:
       - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "127.0.0.1:9090:9090"  # 仅本地访问
+      - "${PROMETHEUS_PORT:-9090}:9090"
     networks:
       - openchat-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
   # OpenChat 应用
@@ -107,9 +222,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
+      target: ${BUILD_TARGET:-development}
+      args:
+        NODE_VERSION: ${NODE_VERSION:-18}
     container_name: openchat
-    restart: unless-stopped
+    restart: ${RESTART_POLICY:-unless-stopped}
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,32 +235,66 @@ services:
       wukongim:
         condition: service_started
     environment:
-      NODE_ENV: production
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
       HOST: 0.0.0.0
-      # 数据库配置
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: openchat
-      DB_PASSWORD: openchat_password
-      DB_DATABASE: openchat
-      # Redis 配置
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: redis_password
+      
+      # 数据库配置 - 支持外部数据库
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-openchat}
+      DB_PASSWORD: ${DB_PASSWORD:-openchat_password}
+      DB_NAME: ${DB_NAME:-openchat}
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-true}
+      DB_LOGGING: ${DB_LOGGING:-false}
+      # 连接池配置
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      DB_POOL_MIN: ${DB_POOL_MIN:-5}
+      DB_IDLE_TIMEOUT: ${DB_IDLE_TIMEOUT:-30000}
+      DB_CONNECTION_TIMEOUT: ${DB_CONNECTION_TIMEOUT:-5000}
+      DB_MAX_LIFETIME: ${DB_MAX_LIFETIME:-300000}
+      
+      # Redis 配置 - 支持外部 Redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_QUEUE_DB: ${REDIS_QUEUE_DB:-1}
+      # Redis 连接配置
+      REDIS_CONNECT_TIMEOUT: ${REDIS_CONNECT_TIMEOUT:-10000}
+      REDIS_MAX_RETRIES: ${REDIS_MAX_RETRIES:-3}
+      
       # JWT 密钥
-      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key-change-this-in-production}
-      # 悟空IM 配置（内部API地址）
-      WUKONGIM_API_URL: http://wukongim:5001
-      WUKONGIM_TCP_ADDR: wukongim:5100
-      WUKONGIM_WS_URL: ws://wukongim:5200
-      WUKONGIM_MANAGER_URL: http://wukongim:5300
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+      
+      # 悟空IM 配置 - 支持外部 IM
+      WUKONGIM_API_URL: ${WUKONGIM_API_URL:-http://wukongim:5001}
+      WUKONGIM_TCP_ADDR: ${WUKONGIM_TCP_ADDR:-wukongim:5100}
+      WUKONGIM_WS_URL: ${WUKONGIM_WS_URL:-ws://wukongim:5200}
+      WUKONGIM_MANAGER_URL: ${WUKONGIM_MANAGER_URL:-http://wukongim:5300}
+      WUKONGIM_TOKEN_AUTH: ${WUKONGIM_TOKEN_AUTH:-false}
+      WUKONGIM_TIMEOUT: ${WUKONGIM_TIMEOUT:-10000}
+      WUKONGIM_APP_ID: ${WUKONGIM_APP_ID:-}
+      WUKONGIM_APP_SECRET: ${WUKONGIM_APP_SECRET:-}
+      
+      # 队列配置
+      QUEUE_ENABLED: ${QUEUE_ENABLED:-true}
+      
+      # 日志配置
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      
+      # 外部 IP 配置
+      EXTERNAL_IP: ${EXTERNAL_IP:-127.0.0.1}
+      INTERNAL_IP: ${INTERNAL_IP:-127.0.0.1}
     volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
       - ./var/logs:/app/var/logs
       - ./var/data:/app/var/data
-      - ./etc/config.json:/app/etc/config.json:ro
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -152,6 +303,13 @@ services:
       start_period: 40s
     networks:
       - openchat-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:
@@ -166,3 +324,7 @@ volumes:
 networks:
   openchat-network:
     driver: bridge
+    name: ${NETWORK_NAME:-openchat-network}
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET:-172.28.0.0/16}

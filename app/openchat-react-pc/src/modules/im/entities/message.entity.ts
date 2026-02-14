@@ -6,8 +6,21 @@
 
 import type { MessageContent } from '../services/message.service';
 
-export type MessageType = 'user' | 'ai' | 'system';
+export type MessageType = 'user' | 'ai' | 'system' | 'text' | 'image' | 'video' | 'file' | 'audio';
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+
+export interface MessageAttachment {
+  id: string;
+  type: 'image' | 'video' | 'file' | 'audio';
+  url: string;
+  name?: string;
+  size?: number;
+  mimeType?: string;
+  thumbnailUrl?: string;
+  duration?: number;
+  width?: number;
+  height?: number;
+}
 
 export interface Message {
   id: string;
@@ -16,24 +29,21 @@ export interface Message {
   senderName: string;
   senderAvatar: string;
   content: MessageContent;
+  type?: 'user' | 'ai' | 'system' | 'text' | 'image' | 'video' | 'file' | 'audio';
   time: string;
   status: MessageStatus;
-  // 回复相关
+  attachments?: MessageAttachment[];
+  isTyping?: boolean;
   replyToMessageId?: string;
   replyToMessage?: Message;
-  // 提及相关
   mentions?: string[];
-  // 撤回相关
   isRecalled?: boolean;
   recallTime?: string;
-  // 已读相关
   readTime?: string;
   readBy?: string[];
-  // 编辑相关
   isEdited?: boolean;
   editTime?: string;
   originalContent?: MessageContent;
-  // 反应表情
   reactions?: MessageReaction[];
 }
 

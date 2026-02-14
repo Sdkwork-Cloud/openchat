@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useCallback, useRef } from 'react';
-import { onCLS, onFCP, onFID, onLCP, onTTFB, type Metric } from 'web-vitals';
+import { onCLS, onFCP, onLCP, onTTFB, type Metric } from 'web-vitals';
 
 // 性能指标类型
 interface PerformanceMetrics {

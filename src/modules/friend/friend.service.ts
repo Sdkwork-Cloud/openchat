@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Friend } from './friend.entity';
 import { FriendRequest } from './friend-request.entity';
 import { FriendManager } from './friend.interface';
@@ -10,6 +10,8 @@ import { UserService } from '../user/services/user.service';
 
 @Injectable()
 export class FriendService implements FriendManager {
+  private readonly logger = new Logger(FriendService.name);
+
   constructor(
     @InjectRepository(Friend)
     private friendRepository: Repository<Friend>,
@@ -18,85 +20,105 @@ export class FriendService implements FriendManager {
     private contactService: ContactService,
     private conversationService: ConversationService,
     private userService: UserService,
+    private dataSource: DataSource,
   ) {}
 
   async sendFriendRequest(fromUserId: string, toUserId: string, message?: string): Promise<FriendRequest> {
-    // 检查是否已经存在好友关系
-    const existingFriendship = await this.friendRepository.findOne({
-      where: [
-        { userId: fromUserId, friendId: toUserId, status: 'accepted' },
-        { userId: toUserId, friendId: fromUserId, status: 'accepted' },
-      ],
-    });
-    if (existingFriendship) {
-      throw new Error('Friendship already exists');
-    }
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // 检查是否已经存在待处理的请求（正向）
-    const existingRequest = await this.friendRequestRepository.findOne({
-      where: { fromUserId, toUserId, status: 'pending' },
-    });
-    if (existingRequest) {
-      throw new Error('Friend request already sent');
-    }
+    try {
+      const existingFriendship = await queryRunner.manager.findOne(Friend, {
+        where: [
+          { userId: fromUserId, friendId: toUserId, status: 'accepted' },
+          { userId: toUserId, friendId: fromUserId, status: 'accepted' },
+        ],
+      });
+      if (existingFriendship) {
+        throw new Error('Friendship already exists');
+      }
 
-    // 检查是否已经存在反向的待处理请求
-    const reverseRequest = await this.friendRequestRepository.findOne({
-      where: { fromUserId: toUserId, toUserId: fromUserId, status: 'pending' },
-    });
-    if (reverseRequest) {
-      // 如果存在反向请求，自动接受
-      await this.acceptFriendRequest(reverseRequest.id, fromUserId);
-      // 返回反向请求作为结果
-      return reverseRequest;
-    }
+      const existingRequest = await queryRunner.manager.findOne(FriendRequest, {
+        where: { fromUserId, toUserId, status: 'pending' },
+      });
+      if (existingRequest) {
+        throw new Error('Friend request already sent');
+      }
 
-    const request = this.friendRequestRepository.create({
-      fromUserId,
-      toUserId,
-      status: 'pending',
-      message,
-    });
-    return this.friendRequestRepository.save(request);
+      const reverseRequest = await queryRunner.manager.findOne(FriendRequest, {
+        where: { fromUserId: toUserId, toUserId: fromUserId, status: 'pending' },
+      });
+      if (reverseRequest) {
+        await queryRunner.commitTransaction();
+        return reverseRequest;
+      }
+
+      const request = queryRunner.manager.create(FriendRequest, {
+        fromUserId,
+        toUserId,
+        status: 'pending',
+        message,
+      });
+      const savedRequest = await queryRunner.manager.save(request);
+      await queryRunner.commitTransaction();
+      return savedRequest;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async acceptFriendRequest(requestId: string, currentUserId?: string): Promise<boolean> {
-    const request = await this.friendRequestRepository.findOne({ where: { id: requestId } });
-    if (!request || request.status !== 'pending') {
-      return false;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const request = await queryRunner.manager.findOne(FriendRequest, { where: { id: requestId } });
+      if (!request || request.status !== 'pending') {
+        await queryRunner.commitTransaction();
+        return false;
+      }
+
+      if (currentUserId && request.toUserId !== currentUserId) {
+        throw new Error('You do not have permission to accept this request');
+      }
+
+      request.status = 'accepted';
+      await queryRunner.manager.save(request);
+
+      const now = new Date();
+      const friend1 = queryRunner.manager.create(Friend, {
+        userId: request.fromUserId,
+        friendId: request.toUserId,
+        status: 'accepted',
+        acceptedAt: now,
+      });
+
+      const friend2 = queryRunner.manager.create(Friend, {
+        userId: request.toUserId,
+        friendId: request.fromUserId,
+        status: 'accepted',
+        acceptedAt: now,
+      });
+
+      await queryRunner.manager.save([friend1, friend2]);
+      await queryRunner.commitTransaction();
+
+      this.createContactsAndConversations(request.fromUserId, request.toUserId).catch(err => {
+        this.logger.error('Failed to create contacts and conversations:', err);
+      });
+
+      return true;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    // 验证权限：只有请求接收者可以接受请求
-    if (currentUserId && request.toUserId !== currentUserId) {
-      throw new Error('You do not have permission to accept this request');
-    }
-
-    // 更新请求状态
-    request.status = 'accepted';
-    await this.friendRequestRepository.save(request);
-
-    // 创建双向好友关系
-    const now = new Date();
-    const friend1 = this.friendRepository.create({
-      userId: request.fromUserId,
-      friendId: request.toUserId,
-      status: 'accepted',
-      acceptedAt: now,
-    });
-
-    const friend2 = this.friendRepository.create({
-      userId: request.toUserId,
-      friendId: request.fromUserId,
-      status: 'accepted',
-      acceptedAt: now,
-    });
-
-    await this.friendRepository.save([friend1, friend2]);
-
-    // 自动创建联系人和会话
-    await this.createContactsAndConversations(request.fromUserId, request.toUserId);
-
-    return true;
   }
 
   /**
@@ -111,7 +133,7 @@ export class FriendService implements FriendManager {
       ]);
 
       if (!fromUser || !toUser) {
-        console.error('创建联系人失败：用户信息不存在');
+        this.logger.error('Failed to create contact: user info not found');
         return;
       }
 
@@ -125,7 +147,7 @@ export class FriendService implements FriendManager {
       }).catch(err => {
         // 如果联系人已存在，忽略错误
         if (!err.message?.includes('已存在')) {
-          console.error('创建联系人失败:', err);
+          this.logger.error('Failed to create contact:', err);
         }
       });
 
@@ -139,7 +161,7 @@ export class FriendService implements FriendManager {
       }).catch(err => {
         // 如果联系人已存在，忽略错误
         if (!err.message?.includes('已存在')) {
-          console.error('创建联系人失败:', err);
+          this.logger.error('Failed to create contact:', err);
         }
       });
 
@@ -151,7 +173,7 @@ export class FriendService implements FriendManager {
       }).catch(err => {
         // 如果会话已存在，忽略错误
         if (!err.message?.includes('已存在')) {
-          console.error('创建会话失败:', err);
+          this.logger.error('Failed to create conversation:', err);
         }
       });
 
@@ -163,11 +185,11 @@ export class FriendService implements FriendManager {
       }).catch(err => {
         // 如果会话已存在，忽略错误
         if (!err.message?.includes('已存在')) {
-          console.error('创建会话失败:', err);
+          this.logger.error('Failed to create conversation:', err);
         }
       });
     } catch (error) {
-      console.error('自动创建联系人和会话失败:', error);
+      this.logger.error('Failed to auto create contact and conversation:', error);
     }
   }
 

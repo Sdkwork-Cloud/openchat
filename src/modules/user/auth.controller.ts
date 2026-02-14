@@ -1,8 +1,9 @@
-import { Controller, Post, Get, Put, Body, Request, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Request, UseGuards, HttpCode, HttpStatus, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserSyncService } from './user-sync.service';
+import { RedisService } from '../../common/redis/redis.service';
 import {
   RegisterDto,
   LoginDto,
@@ -12,8 +13,8 @@ import {
   ForgotPasswordResponseDto,
   SendVerificationCodeDto,
   VerifyVerificationCodeDto,
-  PhoneRegisterDto,
-  EmailRegisterDto,
+  RefreshTokenDto,
+  LogoutDto,
 } from './dto/auth.dto';
 
 @ApiTags('auth')
@@ -22,33 +23,9 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private userSyncService: UserSyncService,
+    private redisService: RedisService,
   ) {}
 
-  /**
-   * 用户注册
-   */
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: '用户注册' })
-  @ApiResponse({
-    status: 201,
-    description: '注册成功',
-    type: AuthResponseDto,
-  })
-  @ApiResponse({ status: 400, description: '请求参数错误' })
-  @ApiResponse({ status: 409, description: '用户名已存在' })
-  async register(@Body() registerData: RegisterDto): Promise<AuthResponseDto> {
-    const result = await this.authService.register(registerData);
-    return {
-      user: result.user,
-      token: result.token,
-    };
-  }
-
-  /**
-   * 用户登录
-   * 返回JWT Token和IM连接配置
-   */
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '用户登录' })
@@ -60,14 +37,12 @@ export class AuthController {
   @ApiResponse({ status: 400, description: '请求参数错误' })
   @ApiResponse({ status: 401, description: '用户名或密码错误' })
   async login(@Body() loginData: LoginDto): Promise<AuthResponseDto> {
-    // 1. 验证用户名密码，获取JWT Token
     const result = await this.authService.login(loginData);
 
-    // 2. 获取IM连接配置
     const imConnection = await this.userSyncService.prepareUserConnection(result.user.id);
 
     return {
-      user: result.user,
+      user: result.user as any,
       token: result.token,
       refreshToken: result.refreshToken,
       expiresIn: result.expiresIn,
@@ -79,9 +54,33 @@ export class AuthController {
     };
   }
 
-  /**
-   * 获取当前用户信息
-   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '用户登出' })
+  @ApiResponse({ status: 200, description: '登出成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async logout(@Request() req: { user: { userId: string } }, @Body() logoutDto?: LogoutDto): Promise<{ success: boolean }> {
+    await this.authService.logout(req.user.userId);
+    return { success: true };
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '刷新Token' })
+  @ApiResponse({ status: 200, description: '刷新成功', type: AuthResponseDto })
+  @ApiResponse({ status: 401, description: '刷新令牌无效或已过期' })
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+    const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
+    return {
+      user: result.user as any,
+      token: result.token,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
+    };
+  }
+
   @Get('me')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -93,14 +92,10 @@ export class AuthController {
     if (!user) {
       return null;
     }
-    // 移除密码字段后返回
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
 
-  /**
-   * 更新用户密码
-   */
   @Put('password')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -120,9 +115,6 @@ export class AuthController {
     return { success };
   }
 
-  /**
-   * 忘记密码
-   */
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '忘记密码' })
@@ -139,9 +131,6 @@ export class AuthController {
     return result as ForgotPasswordResponseDto;
   }
 
-  /**
-   * 发送验证码
-   */
   @Post('send-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '发送验证码' })
@@ -158,9 +147,6 @@ export class AuthController {
     return result as ForgotPasswordResponseDto;
   }
 
-  /**
-   * 验证验证码
-   */
   @Post('verify-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '验证验证码' })
@@ -177,53 +163,55 @@ export class AuthController {
     return result as ForgotPasswordResponseDto;
   }
 
-  /**
-   * 手机注册
-   */
-  @Post('register/phone')
+  @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: '手机注册' })
+  @ApiOperation({ summary: '用户注册（支持手机号或邮箱）' })
   @ApiResponse({
     status: 201,
     description: '注册成功',
     type: AuthResponseDto,
   })
   @ApiResponse({ status: 400, description: '请求参数错误' })
-  @ApiResponse({ status: 409, description: '手机号已存在' })
-  async phoneRegister(
-    @Body() phoneRegisterDto: PhoneRegisterDto,
+  @ApiResponse({ status: 409, description: '用户名已存在' })
+  async register(
+    @Body() registerDto: RegisterDto,
   ): Promise<AuthResponseDto> {
-    const result = await this.authService.phoneRegister(phoneRegisterDto);
+    const result = await this.authService.register(registerDto);
     return {
-      user: result.user,
+      user: result.user as any,
       token: result.token,
       refreshToken: result.refreshToken,
       expiresIn: result.expiresIn,
     };
   }
 
-  /**
-   * 邮箱注册
-   */
-  @Post('register/email')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: '邮箱注册' })
-  @ApiResponse({
-    status: 201,
-    description: '注册成功',
-    type: AuthResponseDto,
-  })
-  @ApiResponse({ status: 400, description: '请求参数错误' })
-  @ApiResponse({ status: 409, description: '邮箱已存在' })
-  async emailRegister(
-    @Body() emailRegisterDto: EmailRegisterDto,
-  ): Promise<AuthResponseDto> {
-    const result = await this.authService.emailRegister(emailRegisterDto);
+  @Get('users/:id/online-status')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '获取用户在线状态' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  async getUserOnlineStatus(@Param('id') id: string) {
+    const isOnline = await this.redisService.isUserOnline(id);
+    const lastHeartbeat = await this.redisService.get(`heartbeat:${id}`);
     return {
-      user: result.user,
-      token: result.token,
-      refreshToken: result.refreshToken,
-      expiresIn: result.expiresIn,
+      userId: id,
+      isOnline,
+      lastActiveAt: lastHeartbeat ? new Date(parseInt(lastHeartbeat)) : null,
     };
+  }
+
+  @Post('users/online-status/batch')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '批量获取用户在线状态' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  async batchGetOnlineStatus(@Body('userIds') userIds: string[]) {
+    const results = await Promise.all(
+      userIds.map(async (userId) => ({
+        userId,
+        isOnline: await this.redisService.isUserOnline(userId),
+      })),
+    );
+    return results;
   }
 }

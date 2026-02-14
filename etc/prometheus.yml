@@ -1,22 +1,50 @@
 # ============================================
-# Prometheus 配置文件 - 悟空IM监控
+# Prometheus 配置文件
+# OpenChat Server 监控
 # ============================================
 
 global:
-  scrape_interval: 10s
-  evaluation_interval: 10s
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'openchat-monitor'
 
+# 告警规则文件
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# 抓取配置
 scrape_configs:
-  # 悟空IM 监控
-  - job_name: wukongim-metrics
+  # Prometheus 自身监控
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['wukongim:5300']
-        labels:
-          id: "1001"
-    metrics_path: /metrics
+      - targets: ['localhost:9090']
 
-  # OpenChat Server 监控（可选）
-  - job_name: openchat-server-metrics
+  # OpenChat 应用监控
+  - job_name: 'openchat-server'
     static_configs:
       - targets: ['app:3000']
     metrics_path: /metrics
+    scrape_interval: 10s
+
+  # 悟空IM 监控
+  - job_name: 'wukongim'
+    static_configs:
+      - targets: ['wukongim:5300']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # PostgreSQL 监控 (需要 postgres_exporter)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis 监控 (需要 redis_exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # Nginx 监控 (需要 nginx-prometheus-exporter)
+  # - job_name: 'nginx'
+  #   static_configs:
+  #     - targets: ['nginx-exporter:9113']

@@ -1,346 +1,302 @@
-/**
- * 悟空IM 服务模块
- * 封装对悟空IM REST API的调用
- * 文档: https://docs.githubim.com/zh/api/introduction
- */
-
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { WukongIMChannelType } from './wukongim.constants';
+import { WukongIMUtils } from './wukongim.utils';
+import { WukongIMClient } from './wukongim.client';
+import { MetricsService } from '../../common/metrics/metrics.service';
 
 export interface SendMessageOptions {
   channelId: string;
-  channelType: number; // 1: 个人频道, 2: 群组频道
+  channelType: WukongIMChannelType;
   fromUid: string;
-  payload: string; // Base64编码的消息内容
+  payload: string;
   clientMsgNo?: string;
 }
 
 export interface CreateChannelOptions {
   channelId: string;
-  channelType: number;
+  channelType: WukongIMChannelType;
   name?: string;
   avatar?: string;
 }
 
-export interface AddSubscriberOptions {
-  channelId: string;
-  channelType: number;
-  subscribers: string[];
+export interface CreateUserOptions {
+  uid: string;
+  name?: string;
+  avatar?: string;
+  token?: string;
 }
 
 @Injectable()
 export class WukongIMService {
   private readonly logger = new Logger(WukongIMService.name);
-  private readonly apiUrl: string;
-  private readonly tcpAddr: string;
-  private readonly wsUrl: string;
-  private readonly managerUrl: string;
-  private readonly tokenAuth: boolean;
 
   constructor(
-    private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
+    private readonly wukongIMClient: WukongIMClient,
+    private readonly metricsService: MetricsService,
   ) {
-    this.apiUrl = this.configService.get<string>('WUKONGIM_API_URL') || 
-                  this.configService.get<string>('im.wukongim.apiUrl') || 
-                  'http://localhost:5001';
-    this.tcpAddr = this.configService.get<string>('WUKONGIM_TCP_ADDR') || 
-                   this.configService.get<string>('im.wukongim.tcpAddr') || 
-                   'localhost:5100';
-    this.wsUrl = this.configService.get<string>('WUKONGIM_WS_URL') || 
-                 this.configService.get<string>('im.wukongim.wsUrl') || 
-                 'ws://localhost:5200';
-    this.managerUrl = this.configService.get<string>('WUKONGIM_MANAGER_URL') || 
-                      this.configService.get<string>('im.wukongim.managerUrl') || 
-                      'http://localhost:5300';
-    this.tokenAuth = this.configService.get<boolean>('im.wukongim.tokenAuth') || false;
-    
-    this.logger.log(`悟空IM服务初始化完成`);
-    this.logger.log(`API地址: ${this.apiUrl}`);
-    this.logger.log(`TCP地址: ${this.tcpAddr}`);
-    this.logger.log(`WebSocket地址: ${this.wsUrl}`);
+    this.logger.log('WukongIM Service initialized');
   }
 
-  /**
-   * 获取悟空IM连接配置（给客户端使用）
-   */
-  getConnectionConfig() {
+  getConnectionConfig(uid: string) {
+    const config = this.wukongIMClient.getConfig();
     return {
-      tcpAddr: this.tcpAddr,
-      wsUrl: this.wsUrl,
-      apiUrl: this.apiUrl,
-      managerUrl: this.managerUrl,
+      tcpAddr: config.tcpAddr,
+      wsUrl: config.wsUrl,
+      apiUrl: config.apiUrl,
+      managerUrl: config.managerUrl,
+      uid,
     };
   }
 
-  /**
-   * 发送消息
-   * POST /message/send
-   */
+  // ==================== Message APIs ====================
+
   async sendMessage(options: SendMessageOptions): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/message/send`;
-      const payload = {
+    return this.executeWithMetrics('sendMessage', options.channelId, async () => {
+      return this.wukongIMClient.sendMessage({
         channel_id: options.channelId,
         channel_type: options.channelType,
         from_uid: options.fromUid,
         payload: options.payload,
         client_msg_no: options.clientMsgNo,
-      };
-
-      this.logger.debug(`发送消息: ${JSON.stringify(payload)}`);
-      
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
-
-      this.logger.log(`消息发送成功: ${response.data.message_id}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`发送消息失败: ${error.message}`, error.stack);
-      throw error;
-    }
+      });
+    });
   }
 
-  /**
-   * 批量发送消息
-   * POST /message/sendbatch
-   */
   async sendBatchMessages(messages: SendMessageOptions[]): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/message/sendbatch`;
-      const payload = messages.map(msg => ({
+    return this.executeWithMetrics('sendBatchMessages', 'batch', async () => {
+      const payloads = messages.map(msg => ({
         channel_id: msg.channelId,
         channel_type: msg.channelType,
         from_uid: msg.fromUid,
         payload: msg.payload,
         client_msg_no: msg.clientMsgNo,
       }));
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
-
-      this.logger.log(`批量消息发送成功，共 ${messages.length} 条`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`批量发送消息失败: ${error.message}`, error.stack);
-      throw error;
-    }
+      return this.wukongIMClient.sendBatchMessages(payloads);
+    });
   }
 
-  /**
-   * 创建频道
-   * POST /channel/create
-   */
+  async syncMessages(
+    uid: string,
+    channelId: string,
+    channelType: WukongIMChannelType,
+    lastMessageSeq?: number,
+    limit: number = 100,
+  ): Promise<any> {
+    return this.executeWithMetrics('syncMessages', channelId, async () => {
+      return this.wukongIMClient.getMessages({
+        channelId,
+        channelType,
+        startMessageSeq: lastMessageSeq,
+        limit,
+      });
+    });
+  }
+
+  // ==================== Channel APIs ====================
+
   async createChannel(options: CreateChannelOptions): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/channel/create`;
-      const payload = {
+    return this.executeWithMetrics('createChannel', options.channelId, async () => {
+      return this.wukongIMClient.createChannel({
         channel_id: options.channelId,
         channel_type: options.channelType,
         name: options.name,
         avatar: options.avatar,
-      };
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
-
-      this.logger.log(`频道创建成功: ${options.channelId}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`创建频道失败: ${error.message}`, error.stack);
-      throw error;
-    }
+      });
+    });
   }
 
-  /**
-   * 删除频道
-   * POST /channel/delete
-   */
-  async deleteChannel(channelId: string, channelType: number): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/channel/delete`;
-      const payload = {
+  async deleteChannel(channelId: string, channelType: WukongIMChannelType): Promise<any> {
+    return this.executeWithMetrics('deleteChannel', channelId, async () => {
+      return this.wukongIMClient.deleteChannel(channelId, channelType);
+    });
+  }
+
+  async getChannelInfo(channelId: string, channelType: WukongIMChannelType): Promise<any> {
+    return this.executeWithMetrics('getChannelInfo', channelId, async () => {
+      return this.wukongIMClient.getChannelInfo(channelId, channelType);
+    });
+  }
+
+  // ==================== Subscriber APIs ====================
+
+  async addSubscribers(
+    channelId: string,
+    channelType: WukongIMChannelType,
+    subscribers: string[],
+  ): Promise<any> {
+    return this.executeWithMetrics('addSubscribers', channelId, async () => {
+      return this.wukongIMClient.addSubscribers({
         channel_id: channelId,
         channel_type: channelType,
-      };
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
-
-      this.logger.log(`频道删除成功: ${channelId}`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`删除频道失败: ${error.message}`, error.stack);
-      throw error;
-    }
+        subscribers: subscribers.map(uid => ({ uid })),
+      });
+    }, subscribers.join(','));
   }
 
-  /**
-   * 添加订阅者
-   * POST /channel/subscriber/add
-   */
-  async addSubscribers(options: AddSubscriberOptions): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/channel/subscriber/add`;
-      const payload = {
-        channel_id: options.channelId,
-        channel_type: options.channelType,
-        subscribers: options.subscribers,
-      };
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
-
-      this.logger.log(`添加订阅者成功: ${options.channelId}, 共 ${options.subscribers.length} 人`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`添加订阅者失败: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  /**
-   * 移除订阅者
-   * POST /channel/subscriber/remove
-   */
-  async removeSubscribers(options: AddSubscriberOptions): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/channel/subscriber/remove`;
-      const payload = {
-        channel_id: options.channelId,
-        channel_type: options.channelType,
-        subscribers: options.subscribers,
-      };
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
-
-      this.logger.log(`移除订阅者成功: ${options.channelId}, 共 ${options.subscribers.length} 人`);
-      return response.data;
-    } catch (error) {
-      this.logger.error(`移除订阅者失败: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  /**
-   * 获取频道信息
-   * GET /channel/info
-   */
-  async getChannelInfo(channelId: string, channelType: number): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/channel/info`;
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
-          params: {
-            channel_id: channelId,
-            channel_type: channelType,
-          },
-        }),
-      );
-
-      return response.data;
-    } catch (error) {
-      this.logger.error(`获取频道信息失败: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  /**
-   * 获取频道消息
-   * GET /message/sync
-   */
-  async syncMessages(
-    uid: string,
+  async removeSubscribers(
     channelId: string,
-    channelType: number,
-    lastMessageSeq?: number,
-    limit: number = 20,
+    channelType: WukongIMChannelType,
+    subscribers: string[],
   ): Promise<any> {
-    try {
-      const url = `${this.apiUrl}/message/sync`;
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
-          params: {
-            uid,
-            channel_id: channelId,
-            channel_type: channelType,
-            last_message_seq: lastMessageSeq,
-            limit,
-          },
-        }),
-      );
+    return this.executeWithMetrics('removeSubscribers', channelId, async () => {
+      return this.wukongIMClient.removeSubscribers(channelId, channelType, subscribers);
+    }, subscribers.join(','));
+  }
 
-      return response.data;
+  async getSubscribers(channelId: string, channelType: WukongIMChannelType): Promise<any> {
+    return this.executeWithMetrics('getSubscribers', channelId, async () => {
+      return this.wukongIMClient.getSubscribers(channelId, channelType);
+    });
+  }
+
+  // ==================== User APIs ====================
+
+  async createOrUpdateUser(options: CreateUserOptions): Promise<any> {
+    return this.executeWithMetrics('createOrUpdateUser', options.uid, async () => {
+      return this.wukongIMClient.createUser({
+        uid: options.uid,
+        name: options.name,
+        avatar: options.avatar,
+        token: options.token,
+      });
+    });
+  }
+
+  async getUserToken(uid: string): Promise<string> {
+    return this.executeWithMetrics('getUserToken', uid, async () => {
+      const result = await this.wukongIMClient.getUserToken(uid);
+      return result.token;
+    });
+  }
+
+  async getUserInfo(uid: string): Promise<any> {
+    return this.executeWithMetrics('getUserInfo', uid, async () => {
+      return this.wukongIMClient.getUserInfo(uid);
+    });
+  }
+
+  // ==================== Blacklist/Whitelist APIs ====================
+
+  async addToBlacklist(channelId: string, channelType: WukongIMChannelType, uids: string[]): Promise<any> {
+    return this.executeWithMetrics('addToBlacklist', channelId, async () => {
+      return this.wukongIMClient.addToBlacklist(channelId, channelType, uids);
+    }, uids.join(','));
+  }
+
+  async removeFromBlacklist(channelId: string, channelType: WukongIMChannelType, uids: string[]): Promise<any> {
+    return this.executeWithMetrics('removeFromBlacklist', channelId, async () => {
+      return this.wukongIMClient.removeFromBlacklist(channelId, channelType, uids);
+    }, uids.join(','));
+  }
+
+  async addToWhitelist(channelId: string, channelType: WukongIMChannelType, uids: string[]): Promise<any> {
+    return this.executeWithMetrics('addToWhitelist', channelId, async () => {
+      return this.wukongIMClient.addToWhitelist(channelId, channelType, uids);
+    }, uids.join(','));
+  }
+
+  async removeFromWhitelist(channelId: string, channelType: WukongIMChannelType, uids: string[]): Promise<any> {
+    return this.executeWithMetrics('removeFromWhitelist', channelId, async () => {
+      return this.wukongIMClient.removeFromWhitelist(channelId, channelType, uids);
+    }, uids.join(','));
+  }
+
+  async getBlacklist(channelId: string, channelType: WukongIMChannelType): Promise<string[]> {
+    try {
+      const result = await this.wukongIMClient.get('/channel/blacklist', {
+        channel_id: channelId,
+        channel_type: channelType,
+      });
+      return result?.uids || [];
     } catch (error) {
-      this.logger.error(`同步消息失败: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error('Failed to get blacklist', error);
+      return [];
     }
   }
 
-  /**
-   * 健康检查
-   * GET /health
-   */
+  async getWhitelist(channelId: string, channelType: WukongIMChannelType): Promise<string[]> {
+    try {
+      const result = await this.wukongIMClient.get('/channel/whitelist', {
+        channel_id: channelId,
+        channel_type: channelType,
+      });
+      return result?.uids || [];
+    } catch (error) {
+      this.logger.error('Failed to get whitelist', error);
+      return [];
+    }
+  }
+
+  async setBlacklistMode(channelId: string, channelType: WukongIMChannelType, mode: 0 | 1 | 2): Promise<any> {
+    return this.executeWithMetrics('setBlacklistMode', channelId, async () => {
+      return this.wukongIMClient.post('/channel/blacklist/mode', {
+        channel_id: channelId,
+        channel_type: channelType,
+        mode,
+      });
+    });
+  }
+
+  // ==================== Utility Methods ====================
+
+  generatePersonalChannelId(userId1: string, userId2: string): string {
+    return WukongIMUtils.generatePersonalChannelId(userId1, userId2);
+  }
+
+  encodePayload(content: any): string {
+    return WukongIMUtils.encodePayload(content);
+  }
+
+  decodePayload(payload: string): any {
+    return WukongIMUtils.decodePayload(payload);
+  }
+
+  // ==================== System APIs ====================
+
   async healthCheck(): Promise<boolean> {
-    try {
-      const url = `${this.apiUrl}/health`;
-      const response = await firstValueFrom(
-        this.httpService.get(url, { timeout: 5000 }),
-      );
-      return response.status === 200;
-    } catch (error) {
-      this.logger.warn(`悟空IM健康检查失败: ${error.message}`);
-      return false;
-    }
+    return this.wukongIMClient.healthCheck();
   }
 
-  /**
-   * 获取系统信息
-   * GET /varz
-   */
   async getSystemInfo(): Promise<any> {
+    return this.wukongIMClient.getSystemInfo();
+  }
+
+  // ==================== Private Methods ====================
+
+  private async executeWithMetrics<T>(
+    operation: string,
+    resourceId: string,
+    fn: () => Promise<T>,
+    extraId?: string,
+  ): Promise<T> {
+    const timerKey = `wukongim:${operation}:${Date.now()}`;
+    this.metricsService.startTimer(timerKey);
+    let success = false;
+
     try {
-      const url = `${this.apiUrl}/varz`;
-      const response = await firstValueFrom(
-        this.httpService.get(url),
-      );
-      return response.data;
-    } catch (error) {
-      this.logger.error(`获取系统信息失败: ${error.message}`, error.stack);
+      this.logger.debug(`Starting ${operation}: ${resourceId}`);
+      const result = await fn();
+      success = true;
+      this.logger.log(`${operation} completed: ${resourceId}`);
+      return result;
+    } catch (error: any) {
+      this.logger.error(`${operation} failed: ${resourceId}`, error.message);
       throw error;
+    } finally {
+      this.metricsService.endTimer(timerKey, `wukongim.${operation}.duration`, {
+        resource_id: resourceId,
+        extra_id: extraId || '',
+        success: success.toString(),
+      });
+
+      this.metricsService.recordMetric('wukongim.operation.count', 1, {
+        operation,
+        success: success.toString(),
+      });
+
+      if (!success) {
+        this.metricsService.recordMetric('wukongim.operation.error', 1, { operation });
+      }
     }
   }
 }

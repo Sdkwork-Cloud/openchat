@@ -24,7 +24,7 @@ import {
   CreateContactRequest,
   UpdateContactRequest,
 } from './contact.interface';
-import { JwtAuthGuard } from '../user/jwt-auth.guard';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 
 @ApiTags('contacts')
 @Controller('contacts')

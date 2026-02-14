@@ -1,0 +1,140 @@
+# ============================================
+# Prometheus 告警规则
+# OpenChat Server
+# ============================================
+
+groups:
+  # 应用告警
+  - name: openchat-app
+    rules:
+      # 应用宕机
+      - alert: AppDown
+        expr: up{job="openchat-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OpenChat 应用宕机"
+          description: "OpenChat 应用已经宕机超过 1 分钟"
+
+      # 高错误率
+      - alert: HighErrorRate
+        expr: rate(http_request_duration_seconds_count{status=~"5.."}[5m]) / rate(http_request_duration_seconds_count[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高错误率"
+          description: "HTTP 5xx 错误率超过 5%"
+
+      # 高响应时间
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高响应时间"
+          description: "P95 响应时间超过 1 秒"
+
+      # 内存使用过高
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="openchat-server"} / (1024 * 1024 * 1024) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用过高"
+          description: "应用内存使用超过 1.5GB"
+
+  # WukongIM 告警
+  - name: wukongim
+    rules:
+      # WukongIM 宕机
+      - alert: WukongIMDown
+        expr: up{job="wukongim"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "WukongIM 宕机"
+          description: "WukongIM 服务已经宕机超过 1 分钟"
+
+      # 在线用户数异常
+      - alert: OnlineUsersDrop
+        expr: delta(wukongim_online_user_count[5m]) < -100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "在线用户数骤降"
+          description: "5分钟内在线用户数下降超过 100"
+
+  # 数据库告警
+  - name: postgres
+    rules:
+      # 数据库连接数过高
+      - alert: HighDatabaseConnections
+        expr: pg_stat_activity_count > 150
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接数过高"
+          description: "PostgreSQL 活跃连接数超过 150"
+
+      # 数据库响应慢
+      - alert: SlowDatabaseQuery
+        expr: pg_stat_statements_mean_exec_time > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库查询慢"
+          description: "数据库平均查询时间超过 1 秒"
+
+  # Redis 告警
+  - name: redis
+    rules:
+      # Redis 内存使用过高
+      - alert: HighRedisMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis 内存使用过高"
+          description: "Redis 内存使用超过 80%"
+
+      # Redis 连接数过高
+      - alert: HighRedisConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis 连接数过高"
+          description: "Redis 客户端连接数超过 100"
+
+  # 系统告警
+  - name: system
+    rules:
+      # 磁盘空间不足
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间不足"
+          description: "磁盘剩余空间不足 10%"
+
+      # CPU 使用过高
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 使用过高"
+          description: "CPU 使用率超过 80%"

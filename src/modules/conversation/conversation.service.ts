@@ -238,6 +238,16 @@ export class ConversationService implements ConversationManager {
     return true;
   }
 
+  async getTotalUnreadCount(userId: string): Promise<number> {
+    const result = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .select('SUM(conversation.unreadCount)', 'total')
+      .where('conversation.userId = :userId', { userId })
+      .getRawOne();
+
+    return parseInt(result?.total || '0', 10);
+  }
+
   /**
    * 映射实体到接口
    */

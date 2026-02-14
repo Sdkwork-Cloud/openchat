@@ -5,27 +5,11 @@
  */
 
 import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 
-// 配置 marked
 marked.setOptions({
   gfm: true,
   breaks: true,
-  headerIds: false,
-  mangle: false,
 });
-
-// 配置 DOMPurify（在 worker 中使用简化版）
-const purifyConfig = {
-  ALLOWED_TAGS: [
-    'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
-    'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
-    'del', 'ins', 'sup', 'sub', 'hr'
-  ],
-  ALLOWED_ATTR: ['href', 'title', 'src', 'alt', 'class'],
-  ALLOW_DATA_ATTR: false,
-};
 
 /**
  * 解析 Markdown

@@ -26,7 +26,7 @@ import {
   UpdateConversationRequest,
   ConversationQueryParams,
 } from './conversation.interface';
-import { JwtAuthGuard } from '../user/jwt-auth.guard';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 
 @ApiTags('conversations')
 @Controller('conversations')
@@ -222,9 +222,6 @@ export class ConversationController {
     return this.conversationService.muteConversation(id, isMuted);
   }
 
-  /**
-   * 清空未读消息数
-   */
   @Put(':id/read')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -234,5 +231,41 @@ export class ConversationController {
   @ApiResponse({ status: 404, description: '会话不存在' })
   async clearUnreadCount(@Param('id') id: string): Promise<boolean> {
     return this.conversationService.clearUnreadCount(id);
+  }
+
+  @Get('unread-total/:userId')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '获取未读消息总数' })
+  @ApiParam({ name: 'userId', description: '用户ID' })
+  @ApiResponse({ status: 200, description: '成功获取未读消息总数' })
+  async getTotalUnreadCount(@Param('userId') userId: string): Promise<{ total: number }> {
+    const total = await this.conversationService.getTotalUnreadCount(userId);
+    return { total };
+  }
+
+  @Delete('batch')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '批量删除会话' })
+  @ApiBody({
+    description: '会话ID列表',
+    required: true,
+    schema: {
+      type: 'object',
+      properties: {
+        ids: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['ids'],
+    },
+  })
+  @ApiResponse({ status: 200, description: '成功批量删除会话' })
+  async batchDeleteConversations(@Body('ids') ids: string[]): Promise<{ success: boolean; count: number }> {
+    let count = 0;
+    for (const id of ids) {
+      const result = await this.conversationService.deleteConversation(id);
+      if (result) count++;
+    }
+    return { success: true, count };
   }
 }

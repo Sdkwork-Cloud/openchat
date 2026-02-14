@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { User, UserManager } from './user.interface';
 import { ConfigService } from '@nestjs/config';
@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 export class RemoteUserManagerService implements UserManager {
   private apiUrl: string;
   private apiKey: string;
+  private readonly logger = new Logger(RemoteUserManagerService.name);
 
   constructor(
     private configService: ConfigService,
@@ -25,7 +26,7 @@ export class RemoteUserManagerService implements UserManager {
       }).toPromise();
       return response?.data;
     } catch (error) {
-      console.error('Failed to get user by id:', error);
+      this.logger.error('Failed to get user by id:', error);
       return null;
     }
   }
@@ -40,7 +41,7 @@ export class RemoteUserManagerService implements UserManager {
       }).toPromise();
       return response?.data?.[0] || null;
     } catch (error) {
-      console.error('Failed to get user by username:', error);
+      this.logger.error('Failed to get user by username:', error);
       return null;
     }
   }
@@ -54,7 +55,7 @@ export class RemoteUserManagerService implements UserManager {
       }).toPromise();
       return response?.data;
     } catch (error) {
-      console.error('Failed to create user:', error);
+      this.logger.error('Failed to create user:', error);
       throw new Error('Failed to create user');
     }
   }
@@ -68,7 +69,7 @@ export class RemoteUserManagerService implements UserManager {
       }).toPromise();
       return response?.data;
     } catch (error) {
-      console.error('Failed to update user:', error);
+      this.logger.error('Failed to update user:', error);
       return null;
     }
   }
@@ -82,7 +83,7 @@ export class RemoteUserManagerService implements UserManager {
       }).toPromise();
       return true;
     } catch (error) {
-      console.error('Failed to delete user:', error);
+      this.logger.error('Failed to delete user:', error);
       return false;
     }
   }
@@ -97,7 +98,7 @@ export class RemoteUserManagerService implements UserManager {
       }).toPromise();
       return response?.data || [];
     } catch (error) {
-      console.error('Failed to get users:', error);
+      this.logger.error('Failed to get users:', error);
       return [];
     }
   }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RTCRoom as RTCRoomEntity } from './rtc-room.entity';
@@ -11,6 +11,8 @@ import { RTCChannel, RTCChannelConfig, RTCChannelRoomInfo, RTCChannelToken } fro
 
 @Injectable()
 export class RTCService implements RTCManager {
+  private readonly logger = new Logger(RTCService.name);
+
   constructor(
     @InjectRepository(RTCRoomEntity)
     private rtcRoomRepository: Repository<RTCRoomEntity>,
@@ -21,7 +23,7 @@ export class RTCService implements RTCManager {
     @InjectRepository(RTCVideoRecord)
     private rtcVideoRecordRepository: Repository<RTCVideoRecord>,
   ) {
-    // 注册默认的RTC Channel提供商
+    // 注册默认的RTC Channel提供�?
     try {
       const { TencentRTCChannel } = require('./channels/tencent');
       const { AlibabaRTCChannel } = require('./channels/alibaba');
@@ -33,9 +35,9 @@ export class RTCService implements RTCManager {
       rtcChannelFactory.registerProvider('bytedance', BytedanceRTCChannel);
       rtcChannelFactory.registerProvider('livekit', LiveKitRTCChannel);
 
-      console.log('RTC Channel providers registered successfully:', rtcChannelFactory.getSupportedProviders());
+      this.logger.log('RTC Channel providers registered successfully: ' + JSON.stringify(rtcChannelFactory.getSupportedProviders()));
     } catch (error) {
-      console.error('Failed to register RTC Channel providers:', error);
+      this.logger.error('Failed to register RTC Channel providers:', error);
     }
   }
 
@@ -95,7 +97,7 @@ export class RTCService implements RTCManager {
       channelId,
     });
 
-    // 如果指定了Channel，需要在Channel中创建房间
+    // 如果指定了Channel，需要在Channel中创建房�?
     if (channelId) {
       const channel = await this.getOrCreateChannel(channelId);
       const channelRoomInfo = await channel.createRoom(room.id, name, type);
@@ -112,14 +114,14 @@ export class RTCService implements RTCManager {
       return false;
     }
 
-    // 如果房间关联了Channel，需要在Channel中销毁房间
+    // 如果房间关联了Channel，需要在Channel中销毁房�?
     if (room.channelId) {
       try {
         const channel = await this.getOrCreateChannel(room.channelId);
         await channel.destroyRoom(room.externalRoomId || room.id);
       } catch (error) {
-        // Channel操作失败不影响本地状态更新
-        console.error('Failed to destroy room in channel:', error);
+        // Channel操作失败不影响本地状态更�?
+        this.logger.error('Failed to destroy room in channel:', error);
       }
     }
 
@@ -147,7 +149,7 @@ export class RTCService implements RTCManager {
   }
 
   async generateToken(roomId: string, userId: string, channelId?: string): Promise<RTCToken> {
-    // 检查房间是否存在
+    // 检查房间是否存�?
     const room = await this.rtcRoomRepository.findOne({ where: { id: roomId } });
     if (!room) {
       throw new Error('Room not found');
@@ -213,14 +215,14 @@ export class RTCService implements RTCManager {
       room.participants = JSON.stringify(participants);
       await this.rtcRoomRepository.save(room);
 
-      // 如果房间关联了Channel，需要在Channel中添加参与者
+      // 如果房间关联了Channel，需要在Channel中添加参与�?
       if (room.channelId) {
         try {
           const channel = await this.getOrCreateChannel(room.channelId);
           await channel.addParticipant(room.externalRoomId || room.id, userId);
         } catch (error) {
-          // Channel操作失败不影响本地状态更新
-          console.error('Failed to add participant to channel:', error);
+          // Channel操作失败不影响本地状态更�?
+          this.logger.error('Failed to add participant to channel:', error);
         }
       }
     }
@@ -240,14 +242,14 @@ export class RTCService implements RTCManager {
       room.participants = JSON.stringify(participants);
       await this.rtcRoomRepository.save(room);
 
-      // 如果房间关联了Channel，需要在Channel中移除参与者
+      // 如果房间关联了Channel，需要在Channel中移除参与�?
       if (room.channelId) {
         try {
           const channel = await this.getOrCreateChannel(room.channelId);
           await channel.removeParticipant(room.externalRoomId || room.id, userId);
         } catch (error) {
-          // Channel操作失败不影响本地状态更新
-          console.error('Failed to remove participant from channel:', error);
+          // Channel操作失败不影响本地状态更�?
+          this.logger.error('Failed to remove participant from channel:', error);
         }
       }
     }
@@ -338,7 +340,7 @@ export class RTCService implements RTCManager {
     return this.rtcVideoRecordRepository.findOne({ where: { id } });
   }
 
-  // 获取房间的视频记录列表
+  // 获取房间的视频记录列�?
   async getVideoRecordsByRoomId(roomId: string): Promise<RTCVideoRecord[]> {
     return this.rtcVideoRecordRepository.find({
       where: { roomId },
@@ -346,7 +348,7 @@ export class RTCService implements RTCManager {
     });
   }
 
-  // 获取用户的视频记录列表
+  // 获取用户的视频记录列�?
   async getVideoRecordsByUserId(userId: string): Promise<RTCVideoRecord[]> {
     return this.rtcVideoRecordRepository.find({
       where: { userId },
@@ -354,7 +356,7 @@ export class RTCService implements RTCManager {
     });
   }
 
-  // 更新视频记录状态
+  // 更新视频记录状�?
   async updateVideoRecordStatus(id: string, status: 'recording' | 'completed' | 'failed' | 'processing', errorMessage?: string): Promise<RTCVideoRecord | null> {
     const record = await this.rtcVideoRecordRepository.findOne({ where: { id } });
     if (!record) {
@@ -367,7 +369,7 @@ export class RTCService implements RTCManager {
     return this.rtcVideoRecordRepository.save(record);
   }
 
-  // 更新视频记录元数据
+  // 更新视频记录元数�?
   async updateVideoRecordMetadata(id: string, metadata: string): Promise<RTCVideoRecord | null> {
     const record = await this.rtcVideoRecordRepository.findOne({ where: { id } });
     if (!record) {
@@ -383,7 +385,7 @@ export class RTCService implements RTCManager {
     return (result.affected || 0) > 0;
   }
 
-  // 获取所有视频记录（分页）
+  // 获取所有视频记录（分页�?
   async getVideoRecords(limit: number = 50, offset: number = 0): Promise<RTCVideoRecord[]> {
     return this.rtcVideoRecordRepository.find({
       order: { startTime: 'DESC' },

@@ -1,4 +1,4 @@
-import { Module, Global, OnModuleInit } from '@nestjs/common';
+import { Module, Global, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { RedisService } from './redis.service';
@@ -15,6 +15,7 @@ class MockRedis {
   private data: Map<string, string> = new Map();
   private sets: Map<string, Set<string>> = new Map();
   private hashes: Map<string, Map<string, string>> = new Map();
+  private logger = new Logger('MockRedis');
 
   async get(key: string): Promise<string | null> {
     return this.data.get(key) || null;
@@ -101,7 +102,6 @@ class MockRedis {
   }
 
   async zadd(key: string, score: number, member: string): Promise<void> {
-    // 简化实现，不真正排序
     this.sadd(key, member);
   }
 
@@ -119,31 +119,92 @@ class MockRedis {
   }
 
   async publish(channel: string, message: string): Promise<void> {
-    // 模拟发布消息，不做实际处理
+    this.logger.debug(`Mock publish to ${channel}: ${message}`);
   }
 
   async subscribe(channel: string): Promise<void> {
-    // 模拟订阅频道，不做实际处理
+    this.logger.debug(`Mock subscribe to ${channel}`);
   }
 
   async on(event: string, callback: (channel: string, message: string) => void): Promise<void> {
-    // 模拟事件监听，不做实际处理
+    // 模拟事件监听
   }
 
   async pipeline(): Promise<any> {
-    // 模拟 pipeline，返回一个具有 exec 方法的对象
     return {
       exec: async () => []
     };
   }
 
   async disconnect(): Promise<void> {
-    // 模拟断开连接，不做实际处理
+    this.logger.log('Mock Redis disconnected');
   }
 
   async duplicate(): Promise<MockRedis> {
-    // 模拟创建副本，返回一个新的 MockRedis 实例
     return new MockRedis();
+  }
+}
+
+/**
+ * 创建真实的 Redis 客户端
+ */
+function createRedisClient(configService: ConfigService, logger: Logger): Redis {
+  const redisPassword = configService.get<string>('REDIS_PASSWORD');
+  const redisOptions: any = {
+    host: configService.get<string>('REDIS_HOST', '172.23.3.187'),
+    port: configService.get<number>('REDIS_PORT', 6379),
+    db: configService.get<number>('REDIS_DB', 0),
+    retryStrategy: (times: number) => {
+      const delay = Math.min(times * 50, 2000);
+      return delay;
+    },
+    maxRetriesPerRequest: 3,
+    connectTimeout: 5000,
+    lazyConnect: true,
+  };
+
+  if (redisPassword && redisPassword.trim()) {
+    redisOptions.password = redisPassword;
+  }
+
+  const client = new Redis(redisOptions);
+
+  client.on('connect', () => {
+    logger.log(`Redis client connected to ${redisOptions.host}:${redisOptions.port}`);
+  });
+
+  client.on('error', (err) => {
+    logger.error(`Redis client error: ${err.message}`);
+  });
+
+  client.on('close', () => {
+    logger.warn('Redis client connection closed');
+  });
+
+  return client;
+}
+
+/**
+ * 创建 Redis 客户端（带连接测试）
+ */
+async function createRedisClientWithFallback(
+  configService: ConfigService,
+  logger: Logger,
+  clientName: string
+): Promise<Redis | MockRedis> {
+  try {
+    const client = createRedisClient(configService, logger);
+    
+    // 测试连接
+    await client.connect();
+    await client.ping();
+    
+    logger.log(`✅ ${clientName} connected successfully`);
+    return client;
+  } catch (error: any) {
+    logger.warn(`⚠️ ${clientName} connection failed: ${error.message}`);
+    logger.warn(`🔄 Falling back to MockRedis for ${clientName}`);
+    return new MockRedis() as any;
   }
 }
 
@@ -152,31 +213,28 @@ class MockRedis {
   providers: [
     {
       provide: REDIS_CLIENT,
-      useFactory: (configService: ConfigService) => {
-        console.log('Creating Redis client...');
-        // 直接返回 MockRedis 实例，避免 Redis 连接错误
-        console.warn('Using mock Redis client implementation');
-        return new MockRedis() as any;
+      useFactory: async (configService: ConfigService) => {
+        const logger = new Logger('RedisModule');
+        logger.log('Initializing Redis client...');
+        return createRedisClientWithFallback(configService, logger, 'Redis Client');
       },
       inject: [ConfigService],
     },
     {
       provide: REDIS_PUB_CLIENT,
-      useFactory: (configService: ConfigService) => {
-        console.log('Creating Redis pub client...');
-        // 直接返回 MockRedis 实例，避免 Redis 连接错误
-        console.warn('Using mock Redis pub client implementation');
-        return new MockRedis() as any;
+      useFactory: async (configService: ConfigService) => {
+        const logger = new Logger('RedisModule');
+        logger.log('Initializing Redis pub client...');
+        return createRedisClientWithFallback(configService, logger, 'Redis Pub Client');
       },
       inject: [ConfigService],
     },
     {
       provide: REDIS_SUB_CLIENT,
-      useFactory: (configService: ConfigService) => {
-        console.log('Creating Redis sub client...');
-        // 直接返回 MockRedis 实例，避免 Redis 连接错误
-        console.warn('Using mock Redis sub client implementation');
-        return new MockRedis() as any;
+      useFactory: async (configService: ConfigService) => {
+        const logger = new Logger('RedisModule');
+        logger.log('Initializing Redis sub client...');
+        return createRedisClientWithFallback(configService, logger, 'Redis Sub Client');
       },
       inject: [ConfigService],
     },
@@ -185,7 +243,9 @@ class MockRedis {
   exports: [REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT, RedisService],
 })
 export class RedisModule implements OnModuleInit {
+  private readonly logger = new Logger(RedisModule.name);
+
   async onModuleInit() {
-    console.log('RedisModule initialized');
+    this.logger.log('✅ RedisModule initialized');
   }
 }

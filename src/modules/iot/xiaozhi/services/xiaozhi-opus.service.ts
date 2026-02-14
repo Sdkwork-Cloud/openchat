@@ -1,24 +1,17 @@
-/**
- * Opus 编解码服务
- * 
- * 提供 Opus 音频编解码功能，支持小智设备的音频数据转换
- */
-
 import { Injectable, Logger } from '@nestjs/common';
 import { EventBusService } from '../../../../common/events/event-bus.service';
 
-// 动态导入 opus 库
 let OpusEncoder: any;
 try {
   const opus = require('@discordjs/opus');
   OpusEncoder = opus.OpusEncoder;
 } catch (error) {
-  console.warn('@discordjs/opus not available, falling back to opusscript');
+  Logger.warn('@discordjs/opus not available, falling back to opusscript', 'XiaozhiOpus');
   try {
     const opusscript = require('opusscript');
     OpusEncoder = opusscript;
   } catch (e) {
-    console.error('No Opus library available');
+    Logger.error('No Opus library available', '', 'XiaozhiOpus');
   }
 }
 
@@ -26,14 +19,12 @@ try {
 export class XiaozhiOpusService {
   private readonly logger = new Logger(XiaozhiOpusService.name);
   
-  // 存储每个设备的编码器和解码器
   private encoders = new Map<string, any>();
   private decoders = new Map<string, any>();
   
-  // 默认音频参数
   private readonly DEFAULT_SAMPLE_RATE = 16000;
   private readonly DEFAULT_CHANNELS = 1;
-  private readonly DEFAULT_FRAME_SIZE = 960; // 60ms @ 16kHz
+  private readonly DEFAULT_FRAME_SIZE = 960;
 
   constructor(
     private readonly eventBus: EventBusService,

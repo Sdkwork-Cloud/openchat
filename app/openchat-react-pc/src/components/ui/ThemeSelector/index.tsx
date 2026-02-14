@@ -25,7 +25,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
   direction = 'horizontal',
   size = 'medium',
 }) => {
-  const { currentTheme, setTheme, themeConfig } = useTheme();
+  const { currentTheme, setTheme } = useTheme();
 
   const sizeClasses = {
     small: {
@@ -126,7 +126,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
  * 简洁主题切换按钮
  */
 export const ThemeToggle: React.FC<{ className?: string }> = ({ className }) => {
-  const { currentTheme, toggleTheme, themeConfig, isDark } = useTheme();
+  const { currentTheme, toggleTheme, themeConfig } = useTheme();
 
   return (
     <button

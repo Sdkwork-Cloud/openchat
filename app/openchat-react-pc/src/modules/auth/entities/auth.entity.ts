@@ -10,6 +10,7 @@
  */
 export interface User {
   id: string;
+  uid?: string;
   username: string;
   email: string;
   phone: string;
@@ -25,8 +26,14 @@ export interface User {
 export interface IMConfig {
   /** WebSocket服务器地址 */
   wsUrl: string;
+  /** API服务器地址 */
+  serverUrl?: string;
   /** 用户ID */
   uid: string;
+  /** 设备ID */
+  deviceId?: string;
+  /** 设备标识 */
+  deviceFlag?: string;
   /** IM认证Token */
   token: string;
 }

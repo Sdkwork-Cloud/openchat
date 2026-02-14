@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './modules/user/user.module';
@@ -22,7 +22,8 @@ import { CacheModule } from './common/cache/cache.module';
 import { AuthModule } from './common/auth/auth.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { EventBusModule } from './common/events/event-bus.module';
-import { User } from './modules/user/user.entity';
+import { ExtensionsModule } from './extensions';
+import { UserEntity } from './modules/user/entities/user.entity';
 import { Friend } from './modules/friend/friend.entity';
 import { FriendRequest } from './modules/friend/friend-request.entity';
 import { Message } from './modules/message/message.entity';
@@ -43,6 +44,9 @@ import { BotEntity } from './modules/bot-platform/entities/bot.entity';
 import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.entity';
 import { DeviceEntity } from './modules/iot/entities/device.entity';
 import { DeviceMessageEntity } from './modules/iot/entities/device-message.entity';
+import { AgentModule } from './modules/agent/agent.module';
+import { Agent, AgentSession, AgentMessage } from './modules/agent/agent.entity';
+import { WukongIMModule } from './modules/wukongim/wukongim.module';
 
 @Module({
   imports: [
@@ -79,6 +83,12 @@ import { DeviceMessageEntity } from './modules/iot/entities/device-message.entit
     // 事件总线模块（全局）
     EventBusModule,
 
+    // 扩展插件模块（全局）
+    ExtensionsModule.forRoot({
+      useDefaultUserCenter: true,
+      useRemoteUserCenter: false,
+    }),
+
     // 数据库模块（优化连接池配置）
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -92,7 +102,8 @@ import { DeviceMessageEntity } from './modules/iot/entities/device-message.entit
           database: configService.get('DB_NAME', 'openchat')
         };
         
-        console.log('Database configuration:', dbConfig);
+        const logger = new Logger('AppModule');
+        logger.log('Database configuration: ' + JSON.stringify(dbConfig));
         
         return {
           type: 'postgres',
@@ -102,7 +113,7 @@ import { DeviceMessageEntity } from './modules/iot/entities/device-message.entit
           password: dbConfig.password,
           database: dbConfig.database,
           entities: [
-        User,
+        UserEntity,
         Friend,
         FriendRequest,
         Message,
@@ -123,6 +134,9 @@ import { DeviceMessageEntity } from './modules/iot/entities/device-message.entit
         BotCommandEntity,
         DeviceEntity,
         DeviceMessageEntity,
+        Agent,
+        AgentSession,
+        AgentMessage,
         ],
         synchronize: configService.get('NODE_ENV') !== 'production', // 生产环境禁用同步
         logging: configService.get('DB_LOGGING', 'false') === 'true',
@@ -154,6 +168,8 @@ import { DeviceMessageEntity } from './modules/iot/entities/device-message.entit
     ContactModule,
     BotPlatformModule,
     IoTModule,
+    AgentModule,
+    WukongIMModule,
   ],
 })
 export class AppModule {}

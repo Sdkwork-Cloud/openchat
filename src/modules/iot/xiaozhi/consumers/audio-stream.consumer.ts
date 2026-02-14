@@ -48,9 +48,9 @@ export class AudioStreamConsumer implements OnModuleInit {
     private audioService: XiaoZhiAudioService,
     private stateService: XiaoZhiStateService,
     private gateway: XiaoZhiGateway,
-    private baiduSTT: BaiduSTTService,
-    private baiduTTS: BaiduTTSService,
-    private openaiChat: OpenAIChatService,
+    private baiduSTTService: BaiduSTTService,
+    private baiduTTSService: BaiduTTSService,
+    private openaiChatService: OpenAIChatService,
   ) {
     // 加载配置
     this.sttConfig = {
@@ -94,11 +94,10 @@ export class AudioStreamConsumer implements OnModuleInit {
   private subscribeToAudioEvents(): void {
     this.eventBus.subscribe(
       EventType.AUDIO_DATA_RECEIVED,
-      async (event: any) => {
-        await this.handleAudioData(event);
-      },
       { priority: EventPriority.HIGH }
-    );
+    ).subscribe(async (event) => {
+      await this.handleAudioData(event.payload);
+    });
 
     this.logger.log('Subscribed to AUDIO_DATA_RECEIVED events');
   }
@@ -176,7 +175,7 @@ export class AudioStreamConsumer implements OnModuleInit {
     
     switch (this.sttConfig.provider) {
       case 'baidu':
-        return this.baiduSTT(pcmData, sampleRate);
+        return this.callBaiduSTT(pcmData, sampleRate);
       case 'xunfei':
         return this.xunfeiSTT(pcmData, sampleRate);
       case 'ali':
@@ -191,7 +190,7 @@ export class AudioStreamConsumer implements OnModuleInit {
   /**
    * 百度语音识别
    */
-  private async baiduSTT(pcmData: Buffer, sampleRate: number): Promise<string> {
+  private async callBaiduSTT(pcmData: Buffer, sampleRate: number): Promise<string> {
     try {
       if (!this.baiduSTTService.isAvailable()) {
         this.logger.warn('Baidu STT not available, using mock');
@@ -247,7 +246,7 @@ export class AudioStreamConsumer implements OnModuleInit {
   private async chatWithLLM(messages: Array<{ role: string; content: string }>): Promise<string> {
     switch (this.llmConfig.provider) {
       case 'openai':
-        return this.openaiChat(messages);
+        return this.callOpenaiChat(messages);
       case 'baidu':
         return this.baiduChat(messages);
       case 'ali':
@@ -261,10 +260,17 @@ export class AudioStreamConsumer implements OnModuleInit {
   /**
    * OpenAI 对话
    */
-  private async openaiChat(messages: Array<{ role: string; content: string }>): Promise<string> {
-    // TODO: 实现 OpenAI API 调用
-    this.logger.warn('OpenAI chat not implemented yet, using mock');
-    return this.mockChat(messages);
+  private async callOpenaiChat(messages: Array<{ role: string; content: string }>): Promise<string> {
+    try {
+      if (!this.openaiChatService.isAvailable()) {
+        this.logger.warn('OpenAI not available, using mock');
+        return this.mockChat(messages);
+      }
+      return await this.openaiChatService.chat(messages);
+    } catch (error) {
+      this.logger.error('OpenAI chat failed, falling back to mock:', error);
+      return this.mockChat(messages);
+    }
   }
 
   /**
@@ -343,7 +349,7 @@ export class AudioStreamConsumer implements OnModuleInit {
   private async synthesizeSpeech(text: string): Promise<Buffer> {
     switch (this.ttsConfig.provider) {
       case 'baidu':
-        return this.baiduTTS(text);
+        return this.callBaiduTTS(text);
       case 'xunfei':
         return this.xunfeiTTS(text);
       case 'ali':
@@ -357,10 +363,19 @@ export class AudioStreamConsumer implements OnModuleInit {
   /**
    * 百度语音合成
    */
-  private async baiduTTS(text: string): Promise<Buffer> {
-    // TODO: 实现百度语音合成 API 调用
-    this.logger.warn('Baidu TTS not implemented yet, using mock');
-    return this.mockTTS(text);
+  private async callBaiduTTS(text: string): Promise<Buffer> {
+    try {
+      if (!this.baiduTTSService.isAvailable()) {
+        this.logger.warn('Baidu TTS not available, using mock');
+        return this.mockTTS(text);
+      }
+      return await this.baiduTTSService.synthesize(text, {
+        voice: this.ttsConfig.voice,
+      });
+    } catch (error) {
+      this.logger.error('Baidu TTS failed, falling back to mock:', error);
+      return this.mockTTS(text);
+    }
   }
 
   /**

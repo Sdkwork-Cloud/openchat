@@ -28,6 +28,8 @@ export interface SkeletonProps {
   rows?: number;
   /** 行间距 */
   rowGap?: number;
+  /** 尺寸（用于头像等） */
+  size?: number;
 }
 
 // ==================== 基础骨架屏 ====================
@@ -90,7 +92,7 @@ export const SkeletonText: React.FC<Omit<SkeletonProps, 'height'> & { lines?: nu
 /**
  * 头像骨架屏
  */
-export const SkeletonAvatar: React.FC<Omit<SkeletonProps, 'width' | 'height' | 'borderRadius'>> = ({
+export const SkeletonAvatar: React.FC<SkeletonProps> = ({
   size = 40,
   shimmer = true,
   className,

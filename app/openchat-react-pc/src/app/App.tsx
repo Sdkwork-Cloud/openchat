@@ -43,7 +43,7 @@ async function initPlatform() {
  * 根据认证状态显示登录页面或主应用
  */
 function AppContent() {
-  const { isAuthenticated, isLoading, login, error, clearError } = useAuthContext();
+  const { isAuthenticated } = useAuthContext();
 
   // 显示登录页面
   if (!isAuthenticated) {

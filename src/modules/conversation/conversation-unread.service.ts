@@ -135,13 +135,16 @@ export class ConversationUnreadService {
         }
       });
       
-      // 处理Redis中不存在的会话
       const missingIds = conversationIds.filter(id => !result.has(id));
       if (missingIds.length > 0) {
-        // 从数据库批量获取（这里简化处理，实际应该实现批量查询）
-        for (const id of missingIds) {
-          const count = await this.getUnreadCount(id);
-          result.set(id, count);
+        const conversations = await this.conversationService['conversationRepository']
+          .createQueryBuilder('conversation')
+          .select(['conversation.id', 'conversation.unreadCount'])
+          .where('conversation.id IN (:...ids)', { ids: missingIds })
+          .getMany();
+
+        for (const conv of conversations) {
+          result.set(conv.id, conv.unreadCount || 0);
         }
       }
       

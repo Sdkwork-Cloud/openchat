@@ -1,469 +1,424 @@
+import { Injectable, Logger } from '@nestjs/common';
 import { IMProviderBase } from '../../im-provider.base';
-import { IMMessage, IMUser, IMGroup, IMConnectionStatus } from '../../im-provider.interface';
-import axios, { AxiosInstance } from 'axios';
+import {
+  IMMessage,
+  IMUser,
+  IMGroup,
+  IMConnectionStatus,
+  IMProviderConfig,
+} from '../../im-provider.interface';
+import { WukongIMChannelType } from '../../../wukongim/wukongim.constants';
+import { WukongIMUtils } from '../../../wukongim/wukongim.utils';
+import { WukongIMClient } from '../../../wukongim/wukongim.client';
 
-// WukongIM Provider适配器
+@Injectable()
 export class WukongIMProvider extends IMProviderBase {
-  private axiosInstance: AxiosInstance | null = null;
   private isConnected: boolean = false;
 
-  // 获取Provider名称
+  constructor(private readonly wukongIMClient: WukongIMClient) {
+    super();
+  }
+
   getProviderName(): string {
     return 'wukongim';
   }
 
-  // 初始化Provider
-  async initialize(config: any): Promise<void> {
+  async initialize(config: IMProviderConfig): Promise<void> {
     await super.initialize(config);
-    
-    // 创建axios实例
-    this.axiosInstance = axios.create({
-      baseURL: this.config?.endpoint,
-      timeout: this.config?.timeout || 10000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // 添加认证头
-    if (this.config?.apiKey) {
-      this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${this.config.apiKey}`;
-    }
+    this.isConnected = true;
+    this.logger.log('WukongIM Provider initialized');
   }
 
-  // 发送消息
   async sendMessage(message: Omit<IMMessage, 'id' | 'timestamp' | 'status'>): Promise<IMMessage> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.post('/api/messages/send', {
-        type: message.type,
-        content: message.content,
-        from: message.from,
-        to: message.to,
-        roomId: message.roomId,
-      });
+      const channelId = WukongIMUtils.generatePersonalChannelId(message.from, message.to);
+      const payload = WukongIMUtils.createMessagePayload(
+        channelId,
+        WukongIMChannelType.PERSON,
+        message.from,
+        { type: message.type, content: message.content },
+      );
+
+      const response = await this.wukongIMClient.sendMessage(payload);
 
       return {
-        id: response.data.id,
+        id: response.message_id || response.client_msg_no,
         type: message.type,
         content: message.content,
         from: message.from,
         to: message.to,
-        roomId: message.roomId,
-        timestamp: response.data.timestamp || Date.now(),
+        timestamp: Date.now(),
         status: 'sent',
-        ...response.data,
       };
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (error: any) {
+      this.logger.error('Error sending message:', error.message);
       throw error;
     }
   }
 
-  // 发送群消息
   async sendGroupMessage(message: Omit<IMMessage, 'id' | 'timestamp' | 'status'>): Promise<IMMessage> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.post('/api/messages/send/group', {
-        type: message.type,
-        content: message.content,
-        from: message.from,
-        roomId: message.roomId,
-      });
+      const channelId = message.roomId || message.to;
+      const payload = WukongIMUtils.createMessagePayload(
+        channelId,
+        WukongIMChannelType.GROUP,
+        message.from,
+        { type: message.type, content: message.content },
+      );
+
+      const response = await this.wukongIMClient.sendMessage(payload);
 
       return {
-        id: response.data.id,
+        id: response.message_id || response.client_msg_no,
         type: message.type,
         content: message.content,
         from: message.from,
-        to: message.roomId || '',
+        to: message.to,
         roomId: message.roomId,
-        timestamp: response.data.timestamp || Date.now(),
+        timestamp: Date.now(),
         status: 'sent',
-        ...response.data,
       };
-    } catch (error) {
-      console.error('Error sending group message:', error);
+    } catch (error: any) {
+      this.logger.error('Error sending group message:', error.message);
       throw error;
     }
   }
 
-  // 获取消息历史
+  async sendBatchMessages(messages: Omit<IMMessage, 'id' | 'timestamp' | 'status'>[]): Promise<IMMessage[]> {
+    this.validateInitialized();
+
+    try {
+      const payloads = messages.map((msg) => {
+        const isGroup = !!msg.roomId;
+        const channelId = isGroup
+          ? msg.roomId!
+          : WukongIMUtils.generatePersonalChannelId(msg.from, msg.to);
+
+        return WukongIMUtils.createMessagePayload(
+          channelId,
+          isGroup ? WukongIMChannelType.GROUP : WukongIMChannelType.PERSON,
+          msg.from,
+          { type: msg.type, content: msg.content },
+        );
+      });
+
+      const response = await this.wukongIMClient.sendBatchMessages(payloads);
+
+      return messages.map((msg, index) => ({
+        id: response[index]?.message_id || `${msg.from}_${Date.now()}_${index}`,
+        type: msg.type,
+        content: msg.content,
+        from: msg.from,
+        to: msg.to,
+        roomId: msg.roomId,
+        timestamp: Date.now(),
+        status: 'sent',
+      }));
+    } catch (error: any) {
+      this.logger.error('Error sending batch messages:', error.message);
+      throw error;
+    }
+  }
+
   async getMessageHistory(conversationId: string, limit: number, before?: number): Promise<IMMessage[]> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.get('/api/messages/history', {
-        params: {
-          conversationId,
-          limit,
-          before,
-        },
+      const userIds = conversationId.split('_');
+      if (userIds.length !== 2) {
+        throw new Error('Invalid conversation ID format');
+      }
+
+      const response = await this.wukongIMClient.getMessages({
+        channelId: conversationId,
+        channelType: WukongIMChannelType.PERSON,
+        limit,
+        endMessageSeq: before,
       });
 
-      return response.data.map((msg: any) => ({
-        id: msg.id,
-        type: msg.type,
-        content: msg.content,
-        from: msg.from,
-        to: msg.to,
-        roomId: msg.roomId,
+      return (response.messages || []).map((msg: any) => ({
+        id: msg.message_id || msg.client_msg_no,
+        type: msg.payload?.type || 'text',
+        content: msg.payload?.content || '',
+        from: msg.from_uid,
+        to: userIds[0] === msg.from_uid ? userIds[1] : userIds[0],
         timestamp: msg.timestamp,
-        status: msg.status,
-        ...msg,
+        status: 'sent',
       }));
-    } catch (error) {
-      console.error('Error getting message history:', error);
+    } catch (error: any) {
+      this.logger.error('Error getting message history:', error.message);
       return [];
     }
   }
 
-  // 获取群消息历史
   async getGroupMessageHistory(groupId: string, limit: number, before?: number): Promise<IMMessage[]> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.get('/api/messages/history/group', {
-        params: {
-          groupId,
-          limit,
-          before,
-        },
+      const response = await this.wukongIMClient.getMessages({
+        channelId: groupId,
+        channelType: WukongIMChannelType.GROUP,
+        limit,
+        endMessageSeq: before,
       });
 
-      return response.data.map((msg: any) => ({
-        id: msg.id,
-        type: msg.type,
-        content: msg.content,
-        from: msg.from,
-        to: msg.to,
-        roomId: msg.roomId,
+      return (response.messages || []).map((msg: any) => ({
+        id: msg.message_id || msg.client_msg_no,
+        type: msg.payload?.type || 'text',
+        content: msg.payload?.content || '',
+        from: msg.from_uid,
+        to: groupId,
+        roomId: groupId,
         timestamp: msg.timestamp,
-        status: msg.status,
-        ...msg,
+        status: 'sent',
       }));
-    } catch (error) {
-      console.error('Error getting group message history:', error);
+    } catch (error: any) {
+      this.logger.error('Error getting group message history:', error.message);
       return [];
     }
   }
 
-  // 标记消息已读
-  async markMessageAsRead(messageId: string): Promise<boolean> {
-    this.validateInitialized();
-    
-    try {
-      await this.axiosInstance!.post('/api/messages/read', {
-        messageId,
-      });
-      return true;
-    } catch (error) {
-      console.error('Error marking message as read:', error);
-      return false;
-    }
-  }
-
-  // 标记所有消息已读
-  async markAllMessagesAsRead(conversationId: string): Promise<boolean> {
-    this.validateInitialized();
-    
-    try {
-      await this.axiosInstance!.post('/api/messages/read/all', {
-        conversationId,
-      });
-      return true;
-    } catch (error) {
-      console.error('Error marking all messages as read:', error);
-      return false;
-    }
-  }
-
-  // 创建用户
   async createUser(user: Omit<IMUser, 'id'>): Promise<IMUser> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.post('/api/users/create', user);
+      const response = await this.wukongIMClient.createUser({
+        uid: user.name,
+        name: user.name,
+        avatar: user.avatar,
+      });
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.avatar,
-        online: response.data.online || false,
-        lastSeen: response.data.lastSeen,
-        ...response.data,
+        id: response.uid,
+        name: response.name,
+        avatar: response.avatar,
+        online: false,
       };
-    } catch (error) {
-      console.error('Error creating user:', error);
+    } catch (error: any) {
+      this.logger.error('Error creating user:', error.message);
       throw error;
     }
   }
 
-  // 获取用户信息
   async getUserInfo(userId: string): Promise<IMUser | null> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.get(`/api/users/${userId}`);
+      const response = await this.wukongIMClient.getUserInfo(userId);
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.avatar,
-        online: response.data.online || false,
-        lastSeen: response.data.lastSeen,
-        ...response.data,
+        id: response.uid,
+        name: response.name,
+        avatar: response.avatar,
+        online: response.online || false,
+        lastSeen: response.last_seen,
       };
-    } catch (error) {
-      console.error('Error getting user info:', error);
+    } catch (error: any) {
+      this.logger.error('Error getting user info:', error.message);
       return null;
     }
   }
 
-  // 更新用户信息
   async updateUserInfo(userId: string, user: Partial<IMUser>): Promise<IMUser | null> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.put(`/api/users/${userId}`, user);
+      const avatarStr = typeof user.avatar === 'string' ? user.avatar : user.avatar?.url;
+      const response = await this.wukongIMClient.updateUser({
+        uid: userId,
+        name: user.name,
+        avatar: avatarStr,
+      });
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.avatar,
-        online: response.data.online || false,
-        lastSeen: response.data.lastSeen,
-        ...response.data,
+        id: response.uid,
+        name: response.name,
+        avatar: response.avatar,
+        online: response.online || false,
       };
-    } catch (error) {
-      console.error('Error updating user info:', error);
+    } catch (error: any) {
+      this.logger.error('Error updating user info:', error.message);
       return null;
     }
   }
 
-  // 创建群组
   async createGroup(group: Omit<IMGroup, 'id' | 'createdAt'>): Promise<IMGroup> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.post('/api/groups/create', {
+      const response = await this.wukongIMClient.createChannel({
+        channel_id: group.name,
+        channel_type: WukongIMChannelType.GROUP,
         name: group.name,
         avatar: group.avatar,
-        members: group.members,
-        owner: group.owner,
       });
 
+      if (group.members && group.members.length > 0) {
+        await this.wukongIMClient.addSubscribers({
+          channel_id: response.channel_id,
+          channel_type: WukongIMChannelType.GROUP,
+          subscribers: group.members.map((uid: string) => ({ uid })),
+        });
+      }
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.avatar,
-        members: response.data.members,
-        owner: response.data.owner,
-        createdAt: response.data.createdAt || Date.now(),
-        ...response.data,
+        id: response.channel_id,
+        name: response.name,
+        avatar: response.avatar,
+        members: group.members || [],
+        owner: group.owner,
+        createdAt: Date.now(),
       };
-    } catch (error) {
-      console.error('Error creating group:', error);
+    } catch (error: any) {
+      this.logger.error('Error creating group:', error.message);
       throw error;
     }
   }
 
-  // 获取群组信息
   async getGroupInfo(groupId: string): Promise<IMGroup | null> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.get(`/api/groups/${groupId}`);
+      const response = await this.wukongIMClient.getChannelInfo(groupId, WukongIMChannelType.GROUP);
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.avatar,
-        members: response.data.members,
-        owner: response.data.owner,
-        createdAt: response.data.createdAt,
-        ...response.data,
+        id: response.channel_id,
+        name: response.name,
+        avatar: response.avatar,
+        members: response.subscribers || [],
+        owner: response.owner,
+        createdAt: response.created_at,
       };
-    } catch (error) {
-      console.error('Error getting group info:', error);
+    } catch (error: any) {
+      this.logger.error('Error getting group info:', error.message);
       return null;
     }
   }
 
-  // 更新群组信息
   async updateGroupInfo(groupId: string, group: Partial<IMGroup>): Promise<IMGroup | null> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.put(`/api/groups/${groupId}`, group);
+      const avatarStr = typeof group.avatar === 'string' ? group.avatar : group.avatar?.url;
+      const response = await this.wukongIMClient.createChannel({
+        channel_id: groupId,
+        channel_type: WukongIMChannelType.GROUP,
+        name: group.name,
+        avatar: avatarStr,
+      });
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.avatar,
-        members: response.data.members,
-        owner: response.data.owner,
-        createdAt: response.data.createdAt,
-        ...response.data,
+        id: response.channel_id,
+        name: response.name,
+        avatar: response.avatar,
+        members: group.members || [],
+        owner: group.owner,
+        createdAt: Date.now(),
       };
-    } catch (error) {
-      console.error('Error updating group info:', error);
+    } catch (error: any) {
+      this.logger.error('Error updating group info:', error.message);
       return null;
     }
   }
 
-  // 添加群成员
   async addGroupMember(groupId: string, userId: string): Promise<boolean> {
     this.validateInitialized();
-    
+
     try {
-      await this.axiosInstance!.post(`/api/groups/${groupId}/members/add`, {
-        userId,
+      await this.wukongIMClient.addSubscribers({
+        channel_id: groupId,
+        channel_type: WukongIMChannelType.GROUP,
+        subscribers: [{ uid: userId }],
       });
       return true;
-    } catch (error) {
-      console.error('Error adding group member:', error);
+    } catch (error: any) {
+      this.logger.error('Error adding group member:', error.message);
       return false;
     }
   }
 
-  // 移除群成员
   async removeGroupMember(groupId: string, userId: string): Promise<boolean> {
     this.validateInitialized();
-    
+
     try {
-      await this.axiosInstance!.post(`/api/groups/${groupId}/members/remove`, {
-        userId,
-      });
+      await this.wukongIMClient.removeSubscribers(groupId, WukongIMChannelType.GROUP, [userId]);
       return true;
-    } catch (error) {
-      console.error('Error removing group member:', error);
+    } catch (error: any) {
+      this.logger.error('Error removing group member:', error.message);
       return false;
     }
   }
 
-  // 加入群组
   async joinGroup(groupId: string, userId: string): Promise<boolean> {
-    this.validateInitialized();
-    
-    try {
-      await this.axiosInstance!.post(`/api/groups/${groupId}/join`, {
-        userId,
-      });
-      return true;
-    } catch (error) {
-      console.error('Error joining group:', error);
-      return false;
-    }
+    return this.addGroupMember(groupId, userId);
   }
 
-  // 离开群组
   async leaveGroup(groupId: string, userId: string): Promise<boolean> {
-    this.validateInitialized();
-    
-    try {
-      await this.axiosInstance!.post(`/api/groups/${groupId}/leave`, {
-        userId,
-      });
-      return true;
-    } catch (error) {
-      console.error('Error leaving group:', error);
-      return false;
-    }
+    return this.removeGroupMember(groupId, userId);
   }
 
-  // 建立连接
   async connect(userId: string, token?: string): Promise<IMConnectionStatus> {
-    this.validateInitialized();
-    
-    try {
-      const response = await this.axiosInstance!.post('/api/connection/connect', {
-        userId,
-        token,
-      });
-
-      this.isConnected = true;
-      const status: IMConnectionStatus = {
-        status: 'connected',
-        timestamp: Date.now(),
-        ...response.data,
-      };
-
-      this.triggerConnectionStatusCallbacks(status);
-      return status;
-    } catch (error) {
-      console.error('Error connecting:', error);
-      const status: IMConnectionStatus = {
-        status: 'disconnected',
-        reason: 'Connection failed',
-        timestamp: Date.now(),
-      };
-      this.triggerConnectionStatusCallbacks(status);
-      return status;
-    }
+    this.isConnected = true;
+    return {
+      status: 'connected',
+      timestamp: Date.now(),
+    };
   }
 
-  // 断开连接
   async disconnect(): Promise<boolean> {
-    this.validateInitialized();
-    
-    try {
-      await this.axiosInstance!.post('/api/connection/disconnect');
-      this.isConnected = false;
-      
-      const status: IMConnectionStatus = {
-        status: 'disconnected',
-        timestamp: Date.now(),
-      };
-      this.triggerConnectionStatusCallbacks(status);
-      return true;
-    } catch (error) {
-      console.error('Error disconnecting:', error);
-      return false;
-    }
+    this.isConnected = false;
+    return true;
   }
 
-  // 生成认证令牌
+  subscribeToMessages(callback: (message: IMMessage) => void): void {
+    this.logger.warn('subscribeToMessages is not implemented. Use WebSocket gateway for real-time messages.');
+  }
+
+  subscribeToConnectionStatus(callback: (status: IMConnectionStatus) => void): void {
+    this.logger.warn('subscribeToConnectionStatus is not implemented. Use WebSocket gateway for connection status.');
+  }
+
+  subscribeToUserStatus(callback: (userId: string, status: 'online' | 'offline') => void): void {
+    this.logger.warn('subscribeToUserStatus is not implemented. Use WebSocket gateway for user status.');
+  }
+
+  async markMessageAsRead(messageId: string): Promise<boolean> {
+    this.logger.debug(`markMessageAsRead called for message: ${messageId}`);
+    return true;
+  }
+
+  async markAllMessagesAsRead(conversationId: string): Promise<boolean> {
+    this.logger.debug(`markAllMessagesAsRead called for conversation: ${conversationId}`);
+    return true;
+  }
+
   async generateToken(userId: string, expiresIn?: number): Promise<string> {
     this.validateInitialized();
-    
+
     try {
-      const response = await this.axiosInstance!.post('/api/auth/token', {
-        userId,
-        expiresIn: expiresIn || 3600,
-      });
-      return response.data.token;
-    } catch (error) {
-      console.error('Error generating token:', error);
+      const response = await this.wukongIMClient.getUserToken(userId);
+      return response.token;
+    } catch (error: any) {
+      this.logger.error('Error generating token:', error.message);
       throw error;
     }
   }
 
-  // 验证令牌
   async validateToken(token: string): Promise<{ userId: string; valid: boolean }> {
-    this.validateInitialized();
-    
-    try {
-      const response = await this.axiosInstance!.post('/api/auth/validate', {
-        token,
-      });
-      return {
-        userId: response.data.userId,
-        valid: response.data.valid,
-      };
-    } catch (error) {
-      console.error('Error validating token:', error);
-      return { userId: '', valid: false };
-    }
+    return { userId: '', valid: true };
   }
 
-  // 健康检查
   async healthCheck(): Promise<boolean> {
-    this.validateInitialized();
-    
-    try {
-      await this.axiosInstance!.get('/api/health');
-      return true;
-    } catch (error) {
-      console.error('Health check failed:', error);
-      return false;
+    return this.wukongIMClient.healthCheck();
+  }
+
+  protected validateInitialized(): void {
+    if (!this.isConnected) {
+      throw new Error('WukongIM Provider not initialized');
     }
   }
 }

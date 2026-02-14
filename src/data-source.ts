@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { User } from './modules/user/user.entity';
+import { UserEntity } from './modules/user/entities/user.entity';
 import { Friend } from './modules/friend/friend.entity';
 import { FriendRequest } from './modules/friend/friend-request.entity';
 import { Message } from './modules/message/message.entity';
@@ -24,7 +24,7 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'openchat',
   entities: [
-    User,
+    UserEntity,
     Friend,
     FriendRequest,
     Message,

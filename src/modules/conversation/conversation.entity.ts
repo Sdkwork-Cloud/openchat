@@ -1,43 +1,51 @@
 import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
-import { AnyMediaResource, ImageMediaResource } from '../im-provider/media-resource.interface';
+import { ImageMediaResource } from '../im-provider/media-resource.interface';
 
-/**
- * 会话实体
- */
 @Entity('chat_conversations')
 @Index(['userId', 'targetId', 'type'], { unique: true })
+@Index('idx_conversations_user_pinned_time', ['userId', 'isPinned', 'lastMessageTime'])
+@Index('idx_conversations_user_time', ['userId', 'lastMessageTime'])
 export class ConversationEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: false })
   type: 'single' | 'group';
 
   @Column({ type: 'varchar', length: 36, nullable: false })
-  userId: string; // 会话所属用户ID
+  userId: string;
 
   @Column({ type: 'varchar', length: 36, nullable: false })
-  targetId: string; // 对方用户ID或群组ID
+  targetId: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  targetName?: string; // 对方名称或群组名称
+  targetName?: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  targetAvatar?: string | ImageMediaResource; // 对方头像或群组头像
+  targetAvatar?: string | ImageMediaResource;
 
   @Column({ type: 'varchar', length: 36, nullable: true })
-  lastMessageId?: string; // 最后一条消息ID
+  lastMessageId?: string;
 
   @Column({ type: 'text', nullable: true })
-  lastMessageContent?: string; // 最后一条消息内容预览
+  lastMessageContent?: string;
 
   @Column({ type: 'timestamp', nullable: true })
-  lastMessageTime?: Date; // 最后一条消息时间
+  lastMessageTime?: Date;
 
   @Column({ type: 'int', nullable: false, default: 0 })
-  unreadCount: number; // 未读消息数
+  unreadCount: number;
 
   @Column({ type: 'boolean', nullable: false, default: false })
-  isPinned: boolean; // 是否置顶
+  isPinned: boolean;
 
   @Column({ type: 'boolean', nullable: false, default: false })
-  isMuted: boolean; // 是否免打扰
+  isMuted: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  draft?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  draftUpdatedAt?: Date;
+
+  @Column({ type: 'bigint', nullable: true })
+  lastReadSeq?: number;
 }

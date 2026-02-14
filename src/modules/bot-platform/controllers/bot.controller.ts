@@ -13,7 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../user/jwt-auth.guard';
+import { JwtAuthGuard } from '../../user/guards/jwt-auth.guard';
 import { BotService, CreateBotParams, UpdateBotParams, BotResponse } from '../services/bot.service';
 import { WebhookConfig, BotScope } from '../entities/bot.entity';
 

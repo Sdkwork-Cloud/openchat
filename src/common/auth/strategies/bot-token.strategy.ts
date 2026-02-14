@@ -1,15 +1,10 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request } from 'express';
 import { AuthStrategy, AuthResult } from '../auth-strategy.interface';
 import { Repository } from 'typeorm';
 import { BotEntity } from '../../../modules/bot-platform/entities/bot.entity';
-import * as bcrypt from 'bcrypt';
 
-/**
- * Bot Token 认证策略
- * 支持 oc_bot_<appId>_<random> 格式的 Token
- */
 @Injectable()
 export class BotTokenAuthStrategy implements AuthStrategy {
   readonly name = 'bot-token';

@@ -4,13 +4,16 @@
 
 # OpenChat
 
-**Open Source Instant Messaging Platform**
+**Open Source Instant Messaging Platform - Server, SDK & Application All-in-One**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E.svg?logo=nestjs)](https://nestjs.com/)
 [![Docker](https://img.shields.io/badge/Docker-24.0+-2496ED.svg?logo=docker)](https://www.docker.com/)
-[![NestJS](https://img.shields.io/badge/NestJS-11.0+-E0234E.svg?logo=nestjs)](https://nestjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg?logo=postgresql)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg?logo=redis)](https://redis.io/)
+[![WukongIM](https://img.shields.io/badge/WukongIM-v2-orange.svg)](https://githubim.com/)
 
 [English](README.md) | [中文](README_CN.md)
 
@@ -18,55 +21,19 @@
 
 ---
 
-## 🚀 Quick Start
+## 📖 Table of Contents
 
-### Prerequisites
-
-- Node.js 18+
-- PostgreSQL 14+
-- Redis 6+
-- WukongIM Server
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# Install dependencies
-pnpm install
-# or
-npm install
-# or
-yarn install
-
-# Configure environment variables
-cp .env.example .env
-
-# Run database migrations
-pnpm run migration:run
-
-# Start the server in development mode
-pnpm run start:dev
-
-# Build for production
-pnpm run build
-# Start in production mode
-pnpm run start:prod
-```
-
-### Docker Deployment (Recommended)
-
-```bash
-docker-compose up -d
-```
-
-## 📋 Table of Contents
-
+- [📖 Table of Contents](#-table-of-contents)
 - [🚀 Quick Start](#-quick-start)
-- [📋 Table of Contents](#-table-of-contents)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Docker Deployment (Recommended)](#docker-deployment-recommended)
 - [✨ Features](#-features)
+  - [💬 Instant Messaging](#-instant-messaging)
+  - [🔊 Real-time Audio/Video](#-real-time-audiovideo)
+  - [🤖 AI Assistant](#-ai-assistant)
+  - [🔌 Third-party Integration](#-third-party-integration)
+  - [🛠️ System Features](#️-system-features)
 - [📁 Architecture](#-architecture)
 - [🔧 Technology Stack](#-technology-stack)
 - [📚 API Documentation](#-api-documentation)
@@ -76,94 +43,266 @@ docker-compose up -d
 - [🔒 Security](#-security)
 - [📊 Monitoring & Logging](#-monitoring--logging)
 - [📦 Deployment](#-deployment)
-- [👨‍💻 Development Guide](#-development-guide)
+- [👨‍💻 Development Guide](#️-development-guide)
+- [🧪 Testing](#-testing)
 - [❓ Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 - [💬 Community](#-community)
 - [📷 Screenshots](#-screenshots)
 
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+| Dependency | Version | Description |
+|------------|---------|-------------|
+| Docker | 24.0+ | Container runtime (recommended) |
+| Docker Compose | 2.0+ | Container orchestration |
+| Node.js | 18+ | Runtime environment (standalone) |
+| PostgreSQL | 15+ | Primary database (external) |
+| Redis | 7+ | Cache and message queue (external) |
+
+### One-Click Installation (Recommended)
+
+**Linux / macOS:**
+
+```bash
+# Quick install
+curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
+
+# Or clone and install
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+./scripts/quick-install.sh
+```
+
+**Windows:**
+
+```powershell
+# Quick install
+.\scripts\quick-install.bat
+
+# Or PowerShell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+### Pre-Installation Check
+
+```bash
+# Linux / macOS
+pnpm run precheck
+
+# Windows
+pnpm run precheck:win
+```
+
+The pre-check script will verify:
+- Operating system and architecture
+- Memory and disk space
+- Docker and Docker Compose
+- Port availability
+- Network connectivity
+
+### Docker Quick Start
+
+```bash
+# Quick start (all services in one command)
+docker compose -f docker-compose.quick.yml up -d
+
+# Or use npm script
+pnpm run docker:quick
+
+# Check service status
+docker compose ps
+
+# View logs
+docker compose logs -f
+```
+
+### Manual Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# Install dependencies
+pnpm install
+
+# Configure environment
+cp .env.example .env
+vim .env
+
+# Start with Docker
+pnpm run docker:quick
+
+# Or start in development mode
+pnpm run dev
+```
+
+### Verify Installation
+
+```bash
+# Health check
+curl http://localhost:3000/health
+
+# API documentation
+open http://localhost:3000/api/docs
+
+# Run health check script
+pnpm run health
+```
+
+### Access Points
+
+After installation, access the following services:
+
+| Service | URL |
+|---------|-----|
+| OpenChat API | http://localhost:3000 |
+| API Documentation | http://localhost:3000/api/docs |
+| Health Check | http://localhost:3000/health |
+| WukongIM Demo | http://localhost:5172 |
+| WukongIM Admin | http://localhost:5300/web |
+
+---
+
 ## ✨ Features
 
-### 📱 Core Messaging
-- ✅ One-to-one chat
-- ✅ Group chat with up to 50 members
-- ✅ Message history and search
-- ✅ Message recall and read receipts
-- ✅ Support for text, images, voice, video, and files
-- ✅ Offline message push
+### 💬 Instant Messaging
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| One-on-one Chat | ✅ | Private messaging |
+| Group Chat | ✅ | Support up to 500 members |
+| Message Recall | ✅ | Recall within 2 minutes |
+| Read Receipts | ✅ | Message read status |
+| Multimedia Messages | ✅ | Text, images, voice, video, files |
+| Message Search | ✅ | Full-text search history |
+| Offline Push | ✅ | Offline message notifications |
 
 ### 🔊 Real-time Audio/Video
-- ✅ HD audio/video calls
-- ✅ Screen sharing
-- ✅ Group calls
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Audio Calls | ✅ | HD voice calls |
+| Video Calls | ✅ | 1080P video calls |
+| Screen Sharing | ✅ | Desktop/window sharing |
+| Group Calls | ✅ | Multi-party video conferencing |
+| Recording & Playback | ✅ | Call recording and playback |
 
 ### 🤖 AI Assistant
-- ✅ Built-in GPT support
-- ✅ Intelligent customer service
-- ✅ Custom AI bots
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| GPT Integration | ✅ | Built-in ChatGPT support |
+| Smart Customer Service | ✅ | Automated Q&A bot |
+| AI Bot | ✅ | Custom AI robots |
+| Multi-model Support | ✅ | OpenAI, Claude, etc. |
 
 ### 🔌 Third-party Integration
-- ✅ Telegram, WhatsApp message sync
-- ✅ Webhook support
-- ✅ Rich API interfaces
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Telegram | ✅ | Message sync |
+| WhatsApp | ✅ | Message sync |
+| Webhook | ✅ | Custom integration |
+| Open API | ✅ | RESTful API |
 
 ### 🛠️ System Features
-- ✅ User management (registration, login, profile)
-- ✅ Friend system (requests, management)
-- ✅ Group system (creation, member management)
-- ✅ WebSocket real-time message push
-- ✅ Distributed deployment support
-- ✅ Performance monitoring and logging
-- ✅ Security authentication and authorization
-- ✅ Rate limiting
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| User Management | ✅ | Registration, login, profile |
+| Friend System | ✅ | Add, delete, group management |
+| Group System | ✅ | Create, member management, permissions |
+| WebSocket | ✅ | Real-time message push |
+| Distributed Deployment | ✅ | Cluster deployment support |
+| Performance Monitoring | ✅ | Prometheus metrics |
+| Security Authentication | ✅ | JWT + RBAC |
+| Rate Limiting | ✅ | Abuse prevention |
+
+---
 
 ## 📁 Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         Client Layer                         │
-├──────────────┬──────────────┬──────────────┬────────────────┤
-│   Web App    │  PC Client   │  Mobile App  │  Mini Program  │
-└──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────┘
-       │              │              │                │
-       └──────────────┴──────────────┴────────────────┘
-                           │
-┌──────────────────────────┼───────────────────────────────────┐
-│                      Service Layer (NestJS)                          │
-│  ┌──────────┬──────────┬──────────┬──────────┬─────────────┐  │
-│  │   Auth   │   User   │ Message  │  Group   │    RTC      │  │
-│  └──────────┴──────────┴──────────┴──────────┴─────────────┘  │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-┌──────────────────────────┼───────────────────────────────────┐
-│                      Message Layer (WukongIM)                          │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-┌──────────────────────────┼───────────────────────────────────┐
-│                       Data Layer                                 │
-│  ┌──────────────┬──────────────┬──────────────┬───────────┐  │
-│  │  PostgreSQL  │    Redis     │    MinIO     │  ES       │  │
-│  └──────────────┴──────────────┴──────────────┴───────────┘  │
-└───────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Client Layer                                    │
+├──────────────┬──────────────┬──────────────┬──────────────┬────────────────┤
+│   Web App    │  PC Client   │  Mobile App  │ Mini Program │   IoT Device   │
+│   (React)    │   (Tauri)    │  (React Nat) │   (WeChat)   │    (ESP32)     │
+└──────┬───────┴──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────┘
+       │              │              │              │                │
+       └──────────────┴──────────────┴──────────────┴────────────────┘
+                                    │
+                                    │ WebSocket / HTTP
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Service Layer (NestJS)                                │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┬───────────────┐  │
+│  │    Auth     │    User     │   Message   │    Group    │      RTC      │  │
+│  │  Auth & Auth│   Mgmt      │   Service   │   Mgmt      │   Audio/Video │  │
+│  └─────────────┴─────────────┴─────────────┴─────────────┴───────────────┘  │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┬───────────────┐  │
+│  │   Friend    │   Contact   │   AI Bot    │  ThirdParty │      IoT      │  │
+│  │   Mgmt      │   List      │   Service   │ Integration │   Devices     │  │
+│  └─────────────┴─────────────┴─────────────┴─────────────┴───────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ SDK / API
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      Message Layer (WukongIM)                                │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  Connection │  Message   │   Offline   │  Message   │    Online        ││
+│  │  Management │  Routing   │   Storage   │   Sync     │    Status        ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Data Layer                                      │
+│  ┌──────────────┬──────────────┬──────────────┬──────────────┬───────────┐  │
+│  │  PostgreSQL  │    Redis     │    MinIO     │ Elasticsearch│ Prometheus│  │
+│  │  Primary DB  │ Cache/Queue  │ Obj Storage  │   Search     │ Monitoring│  │
+│  └──────────────┴──────────────┴──────────────┴──────────────┴───────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## 🔧 Technology Stack
 
 ### Backend
-- **Framework**: [NestJS](https://nestjs.com/) 11.x + TypeScript
-- **ORM**: [TypeORM](https://typeorm.io/) 0.3.x
-- **Database**: [PostgreSQL](https://www.postgresql.org/) 15+
-- **Cache**: [Redis](https://redis.io/) 7+
-- **Message Queue**: [BullMQ](https://docs.bullmq.io/)
-- **WebSocket**: [Socket.IO](https://socket.io/)
-- **Authentication**: JWT
-- **IM Engine**: [WukongIM](https://githubim.com/)
 
-### Frontend (Optional)
-- **Framework**: [React](https://react.dev/) 18.x
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+| Technology | Version | Description |
+|------------|---------|-------------|
+| [NestJS](https://nestjs.com/) | 11.x | Enterprise Node.js framework |
+| [TypeScript](https://www.typescriptlang.org/) | 5.9+ | Type-safe JavaScript |
+| [TypeORM](https://typeorm.io/) | 0.3.x | Powerful ORM framework |
+| [PostgreSQL](https://www.postgresql.org/) | 15+ | High-performance RDBMS |
+| [Redis](https://redis.io/) | 7+ | In-memory database & queue |
+| [BullMQ](https://docs.bullmq.io/) | 5.x | Message queue |
+| [Socket.IO](https://socket.io/) | 4.x | Real-time communication |
+| [WukongIM](https://githubim.com/) | v2 | Professional IM engine |
+| [Passport](http://www.passportjs.org/) | 0.7+ | Authentication middleware |
+| [JWT](https://jwt.io/) | - | Token-based authentication |
+
+### DevOps
+
+| Technology | Description |
+|------------|-------------|
+| Docker | Containerization |
+| Docker Compose | Multi-container orchestration |
+| Kubernetes | Cluster orchestration |
+| Prometheus | Monitoring & alerting |
+| GitHub Actions | CI/CD |
+
+---
 
 ## 📚 API Documentation
 
@@ -177,123 +316,264 @@ http://localhost:3000/api/docs
 
 ### API Endpoints
 
-- **Authentication**: `/api/auth/*`
-- **Users**: `/api/users/*`
-- **Messages**: `/api/messages/*`
-- **Groups**: `/api/groups/*`
-- **Contacts**: `/api/contacts/*`
-- **RTC**: `/api/rtc/*`
+| Module | Endpoint | Description |
+|--------|----------|-------------|
+| Authentication | `/api/auth/*` | Login, register, token refresh |
+| Users | `/api/users/*` | User info, profile management |
+| Messages | `/api/messages/*` | Send messages, query history |
+| Groups | `/api/groups/*` | Group creation, member management |
+| Friends | `/api/friends/*` | Friend requests, list management |
+| Contacts | `/api/contacts/*` | Contact management |
+| RTC | `/api/rtc/*` | Call signaling, room management |
+
+### Full API Documentation
+
+For detailed API documentation, please refer to [API Documentation](./docs/api/index.md)
+
+---
 
 ## 🏗️ Project Structure
 
 ```
 openchat/
-├── src/                 # Source code
-│   ├── common/          # Common modules
-│   │   ├── auth/        # Authentication
-│   │   ├── cache/       # Caching
-│   │   ├── config/      # Configuration
-│   │   ├── filters/     # Exception filters
-│   │   ├── health/       # Health check
-│   │   ├── metrics/      # Performance monitoring
-│   │   ├── queue/        # Message queue
-│   │   ├── redis/        # Redis integration
-│   │   └── throttler/    # Rate limiting
-│   ├── gateways/        # WebSocket gateways
-│   ├── modules/         # Business modules
-│   │   ├── ai-bot/       # AI bots
-│   │   ├── bot-platform/ # Bot platform
-│   │   ├── contact/      # Contacts
-│   │   ├── conversation/ # Conversations
-│   │   ├── friend/        # Friends
-│   │   ├── group/          # Groups
-│   │   ├── im-provider/   # IM providers
-│   │   ├── message/        # Messages
-│   │   ├── rtc/             # Real-time communication
-│   │   ├── third-party/    # Third-party integrations
-│   │   └── user/            # Users
-│   ├── app.module.ts      # Application module
-│   ├── main.ts            # Application entry
-│   └── typings/           # Type definitions
-├── docs/                 # Documentation
-│   └── assets/            # Assets directory
-│       ├── images/        # Image files
-│       │   ├── branding/  # Branding images
-│       │   │   ├── logo.png # Project logo
-│       │   │   ├── favicon.ico # Browser icon
-│       │   │   └── banner.png # Project banner
-│       │   ├── screenshots/ # Screenshots
-│       │   │   ├── web/    # Web interface screenshots
-│       │   │   ├── mobile/ # Mobile interface screenshots
-│       │   │   └── video/  # Video call screenshots
-│       │   └── social/     # Social media images
-│       │       ├── wechat-qr.png # WeChat Official Account QR code
-│       │       └── banner.jpg # Social media banner
-│       ├── videos/        # Video files
-│       └── icons/         # Icon files
-├── database/             # Database scripts
-├── k8s/                  # Kubernetes configuration
-├── docker-compose.yml     # Docker Compose configuration
-└── README.md              # This file
+├── 📁 src/                        # Server source code
+│   ├── 📁 common/                 # Common modules
+│   │   ├── 📁 auth/               # Authentication & authorization
+│   │   │   ├── guards/            # Auth guards
+│   │   │   ├── strategies/        # Auth strategies
+│   │   │   ├── auth-manager.service.ts
+│   │   │   ├── permissions.decorator.ts
+│   │   │   ├── permissions.guard.ts
+│   │   │   └── token-blacklist.service.ts
+│   │   ├── 📁 base/               # Base classes
+│   │   ├── 📁 cache/              # Cache services
+│   │   ├── 📁 config/             # Configuration management
+│   │   ├── 📁 constants/          # Constants definition
+│   │   ├── 📁 dto/                # Data transfer objects
+│   │   ├── 📁 events/             # Event bus
+│   │   ├── 📁 exceptions/         # Exception handling
+│   │   ├── 📁 filters/            # Filters
+│   │   ├── 📁 health/             # Health checks
+│   │   ├── 📁 interceptors/       # Interceptors
+│   │   ├── 📁 logger/             # Logging services
+│   │   ├── 📁 metrics/            # Performance monitoring
+│   │   ├── 📁 queue/              # Message queue
+│   │   ├── 📁 redis/              # Redis services
+│   │   ├── 📁 throttler/          # Rate limiting
+│   │   └── 📁 utils/              # Utility functions
+│   ├── 📁 gateways/               # WebSocket gateways
+│   ├── 📁 modules/                # Business modules
+│   │   ├── 📁 agent/              # Intelligent agents
+│   │   ├── 📁 ai-bot/             # AI bots
+│   │   ├── 📁 bot-platform/       # Bot platform
+│   │   ├── 📁 contact/            # Contacts
+│   │   ├── 📁 conversation/       # Conversations
+│   │   ├── 📁 friend/             # Friends system
+│   │   ├── 📁 group/              # Groups system
+│   │   ├── 📁 im-provider/        # IM providers
+│   │   ├── 📁 iot/                # IoT
+│   │   ├── 📁 message/            # Messages system
+│   │   ├── 📁 rtc/                # Real-time communication
+│   │   ├── 📁 third-party/        # Third-party integration
+│   │   ├── 📁 user/               # User system
+│   │   └── 📁 wukongim/           # WukongIM integration
+│   ├── app.module.ts              # Application module
+│   ├── bootstrap.ts               # Bootstrap
+│   ├── data-source.ts             # Data source config
+│   └── main.ts                    # Entry point
+├── 📁 sdk/                        # SDK directory
+│   ├── 📁 typescript/             # TypeScript SDK
+│   ├── 📁 android/                # Android SDK
+│   ├── 📁 ios/                    # iOS SDK
+│   ├── 📁 flutter/                # Flutter SDK
+│   ├── 📁 python/                 # Python SDK
+│   └── 📁 nodejs/                 # Node.js SDK
+├── 📁 app/                        # Applications
+│   ├── 📁 openchat/               # Main app
+│   ├── 📁 openchat-admin/         # Admin panel
+│   ├── 📁 openchat-react-mobile/  # Mobile app
+│   └── 📁 openchat-react-pc/      # PC client
+├── 📁 docs/                       # Documentation
+│   ├── 📁 assets/                 # Assets
+│   │   ├── 📁 images/             # Images
+│   │   │   ├── 📁 branding/       # Branding
+│   │   │   │   └── logo.png       # Project logo
+│   │   │   ├── 📁 screenshots/    # Screenshots
+│   │   │   └── 📁 social/         # Social media
+│   │   │       └── wechat-qr.png  # WeChat QR code
+│   │   ├── 📁 videos/             # Videos
+│   │   └── 📁 icons/              # Icons
+│   ├── 📁 api/                    # API docs
+│   ├── 📁 guide/                  # User guide
+│   └── 📁 sdk/                    # SDK docs
+├── 📁 database/                   # Database
+│   ├── schema.sql                 # Database schema
+│   ├── seed.sql                   # Seed data
+│   └── indexes-optimization.sql   # Index optimization
+├── 📁 k8s/                        # Kubernetes configs
+│   ├── 📁 base/                   # Base configs
+│   └── 📁 overlays/               # Environment configs
+├── 📁 scripts/                    # Scripts
+│   ├── quick-start.sh             # Quick start
+│   ├── install.sh                 # Installation (Linux/macOS)
+│   ├── install.bat                # Installation (Windows)
+│   ├── setup-wizard.sh            # Interactive setup wizard
+│   ├── install-manager.sh         # Installation state manager
+│   ├── install-test.sh            # Installation verification
+│   ├── precheck.sh                # System pre-check
+│   ├── diagnose.sh                # Error diagnosis
+│   ├── auto-fix.sh                # Auto-fix tool
+│   ├── log-analyzer.sh            # Log analysis
+│   ├── health-check.sh            # Health monitoring
+│   ├── post-install.sh            # Post-installation config
+│   └── uninstall.sh               # Uninstall script
+├── 📁 test/                       # Tests
+│   ├── __mocks__/                 # Mock files
+│   ├── app.e2e-spec.ts            # E2E tests
+│   └── setup.ts                   # Test config
+├── 📁 xiaozhi-esp32/              # ESP32 IoT firmware
+├── .env.example                   # Environment example
+├── docker-compose.yml             # Docker compose
+├── Dockerfile                     # Docker image
+├── jest.config.js                 # Jest config
+├── package.json                   # Package config
+├── tsconfig.json                  # TypeScript config
+├── LICENSE                        # License
+├── README.md                      # English docs
+└── README_CN.md                   # Chinese docs
 ```
+
+---
 
 ## 🌐 Integration
 
 ### WukongIM Integration
 
-OpenChat is deeply integrated with WukongIM for reliable and real-time messaging:
+OpenChat is deeply integrated with WukongIM for reliable real-time messaging:
 
-1. **Message Sending**: All messages are sent through WukongIM
-2. **User Synchronization**: User data is kept consistent between local database and WukongIM
-3. **Group Synchronization**: Group data is kept consistent between local database and WukongIM
-4. **Message Confirmation**: Support for message delivery confirmation and read receipts
+| Feature | Description |
+|---------|-------------|
+| Message Sending | All messages sent through WukongIM |
+| User Sync | Local database syncs with WukongIM user data |
+| Group Sync | Bidirectional group data synchronization |
+| Message Confirmation | Delivery confirmation and read receipts |
+| Online Status | Real-time online status management |
 
 ### Third-party Services
 
-- **Telegram**: Message synchronization
-- **WhatsApp**: Message synchronization
-- **Webhook**: Custom integrations
+| Service | Status | Description |
+|---------|--------|-------------|
+| Telegram | ✅ | Message sync |
+| WhatsApp | ✅ | Message sync |
+| Webhook | ✅ | Custom integration |
+
+---
 
 ## ⚡ Performance Optimization
 
-- **Database Connection Pool**: Optimized pool size and timeout settings
-- **Redis Caching**: Reduce database queries and improve performance
-- **Batch Processing**: Support for batch message sending and processing
+### Database Optimization
+
+- **Connection Pool Management**: Optimized pool size and timeout settings
+- **Index Optimization**: Key field indexing, 10x query performance improvement
+- **Batch Operations**: Batch insert and update, reduced database round trips
+
+### Caching Strategy
+
+- **Redis Cache**: Hot data caching, reduced database queries
+- **Local Cache**: LRU cache, reduced network overhead
+- **Cache Warmup**: Preload hot data on startup
+
+### Message Processing
+
 - **Message Queue**: Asynchronous processing of time-consuming operations
-- **Exponential Backoff Retry**: Improve message sending reliability
+- **Batch Sending**: Group message batch processing
+- **Exponential Backoff Retry**: Improved message sending reliability
+
+### Concurrency Control
+
 - **Rate Limiting**: Prevent system overload
+- **Concurrency Limit**: Control concurrent request count
+- **Graceful Degradation**: Auto degradation under high load
+
+---
 
 ## 🔒 Security
 
-- **JWT Authentication**: Secure user authentication mechanism
-- **Multi-factor Authentication**: Support for multiple authentication methods
-- **CORS Configuration**: Proper cross-origin resource sharing settings
-- **Helmet Security Headers**: Enhance application security
-- **Input Validation**: Prevent malicious input
-- **Rate Limiting**: Prevent brute force attacks
+### Authentication & Authorization
+
+| Feature | Description |
+|---------|-------------|
+| JWT Authentication | Secure user authentication mechanism |
+| Multi-factor Auth | Support multiple authentication methods |
+| Token Blacklist | Support active logout |
+| RBAC Permissions | Role-based access control |
+
+### Security Protection
+
+| Feature | Description |
+|---------|-------------|
+| CORS Configuration | Cross-origin resource sharing settings |
+| Helmet Security Headers | Enhanced application security |
+| Input Validation | Prevent malicious input |
+| Rate Limiting | Prevent brute force attacks |
+| Sensitive Data Masking | Automatic log masking |
+
+---
 
 ## 📊 Monitoring & Logging
 
-- **Performance Monitoring**: Real-time collection of system performance metrics
-- **Log Recording**: Detailed system logs
-- **WukongIM Monitoring**: Monitor message sending and processing
-- **Health Check**: System health status check
+### Performance Monitoring
+
+- **Prometheus Metrics**: Real-time system performance metrics collection
+- **Health Checks**: System health status checks
+- **Performance Tracing**: Request latency tracing
+
+### Log Management
+
+- **Structured Logging**: JSON format log output
+- **Log Levels**: Support debug/info/warn/error levels
+- **Log Files**: Support file output and log rotation
+- **Request Tracing**: Request ID tracing
+
+---
 
 ## 📦 Deployment
 
-### Containerization
+### Docker Compose Deployment (Recommended)
 
 ```bash
-# Build Docker image
+# Development environment (includes PostgreSQL, Redis, WukongIM, Prometheus)
+docker compose up -d
+
+# Production environment
+docker compose -f docker-compose.prod.yml up -d
+
+# Using external database and Redis
+docker compose -f docker-compose.external-db.yml up -d
+
+# Scale services
+docker compose up -d --scale app=3
+```
+
+### Docker Standalone Deployment
+
+```bash
+# Build image
 docker build -t openchat/server:latest .
 
-# Run container
+# Run container (requires external PostgreSQL and Redis)
 docker run -d \
   --name openchat \
   -p 3000:3000 \
   -e NODE_ENV=production \
-  -e DB_HOST=postgres \
+  -e DB_HOST=your-db-host \
+  -e DB_PORT=5432 \
+  -e DB_USER=openchat \
   -e DB_PASSWORD=your-password \
+  -e DB_NAME=openchat \
+  -e REDIS_HOST=your-redis-host \
+  -e REDIS_PORT=6379 \
+  -e JWT_SECRET=your-jwt-secret \
   openchat/server:latest
 ```
 
@@ -302,7 +582,12 @@ docker run -d \
 ```bash
 # Deploy to Kubernetes
 kubectl apply -k k8s/overlays/production
+
+# Check deployment status
+kubectl get pods -n openchat
 ```
+
+---
 
 ## 👨‍💻 Development Guide
 
@@ -310,62 +595,144 @@ kubectl apply -k k8s/overlays/production
 
 - Use TypeScript strict mode
 - Follow NestJS code style guidelines
-- Use ESLint and Prettier for code quality
+- Use ESLint + Prettier for code quality
 
-### Testing
+### Development Commands
 
 ```bash
-# Run tests
+# Start development server
+pnpm run start:dev
+
+# Code formatting
+pnpm run format
+
+# Linting
+pnpm run lint
+
+# Type checking
+pnpm run typecheck
+```
+
+### Database Migration
+
+```bash
+# Generate migration file
+pnpm run migration:generate -- -n MigrationName
+
+# Run migration
+pnpm run migration:run
+
+# Revert migration
+pnpm run migration:revert
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run unit tests
 pnpm run test
 
 # Run test coverage
 pnpm run test:cov
+
+# Run E2E tests
+pnpm run test:e2e
+
+# Watch mode
+pnpm run test:watch
 ```
 
-### Debugging
-
-1. Start in development mode: `pnpm run start:dev`
-2. Connect to debug port using VSCode or other IDE
+---
 
 ## ❓ Troubleshooting
 
-### WukongIM Connection Issues
+### Diagnostic Tools
 
-1. Check if WukongIM server is running
+OpenChat provides a comprehensive set of diagnostic and repair tools:
+
+```bash
+# System pre-check
+./scripts/precheck.sh
+
+# Run diagnostics
+./scripts/diagnose.sh
+
+# Auto-fix common issues
+./scripts/auto-fix.sh --all
+
+# Analyze logs
+./scripts/log-analyzer.sh analyze
+
+# Health monitoring
+./scripts/health-check.sh --monitor
+```
+
+### Common Issues
+
+#### WukongIM Connection Issues
+
+1. Check if WukongIM server is running: `docker ps | grep wukongim`
 2. Verify `WUKONGIM_API_URL` configuration
-3. Check network connectivity
+3. Check network connectivity: `./scripts/diagnose.sh --network`
 
-### Database Connection Issues
+#### Database Connection Issues
 
-1. Ensure PostgreSQL service is running
-2. Verify database configuration
+1. Ensure PostgreSQL service is running: `docker ps | grep postgres`
+2. Verify database configuration in `.env`
 3. Check database user permissions
+4. Run: `./scripts/auto-fix.sh --database`
 
-### WebSocket Connection Issues
+#### Redis Connection Issues
 
-1. Check if Redis service is running
-2. Verify WebSocket port is open
-3. Check authentication token validity
+1. Check if Redis service is running: `docker ps | grep redis`
+2. Verify Redis configuration
+3. Run: `./scripts/auto-fix.sh --redis`
+
+#### Container Issues
+
+1. Check container status: `docker compose ps`
+2. View container logs: `./scripts/log-analyzer.sh containers`
+3. Restart containers: `./scripts/auto-fix.sh --containers`
+
+#### Installation Issues
+
+1. Check installation state: `./scripts/install-manager.sh status`
+2. Resume interrupted installation: `./scripts/install-manager.sh resume`
+3. Reset installation: `./scripts/install-manager.sh reset`
+
+For detailed troubleshooting guide, see [Installation Documentation](./docs/deploy/installation.md)
+
+---
 
 ## 🤝 Contributing
 
-We welcome contributions from the community!
+We welcome all forms of contributions!
 
-### Steps to Contribute
+### Contribution Steps
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Create a Pull Request
 
 ### Code of Conduct
 
-Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing
+
+### Contribution Guide
+
+For detailed contribution guidelines, please refer to [Contributing Guide](CONTRIBUTING.md)
+
+---
 
 ## 📄 License
 
-OpenChat is open source software licensed under the [MIT License](LICENSE).
+OpenChat is open source software licensed under the [AGPL-3.0 License](LICENSE).
+
+---
 
 ## 💬 Community
 
@@ -384,19 +751,24 @@ Join our community to get help, share ideas, and contribute to the project!
   <p>OpenChat Official Account</p>
 </div>
 
+---
+
 ## 📷 Screenshots
 
 <div align="center">
 
 ### Web Interface
+
 <img src="./docs/assets/images/screenshots/web/chat.png" width="300" alt="Web Chat Interface">
 <img src="./docs/assets/images/screenshots/web/group.png" width="300" alt="Web Group Interface">
 
 ### Mobile Interface
+
 <img src="./docs/assets/images/screenshots/mobile/chat.png" width="200" alt="Mobile Chat Interface">
 <img src="./docs/assets/images/screenshots/mobile/profile.png" width="200" alt="Mobile Profile Interface">
 
 ### Video Call
+
 <img src="./docs/assets/images/screenshots/video/call.png" width="300" alt="Video Call Interface">
 
 </div>
@@ -407,9 +779,9 @@ Join our community to get help, share ideas, and contribute to the project!
 
 **If you find this project helpful, please give us a ⭐ Star!**
 
-</div>
+[![Star History Chart](https://api.star-history.com/svg?repos=Sdkwork-Cloud/openchat&type=Date)](https://star-history.com/#Sdkwork-Cloud/openchat&Date)
 
-<div align="center">
+---
 
 © 2024 Sdkwork Cloud. All rights reserved.
 

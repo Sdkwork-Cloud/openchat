@@ -160,7 +160,7 @@ export class CodeGenerator {
     componentBody += '  );\n';
 
     const propsParam = withProps ? 'props: ' + name + 'Props' : 'props: { className = "" }';
-    const className = withProps ? 'props.className' : 'className';
+    const _className = withProps ? 'props.className' : 'className';
 
     return `${imports}${propsInterface}\n/**\n * ${name} Component\n */\nexport const ${name}: React.FC<${withProps ? name + 'Props' : 'any'}> = (${propsParam}) => {\n${componentBody}};\n`;
   }

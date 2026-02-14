@@ -1,192 +1,272 @@
-# API 概览
+# API 文档
 
-OpenChat Server 提供完整的 RESTful API，支持用户管理、消息管理、群组管理、好友管理等即时通讯核心功能。
+OpenChat 提供完整的 RESTful API，支持即时通讯、用户管理、群组管理等功能。
 
-## 基础信息
+## 概述
 
-### 服务器地址
+### 基础信息
 
-```
-http://localhost:3000
-```
+| 项目 | 说明 |
+|------|------|
+| 基础 URL | `http://your-server:3000/api` |
+| 协议 | HTTP/HTTPS |
+| 数据格式 | JSON |
+| 字符编码 | UTF-8 |
+| 时间格式 | ISO 8601 (`2024-01-15T10:30:00Z`) |
 
-### 请求格式
+### API 模块
 
-所有请求使用 JSON 格式：
+| 模块 | 路径前缀 | 说明 |
+|------|----------|------|
+| 认证授权 | `/api/auth` | 登录、注册、Token 管理 |
+| 用户管理 | `/api/users` | 用户信息、搜索、设置 |
+| 消息管理 | `/api/messages` | 消息发送、查询、撤回 |
+| 会话管理 | `/api/conversations` | 会话列表、未读管理 |
+| 群组管理 | `/api/groups` | 群组创建、成员管理 |
+| 好友管理 | `/api/friends` | 好友申请、分组管理 |
+| IM 集成 | `/api/im` | WukongIM 相关接口 |
+
+---
+
+## 认证
+
+OpenChat 使用 JWT (JSON Web Token) 进行 API 认证。
+
+### 获取 Token
 
 ```http
+POST /api/auth/login
 Content-Type: application/json
+
+{
+  "username": "your-username",
+  "password": "your-password"
+}
 ```
 
-### 响应格式
+### 使用 Token
 
-统一响应格式：
+在请求头中添加 Authorization：
+
+```http
+Authorization: Bearer <your-access-token>
+```
+
+### Token 类型
+
+| Token 类型 | 有效期 | 用途 |
+|-----------|--------|------|
+| Access Token | 7 天 | API 请求认证 |
+| Refresh Token | 30 天 | 刷新 Access Token |
+
+---
+
+## 通用响应格式
+
+### 成功响应
 
 ```json
 {
   "success": true,
-  "data": {},
+  "data": {
+    // 响应数据
+  },
   "message": "操作成功"
 }
 ```
 
-### HTTP 状态码
-
-| 状态码 | 说明 |
-|--------|------|
-| 200 | 请求成功 |
-| 400 | 请求参数错误 |
-| 401 | 未授权，Token 无效或过期 |
-| 403 | 禁止访问，权限不足 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
-
-## 认证授权
-
-API 使用 JWT Token 进行认证。在请求头中添加：
-
-```http
-Authorization: Bearer <your-jwt-token>
-```
-
-获取 Token：
-
-```bash
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "your-username",
-    "password": "your-password"
-  }'
-```
-
-## API 分类
-
-### 认证相关
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 用户注册 | POST | `/auth/register` | 注册新用户 |
-| 用户登录 | POST | `/auth/login` | 用户登录 |
-| 刷新 Token | POST | `/auth/refresh` | 刷新访问令牌 |
-| 登出 | POST | `/auth/logout` | 用户登出 |
-
-### 用户管理
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 获取用户信息 | GET | `/users/me` | 获取当前用户信息 |
-| 更新用户信息 | PUT | `/users/me` | 更新当前用户信息 |
-| 上传头像 | POST | `/users/avatar` | 上传用户头像 |
-| 搜索用户 | GET | `/users/search` | 搜索用户 |
-| 获取用户列表 | GET | `/users` | 获取用户列表 |
-
-### 好友管理
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 获取好友列表 | GET | `/friends` | 获取好友列表 |
-| 添加好友 | POST | `/friends/requests` | 发送好友申请 |
-| 处理好友申请 | PUT | `/friends/requests/:id` | 接受/拒绝好友申请 |
-| 删除好友 | DELETE | `/friends/:id` | 删除好友 |
-| 获取好友申请列表 | GET | `/friends/requests` | 获取好友申请列表 |
-
-### 群组管理
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 创建群组 | POST | `/groups` | 创建新群组 |
-| 获取群组列表 | GET | `/groups` | 获取群组列表 |
-| 获取群组详情 | GET | `/groups/:id` | 获取群组详情 |
-| 更新群组信息 | PUT | `/groups/:id` | 更新群组信息 |
-| 解散群组 | DELETE | `/groups/:id` | 解散群组 |
-| 加入群组 | POST | `/groups/:id/join` | 加入群组 |
-| 退出群组 | POST | `/groups/:id/leave` | 退出群组 |
-| 获取群成员 | GET | `/groups/:id/members` | 获取群成员列表 |
-| 邀请成员 | POST | `/groups/:id/invite` | 邀请成员加入 |
-| 移除成员 | DELETE | `/groups/:id/members/:userId` | 移除群成员 |
-
-### 消息管理
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 发送消息 | POST | `/messages` | 发送消息 |
-| 获取消息列表 | GET | `/messages` | 获取消息列表 |
-| 获取会话列表 | GET | `/conversations` | 获取会话列表 |
-| 标记已读 | PUT | `/messages/read` | 标记消息已读 |
-| 撤回消息 | POST | `/messages/:id/recall` | 撤回消息 |
-| 删除消息 | DELETE | `/messages/:id` | 删除消息 |
-
-### 悟空IM
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 获取IM配置 | GET | `/im/config` | 获取悟空IM连接配置 |
-| 发送消息 | POST | `/im/message/send` | 通过悟空IM发送消息 |
-| 创建频道 | POST | `/im/channel/create` | 创建频道 |
-| 删除频道 | POST | `/im/channel/delete` | 删除频道 |
-| 添加订阅者 | POST | `/im/channel/subscriber/add` | 添加频道订阅者 |
-| 同步消息 | GET | `/im/message/sync` | 同步历史消息 |
-
-### RTC 音视频
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 创建房间 | POST | `/rtc/rooms` | 创建音视频房间 |
-| 获取房间信息 | GET | `/rtc/rooms/:id` | 获取房间信息 |
-| 加入房间 | POST | `/rtc/rooms/:id/join` | 加入音视频房间 |
-| 离开房间 | POST | `/rtc/rooms/:id/leave` | 离开音视频房间 |
-| 获取 Token | GET | `/rtc/token` | 获取 RTC Token |
-
-### AI Bot
-
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 获取Bot列表 | GET | `/ai-bots` | 获取AI Bot列表 |
-| 发送消息 | POST | `/ai-bots/:id/message` | 向AI Bot发送消息 |
-| 获取对话历史 | GET | `/ai-bots/:id/messages` | 获取对话历史 |
-
-## 错误处理
-
-### 错误响应格式
+### 错误响应
 
 ```json
 {
   "success": false,
-  "message": "错误描述",
-  "code": "ERROR_CODE",
-  "details": {}
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "错误描述",
+    "details": {}
+  }
 }
 ```
 
-### 常见错误码
+### 分页响应
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 100,
+      "totalPages": 5
+    }
+  }
+}
+```
+
+---
+
+## HTTP 状态码
+
+| 状态码 | 说明 |
+|--------|------|
+| 200 | 成功 |
+| 201 | 创建成功 |
+| 204 | 成功（无内容） |
+| 400 | 请求参数错误 |
+| 401 | 未授权（未登录或 Token 无效） |
+| 403 | 权限不足 |
+| 404 | 资源不存在 |
+| 409 | 资源冲突 |
+| 429 | 请求频率超限 |
+| 500 | 服务器内部错误 |
+
+---
+
+## 通用错误码
 
 | 错误码 | 说明 |
 |--------|------|
-| `AUTH_INVALID_TOKEN` | Token 无效 |
-| `AUTH_TOKEN_EXPIRED` | Token 已过期 |
-| `USER_NOT_FOUND` | 用户不存在 |
-| `USER_ALREADY_EXISTS` | 用户已存在 |
-| `INVALID_PASSWORD` | 密码错误 |
-| `GROUP_NOT_FOUND` | 群组不存在 |
-| `NOT_GROUP_MEMBER` | 不是群组成员 |
-| `PERMISSION_DENIED` | 权限不足 |
-| `MESSAGE_NOT_FOUND` | 消息不存在 |
-| `RATE_LIMIT_EXCEEDED` | 请求过于频繁 |
+| `VALIDATION_ERROR` | 参数验证失败 |
+| `UNAUTHORIZED` | 未授权 |
+| `FORBIDDEN` | 权限不足 |
+| `NOT_FOUND` | 资源不存在 |
+| `RATE_LIMIT_EXCEEDED` | 请求频率超限 |
+| `INTERNAL_ERROR` | 服务器内部错误 |
 
-## 限流说明
+---
 
-API 默认开启限流保护：
+## 请求限制
 
-- 普通接口：100 请求/15分钟
-- 登录接口：5 请求/分钟
-- 发送消息：60 请求/分钟
+| 类型 | 限制 |
+|------|------|
+| 默认频率限制 | 100 次/分钟 |
+| 登录频率限制 | 10 次/分钟 |
+| 消息发送限制 | 60 条/分钟 |
+| 文件上传大小 | 最大 50MB |
+
+---
+
+## API 文档导航
+
+### 认证相关
+
+- [认证授权 API](./auth.md) - 登录、注册、Token 刷新
+
+### 用户相关
+
+- [用户管理 API](./users.md) - 用户信息、搜索、设置
+
+### 消息相关
+
+- [消息管理 API](./messages.md) - 消息发送、查询、撤回
+- [WukongIM 集成 API](./wukongim.md) - IM 消息引擎接口
+
+### 社交相关
+
+- [群组管理 API](./groups.md) - 群组创建、成员管理
+- [好友管理 API](./friends.md) - 好友申请、分组管理
+
+---
+
+## 快速开始
+
+### 1. 注册用户
+
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "password123",
+    "nickname": "Test User"
+  }'
+```
+
+### 2. 登录获取 Token
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "password123"
+  }'
+```
+
+### 3. 发送消息
+
+```bash
+curl -X POST http://localhost:3000/api/messages \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "receiver-user-id",
+    "type": "text",
+    "content": "Hello, OpenChat!"
+  }'
+```
+
+---
 
 ## SDK 支持
 
-推荐使用官方 SDK 调用 API：
+OpenChat 提供多语言 SDK，简化 API 调用：
 
-- [TypeScript SDK](/sdk/typescript)
-- [Java SDK](/sdk/java)
-- [Go SDK](/sdk/go)
-- [Python SDK](/sdk/python)
+- [TypeScript SDK](../sdk/typescript.md)
+- [Java SDK](../sdk/java.md)
+- [Go SDK](../sdk/go.md)
+- [Python SDK](../sdk/python.md)
+
+### TypeScript SDK 示例
+
+```typescript
+import { OpenChatClient } from '@openchat/sdk';
+
+const client = new OpenChatClient({
+  serverUrl: 'http://localhost:3000'
+});
+
+// 登录
+await client.auth.login({
+  username: 'testuser',
+  password: 'password123'
+});
+
+// 发送消息
+await client.message.send({
+  to: 'receiver-id',
+  type: 'text',
+  content: 'Hello!'
+});
+
+// 监听消息
+client.message.onMessage((message) => {
+  console.log('收到消息:', message);
+});
+```
+
+---
+
+## 在线 API 文档
+
+启动服务后，可以访问 Swagger UI 查看交互式 API 文档：
+
+```
+http://localhost:3000/api/docs
+```
+
+Swagger UI 提供：
+- 完整的 API 列表
+- 在线测试功能
+- 请求/响应示例
+- 数据模型定义
+
+---
+
+## 相关链接
+
+- [快速开始指南](../guide/quickstart.md)
+- [SDK 文档](../sdk/)
+- [部署指南](../deploy/)

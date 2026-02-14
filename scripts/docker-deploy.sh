@@ -1,304 +1,468 @@
 #!/bin/bash
+
 # ============================================
-# OpenChat Server - Docker 部署脚本
-# 版本: 1.0.0
+# OpenChat Docker 部署脚本
+# 支持灵活配置外部数据库和 Redis
 # ============================================
 
 set -e
-
-# 配置
-APP_NAME="OpenChat Server"
-APP_VERSION="1.0.0"
-DOCKER_IMAGE="openchat/server"
-DOCKER_TAG="latest"
-COMPOSE_FILE="docker-compose.yml"
-PROD_COMPOSE_FILE="docker-compose.prod.yml"
 
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-# 日志函数
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# 脚本目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# 显示帮助
+# 默认配置
+DEFAULT_ENV_FILE="$PROJECT_ROOT/.env"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
+EXTERNAL_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.external-db.yml"
+
+# 默认启用 profiles
+DEFAULT_PROFILES="database,cache,im"
+
+# 打印分隔线
+print_line() {
+    echo -e "${CYAN}=========================================${NC}"
+}
+
+# 显示帮助信息
 show_help() {
-    cat << EOF
-============================================
- ${APP_NAME} v${APP_VERSION} Docker 部署脚本
-============================================
-
-用法: $0 [命令] [选项]
-
-命令:
-  build              构建 Docker 镜像
-  build:no-cache     构建 Docker 镜像（不使用缓存）
-  up                 启动开发环境
-  down               停止开发环境
-  restart            重启开发环境
-  logs               查看日志
-  prod:up            启动生产环境
-  prod:down          停止生产环境
-  prod:deploy        部署生产环境（包含构建）
-  push               推送镜像到仓库
-  pull               拉取最新镜像
-  clean              清理未使用的资源
-  help               显示帮助信息
-
-选项:
-  -f, --file FILE    指定 compose 文件
-  -t, --tag TAG      指定镜像标签
-
-示例:
-  $0 build                    # 构建镜像
-  $0 up                       # 启动开发环境
-  $0 prod:deploy              # 部署生产环境
-  $0 -t v1.0.0 build          # 使用指定标签构建
-
-EOF
+    echo -e "${BLUE}OpenChat Docker 部署脚本${NC}"
+    echo ""
+    echo "用法: $0 [命令] [选项]"
+    echo ""
+    echo "命令:"
+    echo "  install          安装并启动所有服务"
+    echo "  start            启动服务"
+    echo "  stop             停止服务"
+    echo "  restart          重启服务"
+    echo "  status           查看服务状态"
+    echo "  logs             查看日志"
+    echo "  clean            清理所有数据"
+    echo "  update           更新并重启"
+    echo "  external         使用外部数据库/Redis启动"
+    echo "  quick            快速启动（仅应用）"
+    echo "  profiles         启动指定的服务"
+    echo ""
+    echo "选项:"
+    echo "  -f, --file       指定 docker-compose 文件"
+    echo "  -e, --env        指定环境变量文件"
+    echo "  -p, --profiles   指定启动的 profiles (database,cache,im,monitoring)"
+    echo "  -h, --help       显示帮助信息"
+    echo ""
+    echo "示例:"
+    echo "  $0 install                    # 安装并启动"
+    echo "  $0 start -e .env.production   # 使用生产环境配置启动"
+    echo "  $0 external                   # 使用外部数据库启动"
+    echo "  $0 profiles -p database,im    # 只启动数据库和IM"
+    echo "  $0 logs -f app               # 查看应用日志"
 }
 
-# 构建镜像
-build_image() {
-    local tag="${1:-$DOCKER_TAG}"
-    log_info "构建 Docker 镜像: ${DOCKER_IMAGE}:${tag}"
+# 检查依赖
+check_dependencies() {
+    echo -e "${BLUE}检查依赖...${NC}"
     
-    docker build \
-        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-        --build-arg VCS_REF=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") \
-        --build-arg VERSION="$APP_VERSION" \
-        -t "${DOCKER_IMAGE}:${tag}" \
-        -t "${DOCKER_IMAGE}:latest" \
-        .
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}✗ 错误: Docker 未安装${NC}"
+        exit 1
+    fi
     
-    log_success "镜像构建完成"
-}
-
-# 构建镜像（不使用缓存）
-build_image_no_cache() {
-    local tag="${1:-$DOCKER_TAG}"
-    log_info "构建 Docker 镜像（不使用缓存）: ${DOCKER_IMAGE}:${tag}"
+    if ! command -v docker compose &> /dev/null; then
+        echo -e "${RED}✗ 错误: Docker Compose 未安装${NC}"
+        exit 1
+    fi
     
-    docker build --no-cache \
-        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-        --build-arg VCS_REF=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") \
-        --build-arg VERSION="$APP_VERSION" \
-        -t "${DOCKER_IMAGE}:${tag}" \
-        -t "${DOCKER_IMAGE}:latest" \
-        .
+    # 检查 Docker 服务是否运行
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}✗ 错误: Docker 服务未运行${NC}"
+        exit 1
+    fi
     
-    log_success "镜像构建完成"
+    echo -e "${GREEN}✓ 依赖检查通过${NC}"
 }
 
-# 启动开发环境
-up_dev() {
-    log_info "启动开发环境..."
-    docker-compose -f "$COMPOSE_FILE" up -d
-    log_success "开发环境已启动"
-    log_info "服务地址: http://localhost:3000"
+# 加载环境变量
+load_env() {
+    local env_file="${1:-$DEFAULT_ENV_FILE}"
+    
+    if [ -f "$env_file" ]; then
+        echo -e "${BLUE}加载环境变量: $env_file${NC}"
+        set -a
+        source "$env_file"
+        set +a
+    else
+        echo -e "${YELLOW}⚠ 警告: 环境变量文件不存在: $env_file${NC}"
+        echo -e "${YELLOW}⚠ 将使用默认配置${NC}"
+    fi
 }
 
-# 停止开发环境
-down_dev() {
-    log_info "停止开发环境..."
-    docker-compose -f "$COMPOSE_FILE" down
-    log_success "开发环境已停止"
+# 检查端口占用
+check_ports() {
+    echo -e "${BLUE}检查端口占用...${NC}"
+    
+    local ports=("${APP_PORT:-3000}" "${DB_PORT:-5432}" "${REDIS_PORT:-6379}" "${WUKONGIM_API_PORT:-5001}")
+    local conflicts=()
+    
+    for port in "${ports[@]}"; do
+        if command -v nc &> /dev/null; then
+            if nc -z localhost "$port" 2>/dev/null; then
+                conflicts+=("$port")
+            fi
+        elif command -v lsof &> /dev/null; then
+            if lsof -i:$port &> /dev/null; then
+                conflicts+=("$port")
+            fi
+        fi
+    done
+    
+    if [ ${#conflicts[@]} -gt 0 ]; then
+        echo -e "${YELLOW}⚠ 警告: 以下端口已被占用: ${conflicts[*]}${NC}"
+        echo -e "${YELLOW}⚠ 请修改 .env 文件中的端口配置或停止占用端口的服务${NC}"
+    else
+        echo -e "${GREEN}✓ 端口检查通过${NC}"
+    fi
 }
 
-# 重启开发环境
-restart_dev() {
-    log_info "重启开发环境..."
-    docker-compose -f "$COMPOSE_FILE" restart
-    log_success "开发环境已重启"
+# 检查并创建必要目录
+prepare_directories() {
+    echo -e "${BLUE}准备目录...${NC}"
+    
+    mkdir -p "$PROJECT_ROOT/var/logs" 2>/dev/null || true
+    mkdir -p "$PROJECT_ROOT/var/data" 2>/dev/null || true
+    mkdir -p "$PROJECT_ROOT/database" 2>/dev/null || true
+    mkdir -p "$PROJECT_ROOT/etc" 2>/dev/null || true
+    
+    echo -e "${GREEN}✓ 目录准备完成${NC}"
+}
+
+# 准备环境变量文件
+prepare_env_file() {
+    if [ ! -f "$DEFAULT_ENV_FILE" ]; then
+        echo -e "${YELLOW}⚠ 未找到 .env 文件，正在创建默认配置...${NC}"
+        if [ -f "$PROJECT_ROOT/.env.example" ]; then
+            cp "$PROJECT_ROOT/.env.example" "$DEFAULT_ENV_FILE"
+            echo -e "${GREEN}✓ 已创建 .env 文件，请根据需要修改配置${NC}"
+            echo -e "${YELLOW}⚠ 请编辑 .env 文件后再继续${NC}"
+            exit 0
+        else
+            echo -e "${RED}✗ 错误: .env.example 文件不存在${NC}"
+            exit 1
+        fi
+    fi
+}
+
+# 安装服务
+install_services() {
+    echo -e "${BLUE}开始安装服务...${NC}"
+    
+    # 准备目录
+    prepare_directories
+    
+    # 准备环境变量
+    prepare_env_file
+    
+    # 拉取镜像
+    echo -e "${BLUE}拉取 Docker 镜像...${NC}"
+    docker compose -f "$COMPOSE_FILE" pull || true
+    
+    # 构建应用镜像
+    echo -e "${BLUE}构建应用镜像...${NC}"
+    docker compose -f "$COMPOSE_FILE" build
+    
+    echo -e "${GREEN}✓ 安装完成!${NC}"
+}
+
+# 启动服务
+start_services() {
+    local compose_file="${1:-$COMPOSE_FILE}"
+    local profiles="${2:-}"
+    
+    echo -e "${BLUE}启动服务...${NC}"
+    
+    if [ -n "$profiles" ]; then
+        echo -e "${BLUE}使用 profiles: $profiles${NC}"
+        docker compose -f "$compose_file" --profile $profiles up -d
+    else
+        docker compose -f "$compose_file" up -d
+    fi
+    
+    echo -e "${GREEN}✓ 服务启动命令已执行${NC}"
+    
+    # 等待服务启动
+    wait_for_services "$compose_file"
+}
+
+# 等待服务启动
+wait_for_services() {
+    local compose_file="${1:-$COMPOSE_FILE}"
+    local max_wait=120
+    local elapsed=0
+    local interval=5
+    
+    echo -e "${BLUE}等待服务启动...${NC}"
+    
+    while [ $elapsed -lt $max_wait ]; do
+        # 检查应用健康状态
+        if curl -sf "http://localhost:${APP_PORT:-3000}/health" > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ 服务启动成功!${NC}"
+            echo ""
+            show_status "$compose_file"
+            return 0
+        fi
+        
+        sleep $interval
+        elapsed=$((elapsed + interval))
+        echo -n "."
+    done
+    
+    echo ""
+    echo -e "${YELLOW}⚠ 服务启动超时，但服务可能仍在启动中${NC}"
+    echo -e "${YELLOW}⚠ 请使用 '$0 status' 检查服务状态${NC}"
+    
+    return 1
+}
+
+# 显示服务状态
+show_status() {
+    local compose_file="${1:-$COMPOSE_FILE}"
+    
+    echo ""
+    print_line
+    echo -e "${BLUE}服务状态:${NC}"
+    print_line
+    
+    docker compose -f "$compose_file" ps
+    
+    echo ""
+    echo -e "${BLUE}资源使用:${NC}"
+    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" 2>/dev/null | grep -E "(CONTAINER|openchat)" || true
+}
+
+# 停止服务
+stop_services() {
+    local compose_file="${1:-$COMPOSE_FILE}"
+    
+    echo -e "${BLUE}停止服务...${NC}"
+    docker compose -f "$compose_file" down
+    
+    echo -e "${GREEN}✓ 服务已停止${NC}"
 }
 
 # 查看日志
-show_logs() {
-    docker-compose -f "$COMPOSE_FILE" logs -f
-}
-
-# 启动生产环境
-up_prod() {
-    log_info "启动生产环境..."
+logs_services() {
+    local service="${1:-}"
+    local compose_file="${2:-$COMPOSE_FILE}"
     
-    # 检查环境变量文件
-    if [ ! -f ".env.prod" ]; then
-        log_warn "未找到 .env.prod 文件，使用默认配置"
-        log_info "建议创建 .env.prod 文件并配置生产环境参数"
-    fi
-    
-    docker-compose -f "$PROD_COMPOSE_FILE" up -d
-    log_success "生产环境已启动"
-}
-
-# 停止生产环境
-down_prod() {
-    log_info "停止生产环境..."
-    docker-compose -f "$PROD_COMPOSE_FILE" down
-    log_success "生产环境已停止"
-}
-
-# 部署生产环境
-deploy_prod() {
-    log_info "部署生产环境..."
-    
-    # 构建镜像
-    build_image
-    
-    # 停止现有服务
-    down_prod
-    
-    # 启动新服务
-    up_prod
-    
-    # 健康检查
-    sleep 5
-    health_check
-    
-    log_success "生产环境部署完成"
-}
-
-# 推送镜像
-push_image() {
-    local tag="${1:-$DOCKER_TAG}"
-    log_info "推送镜像到仓库..."
-    
-    docker push "${DOCKER_IMAGE}:${tag}"
-    docker push "${DOCKER_IMAGE}:latest"
-    
-    log_success "镜像推送完成"
-}
-
-# 拉取镜像
-pull_image() {
-    log_info "拉取最新镜像..."
-    docker pull "${DOCKER_IMAGE}:latest"
-    log_success "镜像拉取完成"
-}
-
-# 健康检查
-health_check() {
-    log_info "执行健康检查..."
-    
-    # 等待服务启动
-    sleep 5
-    
-    # 检查服务健康状态
-    if curl -f http://localhost:3000/health > /dev/null 2>&1; then
-        log_success "健康检查通过"
+    if [ -n "$service" ]; then
+        docker compose -f "$compose_file" logs -f "$service"
     else
-        log_warn "健康检查失败，请查看日志"
-        docker-compose -f "$COMPOSE_FILE" logs --tail=50
+        docker compose -f "$compose_file" logs -f
     fi
 }
 
-# 清理资源
-clean_resources() {
-    log_info "清理未使用的 Docker 资源..."
+# 清理数据
+clean_services() {
+    local compose_file="${1:-$COMPOSE_FILE}"
     
-    # 停止所有容器
-    docker-compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
-    docker-compose -f "$PROD_COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+    echo -e "${RED}⚠ 警告: 这将删除所有数据!${NC}"
+    read -p "确定要继续吗? (yes/no): " confirm
     
-    # 删除未使用的镜像
-    docker image prune -af --filter "until=168h"
-    
-    # 删除未使用的卷
-    docker volume prune -f
-    
-    # 删除未使用的网络
-    docker network prune -f
-    
-    # 删除构建缓存
-    docker builder prune -f
-    
-    log_success "资源清理完成"
+    if [ "$confirm" = "yes" ]; then
+        echo -e "${BLUE}清理数据...${NC}"
+        docker compose -f "$compose_file" down -v
+        rm -rf "$PROJECT_ROOT/var/logs"/* 2>/dev/null || true
+        rm -rf "$PROJECT_ROOT/var/data"/* 2>/dev/null || true
+        echo -e "${GREEN}✓ 数据已清理${NC}"
+    else
+        echo -e "${YELLOW}⚠ 已取消${NC}"
+    fi
 }
 
-# 主程序
-main() {
-    # 解析参数
-    local tag="$DOCKER_TAG"
-    local compose_file="$COMPOSE_FILE"
+# 更新服务
+update_services() {
+    local compose_file="${1:-$COMPOSE_FILE}"
     
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            -t|--tag)
-                tag="$2"
-                shift 2
-                ;;
-            -f|--file)
-                compose_file="$2"
-                shift 2
-                ;;
-            build)
-                build_image "$tag"
-                exit 0
-                ;;
-            build:no-cache)
-                build_image_no_cache "$tag"
-                exit 0
-                ;;
-            up)
-                up_dev
-                exit 0
-                ;;
-            down)
-                down_dev
-                exit 0
-                ;;
-            restart)
-                restart_dev
-                exit 0
-                ;;
-            logs)
-                show_logs
-                exit 0
-                ;;
-            prod:up)
-                up_prod
-                exit 0
-                ;;
-            prod:down)
-                down_prod
-                exit 0
-                ;;
-            prod:deploy)
-                deploy_prod
-                exit 0
-                ;;
-            push)
-                push_image "$tag"
-                exit 0
-                ;;
-            pull)
-                pull_image
-                exit 0
-                ;;
-            clean)
-                clean_resources
-                exit 0
-                ;;
-            help|--help|-h)
-                show_help
-                exit 0
-                ;;
-            *)
-                log_error "未知命令: $1"
-                show_help
-                exit 1
-                ;;
-        esac
-    done
+    echo -e "${BLUE}更新服务...${NC}"
     
-    show_help
+    # 拉取最新镜像
+    docker compose -f "$compose_file" pull
+    
+    # 重新构建
+    docker compose -f "$compose_file" build
+    
+    # 重启服务
+    docker compose -f "$compose_file" down
+    docker compose -f "$compose_file" up -d
+    
+    wait_for_services "$compose_file"
+    
+    echo -e "${GREEN}✓ 更新完成!${NC}"
 }
 
-# 运行主程序
-main "$@"
+# 外部模式启动
+start_external() {
+    # 检查环境变量文件
+    prepare_env_file
+    
+    # 加载环境变量
+    load_env "$DEFAULT_ENV_FILE"
+    
+    echo -e "${BLUE}使用外部服务模式启动...${NC}"
+    echo ""
+    echo "  数据库: ${DB_HOST:-未配置} (端口: ${DB_PORT:-5432})"
+    echo "  Redis: ${REDIS_HOST:-未配置} (端口: ${REDIS_PORT:-6379})"
+    echo "  WukongIM: ${WUKONGIM_API_URL:-未配置}"
+    echo ""
+    
+    start_services "$EXTERNAL_COMPOSE_FILE"
+}
+
+# 快速启动（仅应用）
+start_quick() {
+    load_env "$DEFAULT_ENV_FILE"
+    
+    echo -e "${BLUE}快速启动（仅应用）...${NC}"
+    
+    # 只启动应用，不启动数据库等依赖服务
+    # 假设外部服务已经准备好
+    docker compose -f "$COMPOSE_FILE" up -d app
+    
+    wait_for_services "$COMPOSE_FILE"
+}
+
+# Profiles 启动
+start_with_profiles() {
+    local profiles="${1:-$DEFAULT_PROFILES}"
+    
+    load_env "$DEFAULT_ENV_FILE"
+    
+    echo -e "${BLUE}使用 profiles 启动: $profiles${NC}"
+    
+    # 转换逗号为空格
+    profiles="${profiles//,/ }"
+    
+    docker compose -f "$COMPOSE_FILE" --profile $profiles up -d
+    
+    wait_for_services "$COMPOSE_FILE"
+}
+
+# 重新加载配置
+reload_services() {
+    local compose_file="${1:-$COMPOSE_FILE}"
+    
+    echo -e "${BLUE}重新加载配置...${NC}"
+    
+    docker compose -f "$compose_file" up -d --force-recreate
+    
+    wait_for_services "$compose_file"
+    
+    echo -e "${GREEN}✓ 配置已重新加载${NC}"
+}
+
+# 主命令处理
+COMMAND=""
+COMPOSE_FILE_ARG="$COMPOSE_FILE"
+ENV_FILE_ARG=""
+PROFILES_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        install|start|stop|restart|status|clean|update|external|quick|reload)
+            COMMAND="$1"
+            shift
+            ;;
+        -f|--file)
+            COMPOSE_FILE_ARG="$2"
+            shift 2
+            ;;
+        -e|--env)
+            ENV_FILE_ARG="$2"
+            shift 2
+            ;;
+        -p|--profiles)
+            PROFILES_ARG="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}✗ 未知选项: $1${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+# 加载环境变量
+if [ -n "$ENV_FILE_ARG" ]; then
+    load_env "$ENV_FILE_ARG"
+else
+    load_env "$DEFAULT_ENV_FILE"
+fi
+
+# 执行命令
+case "$COMMAND" in
+    install)
+        check_dependencies
+        check_ports
+        install_services
+        start_services "$COMPOSE_FILE_ARG" "$PROFILES_ARG"
+        ;;
+    start)
+        check_dependencies
+        check_ports
+        start_services "$COMPOSE_FILE_ARG" "$PROFILES_ARG"
+        ;;
+    stop)
+        stop_services "$COMPOSE_FILE_ARG"
+        ;;
+    restart)
+        stop_services "$COMPOSE_FILE_ARG"
+        sleep 2
+        start_services "$COMPOSE_FILE_ARG" "$PROFILES_ARG"
+        ;;
+    status)
+        show_status "$COMPOSE_FILE_ARG"
+        ;;
+    logs)
+        logs_services "" "$COMPOSE_FILE_ARG"
+        ;;
+    clean)
+        clean_services "$COMPOSE_FILE_ARG"
+        ;;
+    update)
+        check_dependencies
+        update_services "$COMPOSE_FILE_ARG"
+        ;;
+    external)
+        check_dependencies
+        check_ports
+        start_external
+        ;;
+    quick)
+        check_dependencies
+        start_quick
+        ;;
+    reload)
+        check_dependencies
+        reload_services "$COMPOSE_FILE_ARG"
+        ;;
+    profiles)
+        check_dependencies
+        check_ports
+        start_with_profiles "$PROFILES_ARG"
+        ;;
+    *)
+        show_help
+        exit 1
+        ;;
+esac

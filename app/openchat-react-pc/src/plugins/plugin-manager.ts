@@ -701,7 +701,7 @@ class PluginManager extends EventEmitter implements PluginManagerInterface {
       }
       
       // 解析插件
-      const pluginCode = await response.text();
+      const _pluginCode = await response.text();
       
       // 这里可以实现插件的动态加载
       // 暂时返回模拟插件

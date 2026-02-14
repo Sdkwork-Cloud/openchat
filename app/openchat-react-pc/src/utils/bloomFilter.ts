@@ -15,11 +15,15 @@
  */
 class BitArray {
   private bits: Uint8Array;
-  private size: number;
+  private _size: number;
 
   constructor(size: number) {
-    this.size = size;
+    this._size = size;
     this.bits = new Uint8Array(Math.ceil(size / 8));
+  }
+
+  get size(): number {
+    return this._size;
   }
 
   /**
@@ -117,17 +121,19 @@ class HashFunctions {
 
     // 处理剩余字节
     let k1 = 0;
-    switch (len - i) {
-      case 3:
-        k1 ^= (key.charCodeAt(i + 2) & 0xff) << 16;
-      case 2:
-        k1 ^= (key.charCodeAt(i + 1) & 0xff) << 8;
-      case 1:
-        k1 ^= key.charCodeAt(i) & 0xff;
-        k1 = Math.imul(k1, c1);
-        k1 = (k1 << r1) | (k1 >>> (32 - r1));
-        k1 = Math.imul(k1, c2);
-        h1 ^= k1;
+    const remaining = len - i;
+    if (remaining >= 3) {
+      k1 ^= (key.charCodeAt(i + 2) & 0xff) << 16;
+    }
+    if (remaining >= 2) {
+      k1 ^= (key.charCodeAt(i + 1) & 0xff) << 8;
+    }
+    if (remaining >= 1) {
+      k1 ^= key.charCodeAt(i) & 0xff;
+      k1 = Math.imul(k1, c1);
+      k1 = (k1 << r1) | (k1 >>> (32 - r1));
+      k1 = Math.imul(k1, c2);
+      h1 ^= k1;
     }
 
     // 最终化

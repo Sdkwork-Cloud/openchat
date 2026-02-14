@@ -5,9 +5,15 @@ export class Group {
   uuid: string;
   name: string;
   description?: string;
-  avatar?: string | ImageMediaResource; // 支持URL或结构化图片资源
+  avatar?: string | ImageMediaResource;
   ownerId: string;
-  resources?: Record<string, AnyMediaResource>; // 群组相关的其他媒体资源
+  maxMembers: number;
+  announcement?: string;
+  status: 'active' | 'dismissed' | 'banned';
+  joinType: 'free' | 'approval' | 'forbidden';
+  muteAll: boolean;
+  resources?: Record<string, AnyMediaResource>;
+  dismissedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,8 +23,11 @@ export class GroupMember {
   uuid: string;
   groupId: string;
   userId: string;
+  nickname?: string;
   role: 'owner' | 'admin' | 'member';
-  status: 'joined' | 'pending' | 'kicked';
+  status: 'joined' | 'pending' | 'kicked' | 'quit';
+  muteUntil?: Date;
+  lastReadSeq?: number;
   joinedAt: Date;
   updatedAt: Date;
 }
@@ -29,8 +38,10 @@ export class GroupInvitation {
   groupId: string;
   inviterId: string;
   inviteeId: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
   message?: string;
+  expiresAt?: Date;
+  respondedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

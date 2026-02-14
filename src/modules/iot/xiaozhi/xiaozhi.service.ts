@@ -16,7 +16,7 @@ import { XiaoZhiCapabilityService } from './services/xiaozhi-capability.service'
 import { XiaoZhiSecurityService } from './services/xiaozhi-security.service';
 import { XiaoZhiPluginService } from './services/xiaozhi-plugin.service';
 import { XiaoZhiConfigService } from './services/xiaozhi-config.service';
-import { DeviceState, ConnectionState, TransportType, DeviceConnection } from './xiaozhi.types';
+import { DeviceState, ConnectionState, TransportType, DeviceConnection, XiaoZhiProtocolVersion, BinaryProtocolVersion } from './xiaozhi.types';
 import { EventBusService, EventType, EventPriority } from '../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 
@@ -139,7 +139,7 @@ export class XiaoZhiService {
     socket.on('binary', (data: Buffer) => {
       const conn = this.stateService.getConnection(deviceId);
       if (conn) {
-        this.audioService.handleBinaryAudioData(deviceId, conn, data);
+        this.audioService.handleBinaryAudio(deviceId, conn, data);
       }
     });
   }
@@ -330,9 +330,17 @@ export class XiaoZhiService {
   // ==================== 消息处理 ====================
 
   /**
+   * 处理WebSocket断开连接
+   */
+  handleWebSocketDisconnect(deviceId: string): void {
+    this.logger.log(`WebSocket disconnected for device: ${deviceId}`);
+    this.stateService.removeConnection(deviceId);
+  }
+
+  /**
    * 处理WebSocket消息
    */
-  private async handleWebSocketMessage(deviceId: string, data: WebSocket.Data): Promise<void> {
+  async handleWebSocketMessage(deviceId: string, data: WebSocket.Data): Promise<void> {
     const connection = this.stateService.getConnection(deviceId);
     if (!connection) {
       this.logger.error(`Connection not found for device: ${deviceId}`);
@@ -1121,7 +1129,7 @@ export class XiaoZhiService {
 
       // 发布消息处理完成事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_PROCESSED,
+        EventType.DEVICE_MESSAGE_SENT,
         {
           deviceId,
           messageType: messageType,

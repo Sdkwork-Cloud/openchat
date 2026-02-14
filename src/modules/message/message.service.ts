@@ -3,7 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource, EntityManager } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Message } from './message.entity';
-import { Message as MessageInterface, MessageManager, SendMessageResult } from './message.interface';
+import {
+  Message as MessageInterface,
+  MessageManager,
+  SendMessageResult,
+  MessageType,
+  MessageStatus,
+  MessageQueryOptions,
+  MessageSearchOptions,
+} from './message.interface';
 import { IMProviderService } from '../im-provider/im-provider.service';
 import { IMMessage } from '../im-provider/im-provider.interface';
 import { ConversationService } from '../conversation/conversation.service';
@@ -94,7 +102,8 @@ export class MessageService implements MessageManager {
       // 3.1 创建消息记录
       const message = this.messageRepository.create({
         ...messageData,
-        status: 'sending',
+        uuid: messageData.uuid || uuidv4(),
+        status: MessageStatus.SENDING,
       });
       savedMessage = await queryRunner.manager.save(message);
 
@@ -155,7 +164,7 @@ export class MessageService implements MessageManager {
       );
 
       // 更新消息状态为 sent
-      savedMessage.status = 'sent';
+      savedMessage.status = MessageStatus.SENT;
       const updatedMessage = await this.messageRepository.save(savedMessage);
 
       // 异步更新会话（不阻塞响应）
@@ -172,7 +181,7 @@ export class MessageService implements MessageManager {
       this.logger.error(`Failed to send message ${savedMessage.id}:`, error);
 
       // 更新消息状态为 failed
-      savedMessage.status = 'failed';
+      savedMessage.status = MessageStatus.FAILED;
       await this.messageRepository.save(savedMessage);
 
       return {
@@ -289,7 +298,7 @@ export class MessageService implements MessageManager {
         // 创建消息
         const message = this.messageRepository.create({
           ...msgData,
-          status: 'sending',
+          status: MessageStatus.SENDING,
         });
         messagesToSave.push(message);
 
@@ -391,16 +400,12 @@ export class MessageService implements MessageManager {
     );
 
     // 更新状态为 sent
-    message.status = 'sent';
+    message.status = MessageStatus.SENT;
     await this.messageRepository.save(message);
 
-    // 更新会话
     await this.updateConversationForMessageOptimized(message);
   }
 
-  /**
-   * 检查消息权限
-   */
   private async checkMessagePermission(
     messageData: Omit<MessageInterface, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
   ): Promise<{ allowed: boolean; reason?: string }> {
@@ -630,20 +635,30 @@ export class MessageService implements MessageManager {
    */
   private getMessagePreview(message: Message): string {
     switch (message.type) {
-      case 'text':
-        return message.content.text || '[文本消息]';
-      case 'image':
+      case MessageType.TEXT:
+        return message.content?.text?.text || '[文本消息]';
+      case MessageType.IMAGE:
         return '[图片]';
-      case 'audio':
+      case MessageType.AUDIO:
         return '[语音]';
-      case 'video':
+      case MessageType.VIDEO:
         return '[视频]';
-      case 'file':
+      case MessageType.FILE:
         return '[文件]';
-      case 'card':
-        return '[卡片]';
-      case 'custom':
+      case MessageType.MUSIC:
+        return '[音乐]';
+      case MessageType.DOCUMENT:
+        return '[文档]';
+      case MessageType.CODE:
+        return '[代码]';
+      case MessageType.LOCATION:
+        return '[位置]';
+      case MessageType.CARD:
+        return '[名片]';
+      case MessageType.CUSTOM:
         return '[自定义消息]';
+      case MessageType.SYSTEM:
+        return '[系统消息]';
       default:
         return '[消息]';
     }
@@ -653,30 +668,42 @@ export class MessageService implements MessageManager {
     return this.messageRepository.findOne({ where: { id } });
   }
 
-  async getMessagesByUserId(userId: string, limit: number = 50, offset: number = 0): Promise<Message[]> {
+  async getMessagesByUserId(userId: string, options?: MessageQueryOptions): Promise<Message[]> {
+    const { limit = 50, offset = 0, messageType } = options || {};
+    
+    const whereConditions: any[] = [
+      { toUserId: userId },
+      { fromUserId: userId },
+    ];
+    
+    if (messageType) {
+      whereConditions.forEach(cond => cond.type = messageType);
+    }
+    
     return this.messageRepository.find({
-      where: [
-        { toUserId: userId },
-        { fromUserId: userId },
-      ],
+      where: whereConditions,
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
     });
   }
 
-  async getMessagesByGroupId(groupId: string, limit: number = 50, offset: number = 0): Promise<Message[]> {
+  async getMessagesByGroupId(groupId: string, options?: MessageQueryOptions): Promise<Message[]> {
+    const { limit = 50, offset = 0, messageType } = options || {};
+    
+    const whereCondition: any = { groupId };
+    if (messageType) {
+      whereCondition.type = messageType;
+    }
+    
     return this.messageRepository.find({
-      where: { groupId },
+      where: whereCondition,
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
     });
   }
 
-  /**
-   * 获取消息历史（优化版本，支持游标分页）
-   */
   async getMessageHistory(
     userId: string,
     targetId: string,
@@ -725,7 +752,7 @@ export class MessageService implements MessageManager {
     return { messages, nextCursor };
   }
 
-  async updateMessageStatus(id: string, status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed'): Promise<boolean> {
+  async updateMessageStatus(id: string, status: MessageStatus): Promise<boolean> {
     const message = await this.messageRepository.findOne({ where: { id } });
     if (!message) {
       return false;
@@ -747,7 +774,7 @@ export class MessageService implements MessageManager {
         toUserId: userId,
       },
       {
-        status: 'read' as const,
+        status: MessageStatus.READ,
       },
     );
     return (result.affected || 0) > 0;
@@ -796,12 +823,11 @@ export class MessageService implements MessageManager {
       return { success: false, error: 'Message not found' };
     }
 
-    if (message.status !== 'failed') {
+    if (message.status !== MessageStatus.FAILED) {
       return { success: false, error: 'Message is not in failed state' };
     }
 
-    // 更新状态为 sending
-    message.status = 'sending';
+    message.status = MessageStatus.SENDING;
     await this.messageRepository.save(message);
 
     try {
@@ -813,25 +839,125 @@ export class MessageService implements MessageManager {
         roomId: message.groupId,
       };
 
-      // 使用指数退避重试发送消息
       await this.retryWithExponentialBackoff(
         () => this.imProviderService.sendMessage(imMessage),
-        3, // 最多重试3次
-        1000, // 初始重试间隔1秒
+        3,
+        1000,
         `retry_message_${messageId}`,
       );
 
-      message.status = 'sent';
+      message.status = MessageStatus.SENT;
       const updatedMessage = await this.messageRepository.save(message);
 
       return { success: true, message: updatedMessage };
     } catch (error) {
       this.logger.error(`Failed to retry message ${messageId}:`, error);
 
-      message.status = 'failed';
+      message.status = MessageStatus.FAILED;
       await this.messageRepository.save(message);
 
       return { success: false, error: 'Retry failed' };
     }
+  }
+
+  async recallMessage(messageId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    const message = await this.getMessageById(messageId);
+
+    if (!message) {
+      return { success: false, error: 'Message not found' };
+    }
+
+    if (message.fromUserId !== userId) {
+      return { success: false, error: 'You can only recall your own messages' };
+    }
+
+    const recallTimeLimit = 2 * 60 * 1000; // 2 minutes
+    const messageAge = Date.now() - message.createdAt.getTime();
+    if (messageAge > recallTimeLimit) {
+      return { success: false, error: 'Message recall time limit exceeded' };
+    }
+
+    message.status = MessageStatus.RECALLED;
+    await this.messageRepository.save(message);
+
+    return { success: true };
+  }
+
+  async forwardMessage(
+    messageId: string,
+    fromUserId: string,
+    toUserId?: string,
+    toGroupId?: string,
+  ): Promise<SendMessageResult> {
+    const originalMessage = await this.getMessageById(messageId);
+
+    if (!originalMessage) {
+      return { success: false, error: 'Original message not found' };
+    }
+
+    if (!toUserId && !toGroupId) {
+      return { success: false, error: 'Must specify toUserId or toGroupId' };
+    }
+
+    return this.sendMessage({
+      fromUserId,
+      toUserId,
+      groupId: toGroupId,
+      type: originalMessage.type,
+      content: originalMessage.content,
+    } as any);
+  }
+
+  async searchMessages(options: MessageSearchOptions): Promise<{ messages: Message[]; total: number }> {
+    const {
+      keyword,
+      targetId,
+      type,
+      messageType,
+      startTime,
+      endTime,
+      page = 1,
+      limit = 20,
+    } = options;
+
+    const queryBuilder = this.messageRepository.createQueryBuilder('message');
+
+    // 搜索文本内容
+    queryBuilder.where('message.content::text ILIKE :keyword', { keyword: `%${keyword}%` });
+
+    // 按目标筛选
+    if (targetId) {
+      if (type === 'single') {
+        queryBuilder.andWhere(
+          '(message.fromUserId = :targetId OR message.toUserId = :targetId)',
+          { targetId },
+        );
+      } else if (type === 'group') {
+        queryBuilder.andWhere('message.groupId = :targetId', { targetId });
+      }
+    }
+
+    // 按消息类型筛选
+    if (messageType) {
+      queryBuilder.andWhere('message.type = :messageType', { messageType });
+    }
+
+    // 按时间范围筛选
+    if (startTime) {
+      queryBuilder.andWhere('message.createdAt >= :startTime', { startTime: new Date(startTime) });
+    }
+    if (endTime) {
+      queryBuilder.andWhere('message.createdAt <= :endTime', { endTime: new Date(endTime) });
+    }
+
+    // 排序和分页
+    queryBuilder
+      .orderBy('message.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [messages, total] = await queryBuilder.getManyAndCount();
+
+    return { messages, total };
   }
 }

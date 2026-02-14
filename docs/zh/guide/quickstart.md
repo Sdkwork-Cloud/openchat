@@ -6,120 +6,119 @@
 
 在开始之前，请确保你的系统满足以下要求：
 
-- **操作系统**: Linux / macOS / Windows (WSL2)
-- **Docker**: 24.0+ ([安装指南](https://docs.docker.com/get-docker/))
-- **Docker Compose**: 2.20+ ([安装指南](https://docs.docker.com/compose/install/))
-- **内存**: 至少 4GB 可用内存
-- **磁盘**: 至少 20GB 可用空间
+| 组件 | 最低配置 | 推荐配置 |
+|------|----------|----------|
+| CPU | 2 核 | 4 核 |
+| 内存 | 4 GB | 8 GB |
+| 磁盘 | 20 GB | 50 GB SSD |
+| 操作系统 | Linux/macOS/Windows(WSL2) | Linux |
 
-## 一键部署
+### 软件依赖
 
-OpenChat 提供了一键部署脚本，让你可以在几分钟内启动完整的服务。
+| 软件 | 版本 | 说明 |
+|------|------|------|
+| Docker | 24.0+ | 容器运行时 |
+| Docker Compose | 2.0+ | 容器编排 |
 
-### 1. 克隆项目
+## 安装方式
 
-```bash
-git clone https://github.com/openchat-team/openchat-server.git
-cd openchat-server
-```
+### 方式一：安装向导（推荐）
 
-### 2. 运行一键部署脚本
-
-```bash
-chmod +x scripts/quick-start.sh
-./scripts/quick-start.sh
-```
-
-脚本将自动完成以下操作：
-- ✅ 检查 Docker 环境
-- ✅ 检测服务器 IP 地址
-- ✅ 生成环境变量配置
-- ✅ 拉取 Docker 镜像
-- ✅ 启动所有服务
-- ✅ 等待服务就绪
-
-### 3. 访问服务
-
-部署完成后，你将看到以下访问地址：
-
-```
-🎉 部署成功！
-
-服务访问地址:
-  • OpenChat API:    http://your-server-ip:3000
-  • 悟空IM Demo:     http://your-server-ip:5172
-  • 悟空IM 管理后台: http://your-server-ip:5300/web
-  • Prometheus:      http://your-server-ip:9090
-```
-
-## 手动部署
-
-如果你希望手动控制部署过程，可以按照以下步骤操作：
-
-### 1. 配置环境变量
+**Linux / macOS:**
 
 ```bash
-cp .env.example .env
+# 下载并运行安装向导
+curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/setup-wizard.sh | bash
+
+# 或克隆后运行
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+./scripts/setup-wizard.sh
 ```
 
-编辑 `.env` 文件，修改以下配置：
+**Windows:**
 
-```env
-# 服务器IP（必须修改）
-EXTERNAL_IP=your-server-ip
-
-# 安全密钥（生产环境必须修改）
-JWT_SECRET=your-secret-key
-DB_PASSWORD=your-db-password
-REDIS_PASSWORD=your-redis-password
+```powershell
+# 下载并运行安装向导
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/setup-wizard.bat" -OutFile "setup-wizard.bat"
+.\setup-wizard.bat
 ```
 
-### 2. 启动服务
+安装向导将引导您完成：
+1. 选择安装环境（开发/测试/生产）
+2. 选择安装模式（Docker/独立部署/混合模式）
+3. 配置数据库连接
+4. 配置 Redis 连接
+5. 自动生成配置文件
+6. 启动服务
+
+### 方式二：Docker Compose
 
 ```bash
+# 克隆项目
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# 启动所有服务
 docker compose up -d
+
+# 查看服务状态
+docker compose ps
 ```
 
-### 3. 检查服务状态
+### 方式三：手动部署
 
 ```bash
-docker compose ps
+# 克隆项目
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# 配置环境变量
+cp .env.production .env
+vim .env
+
+# 启动服务
+docker compose up -d
 ```
 
 ## 验证安装
 
+### 运行安装测试
+
+```bash
+# 快速测试
+./scripts/install-test.sh quick
+
+# 完整测试
+./scripts/install-test.sh full
+```
+
 ### 测试 API
 
 ```bash
-# 测试 OpenChat Server
+# 测试健康检查
 curl http://localhost:3000/health
 
 # 预期响应
 {"status":"ok","timestamp":"2024-01-15T10:30:00.000Z"}
 ```
 
-### 测试悟空IM
+### 访问服务
 
-```bash
-# 测试悟空IM
-curl http://localhost:5001/health
-
-# 预期响应
-{"status":"ok"}
-```
-
-### 访问 Demo
-
-打开浏览器访问 `http://your-server-ip:5172`，输入任意用户名和密码即可登录体验。
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| OpenChat API | http://localhost:3000 | 主服务 API |
+| API 文档 | http://localhost:3000/api/docs | Swagger 文档 |
+| WukongIM Demo | http://localhost:5172 | IM 演示页面 |
+| WukongIM 管理 | http://localhost:5300/web | IM 管理后台 |
+| Prometheus | http://localhost:9090 | 监控面板 |
 
 ## 第一个聊天应用
-
-现在让我们创建一个简单的聊天应用来测试 OpenChat。
 
 ### 1. 注册用户
 
 ```bash
-curl -X POST http://localhost:3000/auth/register \
+curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user1",
@@ -131,7 +130,7 @@ curl -X POST http://localhost:3000/auth/register \
 ### 2. 登录获取 Token
 
 ```bash
-curl -X POST http://localhost:3000/auth/login \
+curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user1",
@@ -145,7 +144,7 @@ curl -X POST http://localhost:3000/auth/login \
 {
   "success": true,
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
     "user": {
       "id": "user-uuid",
       "username": "user1",
@@ -155,56 +154,16 @@ curl -X POST http://localhost:3000/auth/login \
 }
 ```
 
-### 3. 获取 IM 配置
-
-```bash
-curl http://localhost:3000/im/config \
-  -H "Authorization: Bearer your-token"
-```
-
-响应示例：
-
-```json
-{
-  "success": true,
-  "data": {
-    "tcpAddr": "your-server-ip:5100",
-    "wsUrl": "ws://your-server-ip:5200",
-    "apiUrl": "http://your-server-ip:5001"
-  }
-}
-```
-
-### 4. 发送消息
-
-```bash
-curl -X POST http://localhost:3000/im/message/send \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-token" \
-  -d '{
-    "channelId": "user2",
-    "channelType": 1,
-    "fromUid": "user1",
-    "payload": "SGVsbG8gV29ybGQh"  # Base64 编码的消息内容
-  }'
-```
-
-## 客户端 SDK 接入
-
-### TypeScript SDK
-
-```bash
-npm install @openchat/sdk
-```
+### 3. 使用 SDK
 
 ```typescript
 import { OpenChatClient } from '@openchat/sdk';
 
 const client = new OpenChatClient({
-  serverUrl: 'http://your-server-ip:3000',
+  serverUrl: 'http://localhost:3000',
   imConfig: {
-    tcpAddr: 'your-server-ip:5100',
-    wsUrl: 'ws://your-server-ip:5200'
+    tcpAddr: 'localhost:5100',
+    wsUrl: 'ws://localhost:5200'
   }
 });
 
@@ -225,11 +184,32 @@ await client.message.send({
 });
 ```
 
+## 运维工具
+
+OpenChat 提供完整的运维工具集：
+
+```bash
+# 系统预检查
+./scripts/precheck.sh
+
+# 错误诊断
+./scripts/diagnose.sh
+
+# 自动修复
+./scripts/auto-fix.sh --all
+
+# 日志分析
+./scripts/log-analyzer.sh analyze
+
+# 健康监控
+./scripts/health-check.sh --monitor
+```
+
 ## 常见问题
 
 ### 端口冲突
 
-如果提示端口被占用，可以修改 `compose.yaml` 中的端口映射：
+如果提示端口被占用，可以修改 `docker-compose.yml` 中的端口映射：
 
 ```yaml
 ports:
@@ -245,40 +225,37 @@ ports:
 sudo ufw allow 3000/tcp
 sudo ufw allow 5100/tcp
 sudo ufw allow 5200/tcp
-sudo ufw allow 5300/tcp
-sudo ufw allow 5172/tcp
 
 # CentOS/RHEL
 sudo firewall-cmd --permanent --add-port=3000/tcp
-sudo firewall-cmd --permanent --add-port=5100/tcp
-sudo firewall-cmd --permanent --add-port=5200/tcp
-sudo firewall-cmd --permanent --add-port=5300/tcp
-sudo firewall-cmd --permanent --add-port=5172/tcp
 sudo firewall-cmd --reload
 ```
 
-### 内存不足
-
-如果启动失败，可能是内存不足。可以尝试：
-
-1. 增加服务器内存
-2. 减少服务内存限制（修改 `compose.yaml`）
-3. 单独启动服务
+### 安装失败
 
 ```bash
-# 只启动核心服务
-docker compose up -d postgres redis app
+# 检查安装状态
+./scripts/install-manager.sh status
+
+# 恢复安装
+./scripts/install-manager.sh resume
+
+# 运行诊断
+./scripts/diagnose.sh
+
+# 自动修复
+./scripts/auto-fix.sh --all
 ```
 
 ## 下一步
 
-- [架构设计](./architecture) - 了解 OpenChat 的系统架构
-- [功能特性](./features) - 探索所有功能特性
-- [API 文档](/api/) - 查看完整的 API 文档
-- [SDK 文档](/sdk/) - 了解如何使用 SDK
+- [项目概览](./overview) - 了解 OpenChat 的核心特性
+- [架构设计](./architecture) - 深入了解系统架构
+- [API 文档](/zh/api/) - 查看完整的 API 文档
+- [SDK 文档](/zh/sdk/) - 了解如何使用 SDK
 
 ## 获取帮助
 
-- 💬 [GitHub Discussions](https://github.com/openchat-team/openchat-server/discussions)
-- 🐛 [Issue 报告](https://github.com/openchat-team/openchat-server/issues)
-- 📧 邮箱: support@openchat.dev
+- 💬 [GitHub Discussions](https://github.com/Sdkwork-Cloud/openchat/discussions)
+- 🐛 [Issue 报告](https://github.com/Sdkwork-Cloud/openchat/issues)
+- 📧 邮箱: contact@sdkwork.com

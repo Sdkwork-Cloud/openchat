@@ -77,7 +77,7 @@ export async function getFriends(): Promise<Friend[]> {
  * 搜索联系人
  */
 export async function searchContacts(params: SearchContactsParams): Promise<Friend[]> {
-  return apiClient.get<Friend[]>('/friends/search', { params });
+  return apiClient.get<Friend[]>('/friends/search', { params: params as Record<string, string | number | boolean> });
 }
 
 /**

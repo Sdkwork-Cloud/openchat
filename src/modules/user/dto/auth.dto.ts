@@ -1,5 +1,11 @@
 import { IsString, IsNotEmpty, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  REGEX_PATTERNS,
+  VALIDATION_MESSAGES,
+  VALIDATION_LIMITS,
+  VerificationCodeType,
+} from '../../../common/constants';
 
 /**
  * 发送验证码 DTO
@@ -12,8 +18,8 @@ export class SendVerificationCodeDto {
   })
   @IsOptional()
   @IsString({ message: '邮箱必须是字符串' })
-  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-    message: '邮箱格式不正确',
+  @Matches(REGEX_PATTERNS.EMAIL, {
+    message: VALIDATION_MESSAGES.EMAIL,
   })
   email?: string;
 
@@ -24,19 +30,19 @@ export class SendVerificationCodeDto {
   })
   @IsOptional()
   @IsString({ message: '手机号必须是字符串' })
-  @Matches(/^1[3-9]\d{9}$/, {
-    message: '手机号格式不正确',
+  @Matches(REGEX_PATTERNS.PHONE, {
+    message: VALIDATION_MESSAGES.PHONE,
   })
   phone?: string;
 
   @ApiProperty({
     description: '验证码类型',
-    example: 'register',
-    enum: ['register', 'forgot-password'],
+    example: VerificationCodeType.REGISTER,
+    enum: Object.values(VerificationCodeType),
   })
   @IsString({ message: '验证码类型必须是字符串' })
   @IsNotEmpty({ message: '验证码类型不能为空' })
-  type: 'register' | 'forgot-password';
+  type: VerificationCodeType;
 }
 
 /**
@@ -67,217 +73,99 @@ export class VerifyVerificationCodeDto {
   })
   @IsString({ message: '验证码必须是字符串' })
   @IsNotEmpty({ message: '验证码不能为空' })
-  @Matches(/^\d{6}$/, {
-    message: '验证码格式不正确，应为6位数字',
+  @Matches(REGEX_PATTERNS.VERIFICATION_CODE, {
+    message: VALIDATION_MESSAGES.VERIFICATION_CODE,
   })
   code: string;
 
   @ApiProperty({
     description: '验证码类型',
-    example: 'register',
-    enum: ['register', 'forgot-password'],
+    example: VerificationCodeType.REGISTER,
+    enum: Object.values(VerificationCodeType),
   })
   @IsString({ message: '验证码类型必须是字符串' })
   @IsNotEmpty({ message: '验证码类型不能为空' })
-  type: 'register' | 'forgot-password';
+  type: VerificationCodeType;
 }
 
 /**
- * 手机注册 DTO
- */
-export class PhoneRegisterDto {
-  @ApiProperty({
-    description: '手机号',
-    example: '13800138000',
-  })
-  @IsString({ message: '手机号必须是字符串' })
-  @IsNotEmpty({ message: '手机号不能为空' })
-  @Matches(/^1[3-9]\d{9}$/, {
-    message: '手机号格式不正确',
-  })
-  phone: string;
-
-  @ApiProperty({
-    description: '验证码',
-    example: '123456',
-  })
-  @IsString({ message: '验证码必须是字符串' })
-  @IsNotEmpty({ message: '验证码不能为空' })
-  @Matches(/^\d{6}$/, {
-    message: '验证码格式不正确，应为6位数字',
-  })
-  code: string;
-
-  @ApiProperty({
-    description: '用户名',
-    minLength: 3,
-    maxLength: 50,
-    example: 'john_doe',
-  })
-  @IsString({ message: '用户名必须是字符串' })
-  @IsNotEmpty({ message: '用户名不能为空' })
-  @MinLength(3, { message: '用户名长度不能少于3个字符' })
-  @MaxLength(50, { message: '用户名长度不能超过50个字符' })
-  @Matches(/^[a-zA-Z0-9_-]+$/, {
-    message: '用户名只能包含字母、数字、下划线和横线',
-  })
-  username: string;
-
-  @ApiProperty({
-    description: '密码',
-    minLength: 6,
-    maxLength: 100,
-    example: '123456',
-  })
-  @IsString({ message: '密码必须是字符串' })
-  @IsNotEmpty({ message: '密码不能为空' })
-  @MinLength(6, { message: '密码长度不能少于6个字符' })
-  @MaxLength(100, { message: '密码长度不能超过100个字符' })
-  password: string;
-
-  @ApiProperty({
-    description: '昵称',
-    minLength: 1,
-    maxLength: 100,
-    example: 'John Doe',
-  })
-  @IsString({ message: '昵称必须是字符串' })
-  @IsNotEmpty({ message: '昵称不能为空' })
-  @MinLength(1, { message: '昵称长度不能少于1个字符' })
-  @MaxLength(100, { message: '昵称长度不能超过100个字符' })
-  nickname: string;
-}
-
-/**
- * 邮箱注册 DTO
- */
-export class EmailRegisterDto {
-  @ApiProperty({
-    description: '邮箱',
-    example: 'john.doe@example.com',
-  })
-  @IsString({ message: '邮箱必须是字符串' })
-  @IsNotEmpty({ message: '邮箱不能为空' })
-  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-    message: '邮箱格式不正确',
-  })
-  email: string;
-
-  @ApiProperty({
-    description: '验证码',
-    example: '123456',
-  })
-  @IsString({ message: '验证码必须是字符串' })
-  @IsNotEmpty({ message: '验证码不能为空' })
-  @Matches(/^\d{6}$/, {
-    message: '验证码格式不正确，应为6位数字',
-  })
-  code: string;
-
-  @ApiProperty({
-    description: '用户名',
-    minLength: 3,
-    maxLength: 50,
-    example: 'john_doe',
-  })
-  @IsString({ message: '用户名必须是字符串' })
-  @IsNotEmpty({ message: '用户名不能为空' })
-  @MinLength(3, { message: '用户名长度不能少于3个字符' })
-  @MaxLength(50, { message: '用户名长度不能超过50个字符' })
-  @Matches(/^[a-zA-Z0-9_-]+$/, {
-    message: '用户名只能包含字母、数字、下划线和横线',
-  })
-  username: string;
-
-  @ApiProperty({
-    description: '密码',
-    minLength: 6,
-    maxLength: 100,
-    example: '123456',
-  })
-  @IsString({ message: '密码必须是字符串' })
-  @IsNotEmpty({ message: '密码不能为空' })
-  @MinLength(6, { message: '密码长度不能少于6个字符' })
-  @MaxLength(100, { message: '密码长度不能超过100个字符' })
-  password: string;
-
-  @ApiProperty({
-    description: '昵称',
-    minLength: 1,
-    maxLength: 100,
-    example: 'John Doe',
-  })
-  @IsString({ message: '昵称必须是字符串' })
-  @IsNotEmpty({ message: '昵称不能为空' })
-  @MinLength(1, { message: '昵称长度不能少于1个字符' })
-  @MaxLength(100, { message: '昵称长度不能超过100个字符' })
-  nickname: string;
-}
-
-/**
- * 用户注册 DTO（兼容旧版）
+ * 用户注册 DTO
+ * 支持手机号或邮箱注册
  */
 export class RegisterDto {
   @ApiProperty({
     description: '用户名',
-    minLength: 3,
-    maxLength: 50,
+    minLength: VALIDATION_LIMITS.USERNAME_MIN,
+    maxLength: VALIDATION_LIMITS.USERNAME_MAX,
     example: 'john_doe',
   })
   @IsString({ message: '用户名必须是字符串' })
   @IsNotEmpty({ message: '用户名不能为空' })
-  @MinLength(3, { message: '用户名长度不能少于3个字符' })
-  @MaxLength(50, { message: '用户名长度不能超过50个字符' })
-  @Matches(/^[a-zA-Z0-9_-]+$/, {
+  @MinLength(VALIDATION_LIMITS.USERNAME_MIN, { message: VALIDATION_MESSAGES.USERNAME_MIN_LENGTH })
+  @MaxLength(VALIDATION_LIMITS.USERNAME_MAX, { message: VALIDATION_MESSAGES.USERNAME_MAX_LENGTH })
+  @Matches(REGEX_PATTERNS.USERNAME, {
     message: '用户名只能包含字母、数字、下划线和横线',
   })
   username: string;
 
   @ApiProperty({
-    description: '邮箱',
-    example: 'john.doe@example.com',
-  })
-  @IsString({ message: '邮箱必须是字符串' })
-  @IsNotEmpty({ message: '邮箱不能为空' })
-  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-    message: '邮箱格式不正确',
-  })
-  email: string;
-
-  @ApiProperty({
-    description: '手机号',
-    example: '13800138000',
-  })
-  @IsString({ message: '手机号必须是字符串' })
-  @IsNotEmpty({ message: '手机号不能为空' })
-  @Matches(/^1[3-9]\d{9}$/, {
-    message: '手机号格式不正确',
-  })
-  phone: string;
-
-  @ApiProperty({
     description: '密码',
-    minLength: 6,
-    maxLength: 100,
+    minLength: VALIDATION_LIMITS.PASSWORD_MIN,
+    maxLength: VALIDATION_LIMITS.PASSWORD_MAX,
     example: '123456',
   })
   @IsString({ message: '密码必须是字符串' })
   @IsNotEmpty({ message: '密码不能为空' })
-  @MinLength(6, { message: '密码长度不能少于6个字符' })
-  @MaxLength(100, { message: '密码长度不能超过100个字符' })
+  @MinLength(VALIDATION_LIMITS.PASSWORD_MIN, { message: VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH })
+  @MaxLength(VALIDATION_LIMITS.PASSWORD_MAX, { message: VALIDATION_MESSAGES.PASSWORD_MAX_LENGTH })
   password: string;
 
   @ApiProperty({
     description: '昵称',
-    minLength: 1,
-    maxLength: 100,
+    minLength: VALIDATION_LIMITS.NICKNAME_MIN,
+    maxLength: VALIDATION_LIMITS.NICKNAME_MAX,
     example: 'John Doe',
   })
   @IsString({ message: '昵称必须是字符串' })
   @IsNotEmpty({ message: '昵称不能为空' })
-  @MinLength(1, { message: '昵称长度不能少于1个字符' })
-  @MaxLength(100, { message: '昵称长度不能超过100个字符' })
+  @MinLength(VALIDATION_LIMITS.NICKNAME_MIN, { message: VALIDATION_MESSAGES.NICKNAME_MIN_LENGTH })
+  @MaxLength(VALIDATION_LIMITS.NICKNAME_MAX, { message: VALIDATION_MESSAGES.NICKNAME_MAX_LENGTH })
   nickname: string;
+
+  @ApiProperty({
+    description: '邮箱（可选，与手机号二选一）',
+    example: 'john.doe@example.com',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '邮箱必须是字符串' })
+  @Matches(REGEX_PATTERNS.EMAIL, {
+    message: VALIDATION_MESSAGES.EMAIL,
+  })
+  email?: string;
+
+  @ApiProperty({
+    description: '手机号（可选，与邮箱二选一）',
+    example: '13800138000',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '手机号必须是字符串' })
+  @Matches(REGEX_PATTERNS.PHONE, {
+    message: VALIDATION_MESSAGES.PHONE,
+  })
+  phone?: string;
+
+  @ApiProperty({
+    description: '验证码',
+    example: '123456',
+  })
+  @IsString({ message: '验证码必须是字符串' })
+  @IsNotEmpty({ message: '验证码不能为空' })
+  @Matches(REGEX_PATTERNS.VERIFICATION_CODE, {
+    message: VALIDATION_MESSAGES.VERIFICATION_CODE,
+  })
+  code: string;
 }
 
 /**
@@ -381,10 +269,11 @@ export class AuthResponseDto {
     id: string;
     username: string;
     email: string;
-    phone: string;
+    phone?: string;
     nickname: string;
     avatar?: string;
     status?: string;
+    [key: string]: any;
   };
 
   @ApiProperty({
@@ -484,4 +373,80 @@ export class ForgotPasswordResponseDto {
   })
   @IsOptional()
   error?: string;
+}
+
+/**
+ * 修改密码 DTO
+ */
+export class ChangePasswordDto {
+  @ApiProperty({
+    description: '旧密码',
+    example: 'OldP@ssw0rd!',
+  })
+  @IsString({ message: '旧密码必须是字符串' })
+  @IsNotEmpty({ message: '旧密码不能为空' })
+  oldPassword: string;
+
+  @ApiProperty({
+    description: '新密码',
+    minLength: 6,
+    maxLength: 100,
+    example: 'NewP@ssw0rd!',
+  })
+  @IsString({ message: '新密码必须是字符串' })
+  @IsNotEmpty({ message: '新密码不能为空' })
+  @MinLength(6, { message: '新密码长度不能少于6个字符' })
+  @MaxLength(100, { message: '新密码长度不能超过100个字符' })
+  newPassword: string;
+}
+
+/**
+ * 更新用户资料 DTO
+ */
+export class UpdateProfileDto {
+  @ApiProperty({
+    description: '昵称',
+    minLength: 1,
+    maxLength: 100,
+    example: 'John Doe',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '昵称必须是字符串' })
+  @MinLength(1, { message: '昵称长度不能少于1个字符' })
+  @MaxLength(100, { message: '昵称长度不能超过100个字符' })
+  nickname?: string;
+
+  @ApiProperty({
+    description: '头像URL',
+    example: 'https://example.com/avatar.jpg',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '头像URL必须是字符串' })
+  avatar?: string;
+
+  @ApiProperty({
+    description: '邮箱',
+    example: 'john.doe@example.com',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '邮箱必须是字符串' })
+  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
+    message: '邮箱格式不正确',
+  })
+  email?: string;
+
+  @ApiProperty({
+    description: '手机号',
+    example: '13800138000',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '手机号必须是字符串' })
+  @Matches(/^1[3-9]\d{9}$/, {
+    message: '手机号格式不正确',
+  })
+  phone?: string;
 }

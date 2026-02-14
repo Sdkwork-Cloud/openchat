@@ -1,6 +1,6 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Friend } from '../friend/friend.entity';
 import { GroupMember } from '../group/group-member.entity';
 
@@ -155,13 +155,26 @@ export class MessageFilterService {
    * @param userIds 待检查的用户ID列表
    */
   async batchCheckBlacklist(userId: string, userIds: string[]): Promise<Map<string, boolean>> {
-    const result = new Map<string, boolean>();
-    
-    for (const targetId of userIds) {
-      const isBlocked = await this.checkIsBlocked(userId, targetId);
-      result.set(targetId, isBlocked);
+    if (userIds.length === 0) {
+      return new Map();
     }
-    
+
+    const blockedList = await this.friendRepository.find({
+      where: {
+        userId,
+        friendId: In(userIds),
+        status: 'blocked',
+      },
+      select: ['friendId'],
+    });
+
+    const blockedSet = new Set(blockedList.map(item => item.friendId));
+    const result = new Map<string, boolean>();
+
+    for (const targetId of userIds) {
+      result.set(targetId, blockedSet.has(targetId));
+    }
+
     return result;
   }
 }

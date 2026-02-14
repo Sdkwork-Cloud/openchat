@@ -252,16 +252,40 @@ export class RedisService implements OnModuleDestroy {
     return result || [];
   }
 
-  /**
-   * 获取原生 Redis 客户端（用于高级操作）
-   */
   getClient(): Redis {
     return this.redis;
   }
 
-  /**
-   * 模块销毁时关闭连接
-   */
+  async increment(key: string, ttlSeconds?: number): Promise<number> {
+    const prefixedKey = this.prefixKey(key);
+    const result = await this.redis.incr(prefixedKey);
+    if (ttlSeconds && result === 1) {
+      await this.redis.expire(prefixedKey, ttlSeconds);
+    }
+    return result;
+  }
+
+  async decrement(key: string): Promise<number> {
+    const prefixedKey = this.prefixKey(key);
+    const result = await this.redis.decr(prefixedKey);
+    if (result < 0) {
+      await this.redis.set(prefixedKey, '0');
+      return 0;
+    }
+    return result;
+  }
+
+  async acquireLock(key: string, ttlMs: number): Promise<boolean> {
+    const prefixedKey = this.prefixKey(`lock:${key}`);
+    const result = await this.redis.set(prefixedKey, '1', 'PX', ttlMs, 'NX');
+    return result === 'OK';
+  }
+
+  async releaseLock(key: string): Promise<void> {
+    const prefixedKey = this.prefixKey(`lock:${key}`);
+    await this.redis.del(prefixedKey);
+  }
+
   onModuleDestroy() {
     this.redis.disconnect();
   }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Group } from './group.entity';
@@ -11,6 +11,8 @@ import { GroupSyncService } from './group-sync.service';
 
 @Injectable()
 export class GroupService implements GroupManager {
+  private readonly logger = new Logger(GroupService.name);
+
   constructor(
     @InjectRepository(Group)
     private groupRepository: Repository<Group>,
@@ -38,12 +40,12 @@ export class GroupService implements GroupManager {
 
     // 同步群组到悟空IM（异步执行）
     this.groupSyncService.syncGroupOnCreate(savedGroup).catch(error => {
-      console.error('Failed to sync group to WukongIM on create:', error);
+      this.logger.error('Failed to sync group to WukongIM on create:', error);
     });
 
     // 同步创建者到悟空IM频道
     this.groupSyncService.syncMemberOnJoin(savedGroup.id, groupData.ownerId).catch(error => {
-      console.error('Failed to sync owner to WukongIM channel:', error);
+      this.logger.error('Failed to sync owner to WukongIM channel:', error);
     });
 
     return savedGroup;
@@ -63,7 +65,7 @@ export class GroupService implements GroupManager {
 
     // 同步群组更新到悟空IM（异步执行）
     this.groupSyncService.syncGroupOnUpdate(updatedGroup).catch(error => {
-      console.error('Failed to sync group update to WukongIM:', error);
+      this.logger.error('Failed to sync group update to WukongIM:', error);
     });
 
     return updatedGroup;
@@ -72,7 +74,7 @@ export class GroupService implements GroupManager {
   async deleteGroup(id: string): Promise<boolean> {
     // 同步群组删除到悟空IM（在删除数据前执行）
     this.groupSyncService.syncGroupOnDelete(id).catch(error => {
-      console.error('Failed to sync group delete to WukongIM:', error);
+      this.logger.error('Failed to sync group delete to WukongIM:', error);
     });
 
     // 删除相关的群成员
@@ -114,7 +116,7 @@ export class GroupService implements GroupManager {
 
     // 同步成员加入到悟空IM（异步执行）
     this.groupSyncService.syncMemberOnJoin(groupId, userId).catch(error => {
-      console.error('Failed to sync member join to WukongIM:', error);
+      this.logger.error('Failed to sync member join to WukongIM:', error);
     });
 
     return savedMember;
@@ -129,7 +131,7 @@ export class GroupService implements GroupManager {
     if (result.affected && result.affected > 0) {
       // 同步成员离开到悟空IM（异步执行）
       this.groupSyncService.syncMemberOnLeave(groupId, userId).catch(error => {
-        console.error('Failed to sync member leave to WukongIM:', error);
+        this.logger.error('Failed to sync member leave to WukongIM:', error);
       });
     }
 
@@ -227,7 +229,7 @@ export class GroupService implements GroupManager {
 
     // 同步成员加入到悟空IM（异步执行）
     this.groupSyncService.syncMemberOnJoin(invitation.groupId, invitation.inviteeId).catch(error => {
-      console.error('Failed to sync member join to WukongIM on invitation accept:', error);
+      this.logger.error('Failed to sync member join to WukongIM on invitation accept:', error);
     });
 
     // 获取群组信息并自动创建联系人和会话
@@ -266,7 +268,6 @@ export class GroupService implements GroupManager {
    */
   private async createGroupContactAndConversation(userId: string, group: Group): Promise<void> {
     try {
-      // 创建群组联系人
       await this.contactService.createContact({
         userId,
         contactId: group.id,
@@ -274,25 +275,99 @@ export class GroupService implements GroupManager {
         source: 'group',
         name: group.name,
       }).catch(err => {
-        // 如果联系人已存在，忽略错误
         if (!err.message?.includes('已存在')) {
-          console.error('创建群组联系人失败:', err);
+          this.logger.error('Failed to create group contact:', err);
         }
       });
 
-      // 创建群组会话
       await this.conversationService.createConversation({
         type: 'group',
         userId,
         targetId: group.id,
       }).catch(err => {
-        // 如果会话已存在，忽略错误
         if (!err.message?.includes('已存在')) {
-          console.error('创建群组会话失败:', err);
+          this.logger.error('Failed to create group conversation:', err);
         }
       });
     } catch (error) {
-      console.error('自动创建群组联系人和会话失败:', error);
+      this.logger.error('Failed to auto create group contact and conversation:', error);
     }
+  }
+
+  async quitGroup(groupId: string, userId: string): Promise<boolean> {
+    const group = await this.groupRepository.findOne({ where: { id: groupId } });
+    if (!group) {
+      throw new Error('Group not found');
+    }
+
+    if (group.ownerId === userId) {
+      throw new Error('Group owner cannot quit the group');
+    }
+
+    const member = await this.groupMemberRepository.findOne({
+      where: { groupId, userId },
+    });
+
+    if (!member) {
+      return false;
+    }
+
+    member.status = 'quit';
+    await this.groupMemberRepository.save(member);
+
+    return true;
+  }
+
+  async muteMember(groupId: string, userId: string, duration: number): Promise<boolean> {
+    const member = await this.groupMemberRepository.findOne({
+      where: { groupId, userId, status: 'joined' },
+    });
+
+    if (!member) {
+      return false;
+    }
+
+    if (duration <= 0) {
+      member.muteUntil = undefined;
+    } else {
+      member.muteUntil = new Date(Date.now() + duration * 1000);
+    }
+
+    await this.groupMemberRepository.save(member);
+    return true;
+  }
+
+  async transferGroup(groupId: string, operatorId: string, newOwnerId: string): Promise<Group | null> {
+    const group = await this.groupRepository.findOne({ where: { id: groupId } });
+    if (!group) {
+      throw new Error('Group not found');
+    }
+
+    if (group.ownerId !== operatorId) {
+      throw new Error('Only group owner can transfer the group');
+    }
+
+    const newOwnerMember = await this.groupMemberRepository.findOne({
+      where: { groupId, userId: newOwnerId, status: 'joined' },
+    });
+
+    if (!newOwnerMember) {
+      throw new Error('New owner must be a group member');
+    }
+
+    const oldOwnerMember = await this.groupMemberRepository.findOne({
+      where: { groupId, userId: operatorId },
+    });
+
+    if (oldOwnerMember) {
+      oldOwnerMember.role = 'admin';
+      await this.groupMemberRepository.save(oldOwnerMember);
+    }
+
+    newOwnerMember.role = 'owner';
+    await this.groupMemberRepository.save(newOwnerMember);
+
+    group.ownerId = newOwnerId;
+    return this.groupRepository.save(group);
   }
 }

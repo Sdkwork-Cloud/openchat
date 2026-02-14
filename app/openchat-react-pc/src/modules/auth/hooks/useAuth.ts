@@ -7,6 +7,7 @@
  * 3. 持久化认证数据到 localStorage
  * 4. 应用启动时自动恢复登录状态
  * 5. 密码强度实时验证
+ * 6. 开发环境自动测试账号登录
  *
  * 登录流程：
  * 1. 用户输入用户名+密码
@@ -31,7 +32,18 @@ import {
   validatePhone,
   validateNickname,
   loginWithThirdParty as loginWithThirdPartyService,
+  saveAuthData,
 } from '../services/auth.service';
+import { IS_DEV } from '@/app/env';
+
+// 开发环境测试账号配置
+const DEV_TEST_ACCOUNT = {
+  username: 'testuser',
+  password: 'Test@123456',
+};
+
+// 是否启用开发环境自动登录（可通过 localStorage 禁用）
+const DEV_AUTO_LOGIN_KEY = 'openchat_dev_auto_login_disabled';
 
 export interface UseAuthReturn extends AuthState {
   /** 登录 - 传入用户名和密码 */
@@ -56,6 +68,14 @@ export interface UseAuthReturn extends AuthState {
   checkPhone: (phone: string) => { isValid: boolean; error?: string };
   /** 验证昵称 */
   checkNickname: (nickname: string) => { isValid: boolean; error?: string };
+  /** 更新IM配置 */
+  updateIMConfig: (config: Partial<IMConfig>) => void;
+  /** 开发环境禁用自动登录 */
+  disableDevAutoLogin: () => void;
+  /** 开发环境启用自动登录 */
+  enableDevAutoLogin: () => void;
+  /** 是否禁用了开发环境自动登录 */
+  isDevAutoLoginDisabled: () => boolean;
 }
 
 /**
@@ -70,6 +90,18 @@ export function useAuth(): UseAuthReturn {
     isLoading: true,
     error: null,
   });
+
+  const disableDevAutoLogin = useCallback(() => {
+    localStorage.setItem(DEV_AUTO_LOGIN_KEY, 'true');
+  }, []);
+
+  const enableDevAutoLogin = useCallback(() => {
+    localStorage.removeItem(DEV_AUTO_LOGIN_KEY);
+  }, []);
+
+  const isDevAutoLoginDisabled = useCallback(() => {
+    return localStorage.getItem(DEV_AUTO_LOGIN_KEY) === 'true';
+  }, []);
 
   // 初始化：尝试恢复登录状态
   useEffect(() => {
@@ -86,9 +118,29 @@ export function useAuth(): UseAuthReturn {
             isLoading: false,
             error: null,
           });
-        } else {
-          setState((prev) => ({ ...prev, isLoading: false }));
+          return;
         }
+
+        // 开发环境自动登录测试账号
+        if (IS_DEV && !isDevAutoLoginDisabled()) {
+          console.log('[Dev] 自动登录测试账号:', DEV_TEST_ACCOUNT.username);
+          try {
+            const loginResult = await loginService(DEV_TEST_ACCOUNT.username, DEV_TEST_ACCOUNT.password);
+            setState({
+              isAuthenticated: true,
+              user: loginResult.user,
+              imConfig: loginResult.imConfig,
+              isLoading: false,
+              error: null,
+            });
+            console.log('[Dev] 测试账号登录成功');
+            return;
+          } catch (devLoginError) {
+            console.warn('[Dev] 测试账号自动登录失败:', devLoginError);
+          }
+        }
+
+        setState((prev) => ({ ...prev, isLoading: false }));
       } catch (error) {
         console.error('初始化认证状态失败:', error);
         setState((prev) => ({ ...prev, isLoading: false }));
@@ -96,7 +148,7 @@ export function useAuth(): UseAuthReturn {
     };
 
     initAuth();
-  }, []);
+  }, [isDevAutoLoginDisabled]);
 
   /**
    * 登录
@@ -297,6 +349,26 @@ export function useAuth(): UseAuthReturn {
     }
   }, []);
 
+  /**
+   * 更新IM配置
+   */
+  const updateIMConfig = useCallback((config: Partial<IMConfig>) => {
+    setState((prev) => {
+      if (!prev.imConfig) return prev;
+      const newConfig = { ...prev.imConfig, ...config };
+      // 保存到本地存储
+      if (prev.user) {
+        saveAuthData({
+          user: prev.user,
+          token: localStorage.getItem('token') || '',
+          imConfig: newConfig,
+          timestamp: Date.now(),
+        });
+      }
+      return { ...prev, imConfig: newConfig };
+    });
+  }, []);
+
   return {
     ...state,
     login,
@@ -310,5 +382,9 @@ export function useAuth(): UseAuthReturn {
     checkEmail,
     checkPhone,
     checkNickname,
+    updateIMConfig,
+    disableDevAutoLogin,
+    enableDevAutoLogin,
+    isDevAutoLoginDisabled,
   };
 }

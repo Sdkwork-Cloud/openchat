@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiProperty } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../user/jwt-auth.guard';
-import { CurrentUser } from '../user/current-user.decorator';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
+import { CurrentUser } from '../user/decorators/current-user.decorator';
 import { MessageSearchService, MessageSearchResult } from './message-search.service';
 import { Message } from './message.entity';
 

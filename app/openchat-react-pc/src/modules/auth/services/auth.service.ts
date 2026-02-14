@@ -784,6 +784,8 @@ export async function loginWithThirdParty(provider: string): Promise<LoginRespon
       nickname: `${provider}用户`,
       avatar: '',
       status: 'online',
+      email: `${provider}_user@example.com`,
+      phone: '13800138000',
     },
     token: `mock_token_${provider}_${Date.now()}`,
     imConfig: {

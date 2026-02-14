@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { EventBusService, EventType, EventPriority } from '../../../common/events/event-bus.service';
+import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
 import { DeviceConnection } from '../xiaozhi.types';
 
 /**

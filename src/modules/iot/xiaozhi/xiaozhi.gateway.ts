@@ -16,7 +16,7 @@ import {
 import { Logger, UseGuards, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
-import { WsJwtGuard } from '../../../common/auth/guards/ws-jwt.guard';
+import { WsJwtGuard } from '../../../gateways/ws-jwt.guard';
 import { XiaoZhiService } from './xiaozhi.service';
 import { XiaoZhiMessageService } from './services/xiaozhi-message.service';
 import { XiaoZhiAudioService } from './services/xiaozhi-audio.service';
@@ -99,7 +99,7 @@ export class XiaoZhiGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       this.socketToDeviceMap.delete(client.id);
       
       // 处理断开连接
-      this.xiaozhiService.handleWebSocketDisconnection(deviceId);
+      this.xiaozhiService.handleWebSocketDisconnect(deviceId);
     }
   }
 
@@ -141,7 +141,7 @@ export class XiaoZhiGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
 
     // 处理二进制音频数据
-    this.audioService.handleBinaryAudioData(deviceId, connection, payload);
+    this.audioService.handleBinaryAudio(deviceId, connection, payload);
   }
 
   /**

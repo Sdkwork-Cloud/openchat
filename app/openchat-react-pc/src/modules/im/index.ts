@@ -24,7 +24,8 @@ export type {
   Message,
   MessageType,
   MessageStatus,
-  SendMessageRequest
+  SendMessageRequest,
+  MessageAttachment
 } from './entities/message.entity';
 
 export type {
@@ -39,14 +40,56 @@ export type {
 export { useConversations } from './hooks/useConversations';
 export { useMessages } from './hooks/useMessages';
 
-// 服务（基于SDK实现）
-export * from './services';
-
-// SDK适配器
-export * from './adapters';
+// SDK适配器函数
+export {
+  getSDKClient,
+  initializeSDK,
+  destroySDK,
+  isSDKInitialized,
+  getSDKState,
+  subscribeToSDKState,
+  convertSDKMessageToFrontend,
+  convertFrontendContentToSDK,
+  convertSDKConversationToFrontend,
+  convertSDKGroupToFrontend,
+  convertSDKGroupMemberToFrontend,
+  registerSDKEvents,
+  sendTextMessage,
+  sendImageMessage,
+  getMessageList,
+  recallMessage,
+  deleteMessage,
+  markMessageAsRead,
+  markConversationAsRead,
+  searchMessageList,
+  getGroupList,
+  getGroupDetail,
+  createGroup,
+  addGroupMembers,
+  removeGroupMember,
+  quitGroup,
+  dissolveGroup,
+  type SDKAdapterConfig,
+} from './adapters';
 
 // SDK Provider
 export { SDKProvider, useSDK, useSDKReady } from './components/SDKProvider';
 
 // 组件
 export { VirtualizedMessageList } from './components/VirtualizedMessageList';
+
+// 消息服务类型和函数
+export {
+  sendMessage,
+  getMessages,
+  recallMessage as recallMessageService,
+  deleteMessage as deleteMessageService,
+  searchMessages,
+  markMessagesAsRead,
+  getUnreadCount,
+  registerMessageEventListeners,
+  type MessageContent,
+  type MessageContentType,
+  type SendMessageParams,
+  type MessageQueryParams,
+} from './services/message.service';

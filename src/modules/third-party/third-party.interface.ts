@@ -1,7 +1,9 @@
+export type ThirdPartyPlatform = 'whatsapp' | 'telegram' | 'wechat' | 'signal';
+
 export interface ThirdPartyMessage {
   id: string;
   uuid: string;
-  platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal';
+  platform: ThirdPartyPlatform;
   fromUserId: string;
   toUserId: string;
   content: any;
@@ -15,7 +17,7 @@ export interface ThirdPartyMessage {
 export interface ThirdPartyContact {
   id: string;
   uuid: string;
-  platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal';
+  platform: ThirdPartyPlatform;
   userId: string;
   platformUserId: string;
   name: string;
@@ -32,8 +34,8 @@ export interface ThirdPartyAdapter {
 }
 
 export interface ThirdPartyManager {
-  sendMessage(platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal', message: Omit<ThirdPartyMessage, 'id' | 'uuid' | 'platform' | 'createdAt' | 'updatedAt'>): Promise<ThirdPartyMessage>;
-  getMessageStatus(platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal', messageId: string): Promise<string>;
-  syncContacts(platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal', userId: string): Promise<ThirdPartyContact[]>;
-  getContact(platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal', userId: string, platformUserId: string): Promise<ThirdPartyContact | null>;
+  sendMessage(platform: ThirdPartyPlatform, message: Omit<ThirdPartyMessage, 'id' | 'uuid' | 'platform' | 'createdAt' | 'updatedAt'>): Promise<ThirdPartyMessage>;
+  getMessageStatus(platform: ThirdPartyPlatform, messageId: string): Promise<string>;
+  syncContacts(platform: ThirdPartyPlatform, userId: string): Promise<ThirdPartyContact[]>;
+  getContact(platform: ThirdPartyPlatform, userId: string, platformUserId: string): Promise<ThirdPartyContact | null>;
 }

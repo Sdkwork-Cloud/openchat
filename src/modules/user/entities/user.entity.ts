@@ -20,6 +20,24 @@ export class UserEntity extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
+    unique: true,
+    nullable: true,
+    comment: '用户邮箱，唯一标识',
+  })
+  email?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    unique: true,
+    nullable: true,
+    comment: '用户手机号，唯一标识',
+  })
+  phone?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
     nullable: false,
     comment: '用户昵称',
   })
@@ -29,7 +47,7 @@ export class UserEntity extends BaseEntity {
     type: 'varchar',
     length: 100,
     nullable: false,
-    select: false, // 默认不查询密码字段，防止意外泄露
+    select: false,
     comment: '密码哈希值',
   })
   password: string;

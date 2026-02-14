@@ -1,13 +1,11 @@
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Logger, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { InjectConnection } from '@nestjs/typeorm';
 import { Connection } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 import { QueueService } from '../queue/queue.service';
+import { IMProviderService } from '../../modules/im-provider/im-provider.service';
 
-/**
- * 健康状态响应
- */
 interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded';
   timestamp: string;
@@ -17,18 +15,21 @@ interface HealthStatus {
     database: { status: string; responseTime: number; details?: any };
     redis: { status: string; responseTime: number; details?: any };
     queue?: { status: string; enabled: boolean; details?: any };
+    imProvider?: { status: string; responseTime: number; details?: any };
   };
   memory: {
     used: number;
     total: number;
     percentage: number;
+    rss: number;
+    external: number;
+  };
+  eventLoop: {
+    lag: number;
+    status: string;
   };
 }
 
-/**
- * 健康检查控制器
- * 提供系统和依赖服务的健康状态
- */
 @ApiTags('health')
 @Controller()
 export class HealthController {
@@ -39,6 +40,7 @@ export class HealthController {
     @InjectConnection() private readonly connection: Connection,
     private readonly redisService: RedisService,
     private readonly queueService: QueueService,
+    @Optional() private readonly imProviderService: IMProviderService,
   ) {}
 
   /**
@@ -48,16 +50,16 @@ export class HealthController {
   @Get('health')
   @ApiOperation({ summary: '健康检查', description: '检查应用是否正常运行' })
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
+    const dbCheck = await this.checkDatabase();
+    const redisCheck = await this.checkRedis();
+    const isHealthy = dbCheck.status !== 'error' && redisCheck.status !== 'error';
+
     return {
-      status: 'ok',
+      status: isHealthy ? 'ok' : 'error',
       timestamp: new Date().toISOString(),
     };
   }
 
-  /**
-   * 详细健康检查
-   * 检查所有依赖服务
-   */
   @Get('health/detailed')
   @ApiOperation({ summary: '详细健康检查', description: '检查所有依赖服务的健康状态' })
   async checkDetailedHealth(): Promise<HealthStatus> {
@@ -65,20 +67,20 @@ export class HealthController {
       this.checkDatabase(),
       this.checkRedis(),
       this.checkQueue(),
+      this.checkIMProvider(),
+      this.checkEventLoopLag(),
     ]);
 
-    const [database, redis, queue] = checks;
+    const [database, redis, queue, imProvider, eventLoop] = checks;
 
-    // 确定整体状态
     let status: 'healthy' | 'unhealthy' | 'degraded' = 'healthy';
     if (database.status === 'error' || redis.status === 'error') {
       status = 'unhealthy';
-    } else if (database.status === 'slow' || redis.status === 'slow') {
+    } else if (database.status === 'slow' || redis.status === 'slow' || eventLoop.status === 'slow') {
       status = 'degraded';
     }
 
     const memoryUsage = process.memoryUsage();
-    const memoryTotal = require('os').totalmem();
 
     return {
       status,
@@ -101,11 +103,22 @@ export class HealthController {
           enabled: queue.enabled,
           details: queue.details,
         } : undefined,
+        imProvider: imProvider ? {
+          status: imProvider.status,
+          responseTime: imProvider.responseTime,
+          details: imProvider.details,
+        } : undefined,
       },
       memory: {
         used: Math.floor(memoryUsage.heapUsed / 1024 / 1024),
         total: Math.floor(memoryUsage.heapTotal / 1024 / 1024),
         percentage: Math.floor((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100),
+        rss: Math.floor(memoryUsage.rss / 1024 / 1024),
+        external: Math.floor(memoryUsage.external / 1024 / 1024),
+      },
+      eventLoop: {
+        lag: eventLoop.lag,
+        status: eventLoop.status,
       },
     };
   }
@@ -242,5 +255,52 @@ export class HealthController {
         details: { error: error.message },
       };
     }
+  }
+
+  private async checkIMProvider(): Promise<{
+    status: string;
+    responseTime: number;
+    details?: any;
+  } | null> {
+    if (!this.imProviderService) {
+      return null;
+    }
+
+    const start = Date.now();
+    try {
+      const isInitialized = this.imProviderService.isInitialized();
+      const responseTime = Date.now() - start;
+
+      return {
+        status: isInitialized ? 'ok' : 'error',
+        responseTime,
+        details: {
+          initialized: isInitialized,
+        },
+      };
+    } catch (error) {
+      this.logger.error('IM Provider health check failed', error);
+      return {
+        status: 'error',
+        responseTime: Date.now() - start,
+        details: { error: error.message },
+      };
+    }
+  }
+
+  private async checkEventLoopLag(): Promise<{
+    lag: number;
+    status: string;
+  }> {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      setImmediate(() => {
+        const lag = Date.now() - start;
+        resolve({
+          lag,
+          status: lag > 100 ? 'slow' : 'ok',
+        });
+      });
+    });
   }
 }

@@ -1,245 +1,382 @@
 /**
  * Agent 实体定义
  *
- * 参考豆包智能体市场的功能设计
+ * 与后端 API 对齐的智能体领域模型
+ * 参考: src/modules/agent/agent.entity.ts, agent.interface.ts
  */
 
-/**
- * Agent 类型
- */
-export type AgentType = 'official' | 'community' | 'custom';
-
-/**
- * Agent 分类
- */
-export type AgentCategory =
-  | 'all'
-  | 'productivity'
-  | 'education'
-  | 'entertainment'
-  | 'life'
-  | 'programming'
-  | 'writing'
-  | 'business'
-  | 'creative';
-
-/**
- * Agent 能力标签
- */
-export type AgentCapability =
-  | 'chat'
-  | 'image-generation'
-  | 'code-generation'
-  | 'document-analysis'
-  | 'web-search'
-  | 'data-analysis'
-  | 'translation'
-  | 'summarization';
-
-/**
- * Agent 实体
- */
-export interface Agent {
-  /** 唯一标识 */
-  id: string;
-  /** 名称 */
-  name: string;
-  /** 描述 */
-  description: string;
-  /** 头像/图标 */
-  avatar: string;
-  /** 类型 */
-  type: AgentType;
-  /** 分类 */
-  category: AgentCategory;
-  /** 能力标签 */
-  capabilities: AgentCapability[];
-  /** 创建者 ID */
-  creatorId: string;
-  /** 创建者名称 */
-  creatorName: string;
-  /** 创建时间 */
-  createdAt: string;
-  /** 更新时间 */
-  updatedAt: string;
-  /** 使用次数 */
-  usageCount: number;
-  /** 评分 (1-5) */
-  rating: number;
-  /** 评分人数 */
-  ratingCount: number;
-  /** 是否已收藏 */
-  isFavorited: boolean;
-  /** 是否已添加到我的 Agent */
-  isAdded: boolean;
-  /** 系统提示词 */
-  systemPrompt?: string;
-  /** 欢迎语 */
-  welcomeMessage?: string;
-  /** 示例问题 */
-  exampleQuestions?: string[];
-  /** 模型配置 */
-  modelConfig?: AgentModelConfig;
-  /** 工具配置 */
-  tools?: AgentTool[];
+export enum AgentStatus {
+  IDLE = 'idle',
+  INITIALIZING = 'initializing',
+  READY = 'ready',
+  CHATTING = 'chatting',
+  EXECUTING = 'executing',
+  ERROR = 'error',
+  DISABLED = 'disabled',
+  MAINTENANCE = 'maintenance',
 }
 
-/**
- * Agent 模型配置
- */
-export interface AgentModelConfig {
-  /** 模型名称 */
-  model: string;
-  /** 温度参数 */
-  temperature?: number;
-  /** 最大 token */
+export enum AgentType {
+  CHAT = 'chat',
+  TASK = 'task',
+  KNOWLEDGE = 'knowledge',
+  ASSISTANT = 'assistant',
+  CUSTOM = 'custom',
+}
+
+export enum AgentCategory {
+  ALL = 'all',
+  PRODUCTIVITY = 'productivity',
+  EDUCATION = 'education',
+  ENTERTAINMENT = 'entertainment',
+  LIFE = 'life',
+  PROGRAMMING = 'programming',
+  WRITING = 'writing',
+  BUSINESS = 'business',
+  CREATIVE = 'creative',
+}
+
+export type LLMProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'moonshot'
+  | 'minimax'
+  | 'zhipu'
+  | 'qwen'
+  | 'deepseek'
+  | 'doubao'
+  | 'custom';
+
+export interface LLMConfig {
+  provider: LLMProvider;
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+  defaults?: {
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+  };
+}
+
+export interface MemoryConfig {
   maxTokens?: number;
-  /** Top P */
-  topP?: number;
+  limit?: number;
+  type?: 'episodic' | 'semantic' | 'procedural' | 'working';
 }
 
-/**
- * Agent 工具配置
- */
-export interface AgentTool {
-  /** 工具 ID */
-  id: string;
-  /** 工具名称 */
+export interface AgentConfig {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
+  welcomeMessage?: string;
+  tools?: string[];
+  skills?: string[];
+  memory?: MemoryConfig;
+  llm?: LLMConfig;
+  customSettings?: Record<string, unknown>;
+}
+
+export interface AgentCapability {
   name: string;
-  /** 工具描述 */
   description: string;
-  /** 是否启用 */
+  type: 'tool' | 'skill' | 'knowledge' | 'custom';
   enabled: boolean;
-  /** 工具配置 */
   config?: Record<string, unknown>;
 }
 
-/**
- * Agent 分类信息
- */
-export interface AgentCategoryInfo {
-  /** 分类 ID */
-  id: AgentCategory;
-  /** 分类名称 */
+export interface Agent {
+  id: string;
+  uuid: string;
   name: string;
-  /** 分类图标 */
-  icon: string;
-  /** 描述 */
-  description: string;
-  /** Agent 数量 */
-  agentCount: number;
-}
-
-/**
- * Agent 市场筛选条件
- */
-export interface AgentMarketFilter {
-  /** 分类 */
-  category?: AgentCategory;
-  /** 类型 */
-  type?: AgentType;
-  /** 搜索关键词 */
-  keyword?: string;
-  /** 排序方式 */
-  sortBy: 'popular' | 'newest' | 'rating';
-}
-
-/**
- * Agent 对话消息
- */
-export interface AgentMessage {
-  /** 消息 ID */
-  id: string;
-  /** 会话 ID */
-  conversationId: string;
-  /** Agent ID */
-  agentId: string;
-  /** 角色 */
-  role: 'user' | 'assistant' | 'system';
-  /** 内容 */
-  content: string;
-  /** 创建时间 */
+  description?: string;
+  avatar?: string;
+  type: AgentType;
+  status: AgentStatus;
+  config: AgentConfig;
+  ownerId: string;
+  isPublic: boolean;
+  isDeleted: boolean;
+  capabilities?: AgentCapability[];
+  knowledgeBaseIds?: string[];
   createdAt: string;
-  /** 附件 */
-  attachments?: AgentAttachment[];
-  /** 思考过程 (用于展示推理过程) */
-  reasoning?: string;
-  /** 使用的工具 */
-  usedTools?: string[];
-}
-
-/**
- * Agent 附件
- */
-export interface AgentAttachment {
-  /** 附件 ID */
-  id: string;
-  /** 类型 */
-  type: 'image' | 'file' | 'audio';
-  /** URL */
-  url: string;
-  /** 名称 */
-  name: string;
-  /** 大小 */
-  size?: number;
-}
-
-/**
- * Agent 会话
- */
-export interface AgentConversation {
-  /** 会话 ID */
-  id: string;
-  /** Agent ID */
-  agentId: string;
-  /** 用户 ID */
-  userId: string;
-  /** 会话标题 */
-  title: string;
-  /** 最后一条消息 */
-  lastMessage?: AgentMessage;
-  /** 消息数量 */
-  messageCount: number;
-  /** 创建时间 */
-  createdAt: string;
-  /** 更新时间 */
   updatedAt: string;
 }
 
-/**
- * 创建 Agent 请求
- */
+export interface AgentSession {
+  id: string;
+  uuid?: string;
+  agentId: string;
+  userId: string;
+  title?: string;
+  context?: ChatMessage[];
+  lastActivityAt?: string;
+  metadata?: Record<string, unknown>;
+  status?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | ChatContentPart[];
+  name?: string;
+  toolCalls?: ToolCall[];
+  toolCallId?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: number;
+}
+
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; imageUrl: { url: string; detail?: 'low' | 'high' | 'auto' } }
+  | { type: 'file'; file: { name: string; content: string; mimeType: string } };
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface AgentMessage {
+  id: string;
+  uuid?: string;
+  agentId?: string;
+  userId?: string;
+  sessionId: string;
+  content: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  type?: 'text' | 'image' | 'file' | 'event';
+  toolCalls?: ToolCall[];
+  toolCallId?: string;
+  metadata?: Record<string, unknown>;
+  tokenCount?: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AgentTool {
+  id: string;
+  uuid: string;
+  agentId: string;
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+  enabled: boolean;
+  config?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentSkill {
+  id: string;
+  uuid: string;
+  agentId: string;
+  skillId: string;
+  name: string;
+  description?: string;
+  version?: string;
+  enabled: boolean;
+  config?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ExecutionState = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'aborted';
+
+export interface ExecutionStep {
+  id: string;
+  type: 'llm' | 'tool' | 'skill' | 'memory' | 'validation';
+  name: string;
+  input: unknown;
+  output?: unknown;
+  state: ExecutionState;
+  startTime: number;
+  endTime?: number;
+  error?: {
+    message: string;
+    code?: string;
+  };
+}
+
+export interface AgentExecution {
+  id: string;
+  uuid: string;
+  agentId: string;
+  sessionId?: string;
+  userId?: string;
+  state: ExecutionState;
+  steps?: ExecutionStep[];
+  startedAt?: string;
+  endedAt?: string;
+  totalTokens?: number;
+  error?: {
+    message: string;
+    code?: string;
+    stack?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentCategoryInfo {
+  id: AgentCategory;
+  name: string;
+  icon: string;
+  description: string;
+  agentCount: number;
+}
+
+export interface AgentMarketFilter {
+  category?: AgentCategory;
+  type?: AgentType;
+  keyword?: string;
+  sortBy: 'popular' | 'newest' | 'rating';
+}
+
+export interface AgentStats {
+  totalUsage: number;
+  todayUsage: number;
+  weeklyUsage: number;
+  averageRating: number;
+  favoriteCount: number;
+}
+
 export interface CreateAgentRequest {
   name: string;
-  description: string;
+  description?: string;
   avatar?: string;
-  category: AgentCategory;
-  systemPrompt: string;
-  welcomeMessage?: string;
-  exampleQuestions?: string[];
-  modelConfig?: AgentModelConfig;
-  tools?: AgentTool[];
+  type?: AgentType;
+  config?: AgentConfig;
+  isPublic?: boolean;
+  capabilities?: AgentCapability[];
+  knowledgeBaseIds?: string[];
 }
 
-/**
- * 更新 Agent 请求
- */
-export interface UpdateAgentRequest extends Partial<CreateAgentRequest> {
+export interface UpdateAgentRequest {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  type?: AgentType;
+  config?: AgentConfig;
+  isPublic?: boolean;
+  status?: AgentStatus;
+  capabilities?: AgentCapability[];
+  knowledgeBaseIds?: string[];
+}
+
+export interface CreateSessionRequest {
+  title?: string;
+}
+
+export interface SendMessageRequest {
+  content: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AddToolRequest {
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface AddSkillRequest {
+  skillId: string;
+  name: string;
+  description?: string;
+  version?: string;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[];
+  model?: string;
+  stream?: boolean;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  stop?: string | string[];
+  sessionId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatResponse {
   id: string;
+  object: 'chat.completion';
+  created: number;
+  model: string;
+  choices: ChatChoice[];
+  usage: ChatUsage;
+  systemFingerprint?: string;
 }
 
-/**
- * Agent 统计数据
- */
-export interface AgentStats {
-  /** 总使用次数 */
-  totalUsage: number;
-  /** 今日使用次数 */
-  todayUsage: number;
-  /** 本周使用次数 */
-  weeklyUsage: number;
-  /** 平均评分 */
-  averageRating: number;
-  /** 收藏数 */
-  favoriteCount: number;
+export interface ChatChoice {
+  index: number;
+  message: ChatMessage;
+  finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+}
+
+export interface ChatUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface ChatStreamChunk {
+  id: string;
+  object: 'chat.completion.chunk';
+  created: number;
+  model: string;
+  choices: StreamChoice[];
+  systemFingerprint?: string;
+  usage?: ChatUsage;
+}
+
+export interface StreamChoice {
+  index: number;
+  delta: StreamDelta;
+  finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+}
+
+export interface StreamDelta {
+  role?: 'system' | 'user' | 'assistant' | 'tool';
+  content?: string;
+  toolCalls?: ToolCall[];
+}
+
+export interface ToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters?: {
+      type: 'object';
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+  };
+}
+
+export interface AvailableTool {
+  name: string;
+  description: string;
+  parameters?: Record<string, unknown>;
+}
+
+export interface AvailableSkill {
+  id: string;
+  name: string;
+  description: string;
+  version?: string;
 }

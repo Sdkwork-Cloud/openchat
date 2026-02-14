@@ -150,8 +150,9 @@ export class PerformanceServiceImpl implements PerformanceService {
   }
 
   private collectMemoryMetrics(): PerformanceMetrics['memory'] {
-    if (typeof performance !== 'undefined' && performance.memory) {
-      const { usedJSHeapSize, totalJSHeapSize, jsHeapSizeLimit } = performance.memory;
+    const perfWithMemory = performance as typeof performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } };
+    if (typeof performance !== 'undefined' && perfWithMemory.memory) {
+      const { usedJSHeapSize, jsHeapSizeLimit } = perfWithMemory.memory;
       const used = usedJSHeapSize;
       const total = jsHeapSizeLimit;
       const percentage = (used / total) * 100;

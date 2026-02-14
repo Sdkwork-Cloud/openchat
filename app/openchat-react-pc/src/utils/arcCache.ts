@@ -268,7 +268,8 @@ export class ARCCache<K, V> {
    * 获取集合中最旧的元素
    */
   private getOldest(collection: Map<K, V> | Set<K>): K {
-    return collection.keys().next().value;
+    const result = collection.keys().next().value;
+    return result as K;
   }
 }
 

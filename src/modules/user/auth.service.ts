@@ -2,21 +2,27 @@ import { Injectable, UnauthorizedException, ConflictException, Logger, BadReques
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
-import { User } from './user.interface';
-import { User as UserEntity } from './user.entity';
+import { UserEntity } from './entities/user.entity';
 import { LocalUserManagerService } from './local-user-manager.service';
 import { UserSyncService } from './user-sync.service';
 import { VerificationCodeService } from './verification-code.service';
-import { RegisterDto, LoginDto, ForgotPasswordDto, SendVerificationCodeDto, VerifyVerificationCodeDto, PhoneRegisterDto, EmailRegisterDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, SendVerificationCodeDto, VerifyVerificationCodeDto } from './dto/auth.dto';
+import {
+  JWT_CONFIG,
+  PASSWORD_CONFIG,
+  UserStatus,
+  AUTH_ERRORS,
+  VerificationCodeType,
+} from '../../common/constants';
 
 // 认证响应类型
 export class AuthResponse {
-  user: Omit<User, 'password'>;
+  user: Omit<UserEntity, 'password'>;
   token: string;
   refreshToken?: string;
   expiresIn?: number;
 
-  constructor(user: Omit<User, 'password'>, token: string, refreshToken?: string, expiresIn?: number) {
+  constructor(user: Omit<UserEntity, 'password'>, token: string, refreshToken?: string, expiresIn?: number) {
     this.user = user;
     this.token = token;
     this.refreshToken = refreshToken;
@@ -43,144 +49,91 @@ export class AuthService {
     private verificationCodeService: VerificationCodeService,
   ) {
     // 从配置中读取 JWT 配置，确保有默认值
-    this.jwtSecret = this.configService.get<string>('JWT_SECRET') || 'default-secret-key-change-in-production';
-    this.jwtExpiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || '1h';
-    this.refreshTokenExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
+    this.jwtSecret = this.configService.get<string>('JWT_SECRET') || JWT_CONFIG.DEFAULT_SECRET;
+    this.jwtExpiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || JWT_CONFIG.DEFAULT_EXPIRES_IN;
+    this.refreshTokenExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || JWT_CONFIG.DEFAULT_REFRESH_EXPIRES_IN;
 
     // 生产环境检查
-    if (process.env.NODE_ENV === 'production' && this.jwtSecret === 'default-secret-key-change-in-production') {
+    if (process.env.NODE_ENV === 'production' && this.jwtSecret === JWT_CONFIG.DEFAULT_SECRET) {
       this.logger.warn('WARNING: Using default JWT secret in production! Please set JWT_SECRET environment variable.');
     }
-  }
-
-  /**
-   * 用户注册
-   */
-  async register(registerData: RegisterDto): Promise<AuthResponse> {
-    // 检查用户名是否已存在
-    const existingUser = await this.localUserManager.getUserByUsername(registerData.username);
-
-    if (existingUser) {
-      throw new ConflictException('用户名已存在');
-    }
-
-    // 检查邮箱是否已存在
-    const existingEmailUser = await this.localUserManager.getUserRepository().findOne({
-      where: { email: registerData.email, isDeleted: false },
-    });
-
-    if (existingEmailUser) {
-      throw new ConflictException('邮箱已存在');
-    }
-
-    // 检查手机号是否已存在
-    const existingPhoneUser = await this.localUserManager.getUserRepository().findOne({
-      where: { phone: registerData.phone, isDeleted: false },
-    });
-
-    if (existingPhoneUser) {
-      throw new ConflictException('手机号已存在');
-    }
-
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(registerData.password, 10);
-
-    // 创建新用户
-    const user = await this.localUserManager.createUser({
-      username: registerData.username,
-      email: registerData.email,
-      phone: registerData.phone,
-      password: hashedPassword,
-      nickname: registerData.nickname,
-      status: 'offline',
-      isDeleted: false,
-    });
-
-    // 同步用户到IM系统（异步执行，不阻塞注册流程）
-    this.userSyncService.syncUserOnRegister(user).catch(error => {
-      this.logger.error('Failed to sync user to IM on register:', error);
-    });
-
-    // 生成JWT令牌
-    const token = this.generateToken(user.id);
-    const refreshToken = this.generateRefreshToken(user.id);
-
-    // 移除密码字段后返回
-    const { password, ...userWithoutPassword } = user as User;
-
-    return {
-      user: userWithoutPassword as Omit<User, 'password'>,
-      token,
-      refreshToken,
-      expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
-    };
   }
 
   /**
    * 用户登录
    */
   async login(loginData: LoginDto): Promise<AuthResponse> {
-    // 查找用户（包含密码字段）
     const user = await this.localUserManager.getUserByUsernameWithPassword(loginData.username);
 
-    if (!user) {
+    const isPasswordValid = user
+      ? await bcrypt.compare(loginData.password, user.password)
+      : await bcrypt.compare(loginData.password, '$2b$10$dummyhashtopreventtimingattack');
+
+    if (!user || !isPasswordValid) {
+      await this.randomDelay(100, 300);
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    // 验证密码
-    const isPasswordValid = await bcrypt.compare(loginData.password, user.password);
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('用户名或密码错误');
-    }
-
-    // 生成JWT令牌
     const token = this.generateToken(user.id);
     const refreshToken = this.generateRefreshToken(user.id);
 
-    // 同步用户登录到IM系统（异步执行，不阻塞登录流程）
     this.userSyncService.syncUserOnLogin(user.id).catch(error => {
       this.logger.error('Failed to sync user login to IM:', error);
     });
 
-    // 移除密码字段后返回
     const { password, ...userWithoutPassword } = user;
 
     return {
-      user: userWithoutPassword as Omit<User, 'password'>,
+      user: userWithoutPassword as Omit<UserEntity, 'password'>,
       token,
       refreshToken,
       expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
     };
   }
 
+  private randomDelay(min: number, max: number): Promise<void> {
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    return new Promise(resolve => setTimeout(resolve, delay));
+  }
+
   /**
    * 刷新访问令牌
    */
-  async refreshToken(refreshToken: string): Promise<{ token: string; expiresIn: number }> {
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.jwtSecret,
       });
 
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('无效的刷新令牌类型');
+      }
+
       const userId = payload.sub;
 
-      // 验证用户是否存在
       const user = await this.localUserManager.getUserById(userId);
       if (!user) {
         throw new UnauthorizedException('用户不存在');
       }
 
-      // 生成新的访问令牌
       const newToken = this.generateToken(userId);
+      const newRefreshToken = this.generateRefreshToken(userId);
+
+      const { password, ...userWithoutPassword } = user;
 
       return {
+        user: userWithoutPassword as Omit<UserEntity, 'password'>,
         token: newToken,
+        refreshToken: newRefreshToken,
         expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
       };
     } catch (error) {
       throw new UnauthorizedException('无效的刷新令牌');
     }
+  }
+
+  async logout(userId: string): Promise<void> {
+    this.logger.log(`User ${userId} logged out`);
   }
 
   /**
@@ -190,7 +143,7 @@ export class AuthService {
     const payload = { sub: userId, type: 'access' };
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      expiresIn: this.jwtExpiresIn,
+      expiresIn: this.jwtExpiresIn as any,
     });
   }
 
@@ -201,7 +154,7 @@ export class AuthService {
     const payload = { sub: userId, type: 'refresh' };
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      expiresIn: this.refreshTokenExpiresIn,
+      expiresIn: this.refreshTokenExpiresIn as any,
     });
   }
 
@@ -241,7 +194,7 @@ export class AuthService {
   /**
    * 根据用户ID获取用户信息
    */
-  async getUserById(userId: string): Promise<User | null> {
+  async getUserById(userId: string): Promise<UserEntity | null> {
     return this.localUserManager.getUserById(userId);
   }
 
@@ -377,19 +330,18 @@ export class AuthService {
   }
 
   /**
-   * 手机注册
+   * 用户注册（支持手机号或邮箱）
    */
-  async phoneRegister(registerData: PhoneRegisterDto): Promise<AuthResponse> {
-    const { phone, code, username, password, nickname } = registerData;
+  async register(registerData: RegisterDto): Promise<AuthResponse> {
+    const { username, password, nickname, email, phone, code } = registerData;
 
-    // 验证手机号格式
-    const phoneRegex = /^1[3-9]\d{9}$/;
-    if (!phoneRegex.test(phone)) {
-      throw new BadRequestException('手机号格式不正确');
+    // 验证必须提供邮箱或手机号之一
+    if (!email && !phone) {
+      throw new BadRequestException('必须提供邮箱或手机号');
     }
 
     // 验证验证码
-    await this.verificationCodeService.verifyCodeByTarget(undefined, phone, code, 'register');
+    await this.verificationCodeService.verifyCodeByTarget(email, phone, code, VerificationCodeType.REGISTER);
 
     // 检查用户名是否已存在
     const existingUser = await this.localUserManager.getUserByUsername(username);
@@ -397,12 +349,22 @@ export class AuthService {
       throw new ConflictException('用户名已存在');
     }
 
-    // 检查手机号是否已存在
-    const existingPhoneUser = await this.localUserManager.getUserRepository().findOne({
-      where: { phone, isDeleted: false },
-    });
-    if (existingPhoneUser) {
-      throw new ConflictException('手机号已存在');
+    // 检查邮箱/手机号是否已存在
+    if (email) {
+      const existingEmailUser = await this.localUserManager.getUserRepository().findOne({
+        where: { email, isDeleted: false },
+      });
+      if (existingEmailUser) {
+        throw new ConflictException('邮箱已存在');
+      }
+    }
+    if (phone) {
+      const existingPhoneUser = await this.localUserManager.getUserRepository().findOne({
+        where: { phone, isDeleted: false },
+      });
+      if (existingPhoneUser) {
+        throw new ConflictException('手机号已存在');
+      }
     }
 
     // 加密密码
@@ -411,13 +373,13 @@ export class AuthService {
     // 创建新用户
     const user = await this.localUserManager.createUser({
       username,
-      email: '', // 邮箱为空
-      phone,
+      email: email || '',
+      phone: phone || '',
       password: hashedPassword,
       nickname,
       status: 'offline',
       isDeleted: false,
-    });
+    } as any);
 
     // 同步用户到IM系统（异步执行，不阻塞注册流程）
     this.userSyncService.syncUserOnRegister(user).catch(error => {
@@ -429,73 +391,10 @@ export class AuthService {
     const refreshToken = this.generateRefreshToken(user.id);
 
     // 移除密码字段后返回
-    const { password: _, ...userWithoutPassword } = user as User;
+    const { password: _, ...userWithoutPassword } = user as UserEntity;
 
     return {
-      user: userWithoutPassword as Omit<User, 'password'>,
-      token,
-      refreshToken,
-      expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
-    };
-  }
-
-  /**
-   * 邮箱注册
-   */
-  async emailRegister(registerData: EmailRegisterDto): Promise<AuthResponse> {
-    const { email, code, username, password, nickname } = registerData;
-
-    // 验证邮箱格式
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email)) {
-      throw new BadRequestException('邮箱格式不正确');
-    }
-
-    // 验证验证码
-    await this.verificationCodeService.verifyCodeByTarget(email, undefined, code, 'register');
-
-    // 检查用户名是否已存在
-    const existingUser = await this.localUserManager.getUserByUsername(username);
-    if (existingUser) {
-      throw new ConflictException('用户名已存在');
-    }
-
-    // 检查邮箱是否已存在
-    const existingEmailUser = await this.localUserManager.getUserRepository().findOne({
-      where: { email, isDeleted: false },
-    });
-    if (existingEmailUser) {
-      throw new ConflictException('邮箱已存在');
-    }
-
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 创建新用户
-    const user = await this.localUserManager.createUser({
-      username,
-      email,
-      phone: '', // 手机号为空
-      password: hashedPassword,
-      nickname,
-      status: 'offline',
-      isDeleted: false,
-    });
-
-    // 同步用户到IM系统（异步执行，不阻塞注册流程）
-    this.userSyncService.syncUserOnRegister(user).catch(error => {
-      this.logger.error('Failed to sync user to IM on register:', error);
-    });
-
-    // 生成JWT令牌
-    const token = this.generateToken(user.id);
-    const refreshToken = this.generateRefreshToken(user.id);
-
-    // 移除密码字段后返回
-    const { password: _, ...userWithoutPassword } = user as User;
-
-    return {
-      user: userWithoutPassword as Omit<User, 'password'>,
+      user: userWithoutPassword as Omit<UserEntity, 'password'>,
       token,
       refreshToken,
       expiresIn: this.parseExpiresIn(this.jwtExpiresIn),

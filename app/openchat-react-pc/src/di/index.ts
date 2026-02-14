@@ -2,12 +2,14 @@
  * 依赖注入系统
  */
 
-export { default as container } from './container';
+import container from './container';
+import type { Token, Factory } from './types';
+
+export { container };
 export { DIContainer } from './container';
 export type { Container, Token, Factory, Module } from './types';
 export { CoreModule } from './modules/core.module';
 
-// 便捷函数
 export function inject<T>(token: Token<T>): T {
   return container.resolve(token);
 }

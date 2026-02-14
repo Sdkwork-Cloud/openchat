@@ -65,12 +65,12 @@ export function createAsyncComponent<T extends ComponentType<any>>(
   const { fallback, errorFallback, retryDelay = 1000, maxRetries = 3 } = options;
 
   const LazyComponent = lazy(() => {
-    return new Promise((resolve, reject) => {
+    return new Promise<{ default: T }>((resolve, reject) => {
       let retries = 0;
 
       const load = () => {
         importFn()
-          .then(resolve)
+          .then((result) => resolve(result))
           .catch((error) => {
             retries++;
             if (retries <= maxRetries) {

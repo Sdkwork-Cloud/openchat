@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitepress'
 
-// 共享配置
 const sharedConfig = {
   title: 'OpenChat',
   lastUpdated: true,
@@ -19,7 +18,6 @@ const sharedConfig = {
   ]
 }
 
-// 中文配置
 const zhConfig = {
   label: '简体中文',
   lang: 'zh-CN',
@@ -33,7 +31,8 @@ const zhConfig = {
         items: [
           { text: 'API 文档', link: '/zh/api/' },
           { text: '部署指南', link: '/zh/deploy/' },
-          { text: '配置说明', link: '/zh/config/' }
+          { text: '配置说明', link: '/zh/config/' },
+          { text: '扩展插件', link: '/zh/extension/' }
         ]
       },
       {
@@ -53,7 +52,7 @@ const zhConfig = {
           { text: '小程序', link: '/zh/app/miniprogram' }
         ]
       },
-      { text: 'GitHub', link: 'https://github.com/openchat-team/openchat-server' }
+      { text: 'GitHub', link: 'https://github.com/Sdkwork-Cloud/openchat' }
     ],
     sidebar: {
       '/zh/guide/': [
@@ -118,10 +117,11 @@ const zhConfig = {
           text: '部署指南',
           items: [
             { text: '部署概览', link: '/zh/deploy/' },
+            { text: '安装指南', link: '/zh/deploy/installation' },
             { text: 'Docker 部署', link: '/zh/deploy/docker' },
             { text: 'Kubernetes 部署', link: '/zh/deploy/kubernetes' },
             { text: '传统部署', link: '/zh/deploy/traditional' },
-            { text: '一键部署', link: '/zh/deploy/quickstart' }
+            { text: '快速部署', link: '/zh/deploy/quickstart' }
           ]
         }
       ],
@@ -137,18 +137,29 @@ const zhConfig = {
             { text: 'AI 配置', link: '/zh/config/ai' }
           ]
         }
+      ],
+      '/zh/extension/': [
+        {
+          text: '扩展插件',
+          items: [
+            { text: '插件概览', link: '/zh/extension/' },
+            { text: '插件架构设计', link: '/zh/extension/architecture' },
+            { text: '用户中心插件', link: '/zh/extension/user-center' },
+            { text: '开发指南', link: '/zh/extension/development' }
+          ]
+        }
       ]
     },
     editLink: {
-      pattern: 'https://github.com/openchat-team/openchat-server/edit/main/docs/:path',
+      pattern: 'https://github.com/Sdkwork-Cloud/openchat/edit/main/docs/:path',
       text: '在 GitHub 上编辑此页'
     },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/openchat-team/openchat-server' }
+      { icon: 'github', link: 'https://github.com/Sdkwork-Cloud/openchat' }
     ],
     footer: {
-      message: '基于 MIT 许可发布',
-      copyright: 'Copyright © 2024 OpenChat Team'
+      message: '基于 AGPL-3.0 许可发布',
+      copyright: 'Copyright © 2024 Sdkwork Cloud'
     },
     search: {
       provider: 'local'
@@ -166,7 +177,6 @@ const zhConfig = {
   }
 }
 
-// 英文配置
 const enConfig = {
   label: 'English',
   lang: 'en-US',
@@ -180,7 +190,8 @@ const enConfig = {
         items: [
           { text: 'API Docs', link: '/en/api/' },
           { text: 'Deployment', link: '/en/deploy/' },
-          { text: 'Configuration', link: '/en/config/' }
+          { text: 'Configuration', link: '/en/config/' },
+          { text: 'Extensions', link: '/en/extension/' }
         ]
       },
       {
@@ -200,7 +211,7 @@ const enConfig = {
           { text: 'Mini Program', link: '/en/app/miniprogram' }
         ]
       },
-      { text: 'GitHub', link: 'https://github.com/openchat-team/openchat-server' }
+      { text: 'GitHub', link: 'https://github.com/Sdkwork-Cloud/openchat' }
     ],
     sidebar: {
       '/en/guide/': [
@@ -265,6 +276,7 @@ const enConfig = {
           text: 'Deployment Guide',
           items: [
             { text: 'Deployment Overview', link: '/en/deploy/' },
+            { text: 'Installation Guide', link: '/en/deploy/installation' },
             { text: 'Docker Deployment', link: '/en/deploy/docker' },
             { text: 'Kubernetes Deployment', link: '/en/deploy/kubernetes' },
             { text: 'Traditional Deployment', link: '/en/deploy/traditional' },
@@ -284,18 +296,29 @@ const enConfig = {
             { text: 'AI Config', link: '/en/config/ai' }
           ]
         }
+      ],
+      '/en/extension/': [
+        {
+          text: 'Extensions',
+          items: [
+            { text: 'Overview', link: '/en/extension/' },
+            { text: 'Architecture', link: '/en/extension/architecture' },
+            { text: 'User Center', link: '/en/extension/user-center' },
+            { text: 'Development', link: '/en/extension/development' }
+          ]
+        }
       ]
     },
     editLink: {
-      pattern: 'https://github.com/openchat-team/openchat-server/edit/main/docs/:path',
+      pattern: 'https://github.com/Sdkwork-Cloud/openchat/edit/main/docs/:path',
       text: 'Edit this page on GitHub'
     },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/openchat-team/openchat-server' }
+      { icon: 'github', link: 'https://github.com/Sdkwork-Cloud/openchat' }
     ],
     footer: {
-      message: 'Released under the MIT License',
-      copyright: 'Copyright © 2024 OpenChat Team'
+      message: 'Released under the AGPL-3.0 License',
+      copyright: 'Copyright © 2024 Sdkwork Cloud'
     },
     search: {
       provider: 'local'

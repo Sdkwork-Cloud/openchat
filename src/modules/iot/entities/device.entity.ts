@@ -4,7 +4,7 @@
  */
 
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { UserEntity } from '../../user/user.entity';
+import { UserEntity } from '../../user/entities/user.entity';
 
 export enum DeviceType {
   XIAOZHI = 'xiaozhi',  // 开源小智设备

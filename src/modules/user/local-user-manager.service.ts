@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { User } from './user.entity';
+import { UserEntity } from './entities/user.entity';
 import { UserManager } from './user.interface';
 import { UserSyncService } from './user-sync.service';
 import { UserCacheService } from '../../common/cache/user-cache.service';
@@ -12,12 +12,12 @@ import { UserCacheService } from '../../common/cache/user-cache.service';
  * 集成多级缓存策略优化性能
  */
 @Injectable()
-export class LocalUserManagerService implements UserManager {
+export class LocalUserManagerService {
   private readonly logger = new Logger(LocalUserManagerService.name);
 
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    @InjectRepository(UserEntity)
+    private userRepository: Repository<UserEntity>,
     @Optional() private userSyncService?: UserSyncService,
     @Optional() private userCacheService?: UserCacheService,
   ) {}
@@ -26,7 +26,7 @@ export class LocalUserManagerService implements UserManager {
    * 根据ID获取用户（不包含密码）
    * 优先从缓存获取
    */
-  async getUserById(id: string): Promise<User | null> {
+  async getUserById(id: string): Promise<UserEntity | null> {
     // 1. 尝试从缓存获取
     if (this.userCacheService) {
       const cachedUser = await this.userCacheService.getUser(id, async () => {
@@ -49,7 +49,7 @@ export class LocalUserManagerService implements UserManager {
    * 根据用户名获取用户（不包含密码）
    * 由于用户名不是主键，不缓存
    */
-  async getUserByUsername(username: string): Promise<User | null> {
+  async getUserByUsername(username: string): Promise<UserEntity | null> {
     return this.userRepository.findOne({
       where: { username, isDeleted: false },
     });
@@ -59,7 +59,7 @@ export class LocalUserManagerService implements UserManager {
    * 根据用户名获取用户（包含密码，用于认证）
    * 认证场景不缓存密码
    */
-  async getUserByUsernameWithPassword(username: string): Promise<User | null> {
+  async getUserByUsernameWithPassword(username: string): Promise<UserEntity | null> {
     return this.userRepository.findOne({
       where: { username, isDeleted: false },
       select: ['id', 'uuid', 'username', 'nickname', 'password', 'avatar', 'status', 'resources', 'createdAt', 'updatedAt'],
@@ -69,7 +69,7 @@ export class LocalUserManagerService implements UserManager {
   /**
    * 根据ID获取用户（包含密码，用于认证）
    */
-  async getUserByIdWithPassword(id: string): Promise<User | null> {
+  async getUserByIdWithPassword(id: string): Promise<UserEntity | null> {
     return this.userRepository.findOne({
       where: { id, isDeleted: false },
       select: ['id', 'uuid', 'username', 'nickname', 'password', 'avatar', 'status', 'resources', 'createdAt', 'updatedAt'],
@@ -79,7 +79,7 @@ export class LocalUserManagerService implements UserManager {
   /**
    * 创建用户
    */
-  async createUser(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+  async createUser(userData: Omit<UserEntity, 'id' | 'uuid' | 'createdAt' | 'updatedAt'>): Promise<UserEntity> {
     const user = this.userRepository.create(userData);
     const savedUser = await this.userRepository.save(user);
 
@@ -105,7 +105,7 @@ export class LocalUserManagerService implements UserManager {
    * 更新用户信息
    * 同时更新缓存
    */
-  async updateUser(id: string, userData: Partial<User>): Promise<User | null> {
+  async updateUser(id: string, userData: Partial<UserEntity>): Promise<UserEntity | null> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
       return null;
@@ -164,7 +164,7 @@ export class LocalUserManagerService implements UserManager {
    * 批量获取用户
    * 使用缓存优化
    */
-  async getUsers(ids: string[]): Promise<User[]> {
+  async getUsers(ids: string[]): Promise<UserEntity[]> {
     if (ids.length === 0) {
       return [];
     }
@@ -179,7 +179,7 @@ export class LocalUserManagerService implements UserManager {
           });
         }
       );
-      return Array.from(cachedUsers.values()).filter((user): user is User => user !== null);
+      return Array.from(cachedUsers.values()).filter((user): user is UserEntity => user !== null);
     }
 
     // 直接从数据库获取
@@ -210,7 +210,7 @@ export class LocalUserManagerService implements UserManager {
   /**
    * 搜索用户
    */
-  async searchUsers(keyword: string, limit: number = 20): Promise<User[]> {
+  async searchUsers(keyword: string, limit: number = 20): Promise<UserEntity[]> {
     return this.userRepository
       .createQueryBuilder('user')
       .where('user.isDeleted = :isDeleted', { isDeleted: false })
@@ -257,7 +257,7 @@ export class LocalUserManagerService implements UserManager {
   /**
    * 获取用户仓库（用于特殊查询）
    */
-  getUserRepository(): Repository<User> {
+  getUserRepository(): Repository<UserEntity> {
     return this.userRepository;
   }
 }

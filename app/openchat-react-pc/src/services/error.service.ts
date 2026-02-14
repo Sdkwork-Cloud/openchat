@@ -296,7 +296,7 @@ export class ErrorService extends EventEmitter {
    * 记录错误
    */
   private logError(error: AppError): void {
-    const logLevel = error.type === 'critical' ? 'error' : 'warn';
+    const logLevel = error.type === 'server' ? 'error' : 'warn';
     
     console[logLevel](`[ErrorService] ${error.type.toUpperCase()} ERROR:`, {
       code: error.code,

@@ -5,11 +5,13 @@ export class User {
   uuid?: string;
   username: string;
   email: string;
+  phone: string;
   nickname: string;
   password: string;
-  avatar?: string | ImageMediaResource; // 支持URL或结构化图片资源
+  avatar?: string; // 支持URL
   status?: 'online' | 'offline' | 'busy';
   resources?: Record<string, AnyMediaResource>; // 用户相关的其他媒体资源
+  isDeleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

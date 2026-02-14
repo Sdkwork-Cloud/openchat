@@ -1,15 +1,8 @@
-/**
- * 用户同步服务
- * 负责将用户数据同步到悟空IM
- */
-
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User as UserEntity } from './user.entity';
-import { User as UserInterface } from './user.interface';
-import { WukongIMServiceV2 } from '../wukongim/wukongim.service.v2';
-import { WukongIMChannelType } from '../wukongim/wukongim.constants';
+import { UserEntity } from './entities/user.entity';
+import { WukongIMService } from '../wukongim/wukongim.service';
 import { ConfigService } from '@nestjs/config';
 
 export interface UserSyncOptions {
@@ -25,7 +18,7 @@ export class UserSyncService implements OnModuleInit {
   constructor(
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
-    private wukongIMService: WukongIMServiceV2,
+    private wukongIMService: WukongIMService,
     private configService: ConfigService,
   ) {
     this.enabled = this.configService.get<boolean>('im.wukongim.enabled') !== false;
@@ -205,7 +198,7 @@ export class UserSyncService implements OnModuleInit {
    * 用户注册时同步
    * 由 AuthService 调用
    */
-  async syncUserOnRegister(user: UserInterface): Promise<boolean> {
+  async syncUserOnRegister(user: UserEntity): Promise<boolean> {
     this.logger.log(`用户注册同步: ${user.id}`);
     return this.syncUser(user.id, { skipIfExists: false });
   }
@@ -224,7 +217,7 @@ export class UserSyncService implements OnModuleInit {
    * 用户更新时同步
    * 由 UserController 调用
    */
-  async syncUserOnUpdate(userId: string, userData: Partial<UserInterface>): Promise<boolean> {
+  async syncUserOnUpdate(userId: string, userData: Partial<UserEntity>): Promise<boolean> {
     this.logger.log(`用户更新同步: ${userId}`);
     return this.syncUser(userId, { skipIfExists: false });
   }

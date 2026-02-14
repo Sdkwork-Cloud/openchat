@@ -1,20 +1,28 @@
 # TypeScript SDK
 
-OpenChat TypeScript SDK 提供了完整的即时通讯客户端能力，支持 Web、React Native、小程序等多平台。
+OpenChat TypeScript SDK provides complete instant messaging client capabilities, supporting Web, React Native, and mini-programs.
 
-## 安装
+## Installation
 
 ```bash
 npm install @openchat/sdk
-# 或
+# or
 yarn add @openchat/sdk
-# 或
+# or
 pnpm add @openchat/sdk
 ```
 
-## 快速开始
+## Requirements
 
-### 初始化客户端
+| Environment | Version |
+|-------------|---------|
+| Node.js | 16.x+ |
+| TypeScript | 4.5+ |
+| Browser | Chrome 80+, Firefox 75+, Safari 14+, Edge 80+ |
+
+## Quick Start
+
+### Initialize Client
 
 ```typescript
 import { OpenChatClient } from '@openchat/sdk';
@@ -27,370 +35,476 @@ const client = new OpenChatClient({
   }
 });
 
-// 初始化并连接
+// Initialize and connect
 await client.init();
 ```
 
-### 用户认证
+### Authentication
 
 ```typescript
-// 用户登录
-const { token, user } = await client.auth.login({
-  username: 'user@example.com',
-  password: 'password'
+// Login
+const { accessToken, refreshToken, user } = await client.auth.login({
+  username: 'johndoe',
+  password: 'password123'
 });
 
-// 设置 Token
-client.setToken(token);
+// Store Token
+localStorage.setItem('accessToken', accessToken);
+localStorage.setItem('refreshToken', refreshToken);
 
-// 自动刷新 Token
-client.auth.onTokenRefresh = (newToken) => {
-  localStorage.setItem('token', newToken);
-};
+// Set Token
+client.setToken(accessToken);
+
+// Refresh Token
+const { accessToken: newToken } = await client.auth.refreshToken(refreshToken);
+
+// Logout
+await client.auth.logout();
 ```
 
-### 发送消息
+---
+
+## Message Module
+
+### Send Messages
 
 ```typescript
-// 发送文本消息
-const message = await client.message.send({
-  to: 'user-id',
+// Send text message (direct message)
+const textMessage = await client.message.send({
   type: 'text',
-  content: 'Hello, OpenChat!'
+  content: {
+    text: 'Hello, OpenChat!',
+    mentions: ['user1', 'user2']  // Optional, @mentions
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
 });
 
-// 发送图片消息
-const message = await client.message.send({
-  to: 'user-id',
+// Send image message
+const imageMessage = await client.message.send({
   type: 'image',
   content: {
     url: 'https://example.com/image.jpg',
+    format: 'JPEG',
     width: 1920,
-    height: 1080
+    height: 1080,
+    size: 512000,
+    thumbnailUrl: 'https://example.com/thumb.jpg'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send video message
+const videoMessage = await client.message.send({
+  type: 'video',
+  content: {
+    url: 'https://example.com/video.mp4',
+    format: 'MP4',
+    duration: 120,
+    width: 1920,
+    height: 1080,
+    size: 10240000,
+    thumbnailUrl: 'https://example.com/thumb.jpg'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send audio message
+const audioMessage = await client.message.send({
+  type: 'audio',
+  content: {
+    url: 'https://example.com/voice.mp3',
+    format: 'MP3',
+    duration: 30,
+    size: 102400
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send music message
+const musicMessage = await client.message.send({
+  type: 'music',
+  content: {
+    url: 'https://example.com/music.mp3',
+    title: 'Song Title',
+    artist: 'Artist',
+    album: 'Album',
+    duration: 180,
+    coverUrl: 'https://example.com/cover.jpg'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send file message
+const fileMessage = await client.message.send({
+  type: 'file',
+  content: {
+    name: 'document.pdf',
+    url: 'https://example.com/file.pdf',
+    size: 1024000,
+    mimeType: 'application/pdf'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send document message
+const documentMessage = await client.message.send({
+  type: 'document',
+  content: {
+    url: 'https://example.com/document.pdf',
+    format: 'PDF',
+    title: 'Document Title',
+    pageCount: 10,
+    author: 'Author'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send code message
+const codeMessage = await client.message.send({
+  type: 'code',
+  content: {
+    language: 'TYPESCRIPT',
+    code: "const hello = 'world';",
+    lineCount: 1
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send location message
+const locationMessage = await client.message.send({
+  type: 'location',
+  content: {
+    latitude: 39.9042,
+    longitude: 116.4074,
+    address: 'Beijing, China',
+    name: 'Tiananmen Square'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send contact card message
+const cardMessage = await client.message.send({
+  type: 'card',
+  content: {
+    userId: 'target-user-uuid',
+    nickname: 'User Nickname',
+    avatar: 'https://example.com/avatar.jpg'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send custom message
+const customMessage = await client.message.send({
+  type: 'custom',
+  content: {
+    customType: 'order',
+    data: {
+      orderId: '12345',
+      amount: 99.99
+    }
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid'
+});
+
+// Send group message
+const groupMessage = await client.message.send({
+  type: 'text',
+  content: {
+    text: 'Hello everyone!'
+  },
+  fromUserId: 'sender-uuid',
+  groupId: 'group-uuid'
+});
+
+// Reply to message
+const replyMessage = await client.message.send({
+  type: 'text',
+  content: {
+    text: 'I agree with you'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid',
+  replyToId: 'original-message-id'
+});
+
+// Send message with deduplication
+const dedupMessage = await client.message.send({
+  uuid: '550e8400-e29b-41d4-a716-446655440000',
+  type: 'text',
+  content: {
+    text: 'Hello'
+  },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid',
+  clientSeq: 12345
+});
+```
+
+### Receive Messages
+
+```typescript
+// Listen for new messages
+client.message.onMessage((message) => {
+  console.log('New message:', message);
+  
+  switch (message.type) {
+    case 'text':
+      console.log('Text:', message.content.text);
+      break;
+    case 'image':
+      console.log('Image:', message.content.url);
+      break;
   }
 });
-```
 
-### 接收消息
-
-```typescript
-// 监听新消息
-client.message.onMessage((message) => {
-  console.log('收到新消息:', message);
-});
-
-// 监听消息状态变化
+// Listen for message status changes
 client.message.onStatusChange((messageId, status) => {
-  console.log(`消息 ${messageId} 状态变为: ${status}`);
+  console.log(`Message ${messageId} status: ${status}`);
 });
 ```
 
-## 核心功能
-
-### 用户管理
+### Message Operations
 
 ```typescript
-// 获取当前用户信息
-const user = await client.user.getCurrentUser();
-
-// 更新用户信息
-await client.user.update({
-  nickname: '新昵称',
-  avatar: 'https://example.com/avatar.jpg'
-});
-
-// 搜索用户
-const users = await client.user.search('keyword');
-```
-
-### 好友管理
-
-```typescript
-// 获取好友列表
-const friends = await client.friend.getList();
-
-// 发送好友申请
-await client.friend.sendRequest({
-  toUserId: 'user-id',
-  message: '你好，我想加你为好友'
-});
-
-// 处理好友申请
-await client.friend.handleRequest({
-  requestId: 'request-id',
-  accept: true
-});
-
-// 删除好友
-await client.friend.delete('friend-id');
-```
-
-### 群组管理
-
-```typescript
-// 创建群组
-const group = await client.group.create({
-  name: '开发团队',
-  description: '技术交流群'
-});
-
-// 获取群组列表
-const groups = await client.group.getList();
-
-// 加入群组
-await client.group.join('group-id');
-
-// 邀请成员
-await client.group.invite('group-id', ['user-id-1', 'user-id-2']);
-
-// 发送群消息
-await client.message.send({
-  to: 'group-id',
-  type: 'group',
-  content: '大家好！'
-});
-```
-
-### 消息管理
-
-```typescript
-// 获取会话列表
-const conversations = await client.conversation.getList();
-
-// 获取历史消息
-const messages = await client.message.getHistory({
-  conversationId: 'conv-id',
-  limit: 20,
-  before: lastMessageId
-});
-
-// 标记已读
+// Mark as read
 await client.message.markAsRead('conversation-id');
 
-// 撤回消息
+// Recall message (within 2 minutes)
 await client.message.recall('message-id');
+
+// Delete message
+await client.message.delete('message-id');
+
+// Forward message
+await client.message.forward('message-id', [
+  { id: 'user-uuid', type: 'single' },
+  { id: 'group-uuid', type: 'group' }
+]);
 ```
 
-### 实时音视频
+---
+
+## User Module
 
 ```typescript
-// 创建房间
-const room = await client.rtc.createRoom({
-  type: 'p2p' // 或 'group'
+// Get current user
+const user = await client.user.getCurrentUser();
+
+// Get specific user
+const otherUser = await client.user.getById('user-uuid');
+
+// Update user info
+await client.user.update({
+  nickname: 'New Nickname',
+  avatar: 'https://example.com/avatar.jpg',
+  signature: 'New signature'
 });
 
-// 加入房间
-await client.rtc.joinRoom(room.id);
+// Search users
+const users = await client.user.search('keyword', { page: 1, limit: 20 });
 
-// 监听房间事件
-client.rtc.onParticipantJoined((participant) => {
-  console.log('用户加入:', participant);
-});
-
-// 离开房间
-await client.rtc.leaveRoom(room.id);
+// Set online status
+await client.user.setStatus('online');  // 'online' | 'offline' | 'busy' | 'away'
 ```
 
-### AI Bot
+---
+
+## Friend Module
 
 ```typescript
-// 获取 Bot 列表
-const bots = await client.aiBot.getList();
-
-// 向 Bot 发送消息
-const response = await client.aiBot.sendMessage({
-  botId: 'bot-id',
-  message: '你好，请介绍一下自己'
+// Send friend request
+await client.friend.sendRequest({
+  userId: 'user-uuid',
+  message: 'Hello, I want to add you as a friend'
 });
 
-// 监听 Bot 回复
-client.aiBot.onMessage((message) => {
-  console.log('Bot 回复:', message);
+// Get friend requests
+const requests = await client.friend.getRequests({ status: 'pending' });
+
+// Accept friend request
+await client.friend.handleRequest('request-id', {
+  action: 'accept',
+  remark: 'Friend alias'
 });
+
+// Get friend list
+const friends = await client.friend.getList();
+
+// Set friend remark
+await client.friend.setRemark('friend-uuid', 'New remark');
+
+// Delete friend
+await client.friend.delete('friend-uuid');
 ```
 
-## 事件监听
+---
+
+## Group Module
 
 ```typescript
-// 连接状态变化
-client.onConnectionChange((status) => {
-  console.log('连接状态:', status); // 'connected' | 'disconnected' | 'connecting'
+// Create group
+const group = await client.group.create({
+  name: 'Tech Discussion',
+  memberIds: ['user1', 'user2']
 });
 
-// 错误处理
-client.onError((error) => {
-  console.error('客户端错误:', error);
-});
+// Get my groups
+const groups = await client.group.getMyGroups();
+
+// Get group info
+const groupInfo = await client.group.getById('group-uuid');
+
+// Add members
+await client.group.addMembers('group-uuid', ['user1', 'user2']);
+
+// Remove member
+await client.group.removeMember('group-uuid', 'user-uuid');
+
+// Leave group
+await client.group.quit('group-uuid');
 ```
 
-## 配置选项
+---
+
+## Configuration
 
 ```typescript
 interface OpenChatConfig {
-  // 服务端地址
   serverUrl: string;
-  
-  // 悟空IM 配置
   imConfig: {
-    tcpAddr: string;    // TCP 地址
-    wsUrl: string;      // WebSocket 地址
+    tcpAddr: string;
+    wsUrl: string;
   };
-  
-  // 可选配置
   options?: {
-    // 自动重连
-    autoReconnect?: boolean;
-    reconnectAttempts?: number;
-    reconnectInterval?: number;
-    
-    // 心跳配置
-    heartbeatInterval?: number;
-    
-    // 消息配置
-    messageCacheSize?: number;
-    
-    // 日志级别
+    autoReconnect?: boolean;        // default: true
+    reconnectAttempts?: number;     // default: 5
+    reconnectInterval?: number;     // default: 3000ms
+    heartbeatInterval?: number;     // default: 30000ms
+    messageCacheSize?: number;      // default: 1000
     logLevel?: 'debug' | 'info' | 'warn' | 'error';
   };
 }
 ```
 
-## 类型定义
+---
+
+## Type Definitions
+
+### User
 
 ```typescript
-// 用户
 interface User {
   id: string;
   username: string;
   nickname: string;
   avatar?: string;
-  status: 'online' | 'offline' | 'busy';
+  email?: string;
+  phone?: string;
+  signature?: string;
+  status: 'online' | 'offline' | 'busy' | 'away';
+  lastSeenAt?: string;
+  createdAt: string;
 }
+```
 
-// 消息
+### Message
+
+```typescript
 interface Message {
   id: string;
-  type: 'text' | 'image' | 'audio' | 'video' | 'file';
-  content: any;
-  from: string;
-  to: string;
+  uuid?: string;
+  fromUserId: string;
+  toUserId?: string;
+  groupId?: string;
+  type: MessageType;
+  content: MessageContent;
+  status: MessageStatus;
   timestamp: number;
-  status: 'sending' | 'sent' | 'delivered' | 'read';
+  replyToId?: string;
+  forwardFromId?: string;
+  clientSeq?: number;
+  extra?: Record<string, any>;
+  needReadReceipt?: boolean;
+  createdAt: string;
 }
 
-// 会话
+type MessageType = 'text' | 'image' | 'audio' | 'video' | 'file' | 'music' | 'document' | 'code' | 'location' | 'card' | 'custom' | 'system';
+type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'recalled';
+```
+
+### Send Message Options
+
+```typescript
+interface SendMessageOptions {
+  uuid?: string;                    // Message UUID (client-generated, for deduplication)
+  type: MessageType;                // Message type
+  content: MessageContent;          // Message content
+  fromUserId: string;               // Sender user ID
+  toUserId?: string;                // Receiver user ID (required for direct messages)
+  groupId?: string;                 // Group ID (required for group messages)
+  replyToId?: string;               // ID of the message being replied to
+  forwardFromId?: string;           // ID of the original message being forwarded
+  clientSeq?: number;               // Client sequence number (for deduplication)
+  extra?: Record<string, any>;      // Extended data
+  needReadReceipt?: boolean;        // Whether read receipt is needed, default true
+}
+```
+
+### Conversation
+
+```typescript
 interface Conversation {
   id: string;
   type: 'single' | 'group';
   targetId: string;
   targetName: string;
+  targetAvatar?: string;
   lastMessage?: Message;
   unreadCount: number;
-}
-
-// 群组
-interface Group {
-  id: string;
-  name: string;
-  description?: string;
-  avatar?: string;
-  ownerId: string;
-  memberCount: number;
+  isPinned: boolean;
+  isMuted: boolean;
+  updatedAt: string;
 }
 ```
 
-## 错误处理
+---
 
-```typescript
-try {
-  await client.message.send({
-    to: 'user-id',
-    type: 'text',
-    content: 'Hello'
-  });
-} catch (error) {
-  if (error.code === 'NETWORK_ERROR') {
-    // 网络错误
-  } else if (error.code === 'UNAUTHORIZED') {
-    // 未授权，需要重新登录
-  }
-}
-```
+## Error Codes
 
-## 最佳实践
+| Error Code | Description |
+|------------|-------------|
+| `NETWORK_ERROR` | Network error |
+| `UNAUTHORIZED` | Unauthorized |
+| `TOKEN_EXPIRED` | Token expired |
+| `FORBIDDEN` | Permission denied |
+| `NOT_FOUND` | Resource not found |
+| `VALIDATION_ERROR` | Validation failed |
+| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded |
+| `USER_NOT_FOUND` | User not found |
+| `GROUP_NOT_FOUND` | Group not found |
+| `NOT_GROUP_MEMBER` | Not a group member |
 
-### 1. 初始化时机
+---
 
-建议在应用启动时初始化 SDK：
+## Example Projects
 
-```typescript
-// App.tsx
-import { useEffect } from 'react';
-import { client } from './openchat';
+- [React Chat App](https://github.com/Sdkwork-Cloud/openchat-react-example)
+- [React Native Chat App](https://github.com/Sdkwork-Cloud/openchat-rn-example)
+- [Vue Chat App](https://github.com/Sdkwork-Cloud/openchat-vue-example)
 
-function App() {
-  useEffect(() => {
-    client.init().catch(console.error);
-    
-    return () => {
-      client.destroy();
-    };
-  }, []);
-  
-  return <Router />;
-}
-```
+---
 
-### 2. 消息状态管理
+## API Reference
 
-使用状态管理库（如 Zustand、Redux）管理消息：
-
-```typescript
-import { create } from 'zustand';
-
-const useMessageStore = create((set) => ({
-  messages: [],
-  addMessage: (message) => set((state) => ({
-    messages: [...state.messages, message]
-  })),
-  updateMessage: (id, updates) => set((state) => ({
-    messages: state.messages.map(m => 
-      m.id === id ? { ...m, ...updates } : m
-    )
-  }))
-}));
-
-// 监听消息
-client.message.onMessage((message) => {
-  useMessageStore.getState().addMessage(message);
-});
-```
-
-### 3. 离线消息处理
-
-```typescript
-// 应用启动时同步离线消息
-async function syncOfflineMessages() {
-  const conversations = await client.conversation.getList();
-  
-  for (const conversation of conversations) {
-    const messages = await client.message.getHistory({
-      conversationId: conversation.id,
-      limit: 100
-    });
-    
-    // 更新本地消息存储
-    useMessageStore.getState().setMessages(conversation.id, messages);
-  }
-}
-```
-
-## 示例项目
-
-- [React Chat App](https://github.com/openchat-team/openchat-react-example)
-- [React Native Chat App](https://github.com/openchat-team/openchat-rn-example)
-- [Vue Chat App](https://github.com/openchat-team/openchat-vue-example)
-
-## API 参考
-
-完整的 API 文档请参考 [API 文档](/api/)。
+For complete API documentation, see [API Docs](/en/api/).

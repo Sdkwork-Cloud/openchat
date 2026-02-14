@@ -1,18 +1,15 @@
-import { Module, Global, DynamicModule } from '@nestjs/common';
+import { Module, Global, DynamicModule, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { QueueService } from './queue.service';
 import { MessageProcessor } from './processors/message.processor';
 import { NotificationProcessor } from './processors/notification.processor';
 
-/**
- * BullMQ 队列模块（可选）
- * 通过环境变量 QUEUE_ENABLED 控制是否启用
- * 当禁用时，QueueService 提供同步降级实现
- */
 @Global()
 @Module({})
 export class QueueModule {
+  private static readonly logger = new Logger(QueueModule.name);
+
   static register(): DynamicModule {
     return {
       module: QueueModule,
@@ -23,11 +20,10 @@ export class QueueModule {
   }
 
   private static getImports() {
-    // 检查是否启用队列
-    const enabled = false; // 暂时禁用队列，以便应用程序能够在没有 Redis 的情况下启动
+    const enabled = false;
 
     if (!enabled) {
-      console.log('[QueueModule] BullMQ is disabled, using synchronous fallback');
+      this.logger.log('BullMQ is disabled, using synchronous fallback');
       return [];
     }
 

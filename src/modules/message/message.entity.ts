@@ -1,27 +1,23 @@
 import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
-import { IMMessageContent } from '../im-provider/im-provider.interface';
+import { MessageType, MessageStatus, MessageContent } from './message.interface';
 
-@Entity({
-  name: 'chat_messages'
-})
-// 单聊消息索引（正向和反向）
-@Index('idx_chat_messages_from_to_created', (message: any) => [message.fromUserId, message.toUserId, message.createdAt])
-@Index('idx_chat_messages_to_from_created', (message: any) => [message.toUserId, message.fromUserId, message.createdAt])
-// 群聊消息索引
-@Index('idx_chat_messages_group_created', (message: any) => [message.groupId, message.createdAt])
-// 按发送者查询索引
-@Index('idx_chat_messages_from_created', (message: any) => [message.fromUserId, message.createdAt])
-// 按接收者查询索引
-@Index('idx_chat_messages_to_created', (message: any) => [message.toUserId, message.createdAt])
-// 客户端序列号去重索引
-@Index('idx_chat_messages_client_seq', (message: any) => [message.fromUserId, message.clientSeq], { unique: false })
+@Entity({ name: 'chat_messages' })
+@Index('idx_chat_messages_from_to_created', (m: Message) => [m.fromUserId, m.toUserId, m.createdAt])
+@Index('idx_chat_messages_to_from_created', (m: Message) => [m.toUserId, m.fromUserId, m.createdAt])
+@Index('idx_chat_messages_group_created', (m: Message) => [m.groupId, m.createdAt])
+@Index('idx_chat_messages_status', ['status'])
+@Index('idx_chat_messages_client_seq', (m: Message) => [m.fromUserId, m.clientSeq], { unique: false })
 export class Message extends BaseEntity {
-  @Column({ type: 'varchar', length: 20, nullable: false, default: 'text' })
-  type: 'text' | 'image' | 'audio' | 'video' | 'file' | 'card' | 'custom' | 'system';
+  @Column({
+    type: 'enum',
+    enum: Object.values(MessageType),
+    default: MessageType.TEXT,
+  })
+  type: MessageType;
 
   @Column({ type: 'jsonb', nullable: false })
-  content: IMMessageContent; // 消息内容，结构化对象
+  content: MessageContent;
 
   @Column({ type: 'varchar', length: 36, nullable: false })
   fromUserId: string;
@@ -32,9 +28,37 @@ export class Message extends BaseEntity {
   @Column({ type: 'varchar', length: 36, nullable: true })
   groupId?: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: false, default: 'sent' })
-  status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  replyToId?: string;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  forwardFromId?: string;
+
+  @Column({ type: 'bigint', nullable: true, comment: '服务端序列号，全局递增' })
+  seq?: number;
+
+  @Column({
+    type: 'enum',
+    enum: Object.values(MessageStatus),
+    default: MessageStatus.SENT,
+  })
+  status: MessageStatus;
 
   @Column({ type: 'bigint', nullable: true, comment: '客户端序列号，用于消息去重' })
-  clientSeq?: number; // 客户端序列号，用于消息去重
+  clientSeq?: number;
+
+  @Column({ type: 'int', nullable: false, default: 0, comment: '重试次数' })
+  retryCount: number;
+
+  @Column({ type: 'jsonb', nullable: true, comment: '扩展数据' })
+  extra?: Record<string, any>;
+
+  @Column({ type: 'boolean', nullable: false, default: true, comment: '是否需要已读回执' })
+  needReadReceipt: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  recalledAt?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  editedAt?: Date;
 }

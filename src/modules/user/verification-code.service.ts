@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { Redis } from 'ioredis';
+import { VerificationCodeType, VERIFICATION_CODE_CONFIG } from '../../common/constants';
 
 @Injectable()
 export class VerificationCodeService {
@@ -27,7 +28,9 @@ export class VerificationCodeService {
    * @returns 6位数字验证码
    */
   generateCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    const min = 10 ** (VERIFICATION_CODE_CONFIG.LENGTH - 1);
+    const max = 10 ** VERIFICATION_CODE_CONFIG.LENGTH - 1;
+    return Math.floor(min + Math.random() * (max - min + 1)).toString();
   }
 
   /**
@@ -36,7 +39,7 @@ export class VerificationCodeService {
    * @param code 验证码
    * @param type 验证码类型
    */
-  async sendCode(target: string, code: string, type: 'register' | 'forgot-password'): Promise<boolean> {
+  async sendCode(target: string, code: string, type: VerificationCodeType): Promise<boolean> {
     try {
       // 这里应该根据目标类型选择发送方式
       // 由于是演示，暂时只打印日志
@@ -60,10 +63,9 @@ export class VerificationCodeService {
    * @param code 验证码
    * @param type 验证码类型
    */
-  async storeCode(target: string, code: string, type: 'register' | 'forgot-password'): Promise<void> {
+  async storeCode(target: string, code: string, type: VerificationCodeType): Promise<void> {
     const key = `verification:${type}:${target}`;
-    const expireTime = 10 * 60; // 10分钟过期
-    await this.redis.set(key, code, 'EX', expireTime);
+    await this.redis.set(key, code, 'EX', VERIFICATION_CODE_CONFIG.EXPIRY_SECONDS);
   }
 
   /**
@@ -72,18 +74,18 @@ export class VerificationCodeService {
    * @param code 验证码
    * @param type 验证码类型
    */
-  async verifyCode(target: string, code: string, type: 'register' | 'forgot-password'): Promise<boolean> {
+  async verifyCode(target: string, code: string, type: VerificationCodeType): Promise<boolean> {
     const key = `verification:${type}:${target}`;
     const storedCode = await this.redis.get(key);
-    
+
     if (!storedCode) {
       throw new BadRequestException('验证码已过期或不存在');
     }
-    
+
     if (storedCode !== code) {
       throw new BadRequestException('验证码错误');
     }
-    
+
     // 验证成功后删除验证码
     await this.redis.del(key);
     return true;
@@ -98,7 +100,7 @@ export class VerificationCodeService {
   async sendAndStoreCode(
     email?: string,
     phone?: string,
-    type: 'register' | 'forgot-password' = 'register'
+    type: VerificationCodeType = VerificationCodeType.REGISTER
   ): Promise<boolean> {
     const target = email || phone;
     if (!target) {
@@ -131,7 +133,7 @@ export class VerificationCodeService {
     email?: string,
     phone?: string,
     code?: string,
-    type: 'register' | 'forgot-password' = 'register'
+    type: VerificationCodeType = VerificationCodeType.REGISTER
   ): Promise<boolean> {
     const target = email || phone;
     if (!target || !code) {

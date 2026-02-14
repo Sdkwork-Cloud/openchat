@@ -23,7 +23,6 @@ export enum EventPriority {
  * 事件类型
  */
 export enum EventType {
-  // 设备事件
   DEVICE_CONNECTED = 'device.connected',
   DEVICE_DISCONNECTED = 'device.disconnected',
   DEVICE_MESSAGE_RECEIVED = 'device.message.received',
@@ -48,7 +47,6 @@ export enum EventType {
   FIRMWARE_UPGRADE_STARTED = 'firmware.upgrade.started',
   FIRMWARE_UPGRADE_STATUS_UPDATED = 'firmware.upgrade.status.updated',
   
-  // 音频事件
   AUDIO_DATA_RECEIVED = 'audio.data.received',
   AUDIO_DATA_SENT = 'audio.data.sent',
   AUDIO_STREAM_STARTED = 'audio.stream.started',
@@ -57,20 +55,29 @@ export enum EventType {
   VOICE_ACTIVITY_STARTED = 'voice.activity.started',
   VOICE_ACTIVITY_ENDED = 'voice.activity.ended',
   
-  // 系统事件
   SYSTEM_ERROR = 'system.error',
   SYSTEM_WARNING = 'system.warning',
   SYSTEM_INFO = 'system.info',
   SYSTEM_HEALTH_CHECK = 'system.health.check',
   
-  // 连接事件
   CONNECTION_STATE_CHANGED = 'connection.state.changed',
   CONNECTION_ERROR = 'connection.error',
   
-  // MCP事件
   MCP_SESSION_INITIALIZED = 'mcp.session.initialized',
   MCP_TOOLS_DISCOVERED = 'mcp.tools.discovered',
   MCP_TOOL_CALLED = 'mcp.tool.called',
+
+  AGENT_MESSAGE_RECEIVED = 'agent.message.received',
+  AGENT_MESSAGE_SENT = 'agent.message.sent',
+  AGENT_SESSION_STARTED = 'agent.session.started',
+  AGENT_SESSION_ENDED = 'agent.session.ended',
+  AGENT_TOOL_CALLED = 'agent.tool.called',
+  AGENT_ERROR = 'agent.error',
+
+  GROUP_MESSAGE_CREATED = 'group.message.created',
+  MESSAGE_SENT = 'message.sent',
+  MESSAGE_DELIVERED = 'message.delivered',
+  MESSAGE_READ = 'message.read',
 }
 
 /**

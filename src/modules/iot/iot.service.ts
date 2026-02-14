@@ -100,6 +100,9 @@ export class IoTService {
         this.deviceCacheService.cacheDevice(device);
       }
 
+      if (!device) {
+        throw new Error('Failed to register device');
+      }
       this.logger.log(`Device registered: ${device.deviceId}, type: ${device.type}`);
       return device;
     } catch (error) {
@@ -229,12 +232,12 @@ export class IoTService {
       });
       
       // 如果设备存在且删除成功，从缓存中移除
-      if (device && result.affected > 0) {
+      if (device && (result.affected ?? 0) > 0) {
         this.deviceCacheService.removeDeviceByDeviceId(deviceId);
         this.logger.debug(`Removed device from cache after deletion: ${deviceId}`);
       }
       
-      return result.affected > 0;
+      return (result.affected ?? 0) > 0;
     } catch (error) {
       this.logger.error(`Failed to delete device ${deviceId}:`, error);
       throw error;

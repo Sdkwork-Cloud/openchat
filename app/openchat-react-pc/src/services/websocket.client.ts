@@ -12,7 +12,7 @@
  * 8. 性能优化（内存使用优化）
  */
 
-import { API_BASE_URL, IM_WS_URL } from '@/app/env';
+import { IM_WS_URL } from '@/app/env';
 
 // 自定义事件发射器，兼容浏览器环境
 class EventEmitter {

@@ -2,487 +2,734 @@
  * Agent 服务层
  *
  * 职责：
- * 1. 管理 Agent 数据
- * 2. 提供 Agent 市场功能
- * 3. 处理 Agent 对话
+ * 1. 调用后端 API 管理智能体
+ * 2. 提供智能体市场功能
+ * 3. 处理智能体会话和消息
+ * 4. 开发环境模拟数据
  */
 
+import { apiClient } from '@/services/api.client';
+import { IS_DEV } from '@/app/env';
+import {
+  AgentCategory,
+  AgentType,
+  AgentStatus,
+} from '../entities/agent.entity';
 import type {
   Agent,
-  AgentCategory,
-  AgentCategoryInfo,
-  AgentConversation,
-  AgentMarketFilter,
+  AgentSession,
   AgentMessage,
+  AgentTool,
+  AgentSkill,
+  AgentCategoryInfo,
+  AgentStats,
   CreateAgentRequest,
   UpdateAgentRequest,
-  AgentStats,
+  CreateSessionRequest,
+  SendMessageRequest,
+  AddToolRequest,
+  AddSkillRequest,
+  ChatStreamChunk,
+  AvailableTool,
+  AvailableSkill,
 } from '../entities/agent.entity';
 
-/**
- * 模拟 Agent 数据
- */
-const mockAgents: Agent[] = [
+const AGENT_ENDPOINT = '/agents';
+
+const CATEGORY_INFOS: AgentCategoryInfo[] = [
+  { id: AgentCategory.ALL, name: '全部', icon: '🔥', description: '所有智能体', agentCount: 100 },
+  { id: AgentCategory.PRODUCTIVITY, name: '效率工具', icon: '⚡', description: '提升工作效率的智能体', agentCount: 25 },
+  { id: AgentCategory.EDUCATION, name: '学习教育', icon: '📚', description: '学习和教育相关智能体', agentCount: 20 },
+  { id: AgentCategory.ENTERTAINMENT, name: '娱乐休闲', icon: '🎮', description: '娱乐和休闲相关智能体', agentCount: 15 },
+  { id: AgentCategory.LIFE, name: '生活助手', icon: '🏠', description: '日常生活相关智能体', agentCount: 18 },
+  { id: AgentCategory.PROGRAMMING, name: '编程开发', icon: '💻', description: '编程和开发相关智能体', agentCount: 22 },
+  { id: AgentCategory.WRITING, name: '写作创作', icon: '✍️', description: '写作和创作相关智能体', agentCount: 16 },
+  { id: AgentCategory.BUSINESS, name: '商业办公', icon: '💼', description: '商业和办公相关智能体', agentCount: 14 },
+  { id: AgentCategory.CREATIVE, name: '创意设计', icon: '🎨', description: '创意和设计相关智能体', agentCount: 12 },
+];
+
+// 模拟 Agent 数据
+const MOCK_AGENTS: Agent[] = [
   {
     id: 'agent-1',
-    name: '编程助手',
-    description: '专业的编程助手，擅长代码编写、调试和优化。支持多种编程语言，包括 JavaScript、Python、Java 等。',
-    avatar: '💻',
-    type: 'official',
-    category: 'programming',
-    capabilities: ['chat', 'code-generation', 'document-analysis'],
-    creatorId: 'system',
-    creatorName: 'OpenChat',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-    usageCount: 12580,
-    rating: 4.8,
-    ratingCount: 2340,
-    isFavorited: false,
-    isAdded: true,
-    welcomeMessage: '你好！我是编程助手，有什么代码问题我可以帮你解决吗？',
-    exampleQuestions: [
-      '帮我写一个快速排序算法',
-      '解释 React 的 useEffect 钩子',
-      '如何优化这段代码的性能？',
-    ],
+    name: 'AI 编程助手',
+    description: '专业的编程助手，支持多种编程语言，可以帮助你解决代码问题、优化代码、解释代码逻辑。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '🤖',
+    config: {
+      category: AgentCategory.PROGRAMMING,
+      tags: ['编程', '代码', '开发'],
+      rating: 4.9,
+      usageCount: 12580,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.7,
+        maxTokens: 4096,
+        systemPrompt: '你是一个专业的编程助手，帮助用户解决编程问题。',
+      },
+    },
+    createdAt: new Date('2024-01-15').toISOString(),
+    updatedAt: new Date('2024-03-01').toISOString(),
   },
   {
     id: 'agent-2',
-    name: '文案大师',
-    description: '专业的文案创作助手，擅长撰写各类营销文案、广告词、社交媒体内容等。',
+    name: '写作大师',
+    description: '创意写作助手，可以帮助你写文章、故事、文案，提供写作建议和灵感。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
     avatar: '✍️',
-    type: 'official',
-    category: 'writing',
-    capabilities: ['chat', 'translation', 'summarization'],
-    creatorId: 'system',
-    creatorName: 'OpenChat',
-    createdAt: '2024-01-02T00:00:00Z',
-    updatedAt: '2024-01-02T00:00:00Z',
-    usageCount: 8920,
-    rating: 4.6,
-    ratingCount: 1850,
-    isFavorited: true,
-    isAdded: false,
-    welcomeMessage: '你好！我是文案大师，需要创作什么类型的文案呢？',
-    exampleQuestions: [
-      '帮我写一条双11促销文案',
-      '为这款咖啡写一段广告词',
-      '写一篇关于AI的公众号文章',
-    ],
+    config: {
+      category: AgentCategory.WRITING,
+      tags: ['写作', '创意', '文案'],
+      rating: 4.8,
+      usageCount: 8920,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.9,
+        maxTokens: 4096,
+        systemPrompt: '你是一个创意写作助手，帮助用户创作优质内容。',
+      },
+    },
+    createdAt: new Date('2024-01-20').toISOString(),
+    updatedAt: new Date('2024-03-05').toISOString(),
   },
   {
     id: 'agent-3',
-    name: '英语学习助手',
-    description: '专业的英语学习助手，提供语法讲解、词汇学习、口语练习等功能。',
+    name: '英语学习伙伴',
+    description: '英语学习助手，可以帮助你练习英语对话、纠正语法错误、提供学习建议。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
     avatar: '📚',
-    type: 'official',
-    category: 'education',
-    capabilities: ['chat', 'translation'],
-    creatorId: 'system',
-    creatorName: 'OpenChat',
-    createdAt: '2024-01-03T00:00:00Z',
-    updatedAt: '2024-01-03T00:00:00Z',
-    usageCount: 15670,
-    rating: 4.9,
-    ratingCount: 3120,
-    isFavorited: false,
-    isAdded: true,
-    welcomeMessage: 'Hello! I\'m your English learning assistant. How can I help you today?',
-    exampleQuestions: [
-      '解释现在完成时的用法',
-      '帮我翻译这段话',
-      '练习英语口语对话',
-    ],
+    config: {
+      category: AgentCategory.EDUCATION,
+      tags: ['英语', '学习', '教育'],
+      rating: 4.7,
+      usageCount: 6750,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.6,
+        maxTokens: 2048,
+        systemPrompt: '你是一个英语学习助手，帮助用户提高英语水平。',
+      },
+    },
+    createdAt: new Date('2024-02-01').toISOString(),
+    updatedAt: new Date('2024-03-10').toISOString(),
   },
   {
     id: 'agent-4',
     name: '数据分析专家',
-    description: '专业的数据分析助手，擅长数据可视化、统计分析、报表生成等。',
+    description: '数据分析助手，可以帮助你分析数据、生成图表、提供数据洞察。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
     avatar: '📊',
-    type: 'official',
-    category: 'business',
-    capabilities: ['chat', 'data-analysis', 'document-analysis'],
-    creatorId: 'system',
-    creatorName: 'OpenChat',
-    createdAt: '2024-01-04T00:00:00Z',
-    updatedAt: '2024-01-04T00:00:00Z',
-    usageCount: 6780,
-    rating: 4.5,
-    ratingCount: 1200,
-    isFavorited: false,
-    isAdded: false,
-    welcomeMessage: '你好！我是数据分析专家，有什么数据问题需要我帮忙分析吗？',
-    exampleQuestions: [
-      '分析这份销售数据',
-      '帮我制作一个数据可视化图表',
-      '解释什么是回归分析',
-    ],
+    config: {
+      category: AgentCategory.BUSINESS,
+      tags: ['数据', '分析', '图表'],
+      rating: 4.6,
+      usageCount: 4520,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.5,
+        maxTokens: 4096,
+        systemPrompt: '你是一个数据分析专家，帮助用户分析和理解数据。',
+      },
+    },
+    createdAt: new Date('2024-02-10').toISOString(),
+    updatedAt: new Date('2024-03-12').toISOString(),
   },
   {
     id: 'agent-5',
-    name: '创意设计师',
-    description: '专业的设计创意助手，提供设计灵感、配色方案、排版建议等。',
-    avatar: '🎨',
-    type: 'community',
-    category: 'creative',
-    capabilities: ['chat', 'image-generation'],
-    creatorId: 'user-1',
-    creatorName: '设计达人',
-    createdAt: '2024-01-05T00:00:00Z',
-    updatedAt: '2024-01-05T00:00:00Z',
-    usageCount: 4560,
-    rating: 4.3,
-    ratingCount: 890,
-    isFavorited: false,
-    isAdded: false,
-    welcomeMessage: '你好！我是创意设计师，需要什么样的设计灵感呢？',
-    exampleQuestions: [
-      '为我的品牌设计一个Logo',
-      '推荐一套配色方案',
-      '这个排版有什么改进建议？',
-    ],
+    name: '旅行规划师',
+    description: '旅行规划助手，可以根据你的需求制定完美的旅行计划，推荐景点和美食。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '✈️',
+    config: {
+      category: AgentCategory.LIFE,
+      tags: ['旅行', '规划', '生活'],
+      rating: 4.8,
+      usageCount: 7230,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.8,
+        maxTokens: 2048,
+        systemPrompt: '你是一个旅行规划师，帮助用户制定完美的旅行计划。',
+      },
+    },
+    createdAt: new Date('2024-02-15').toISOString(),
+    updatedAt: new Date('2024-03-15').toISOString(),
   },
   {
     id: 'agent-6',
-    name: '生活助手',
-    description: '贴心的生活助手，提供食谱推荐、旅行规划、健康建议等生活服务。',
-    avatar: '🏠',
-    type: 'official',
-    category: 'life',
-    capabilities: ['chat', 'web-search'],
-    creatorId: 'system',
-    creatorName: 'OpenChat',
-    createdAt: '2024-01-06T00:00:00Z',
-    updatedAt: '2024-01-06T00:00:00Z',
-    usageCount: 23450,
-    rating: 4.7,
-    ratingCount: 4560,
-    isFavorited: true,
-    isAdded: true,
-    welcomeMessage: '你好！我是生活助手，有什么可以帮你的吗？',
-    exampleQuestions: [
-      '推荐一道简单的晚餐食谱',
-      '规划一个周末旅行路线',
-      '有什么健康生活的建议？',
-    ],
+    name: '健身教练',
+    description: '健身指导助手，可以制定健身计划、提供营养建议、解答健身疑问。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '💪',
+    config: {
+      category: AgentCategory.LIFE,
+      tags: ['健身', '运动', '健康'],
+      rating: 4.5,
+      usageCount: 3890,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.7,
+        maxTokens: 2048,
+        systemPrompt: '你是一个健身教练，帮助用户实现健康目标。',
+      },
+    },
+    createdAt: new Date('2024-02-20').toISOString(),
+    updatedAt: new Date('2024-03-18').toISOString(),
+  },
+  {
+    id: 'agent-7',
+    name: '美食达人',
+    description: '美食推荐助手，可以根据你的口味推荐菜谱、餐厅，提供烹饪技巧。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '🍳',
+    config: {
+      category: AgentCategory.LIFE,
+      tags: ['美食', '烹饪', '生活'],
+      rating: 4.7,
+      usageCount: 5670,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.8,
+        maxTokens: 2048,
+        systemPrompt: '你是一个美食达人，帮助用户发现和制作美食。',
+      },
+    },
+    createdAt: new Date('2024-02-25').toISOString(),
+    updatedAt: new Date('2024-03-20').toISOString(),
+  },
+  {
+    id: 'agent-8',
+    name: '心理咨询师',
+    description: '心理健康助手，提供情绪支持、压力管理建议，帮助你保持心理健康。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '💚',
+    config: {
+      category: AgentCategory.LIFE,
+      tags: ['心理', '健康', '情绪'],
+      rating: 4.9,
+      usageCount: 9870,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.9,
+        maxTokens: 2048,
+        systemPrompt: '你是一个心理咨询师，帮助用户处理情绪和心理问题。',
+      },
+    },
+    createdAt: new Date('2024-03-01').toISOString(),
+    updatedAt: new Date('2024-03-22').toISOString(),
+  },
+  {
+    id: 'agent-9',
+    name: '游戏攻略王',
+    description: '游戏攻略助手，提供各种游戏的攻略、技巧、隐藏要素，帮助你成为游戏高手。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '🎮',
+    config: {
+      category: AgentCategory.ENTERTAINMENT,
+      tags: ['游戏', '攻略', '娱乐'],
+      rating: 4.6,
+      usageCount: 4120,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.7,
+        maxTokens: 4096,
+        systemPrompt: '你是一个游戏攻略专家，帮助用户掌握各种游戏技巧。',
+      },
+    },
+    createdAt: new Date('2024-03-05').toISOString(),
+    updatedAt: new Date('2024-03-24').toISOString(),
+  },
+  {
+    id: 'agent-10',
+    name: '设计师助手',
+    description: '设计创意助手，提供设计灵感、配色建议、布局方案，帮助你完成设计项目。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '🎨',
+    config: {
+      category: AgentCategory.CREATIVE,
+      tags: ['设计', '创意', '艺术'],
+      rating: 4.8,
+      usageCount: 6340,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.9,
+        maxTokens: 4096,
+        systemPrompt: '你是一个设计师助手，帮助用户完成创意设计项目。',
+      },
+    },
+    createdAt: new Date('2024-03-10').toISOString(),
+    updatedAt: new Date('2024-03-26').toISOString(),
+  },
+  {
+    id: 'agent-11',
+    name: '法律顾问',
+    description: '法律咨询助手，提供法律知识解答、合同审查建议、法律风险评估。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '⚖️',
+    config: {
+      category: AgentCategory.BUSINESS,
+      tags: ['法律', '咨询', '商务'],
+      rating: 4.5,
+      usageCount: 2890,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.5,
+        maxTokens: 4096,
+        systemPrompt: '你是一个法律顾问，帮助用户解答法律问题。',
+      },
+    },
+    createdAt: new Date('2024-03-12').toISOString(),
+    updatedAt: new Date('2024-03-28').toISOString(),
+  },
+  {
+    id: 'agent-12',
+    name: '投资理财师',
+    description: '投资理财助手，提供投资建议、理财规划、风险评估，帮助你做出明智的财务决策。',
+    type: AgentType.ASSISTANT,
+    status: AgentStatus.ACTIVE,
+    avatar: '💰',
+    config: {
+      category: AgentCategory.BUSINESS,
+      tags: ['投资', '理财', '金融'],
+      rating: 4.4,
+      usageCount: 3560,
+      creator: 'OpenChat Team',
+      llmConfig: {
+        model: 'gpt-4',
+        temperature: 0.6,
+        maxTokens: 2048,
+        systemPrompt: '你是一个投资理财顾问，帮助用户做出明智的财务决策。',
+      },
+    },
+    createdAt: new Date('2024-03-15').toISOString(),
+    updatedAt: new Date('2024-03-30').toISOString(),
   },
 ];
 
-/**
- * Agent 分类信息
- */
-const categoryInfos: AgentCategoryInfo[] = [
-  { id: 'all', name: '全部', icon: '🔥', description: '所有智能体', agentCount: 100 },
-  { id: 'productivity', name: '效率工具', icon: '⚡', description: '提升工作效率的智能体', agentCount: 25 },
-  { id: 'education', name: '学习教育', icon: '📚', description: '学习和教育相关智能体', agentCount: 20 },
-  { id: 'entertainment', name: '娱乐休闲', icon: '🎮', description: '娱乐和休闲相关智能体', agentCount: 15 },
-  { id: 'life', name: '生活助手', icon: '🏠', description: '日常生活相关智能体', agentCount: 18 },
-  { id: 'programming', name: '编程开发', icon: '💻', description: '编程和开发相关智能体', agentCount: 22 },
-  { id: 'writing', name: '写作创作', icon: '✍️', description: '写作和创作相关智能体', agentCount: 16 },
-  { id: 'business', name: '商业办公', icon: '💼', description: '商业和办公相关智能体', agentCount: 14 },
-  { id: 'creative', name: '创意设计', icon: '🎨', description: '创意和设计相关智能体', agentCount: 12 },
-];
+// 模拟会话存储
+const mockSessions: Map<string, AgentSession> = new Map();
+const mockMessages: Map<string, AgentMessage[]> = new Map();
 
-/**
- * Agent 服务类
- */
 export class AgentService {
-  private agents: Agent[] = [...mockAgents];
-  private conversations: AgentConversation[] = [];
-  private messages: Map<string, AgentMessage[]> = new Map();
-
-  /**
-   * 获取 Agent 列表
-   */
-  async getAgents(filter?: AgentMarketFilter): Promise<Agent[]> {
-    let result = [...this.agents];
-
-    if (filter) {
-      // 分类筛选
-      if (filter.category && filter.category !== 'all') {
-        result = result.filter((agent) => agent.category === filter.category);
-      }
-
-      // 类型筛选
-      if (filter.type) {
-        result = result.filter((agent) => agent.type === filter.type);
-      }
-
-      // 关键词搜索
-      if (filter.keyword) {
-        const keyword = filter.keyword.toLowerCase();
-        result = result.filter(
-          (agent) =>
-            agent.name.toLowerCase().includes(keyword) ||
-            agent.description.toLowerCase().includes(keyword)
-        );
-      }
-
-      // 排序
-      switch (filter.sortBy) {
-        case 'popular':
-          result.sort((a, b) => b.usageCount - a.usageCount);
-          break;
-        case 'newest':
-          result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          break;
-        case 'rating':
-          result.sort((a, b) => b.rating - a.rating);
-          break;
-      }
+  async getAgents(isPublic?: boolean): Promise<Agent[]> {
+    if (IS_DEV) {
+      return MOCK_AGENTS.filter(agent => 
+        isPublic === undefined || isPublic === true
+      );
     }
-
-    return result;
-  }
-
-  /**
-   * 获取单个 Agent
-   */
-  async getAgent(id: string): Promise<Agent | null> {
-    const agent = this.agents.find((a) => a.id === id);
-    return agent || null;
-  }
-
-  /**
-   * 获取分类列表
-   */
-  async getCategories(): Promise<AgentCategoryInfo[]> {
-    return categoryInfos;
-  }
-
-  /**
-   * 获取推荐 Agent
-   */
-  async getRecommendedAgents(limit: number = 6): Promise<Agent[]> {
-    return this.agents
-      .filter((agent) => agent.rating >= 4.5)
-      .sort((a, b) => b.usageCount - a.usageCount)
-      .slice(0, limit);
-  }
-
-  /**
-   * 获取我的 Agent
-   */
-  async getMyAgents(): Promise<Agent[]> {
-    return this.agents.filter((agent) => agent.isAdded);
-  }
-
-  /**
-   * 获取收藏的 Agent
-   */
-  async getFavoriteAgents(): Promise<Agent[]> {
-    return this.agents.filter((agent) => agent.isFavorited);
-  }
-
-  /**
-   * 添加 Agent 到我的列表
-   */
-  async addAgent(agentId: string): Promise<boolean> {
-    const agent = this.agents.find((a) => a.id === agentId);
-    if (agent) {
-      agent.isAdded = true;
-      return true;
+    const params: Record<string, string | boolean> = {};
+    if (isPublic !== undefined) {
+      params.public = isPublic;
     }
-    return false;
+    return apiClient.get(AGENT_ENDPOINT, { params });
   }
 
-  /**
-   * 从我的列表移除 Agent
-   */
-  async removeAgent(agentId: string): Promise<boolean> {
-    const agent = this.agents.find((a) => a.id === agentId);
-    if (agent) {
-      agent.isAdded = false;
-      return true;
+  async getAgent(id: string): Promise<Agent> {
+    if (IS_DEV) {
+      const agent = MOCK_AGENTS.find(a => a.id === id);
+      if (!agent) throw new Error('Agent not found');
+      return agent;
     }
-    return false;
+    return apiClient.get(`${AGENT_ENDPOINT}/${id}`);
   }
 
-  /**
-   * 收藏 Agent
-   */
-  async favoriteAgent(agentId: string): Promise<boolean> {
-    const agent = this.agents.find((a) => a.id === agentId);
-    if (agent) {
-      agent.isFavorited = true;
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 取消收藏 Agent
-   */
-  async unfavoriteAgent(agentId: string): Promise<boolean> {
-    const agent = this.agents.find((a) => a.id === agentId);
-    if (agent) {
-      agent.isFavorited = false;
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 创建 Agent
-   */
   async createAgent(request: CreateAgentRequest): Promise<Agent> {
-    const newAgent: Agent = {
-      id: `agent-${Date.now()}`,
-      ...request,
-      type: 'custom',
-      creatorId: 'current-user',
-      creatorName: '我',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      usageCount: 0,
-      rating: 0,
-      ratingCount: 0,
-      isFavorited: false,
-      isAdded: true,
-    };
-    this.agents.push(newAgent);
-    return newAgent;
+    return apiClient.post(AGENT_ENDPOINT, request);
   }
 
-  /**
-   * 更新 Agent
-   */
-  async updateAgent(request: UpdateAgentRequest): Promise<Agent | null> {
-    const index = this.agents.findIndex((a) => a.id === request.id);
-    if (index === -1) return null;
-
-    this.agents[index] = {
-      ...this.agents[index],
-      ...request,
-      updatedAt: new Date().toISOString(),
-    };
-    return this.agents[index];
+  async updateAgent(id: string, request: UpdateAgentRequest): Promise<Agent> {
+    return apiClient.put(`${AGENT_ENDPOINT}/${id}`, request);
   }
 
-  /**
-   * 删除 Agent
-   */
-  async deleteAgent(agentId: string): Promise<boolean> {
-    const index = this.agents.findIndex((a) => a.id === agentId);
-    if (index === -1) return false;
-
-    this.agents.splice(index, 1);
-    return true;
+  async deleteAgent(id: string): Promise<{ success: boolean }> {
+    return apiClient.delete(`${AGENT_ENDPOINT}/${id}`);
   }
 
-  /**
-   * 获取 Agent 统计数据
-   */
-  async getAgentStats(agentId: string): Promise<AgentStats | null> {
-    const agent = this.agents.find((a) => a.id === agentId);
-    if (!agent) return null;
-
-    return {
-      totalUsage: agent.usageCount,
-      todayUsage: Math.floor(Math.random() * 100),
-      weeklyUsage: Math.floor(Math.random() * 500),
-      averageRating: agent.rating,
-      favoriteCount: Math.floor(Math.random() * 1000),
-    };
+  async getCategories(): Promise<AgentCategoryInfo[]> {
+    return CATEGORY_INFOS;
   }
 
-  /**
-   * 获取会话列表
-   */
-  async getConversations(agentId?: string): Promise<AgentConversation[]> {
-    if (agentId) {
-      return this.conversations.filter((c) => c.agentId === agentId);
+  async getPublicAgents(): Promise<Agent[]> {
+    return this.getAgents(true);
+  }
+
+  async getMyAgents(): Promise<Agent[]> {
+    return this.getAgents(false);
+  }
+
+  async createSession(
+    agentId: string,
+    request?: CreateSessionRequest
+  ): Promise<AgentSession> {
+    if (IS_DEV) {
+      const sessionId = `session-${Date.now()}`;
+      const session: AgentSession = {
+        id: sessionId,
+        agentId,
+        userId: 'test-user',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockSessions.set(sessionId, session);
+      mockMessages.set(sessionId, []);
+      console.log('[Dev] Created session:', sessionId);
+      return session;
     }
-    return this.conversations;
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/sessions`, request || {});
   }
 
-  /**
-   * 创建会话
-   */
-  async createConversation(agentId: string, title: string): Promise<AgentConversation> {
-    const conversation: AgentConversation = {
-      id: `conv-${Date.now()}`,
-      agentId,
-      userId: 'current-user',
-      title,
-      messageCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.conversations.push(conversation);
-    this.messages.set(conversation.id, []);
-    return conversation;
+  async getSessions(agentId: string, limit?: number): Promise<AgentSession[]> {
+    if (IS_DEV) {
+      return Array.from(mockSessions.values())
+        .filter(s => s.agentId === agentId)
+        .slice(0, limit || 10);
+    }
+    const params: Record<string, number> = {};
+    if (limit) {
+      params.limit = limit;
+    }
+    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/sessions`, { params });
   }
 
-  /**
-   * 获取会话消息
-   */
-  async getMessages(conversationId: string): Promise<AgentMessage[]> {
-    return this.messages.get(conversationId) || [];
+  async getSession(sessionId: string): Promise<AgentSession> {
+    if (IS_DEV) {
+      const session = mockSessions.get(sessionId);
+      if (!session) throw new Error('Session not found');
+      return session;
+    }
+    return apiClient.get(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
   }
 
-  /**
-   * 发送消息
-   */
+  async deleteSession(sessionId: string): Promise<{ success: boolean }> {
+    if (IS_DEV) {
+      mockSessions.delete(sessionId);
+      mockMessages.delete(sessionId);
+      return { success: true };
+    }
+    return apiClient.delete(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
+  }
+
+  async getMessages(
+    sessionId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<AgentMessage[]> {
+    if (IS_DEV) {
+      const messages = mockMessages.get(sessionId) || [];
+      return messages.slice(offset || 0, (offset || 0) + (limit || 50));
+    }
+    const params: Record<string, number> = {};
+    if (limit) params.limit = limit;
+    if (offset) params.offset = offset;
+    return apiClient.get(`${AGENT_ENDPOINT}/sessions/${sessionId}/messages`, {
+      params,
+    });
+  }
+
   async sendMessage(
-    conversationId: string,
-    content: string
-  ): Promise<{ userMessage: AgentMessage; assistantMessage: AgentMessage }> {
-    const conversation = this.conversations.find((c) => c.id === conversationId);
-    if (!conversation) throw new Error('Conversation not found');
-
-    // 创建用户消息
-    const userMessage: AgentMessage = {
-      id: `msg-${Date.now()}-user`,
-      conversationId,
-      agentId: conversation.agentId,
-      role: 'user',
-      content,
-      createdAt: new Date().toISOString(),
-    };
-
-    // 模拟 AI 回复
-    const agent = this.agents.find((a) => a.id === conversation.agentId);
-    const assistantMessage: AgentMessage = {
-      id: `msg-${Date.now()}-assistant`,
-      conversationId,
-      agentId: conversation.agentId,
-      role: 'assistant',
-      content: `我是 ${agent?.name || 'AI 助手'}，收到你的消息："${content}"\n\n这是一个模拟回复，实际项目中会调用 AI API 获取真实回复。`,
-      createdAt: new Date().toISOString(),
-    };
-
-    // 保存消息
-    const conversationMessages = this.messages.get(conversationId) || [];
-    conversationMessages.push(userMessage, assistantMessage);
-    this.messages.set(conversationId, conversationMessages);
-
-    // 更新会话
-    conversation.lastMessage = assistantMessage;
-    conversation.messageCount += 2;
-    conversation.updatedAt = new Date().toISOString();
-
-    // 更新 Agent 使用次数
-    if (agent) {
-      agent.usageCount++;
+    sessionId: string,
+    request: SendMessageRequest
+  ): Promise<AgentMessage> {
+    if (IS_DEV) {
+      const messages = mockMessages.get(sessionId) || [];
+      
+      // 添加用户消息
+      const userMessage: AgentMessage = {
+        id: `msg-${Date.now()}-user`,
+        sessionId,
+        role: 'user',
+        content: request.content,
+        createdAt: new Date().toISOString(),
+      };
+      messages.push(userMessage);
+      
+      // 模拟 AI 响应
+      const aiMessage: AgentMessage = {
+        id: `msg-${Date.now()}-ai`,
+        sessionId,
+        role: 'assistant',
+        content: this.generateMockResponse(request.content),
+        createdAt: new Date().toISOString(),
+      };
+      messages.push(aiMessage);
+      
+      mockMessages.set(sessionId, messages);
+      return aiMessage;
     }
-
-    return { userMessage, assistantMessage };
+    return apiClient.post(
+      `${AGENT_ENDPOINT}/sessions/${sessionId}/messages`,
+      request
+    );
   }
 
-  /**
-   * 删除会话
-   */
-  async deleteConversation(conversationId: string): Promise<boolean> {
-    const index = this.conversations.findIndex((c) => c.id === conversationId);
-    if (index === -1) return false;
+  async streamMessage(
+    sessionId: string,
+    request: SendMessageRequest,
+    onChunk: (chunk: ChatStreamChunk) => void,
+    onComplete: () => void,
+    onError: (error: Error) => void
+  ): Promise<void> {
+    if (IS_DEV) {
+      // 开发环境模拟流式响应
+      const messages = mockMessages.get(sessionId) || [];
+      
+      // 添加用户消息
+      const userMessage: AgentMessage = {
+        id: `msg-${Date.now()}-user`,
+        sessionId,
+        role: 'user',
+        content: request.content,
+        createdAt: new Date().toISOString(),
+      };
+      messages.push(userMessage);
+      
+      // 模拟 AI 流式响应
+      const aiResponse = this.generateMockResponse(request.content);
+      const aiMessageId = `msg-${Date.now()}-ai`;
+      
+      let currentContent = '';
+      const words = aiResponse.split('');
+      
+      for (let i = 0; i < words.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 30));
+        currentContent += words[i];
+        onChunk({
+          id: aiMessageId,
+          content: currentContent,
+          done: i === words.length - 1,
+        });
+      }
+      
+      // 保存完整消息
+      const aiMessage: AgentMessage = {
+        id: aiMessageId,
+        sessionId,
+        role: 'assistant',
+        content: aiResponse,
+        createdAt: new Date().toISOString(),
+      };
+      messages.push(aiMessage);
+      mockMessages.set(sessionId, messages);
+      
+      onComplete();
+      return;
+    }
 
-    this.conversations.splice(index, 1);
-    this.messages.delete(conversationId);
-    return true;
+    const token = localStorage.getItem('token');
+    const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:3000';
+
+    const response = await fetch(`${API_BASE_URL}/api${AGENT_ENDPOINT}/sessions/${sessionId}/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      onError(error);
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      onError(new Error('No response body'));
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              onComplete();
+              return;
+            }
+            try {
+              const chunk = JSON.parse(data);
+              onChunk(chunk);
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+      onComplete();
+    } catch (error) {
+      onError(error instanceof Error ? error : new Error('Stream error'));
+    }
+  }
+
+  private generateMockResponse(userMessage: string): string {
+    const responses = [
+      `感谢您的提问！关于"${userMessage.slice(0, 20)}..."，我来为您详细解答。\n\n首先，这是一个很好的问题。让我从几个方面来分析：\n\n1. **核心概念**：理解这个问题的关键在于把握其本质。\n\n2. **实践建议**：我建议您可以从以下几个方面入手...\n\n3. **注意事项**：在处理这个问题时，需要注意...\n\n希望我的回答对您有所帮助！如果您还有其他问题，欢迎继续提问。`,
+      
+      `您好！很高兴为您解答这个问题。\n\n根据您的问题，我的理解是：\n\n${userMessage.slice(0, 50)}...\n\n**我的建议如下：**\n\n- 第一点：这是非常重要的方面\n- 第二点：需要考虑的因素\n- 第三点：具体的实施步骤\n\n如果您需要更详细的解释，请随时告诉我！`,
+      
+      `这是一个非常有趣的话题！\n\n让我来分享一些见解：\n\n> "${userMessage.slice(0, 30)}..."\n\n针对这个问题，我认为可以从多个角度来看待。首先，我们需要理解背景和上下文。其次，分析关键因素和变量。最后，制定合理的策略和方案。\n\n**总结要点：**\n1. 理解问题本质\n2. 分析相关因素\n3. 制定解决方案\n4. 持续优化改进\n\n希望这些信息对您有价值！`,
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  async getAgentTools(agentId: string): Promise<AgentTool[]> {
+    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/tools`);
+  }
+
+  async addToolToAgent(
+    agentId: string,
+    request: AddToolRequest
+  ): Promise<AgentTool> {
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/tools`, request);
+  }
+
+  async getAgentSkills(agentId: string): Promise<AgentSkill[]> {
+    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/skills`);
+  }
+
+  async addSkillToAgent(
+    agentId: string,
+    request: AddSkillRequest
+  ): Promise<AgentSkill> {
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/skills`, request);
+  }
+
+  async getAvailableTools(): Promise<AvailableTool[]> {
+    return apiClient.get(`${AGENT_ENDPOINT}/tools/available`);
+  }
+
+  async getAvailableSkills(): Promise<AvailableSkill[]> {
+    return apiClient.get(`${AGENT_ENDPOINT}/skills/available`);
+  }
+
+  async startAgent(agentId: string): Promise<{ runtimeId: string; status: string }> {
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/start`);
+  }
+
+  async stopAgent(agentId: string): Promise<{ status: string }> {
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/stop`);
+  }
+
+  async resetAgent(agentId: string): Promise<{ status: string }> {
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/reset`);
+  }
+
+  async getAgentStats(agentId: string): Promise<AgentStats> {
+    if (IS_DEV) {
+      return {
+        totalSessions: Math.floor(Math.random() * 1000),
+        totalMessages: Math.floor(Math.random() * 10000),
+        avgResponseTime: Math.floor(Math.random() * 500) + 100,
+        satisfactionRate: Math.random() * 0.2 + 0.8,
+      };
+    }
+    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/stats`);
+  }
+
+  async searchAgents(
+    keyword: string,
+    category?: AgentCategory,
+    type?: AgentType,
+    sortBy: 'popular' | 'newest' | 'rating' = 'popular'
+  ): Promise<Agent[]> {
+    let agents = await this.getPublicAgents();
+
+    if (category && category !== AgentCategory.ALL) {
+      agents = agents.filter((agent) => {
+        const config = agent.config as any;
+        return config?.category === category;
+      });
+    }
+
+    if (type) {
+      agents = agents.filter((agent) => agent.type === type);
+    }
+
+    if (keyword) {
+      const lowerKeyword = keyword.toLowerCase();
+      agents = agents.filter(
+        (agent) =>
+          agent.name.toLowerCase().includes(lowerKeyword) ||
+          (agent.description?.toLowerCase().includes(lowerKeyword) ?? false)
+      );
+    }
+
+    switch (sortBy) {
+      case 'popular':
+        agents.sort((a, b) => {
+          const aCount = (a.config as any)?.usageCount || 0;
+          const bCount = (b.config as any)?.usageCount || 0;
+          return bCount - aCount;
+        });
+        break;
+      case 'newest':
+        agents.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+      case 'rating':
+        agents.sort((a, b) => {
+          const aRating = (a.config as any)?.rating || 0;
+          const bRating = (b.config as any)?.rating || 0;
+          return bRating - aRating;
+        });
+        break;
+    }
+
+    return agents;
+  }
+
+  async getRecommendedAgents(limit: number = 6): Promise<Agent[]> {
+    const agents = await this.getPublicAgents();
+    return agents
+      .filter((agent) => {
+        const rating = (agent.config as any)?.rating || 0;
+        return rating >= 4.5;
+      })
+      .sort((a, b) => {
+        const aCount = (a.config as any)?.usageCount || 0;
+        const bCount = (b.config as any)?.usageCount || 0;
+        return bCount - aCount;
+      })
+      .slice(0, limit);
   }
 }
 
-// 导出单例
 export const agentService = new AgentService();

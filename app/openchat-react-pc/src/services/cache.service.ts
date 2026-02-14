@@ -4,7 +4,7 @@
  * 提供统一的缓存管理接口，集成分层缓存系统，支持多种缓存策略。
  */
 
-import { LayeredCache, createDefaultCache, MemoryCacheLayer, LocalStorageCacheLayer } from '../utils/layeredCache';
+import { LayeredCache, MemoryCacheLayer, LocalStorageCacheLayer } from '../utils/layeredCache';
 
 export interface CacheServiceOptions {
   defaultCapacity?: number;
@@ -56,7 +56,7 @@ export class CacheService {
    * 清除所有缓存
    */
   async clearAllCaches(): Promise<void> {
-    for (const [name, cache] of this.caches) {
+    for (const cache of this.caches.values()) {
       await cache.clear();
     }
     this.caches.clear();

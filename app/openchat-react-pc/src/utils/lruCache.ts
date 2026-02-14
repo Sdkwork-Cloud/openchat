@@ -287,7 +287,7 @@ export class LRUCache<K, V> {
  * 创建带命名空间的 LRU 缓存
  */
 export function createNamespacedCache<V>(
-  namespace: string,
+  _namespace: string,
   options: LRUCacheOptions = {}
 ): LRUCache<string, V> {
   return new LRUCache<string, V>(options);

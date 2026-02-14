@@ -25,9 +25,10 @@ export function createTransferableBuffer(
   source: ArrayBuffer | Uint8Array
 ): TransferableData<ArrayBuffer> {
   if (source instanceof Uint8Array) {
+    const buffer = source.buffer as ArrayBuffer;
     return {
-      data: source.buffer,
-      transferables: [source.buffer],
+      data: buffer,
+      transferables: [buffer],
     };
   }
   return {

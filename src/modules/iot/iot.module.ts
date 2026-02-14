@@ -11,8 +11,8 @@ import { IoTController } from './iot.controller';
 import { XiaoZhiService } from './xiaozhi/xiaozhi.service';
 import { XiaoZhiGateway } from './xiaozhi/xiaozhi.gateway';
 import { XiaoZhiAudioService } from './xiaozhi/services/xiaozhi-audio.service';
-import { XiaoZhiOpusService } from './xiaozhi/services/xiaozhi-opus.service';
-import { XiaoZhiAudioProcessingService } from './xiaozhi/services/xiaozhi-audio-processing.service';
+import { XiaozhiOpusService } from './xiaozhi/services/xiaozhi-opus.service';
+import { XiaozhiAudioProcessingService } from './xiaozhi/services/xiaozhi-audio-processing.service';
 import { XiaoZhiCapabilityService } from './xiaozhi/services/xiaozhi-capability.service';
 import { XiaoZhiConfigService } from './xiaozhi/services/xiaozhi-config.service';
 import { XiaoZhiConnectionService } from './xiaozhi/services/xiaozhi-connection.service';
@@ -22,6 +22,10 @@ import { XiaoZhiPluginService } from './xiaozhi/services/xiaozhi-plugin.service'
 import { XiaoZhiSecurityService } from './xiaozhi/services/xiaozhi-security.service';
 import { XiaoZhiStateService } from './xiaozhi/services/xiaozhi-state.service';
 import { AudioStreamConsumer } from './xiaozhi/consumers/audio-stream.consumer';
+import { BaiduSTTService } from './xiaozhi/services/stt/baidu-stt.service';
+import { BaiduTTSService } from './xiaozhi/services/tts/baidu-tts.service';
+import { OpenAIChatService } from './xiaozhi/services/llm/openai-chat.service';
+import { XiaozhiHealthService } from './xiaozhi/services/xiaozhi-health.service';
 import { DeviceCacheService } from './services/device-cache.service';
 import { DeviceEntity } from './entities/device.entity';
 import { DeviceMessageEntity } from './entities/device-message.entity';
@@ -39,8 +43,8 @@ import { DeviceMessageEntity } from './entities/device-message.entity';
     XiaoZhiService,
     XiaoZhiGateway,
     XiaoZhiAudioService,
-    XiaoZhiOpusService,
-    XiaoZhiAudioProcessingService,
+    XiaozhiOpusService,
+    XiaozhiAudioProcessingService,
     XiaoZhiCapabilityService,
     XiaoZhiConfigService,
     XiaoZhiConnectionService,
@@ -50,6 +54,10 @@ import { DeviceMessageEntity } from './entities/device-message.entity';
     XiaoZhiSecurityService,
     XiaoZhiStateService,
     AudioStreamConsumer,
+    BaiduSTTService,
+    BaiduTTSService,
+    OpenAIChatService,
+    XiaozhiHealthService,
     DeviceCacheService,
   ],
   controllers: [

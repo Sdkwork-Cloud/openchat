@@ -3,11 +3,12 @@
  * 处理IoT相关的HTTP请求
  */
 
-import { Controller, Post, Get, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Get, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, Request, Logger } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { IoTService } from './iot.service';
-import { JwtAuthGuard } from '../user/jwt-auth.guard';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 import { DeviceType, DeviceStatus } from './entities/device.entity';
+import { RequestWithUser } from '../../common/auth/interfaces/request-with-user.interface';
 import { DeviceMessageType } from './entities/device-message.entity';
 import { IoTException } from './exceptions/iot.exception';
 
@@ -30,7 +31,7 @@ export class IoTController {
   @ApiResponse({ status: 401, description: '未授权访问' })
   @ApiBearerAuth()
   async registerDevice(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body() deviceData: {
       deviceId: string;
       type: DeviceType;
@@ -45,7 +46,7 @@ export class IoTController {
     // 确保设备关联到当前用户
     const registerData = {
       ...deviceData,
-      userId: deviceData.userId || req.user.userId
+      userId: deviceData.userId || req.user?.userId || ''
     };
     return this.iotService.registerDevice(registerData);
   }

@@ -13,12 +13,8 @@ import { EventBusService } from './event-bus.service';
   imports: [
     RedisModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
-        config: {
-          host: configService.get<string>('REDIS_HOST') || 'localhost',
-          port: configService.get<number>('REDIS_PORT') || 6379,
-          password: configService.get<string>('REDIS_PASSWORD') || undefined,
-          db: configService.get<number>('REDIS_DB') || 0,
-        },
+        type: 'single' as const,
+        url: `redis://${configService.get<string>('REDIS_HOST') || 'localhost'}:${configService.get<number>('REDIS_PORT') || 6379}/${configService.get<number>('REDIS_DB') || 0}`,
       }),
       inject: [ConfigService],
     }),

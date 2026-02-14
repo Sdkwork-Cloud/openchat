@@ -7,7 +7,7 @@
 import { memo, useState, useCallback } from 'react';
 import { MarkdownRenderer } from '../../../components/ui/MarkdownRenderer';
 import { MediaViewer, type MediaItem } from '../../../components/ui/MediaViewer';
-import type { Message } from '../entities/message.entity';
+import type { Message, MessageAttachment } from '../entities/message.entity';
 
 interface MessageBubbleProps {
   message: Message;
@@ -54,11 +54,34 @@ const getFileIcon = (filename?: string): string => {
   return iconMap[ext || ''] || '📄';
 };
 
+/**
+ * 获取消息文本内容
+ */
+const getMessageText = (content: Message['content']): string => {
+  if (typeof content === 'string') return content;
+  if (content && typeof content === 'object' && 'text' in content) return content.text || '';
+  return '';
+};
+
+/**
+ * 转换附件为 MediaItem
+ */
+const convertToMediaItem = (attachment: MessageAttachment): MediaItem => ({
+  id: attachment.id,
+  type: attachment.type === 'audio' ? 'file' : attachment.type as 'image' | 'video' | 'file',
+  url: attachment.url,
+  name: attachment.name,
+  size: attachment.size,
+  thumbnail: attachment.thumbnailUrl,
+  duration: attachment.duration,
+});
+
 export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
   const isUser = message.type === 'user';
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const messageText = getMessageText(message.content);
 
   // 打开媒体查看器
   const openMediaViewer = useCallback((index: number) => {
@@ -77,6 +100,9 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
       document.body.removeChild(link);
     }
   }, []);
+
+  // 转换附件为 MediaItem 数组
+  const mediaItems: MediaItem[] = (message.attachments || []).map(convertToMediaItem);
 
   return (
     <>
@@ -108,19 +134,19 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
             ) : (
               <>
                 {/* 文本内容 */}
-                {message.content && (
+                {messageText && (
                   <div className={hasAttachments ? 'mb-3' : ''}>
                     {isUser ? (
-                      message.content
+                      messageText
                     ) : (
-                      <MarkdownRenderer content={message.content} />
+                      <MarkdownRenderer content={messageText} />
                     )}
                   </div>
                 )}
 
                 {/* 附件内容 */}
                 {hasAttachments && (
-                  <div className={`space-y-2 ${message.content ? 'pt-3 border-t border-[rgba(255,255,255,0.1)]' : ''}`}>
+                  <div className={`space-y-2 ${messageText ? 'pt-3 border-t border-[rgba(255,255,255,0.1)]' : ''}`}>
                     {message.attachments?.map((attachment, index) => (
                       <AttachmentItem
                         key={attachment.id}
@@ -155,9 +181,9 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
       </div>
 
       {/* 媒体查看器 */}
-      {hasAttachments && (
+      {hasAttachments && mediaItems.length > 0 && (
         <MediaViewer
-          items={message.attachments || []}
+          items={mediaItems}
           initialIndex={viewerIndex}
           isOpen={viewerOpen}
           onClose={() => setViewerOpen(false)}
@@ -174,7 +200,7 @@ MessageBubble.displayName = 'MessageBubble';
  * 附件项组件
  */
 interface AttachmentItemProps {
-  attachment: MediaItem;
+  attachment: MessageAttachment;
   isUser: boolean;
   onClick: () => void;
 }
@@ -204,9 +230,9 @@ const AttachmentItem = memo(({ attachment, isUser, onClick }: AttachmentItemProp
         onClick={onClick}
         className="cursor-pointer relative rounded-lg overflow-hidden border border-[var(--border-color)] bg-[var(--bg-secondary)] w-[200px] h-[120px] flex items-center justify-center group"
       >
-        {attachment.thumbnail ? (
+        {attachment.thumbnailUrl ? (
           <img
-            src={attachment.thumbnail}
+            src={attachment.thumbnailUrl}
             alt={attachment.name || '视频'}
             className="w-full h-full object-cover"
           />

@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { DeviceConnection, BinaryProtocolVersion } from '../xiaozhi.types';
 import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
 import { XiaozhiOpusService } from './xiaozhi-opus.service';
-import { XiaozhiAudioProcessingService, AudioProcessingConfig } from './xiaozhi-audio-processing.service';
+import { XiaozhiAudioProcessingService, AudioProcessingConfig as XiaozhiAudioProcessingConfig } from './xiaozhi-audio-processing.service';
 import * as crypto from 'crypto';
 import * as dgram from 'dgram';
 
@@ -78,7 +78,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   private readonly audioStreams = new Map<string, AudioStreamState>();
   private readonly audioQuality = new Map<string, AudioQualityStats>();
   private readonly cacheConfig: AudioCacheConfig;
-  private readonly processingConfig: AudioProcessingConfig;
+  private readonly processingConfig: XiaozhiAudioProcessingConfig;
   private flushIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   // 性能监控
