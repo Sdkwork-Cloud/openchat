@@ -1,37 +1,71 @@
-# 传统部署
+# Traditional Deployment
 
-## 环境要求
+## Requirements
 
 - Node.js 18+
 - PostgreSQL 15+
 - Redis 7+
 
-## 部署步骤
+## Deployment Steps
 
 ```bash
-# 1. 安装依赖
-npm install
+# 1. Install dependencies
+pnpm install
 
-# 2. 配置环境变量
+# 2. Configure environment
 cp .env.example .env
-# 编辑 .env 文件
+# Edit .env file
 
-# 3. 构建
-npm run build
+# 3. Build
+pnpm run build
 
-# 4. 启动
-npm start
+# 4. Start
+pnpm start
 ```
 
-## 使用 PM2
+## Using PM2
 
 ```bash
-# 安装 PM2
+# Install PM2
 npm install -g pm2
 
-# 启动
+# Start
 pm2 start dist/main.js --name openchat-server
 
-# 查看状态
+# View status
 pm2 status
+
+# View logs
+pm2 logs openchat-server
 ```
+
+## Systemd Service
+
+Create `/etc/systemd/system/openchat.service`:
+
+```ini
+[Unit]
+Description=OpenChat Server
+After=network.target
+
+[Service]
+Type=simple
+User=openchat
+WorkingDirectory=/opt/openchat
+ExecStart=/usr/bin/node dist/main.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# Enable and start
+systemctl enable openchat
+systemctl start openchat
+```
+
+## Next Steps
+
+- [Configuration](../config/) - Server configuration
+- [Docker Deployment](./docker.md) - Docker deployment

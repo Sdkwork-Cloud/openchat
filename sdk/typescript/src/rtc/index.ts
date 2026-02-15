@@ -138,12 +138,13 @@ export function generateRoomId(): string {
  * 生成Token（简化版，实际应由服务器生成）
  */
 export function generateToken(appId: string, appKey: string, roomId: string, uid: string): string {
-  // 这里应该使用服务器端算法生成Token
-  // 简化版仅用于演示
   const timestamp = Date.now();
   const data = `${appId}:${roomId}:${uid}:${timestamp}`;
 
-  // 实际项目中应该使用HMAC-SHA256等算法
-  // 这里仅返回一个占位符
-  return `token_${Buffer.from(data).toString('base64')}`;
+  if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+    return `token_${window.btoa(data)}`;
+  } else if (typeof Buffer !== 'undefined') {
+    return `token_${Buffer.from(data).toString('base64')}`;
+  }
+  return `token_${data}`;
 }

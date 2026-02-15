@@ -1,27 +1,31 @@
-# 群组系统
+# Group System
 
-## 群组模型
+## Group Model
 
 ```typescript
 interface Group {
-  id: string;           // 群组唯一标识
-  name: string;         // 群组名称
-  description?: string; // 群组描述
-  avatar?: string;      // 群组头像
-  ownerId: string;      // 群主 ID
-  memberCount: number;  // 成员数量
-  createdAt: Date;      // 创建时间
+  id: string;           // Unique group identifier
+  name: string;         // Group name
+  description?: string; // Group description
+  avatar?: string;      // Group avatar
+  ownerId: string;      // Owner ID
+  memberCount: number;  // Member count
+  createdAt: Date;      // Creation time
 }
 ```
 
-## 群组成员角色
+## Member Roles
 
-- **owner** - 群主
-- **admin** - 管理员
-- **member** - 普通成员
+- **owner** - Group owner
+- **admin** - Administrator
+- **member** - Regular member
 
-## 群组类型
+## Group Types
 
-- **普通群** - 最多 2000 人
-- **大群** - 最多 10000 人
-- **直播群** - 无上限，仅管理员发言
+- **Regular Group** - Up to 2,000 members
+- **Large Group** - Up to 10,000 members
+- **Live Group** - Unlimited members, admin-only messages
+
+## Related APIs
+
+- [Group Management API](/en/api/groups.md)

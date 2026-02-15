@@ -93,7 +93,7 @@ export class WukongIMService extends EventEmitter implements IIMService {
   private wkim: any = null;
   private config: IMServiceConfig | null = null;
   private connectionState: ConnectionState = ConnectionState.DISCONNECTED;
-  private messageQueue: Array<{ resolve: Function; reject: Function; task: () => Promise<any> }> = [];
+  private messageQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: unknown) => void; task: () => Promise<unknown> }> = [];
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectTimer: any = null;
@@ -241,9 +241,9 @@ export class WukongIMService extends EventEmitter implements IIMService {
         channelId: targetId,
         channelType: this.convertConversationTypeToChannel(conversationType),
         url: params.resource.url,
-        width: params.resource.width ? parseInt(params.resource.width) : undefined,
-        height: params.resource.height ? parseInt(params.resource.height) : undefined,
-        size: params.resource.size ? parseInt(params.resource.size) : undefined,
+        width: params.resource.width,
+        height: params.resource.height,
+        size: params.resource.size,
       });
 
       const message = this.convertWKMessageToStandard(wkMessage);
@@ -261,7 +261,7 @@ export class WukongIMService extends EventEmitter implements IIMService {
         channelId: targetId,
         channelType: this.convertConversationTypeToChannel(conversationType),
         url: params.resource.url,
-        duration: params.resource.duration ? parseInt(params.resource.duration) : 0,
+        duration: params.resource.duration || 0,
       });
 
       const message = this.convertWKMessageToStandard(wkMessage);
@@ -280,9 +280,9 @@ export class WukongIMService extends EventEmitter implements IIMService {
         channelType: this.convertConversationTypeToChannel(conversationType),
         url: params.resource.url,
         thumbnail: params.resource.coverUrl,
-        duration: params.resource.duration ? parseInt(params.resource.duration) : 0,
-        width: params.resource.width ? parseInt(params.resource.width) : undefined,
-        height: params.resource.height ? parseInt(params.resource.height) : undefined,
+        duration: params.resource.duration || 0,
+        width: params.resource.width,
+        height: params.resource.height,
       });
 
       const message = this.convertWKMessageToStandard(wkMessage);
@@ -301,7 +301,7 @@ export class WukongIMService extends EventEmitter implements IIMService {
         channelType: this.convertConversationTypeToChannel(conversationType),
         url: params.resource.url,
         name: params.resource.name || 'file',
-        size: params.resource.size ? parseInt(params.resource.size) : undefined,
+        size: params.resource.size,
         mimeType: params.resource.mimeType,
       });
 
@@ -319,10 +319,10 @@ export class WukongIMService extends EventEmitter implements IIMService {
       const wkMessage = await this.wkim.sendLocationMessage({
         channelId: targetId,
         channelType: this.convertConversationTypeToChannel(conversationType),
-        latitude: parseFloat(params.resource.latitude),
-        longitude: parseFloat(params.resource.longitude),
+        latitude: params.resource.latitude,
+        longitude: params.resource.longitude,
         address: params.resource.address,
-        name: params.resource.locationName,
+        name: params.resource.name,
       });
 
       const message = this.convertWKMessageToStandard(wkMessage);
@@ -1002,17 +1002,21 @@ export class WukongIMService extends EventEmitter implements IIMService {
   private convertWKMessageToStandard(wkMessage: WKIMMessage): Message {
     return {
       id: wkMessage.messageId,
-      type: wkMessage.messageType as MessageType,
+      type: wkMessage.messageType as string | MessageType,
       content: wkMessage.content,
+      fromUserId: wkMessage.fromUid,
       fromUid: wkMessage.fromUid,
+      toUserId: wkMessage.toUid,
       toUid: wkMessage.toUid,
       channelId: wkMessage.channelId,
       channelType: this.parseChannelType(wkMessage.channelType),
       status: (wkMessage.status ? (wkMessage.status.toString() as MessageStatus) : MessageStatus.SENT),
       timestamp: wkMessage.timestamp,
+      createdAt: new Date(wkMessage.timestamp).toISOString(),
+      updatedAt: new Date(wkMessage.timestamp).toISOString(),
       clientSeq: wkMessage.clientSeq,
       isRead: false,
-    };
+    } as Message;
   }
 
   private convertWKConversationToStandard(wkConversation: WKIMConversation): Conversation {

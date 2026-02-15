@@ -12,7 +12,7 @@
  * 参考标准：AI时代通用MediaResource资源存储结构标准 v1.0
  */
 
-import { ConversationType, MessageStatus, ReadReceipt } from './index';
+import { ConversationType } from './index';
 
 // ==================== AI时代MediaResource标准枚举 ====================
 
@@ -31,8 +31,27 @@ export enum MediaResourceType {
   MODEL_3D = 'MODEL_3D',
   PPT = 'PPT',
   CODE = 'CODE',
-  LOCATION = 'LOCATION',
   CARD = 'CARD',
+  LOCATION = 'LOCATION',
+  CUSTOM = 'CUSTOM'
+}
+
+/**
+ * 卡片类型枚举
+ */
+export enum CardType {
+  MINI_PROGRAM = 'MINI_PROGRAM',
+  APP = 'APP',
+  LINK = 'LINK',
+  ARTICLE = 'ARTICLE',
+  PRODUCT = 'PRODUCT',
+  ORDER = 'ORDER',
+  PAYMENT = 'PAYMENT',
+  INVITATION = 'INVITATION',
+  RED_PACKET = 'RED_PACKET',
+  LOCATION = 'LOCATION',
+  CONTACT = 'CONTACT',
+  FILE_PREVIEW = 'FILE_PREVIEW',
   CUSTOM = 'CUSTOM'
 }
 
@@ -40,12 +59,114 @@ export enum MediaResourceType {
  * 音频格式枚举
  */
 export enum AudioFormat {
-  MP3 = 'MP3',
   WAV = 'WAV',
+  MP3 = 'MP3',
   AAC = 'AAC',
-  OGG = 'OGG',
   FLAC = 'FLAC',
-  M4A = 'M4A'
+  OGG = 'OGG',
+  PCM = 'PCM',
+  AIFF = 'AIFF',
+  AU = 'AU',
+  OPUS = 'OPUS'
+}
+
+/**
+ * 视频格式枚举
+ */
+export enum VideoFormat {
+  MP4 = 'MP4',
+  AVI = 'AVI',
+  MOV = 'MOV',
+  WMV = 'WMV',
+  FLV = 'FLV',
+  MKV = 'MKV',
+  WEBM = 'WEBM',
+  MPEG = 'MPEG',
+  '3GP' = '3GP',
+  TS = 'TS'
+}
+
+/**
+ * 图片格式枚举
+ */
+export enum ImageFormat {
+  JPEG = 'JPEG',
+  JPG = 'JPG',
+  PNG = 'PNG',
+  GIF = 'GIF',
+  BMP = 'BMP',
+  WEBP = 'WEBP',
+  SVG = 'SVG',
+  TIFF = 'TIFF',
+  ICO = 'ICO',
+  HEIC = 'HEIC'
+}
+
+/**
+ * 文档格式枚举
+ */
+export enum DocumentFormat {
+  PDF = 'PDF',
+  DOC = 'DOC',
+  DOCX = 'DOCX',
+  XLS = 'XLS',
+  XLSX = 'XLSX',
+  TXT = 'TXT',
+  RTF = 'RTF',
+  MD = 'MD',
+  EPUB = 'EPUB'
+}
+
+/**
+ * PPT格式枚举
+ */
+export enum PptFormat {
+  PPT = 'PPT',
+  PPTX = 'PPTX',
+  KEY = 'KEY',
+  ODP = 'ODP'
+}
+
+/**
+ * 代码语言枚举
+ */
+export enum CodeLanguage {
+  JAVA = 'JAVA',
+  PYTHON = 'PYTHON',
+  JAVASCRIPT = 'JAVASCRIPT',
+  TYPESCRIPT = 'TYPESCRIPT',
+  CPP = 'CPP',
+  C = 'C',
+  CSHARP = 'CSHARP',
+  GO = 'GO',
+  RUST = 'RUST',
+  PHP = 'PHP',
+  RUBY = 'RUBY',
+  SWIFT = 'SWIFT',
+  KOTLIN = 'KOTLIN',
+  SQL = 'SQL',
+  HTML = 'HTML',
+  CSS = 'CSS',
+  SHELL = 'SHELL',
+  JSON = 'JSON',
+  XML = 'XML',
+  YAML = 'YAML',
+  OTHER = 'OTHER'
+}
+
+/**
+ * 3D模型格式枚举
+ */
+export enum Model3DFormat {
+  OBJ = 'OBJ',
+  FBX = 'FBX',
+  GLTF = 'GLTF',
+  GLB = 'GLB',
+  STL = 'STL',
+  PLY = 'PLY',
+  '3DS' = '3DS',
+  DAE = 'DAE',
+  USD = 'USD'
 }
 
 // ==================== AI时代MediaResource基础结构 ====================
@@ -81,19 +202,52 @@ export interface MediaResource {
   // === 基础描述 ===
   type?: MediaResourceType;
   mimeType?: string;
-  size?: string;  // 注意：AI标准中size为string类型
+  size?: number;
   name?: string;
   extension?: string;
 
   // === AI 语义（核心）===
-  prompt?: string;                // 可修改、可再生成
-  metadata?: Record<string, any>; // 模型参数 / 生成配置
+  prompt?: string;
+  metadata?: Record<string, any>;
 
   // === 组织与治理 ===
   tags?: TagsContent;
 
+  // === 时间信息 ===
+  createdAt?: string;
+  updatedAt?: string;
+
+  // === 创建者 ===
+  creatorId?: string;
+
+  // === 描述 ===
+  description?: string;
+
   // === 扩展字段 ===
   extras?: Record<string, any>;
+}
+
+// ==================== 卡片相关类型 ====================
+
+/**
+ * 卡片动作
+ */
+export interface CardAction {
+  type: string;
+  url?: string;
+  params?: Record<string, any>;
+  appId?: string;
+  appPath?: string;
+}
+
+/**
+ * 卡片按钮
+ */
+export interface CardButton {
+  text: string;
+  action?: CardAction;
+  style?: string;
+  color?: string;
 }
 
 // ==================== 媒体资源细分规范 ====================
@@ -104,13 +258,15 @@ export interface MediaResource {
  */
 export interface ImageMediaResource extends MediaResource {
   type: MediaResourceType.IMAGE;
-  width?: string;           // AI标准中尺寸为string
-  height?: string;
+  url: string;
+  format?: ImageFormat;
+  width?: number;
+  height?: number;
+  splitImages?: ImageMediaResource[];
   aspectRatio?: string;
-  splitImages?: ImageMediaResource[];  // AI图像分割结果
+  colorMode?: string;
+  dpi?: number;
   thumbnailUrl?: string;
-  thumbnailWidth?: string;
-  thumbnailHeight?: string;
 }
 
 /**
@@ -119,14 +275,16 @@ export interface ImageMediaResource extends MediaResource {
  */
 export interface VideoMediaResource extends MediaResource {
   type: MediaResourceType.VIDEO;
-  duration?: string;        // AI标准中时长为string
-  width?: string;
-  height?: string;
-  coverUrl?: string;
-  coverWidth?: string;
-  coverHeight?: string;
-  frameRate?: string;
+  url: string;
+  format?: VideoFormat;
+  duration?: number;
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  bitRate?: string;
   codec?: string;
+  thumbnailUrl?: string;
+  coverUrl?: string;
 }
 
 /**
@@ -135,15 +293,16 @@ export interface VideoMediaResource extends MediaResource {
  */
 export interface AudioMediaResource extends MediaResource {
   type: MediaResourceType.AUDIO;
+  url: string;
   format?: AudioFormat;
+  duration?: number;
   bitRate?: string;
   sampleRate?: string;
-  channels?: string;
-  duration?: string;
-  // 语音特有
-  text?: string;            // 语音转文字内容
-  waveform?: number[];      // 波形数据
-  speakerId?: string;       // 说话人ID
+  channels?: number;
+  codec?: string;
+  text?: string;
+  waveform?: number[];
+  speakerId?: string;
 }
 
 /**
@@ -152,65 +311,99 @@ export interface AudioMediaResource extends MediaResource {
  */
 export interface MusicMediaResource extends MediaResource {
   type: MediaResourceType.MUSIC;
-  duration?: string;
-  bpm?: string;             // 节拍
-  genre?: string;           // 流派
-  mood?: string;            // 情绪
-  instruments?: string[];   // 乐器
+  url: string;
+  format?: AudioFormat;
+  duration?: number;
+  title?: string;
+  artist?: string;
+  album?: string;
+  genre?: string;
+  lyrics?: string;
+  coverUrl?: string;
+  year?: number;
+  bpm?: number;
+  mood?: string;
+  instruments?: string[];
 }
 
 /**
  * 文件资源（FileMediaResource）
  */
 export interface FileMediaResource extends MediaResource {
-  type: MediaResourceType.FILE | MediaResourceType.DOCUMENT | MediaResourceType.PPT | MediaResourceType.CODE;
-  iconUrl?: string;
-  pages?: string;           // 页数（文档）
-  lines?: string;           // 行数（代码）
-  language?: string;        // 代码语言
+  type: MediaResourceType.FILE;
+  name: string;
+  url: string;
+  mimeType?: string;
+  hash?: string;
+  path?: string;
 }
 
 /**
- * 位置资源（LocationMediaResource）
+ * 文档资源（DocumentMediaResource）
  */
-export interface LocationMediaResource extends MediaResource {
-  type: MediaResourceType.LOCATION;
-  latitude: string;         // AI标准中坐标为string
-  longitude: string;
-  address?: string;
-  locationName?: string;    // 地点名称
-  mapUrl?: string;
-  mapProvider?: string;     // 地图提供商
-}
-
-/**
- * 名片资源（CardMediaResource）
- */
-export interface CardMediaResource extends MediaResource {
-  type: MediaResourceType.CARD;
-  cardType: string;         // user | group | post | product | link
+export interface DocumentMediaResource extends MediaResource {
+  type: MediaResourceType.DOCUMENT;
+  url: string;
+  format?: DocumentFormat;
+  pageCount?: number;
+  author?: string;
   title?: string;
-  description?: string;
-  imageUrl?: string;
-  linkUrl?: string;
-  data?: Record<string, any>;
+  summary?: string;
+  keywords?: string[];
+  contentText?: string;
+  coverUrl?: string;
+  version?: string;
+}
+
+/**
+ * 代码资源（CodeMediaResource）
+ */
+export interface CodeMediaResource extends MediaResource {
+  type: MediaResourceType.CODE;
+  language?: CodeLanguage;
+  code?: string;
+  lineCount?: number;
+  comments?: string;
+  dependencies?: string[];
+  license?: string;
+  version?: string;
+  author?: string;
+}
+
+/**
+ * PPT资源（PptMediaResource）
+ */
+export interface PptMediaResource extends MediaResource {
+  type: MediaResourceType.PPT;
+  format?: PptFormat;
+  slideCount?: number;
+  theme?: string;
+  author?: string;
+  title?: string;
+  notes?: string;
+  slideThumbnails?: string[];
 }
 
 /**
  * 数字人/角色资源（CharacterMediaResource）
- * AI时代的核心资源类型之一：数字主播、AI虚拟员工、Agent Avatar
  */
 export interface CharacterMediaResource extends MediaResource {
   type: MediaResourceType.CHARACTER;
-  characterType?: string;   // 角色类型
+  name?: string;
+  characterType?: string;
   gender?: string;
   ageGroup?: string;
+  avatarImage?: ImageMediaResource;
+  avatarVideo?: VideoMediaResource;
   avatarUrl?: string;
-  avatarVideoUrl?: string;  // 动态头像
-  speakerId?: string;       // TTS说话人ID
-  appearanceParams?: Record<string, any>;  // 外观参数
-  animationParams?: Record<string, any>;   // 动画参数
-  personalityPrompt?: string;              // 性格提示词
+  avatarVideoUrl?: string;
+  speakerId?: string;
+  appearanceParams?: Record<string, any>;
+  animationParams?: Record<string, any>;
+  actions?: string[];
+  expressions?: string[];
+  voiceFeatures?: Record<string, any>;
+  personalityPrompt?: string;
 }
 
 /**
@@ -218,11 +411,67 @@ export interface CharacterMediaResource extends MediaResource {
  */
 export interface Model3DMediaResource extends MediaResource {
   type: MediaResourceType.MODEL_3D;
-  format?: string;          // 格式：glb, gltf, fbx, obj等
-  polygons?: string;        // 多边形数
-  textures?: string;        // 贴图数量
-  animations?: string;      // 动画数量
-  previewUrl?: string;      // 预览图/视频
+  format?: Model3DFormat;
+  vertexCount?: number;
+  faceCount?: number;
+  materialCount?: number;
+  boneCount?: number;
+  animationCount?: number;
+  boundingBox?: {
+    width?: number;
+    height?: number;
+    depth?: number;
+  };
+  previewUrl?: string;
+  textureUrls?: string[];
+  polygons?: number;
+  textures?: string[];
+  animations?: string[];
+}
+
+/**
+ * 卡片资源（CardMediaResource）
+ */
+export interface CardMediaResource extends MediaResource {
+  type: MediaResourceType.CARD;
+  cardType: CardType;
+  title: string;
+  description?: string;
+  thumbnailUrl?: string;
+  sourceName?: string;
+  sourceIcon?: string;
+  targetUrl?: string;
+  appId?: string;
+  appPath?: string;
+  appOriginalId?: string;
+  appVersion?: string;
+  packageName?: string;
+  appDownloadUrl?: string;
+  mainAction?: CardAction;
+  buttons?: CardButton[];
+  extraData?: Record<string, any>;
+  tag?: string;
+  status?: string;
+  expireTime?: string;
+  showSource?: boolean;
+  imageUrl?: string;
+  linkUrl?: string;
+  data?: Record<string, any>;
+}
+
+/**
+ * 位置资源（LocationMediaResource）
+ */
+export interface LocationMediaResource extends MediaResource {
+  type: MediaResourceType.LOCATION;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
+  poiId?: string;
+  cityName?: string;
+  thumbnailUrl?: string;
+  scale?: number;
 }
 
 /**
@@ -246,11 +495,12 @@ export interface AssetMediaResource extends MediaResource {
   audio?: AudioMediaResource;
   music?: MusicMediaResource;
   file?: FileMediaResource;
-  location?: LocationMediaResource;
-  card?: CardMediaResource;
+  document?: DocumentMediaResource;
+  ppt?: PptMediaResource;
+  code?: CodeMediaResource;
   character?: CharacterMediaResource;
   model3d?: Model3DMediaResource;
-  custom?: CustomMediaResource;
+  card?: CardMediaResource;
   extraProps?: Record<string, any>;
 }
 
@@ -265,10 +515,13 @@ export type AnyMediaResource =
   | AudioMediaResource
   | MusicMediaResource
   | FileMediaResource
-  | LocationMediaResource
-  | CardMediaResource
+  | DocumentMediaResource
+  | CodeMediaResource
+  | PptMediaResource
   | CharacterMediaResource
   | Model3DMediaResource
+  | CardMediaResource
+  | LocationMediaResource
   | CustomMediaResource
   | AssetMediaResource;
 
@@ -282,10 +535,10 @@ export type VideoResource = VideoMediaResource;
 export type AudioResource = AudioMediaResource;
 /** @deprecated 使用 FileMediaResource */
 export type FileResource = FileMediaResource;
-/** @deprecated 使用 LocationMediaResource */
-export type LocationResource = LocationMediaResource;
 /** @deprecated 使用 CardMediaResource */
 export type CardResource = CardMediaResource;
+/** @deprecated 使用 LocationMediaResource */
+export type LocationResource = LocationMediaResource;
 /** @deprecated 使用 CustomMediaResource */
 export type CustomResource = CustomMediaResource;
 /** @deprecated 使用 AnyMediaResource */
@@ -304,7 +557,30 @@ export interface TextMessageContent {
 }
 
 /**
- * 媒体消息内容
+ * 用户名片内容
+ */
+export interface UserCardContent {
+  userId: string;
+  nickname?: string;
+  avatar?: string;
+  signature?: string;
+}
+
+/**
+ * 向后兼容的类型别名
+ */
+export type CardContent = UserCardContent;
+
+/**
+ * 系统消息内容
+ */
+export interface SystemMessageContent {
+  type: string;
+  data?: Record<string, any>;
+}
+
+/**
+ * 媒体消息内容（旧版API兼容）
  */
 export interface MediaMessageContent<T extends AnyMediaResource = AnyMediaResource> {
   type: 'media';
@@ -322,12 +598,35 @@ export interface CombinedMessageContent {
 }
 
 /**
+ * 标准消息内容（与API文档一致）
+ */
+export interface StandardMessageContent {
+  text?: TextMessageContent;
+  image?: ImageMediaResource;
+  audio?: AudioMediaResource;
+  video?: VideoMediaResource;
+  file?: FileMediaResource;
+  music?: MusicMediaResource;
+  document?: DocumentMediaResource;
+  code?: CodeMediaResource;
+  ppt?: PptMediaResource;
+  character?: CharacterMediaResource;
+  model3d?: Model3DMediaResource;
+  location?: LocationMediaResource;
+  card?: UserCardContent;
+  cardResource?: CardMediaResource;
+  custom?: CustomMediaResource;
+  system?: SystemMessageContent;
+}
+
+/**
  * 消息内容联合类型
  */
 export type MessageContent =
   | TextMessageContent
   | MediaMessageContent
-  | CombinedMessageContent;
+  | CombinedMessageContent
+  | StandardMessageContent;
 
 // ==================== 消息定义 ====================
 
@@ -419,6 +718,43 @@ export interface SendCustomMessageParams extends SendMessageBaseParams {
   data: Record<string, any>;
 }
 
+// ==================== 标准发送消息参数（与API文档一致） ====================
+
+/**
+ * 标准发送消息参数
+ */
+export interface SendMessageParams {
+  /** 消息UUID（客户端生成，用于去重） */
+  uuid?: string;
+  /** 消息类型 */
+  type: string;
+  /** 消息内容 */
+  content: StandardMessageContent;
+  /** 发送者用户ID */
+  fromUserId: string;
+  /** 接收者用户ID（单聊时必填） */
+  toUserId?: string;
+  /** 群组ID（群聊时必填） */
+  groupId?: string;
+  /** 回复的消息ID */
+  replyToId?: string;
+  /** 转发来源消息ID */
+  forwardFromId?: string;
+  /** 客户端序列号，用于消息去重 */
+  clientSeq?: number;
+  /** 扩展数据 */
+  extra?: Record<string, any>;
+  /** 是否需要已读回执，默认true */
+  needReadReceipt?: boolean;
+}
+
+/**
+ * 批量发送消息参数
+ */
+export interface BatchSendMessagesParams {
+  messages: SendMessageParams[];
+}
+
 // ==================== 旧版API兼容（已废弃） ====================
 
 /** @deprecated 使用新的SendMessageBaseParams，直接使用userId或groupId */
@@ -472,7 +808,7 @@ export class ResourceBuilder {
   /**
    * 创建音频资源
    */
-  static audio(url: string, duration: string, options?: Omit<AudioMediaResource, 'type' | 'url' | 'duration'>): AudioMediaResource {
+  static audio(url: string, duration: number, options?: Omit<AudioMediaResource, 'type' | 'url' | 'duration'>): AudioMediaResource {
     return {
       type: MediaResourceType.AUDIO,
       url,
@@ -497,7 +833,7 @@ export class ResourceBuilder {
   /**
    * 创建视频资源
    */
-  static video(url: string, duration: string, options?: Omit<VideoMediaResource, 'type' | 'url' | 'duration'>): VideoMediaResource {
+  static video(url: string, duration: number, options?: Omit<VideoMediaResource, 'type' | 'url' | 'duration'>): VideoMediaResource {
     return {
       type: MediaResourceType.VIDEO,
       url,
@@ -509,7 +845,7 @@ export class ResourceBuilder {
   /**
    * 创建AI生成视频资源（带prompt）
    */
-  static aiVideo(prompt: string, url: string, duration: string, options?: Omit<VideoMediaResource, 'type' | 'url' | 'duration' | 'prompt'>): VideoMediaResource {
+  static aiVideo(prompt: string, url: string, duration: number, options?: Omit<VideoMediaResource, 'type' | 'url' | 'duration' | 'prompt'>): VideoMediaResource {
     return {
       type: MediaResourceType.VIDEO,
       prompt,
@@ -522,7 +858,7 @@ export class ResourceBuilder {
   /**
    * 创建音乐资源
    */
-  static music(url: string, duration: string, options?: Omit<MusicMediaResource, 'type' | 'url' | 'duration'>): MusicMediaResource {
+  static music(url: string, duration: number, options?: Omit<MusicMediaResource, 'type' | 'url' | 'duration'>): MusicMediaResource {
     return {
       type: MediaResourceType.MUSIC,
       url,
@@ -534,7 +870,7 @@ export class ResourceBuilder {
   /**
    * 创建AI生成音乐资源（带prompt）
    */
-  static aiMusic(prompt: string, url: string, duration: string, options?: Omit<MusicMediaResource, 'type' | 'url' | 'duration' | 'prompt'>): MusicMediaResource {
+  static aiMusic(prompt: string, url: string, duration: number, options?: Omit<MusicMediaResource, 'type' | 'url' | 'duration' | 'prompt'>): MusicMediaResource {
     return {
       type: MediaResourceType.MUSIC,
       prompt,
@@ -557,24 +893,97 @@ export class ResourceBuilder {
   }
 
   /**
-   * 创建位置资源
+   * 创建文档资源
    */
-  static location(latitude: string, longitude: string, options?: Omit<LocationMediaResource, 'type' | 'latitude' | 'longitude'>): LocationMediaResource {
+  static document(url: string, options?: Omit<DocumentMediaResource, 'type' | 'url'>): DocumentMediaResource {
     return {
-      type: MediaResourceType.LOCATION,
-      latitude,
-      longitude,
+      type: MediaResourceType.DOCUMENT,
+      url,
       ...options,
     };
   }
 
   /**
-   * 创建名片资源
+   * 创建代码资源
    */
-  static card(cardType: string, options?: Omit<CardMediaResource, 'type' | 'cardType'>): CardMediaResource {
+  static code(options?: Omit<CodeMediaResource, 'type'>): CodeMediaResource {
+    return {
+      type: MediaResourceType.CODE,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建PPT资源
+   */
+  static ppt(options?: Omit<PptMediaResource, 'type'>): PptMediaResource {
+    return {
+      type: MediaResourceType.PPT,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建卡片资源
+   */
+  static card(cardType: CardType, title: string, options?: Omit<CardMediaResource, 'type' | 'cardType' | 'title'>): CardMediaResource {
     return {
       type: MediaResourceType.CARD,
       cardType,
+      title,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建小程序卡片
+   */
+  static miniProgramCard(
+    title: string,
+    appId: string,
+    appPath: string,
+    options?: Omit<CardMediaResource, 'type' | 'cardType' | 'title' | 'appId' | 'appPath'>
+  ): CardMediaResource {
+    return {
+      type: MediaResourceType.CARD,
+      cardType: CardType.MINI_PROGRAM,
+      title,
+      appId,
+      appPath,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建应用卡片
+   */
+  static appCard(
+    title: string,
+    packageName: string,
+    options?: Omit<CardMediaResource, 'type' | 'cardType' | 'title' | 'packageName'>
+  ): CardMediaResource {
+    return {
+      type: MediaResourceType.CARD,
+      cardType: CardType.APP,
+      title,
+      packageName,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建链接卡片
+   */
+  static linkCard(
+    title: string,
+    targetUrl: string,
+    options?: Omit<CardMediaResource, 'type' | 'cardType' | 'title' | 'targetUrl'>
+  ): CardMediaResource {
+    return {
+      type: MediaResourceType.CARD,
+      cardType: CardType.LINK,
+      title,
+      targetUrl,
       ...options,
     };
   }
@@ -593,23 +1002,10 @@ export class ResourceBuilder {
   /**
    * 创建3D模型资源
    */
-  static model3d(url: string, format: string, options?: Omit<Model3DMediaResource, 'type' | 'url' | 'format'>): Model3DMediaResource {
+  static model3d(format: Model3DFormat, options?: Omit<Model3DMediaResource, 'type' | 'format'>): Model3DMediaResource {
     return {
       type: MediaResourceType.MODEL_3D,
-      url,
       format,
-      ...options,
-    };
-  }
-
-  /**
-   * 创建自定义资源
-   */
-  static custom(customType: string, data: Record<string, any>, options?: Omit<CustomMediaResource, 'type' | 'customType' | 'data'>): CustomMediaResource {
-    return {
-      type: MediaResourceType.CUSTOM,
-      customType,
-      data,
       ...options,
     };
   }
@@ -619,7 +1015,7 @@ export class ResourceBuilder {
    */
   static asset(options: Omit<AssetMediaResource, 'type'>): AssetMediaResource {
     return {
-      type: MediaResourceType.FILE, // 基础类型
+      type: MediaResourceType.FILE,
       ...options,
     };
   }

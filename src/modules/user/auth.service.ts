@@ -14,6 +14,7 @@ import {
   AUTH_ERRORS,
   VerificationCodeType,
 } from '../../common/constants';
+import { TokenBlacklistService } from '../../common/auth/token-blacklist.service';
 
 // 认证响应类型
 export class AuthResponse {
@@ -47,6 +48,7 @@ export class AuthService {
     private userSyncService: UserSyncService,
     private configService: ConfigService,
     private verificationCodeService: VerificationCodeService,
+    private tokenBlacklistService: TokenBlacklistService,
   ) {
     // 从配置中读取 JWT 配置，确保有默认值
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') || JWT_CONFIG.DEFAULT_SECRET;
@@ -101,6 +103,13 @@ export class AuthService {
    */
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
     try {
+      // 1. 检查refreshToken是否在黑名单中
+      const isBlacklisted = await this.tokenBlacklistService.isBlacklisted(refreshToken);
+      if (isBlacklisted) {
+        this.logger.warn(`Refresh token is blacklisted`);
+        throw new UnauthorizedException('刷新令牌已失效');
+      }
+
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.jwtSecret,
       });
@@ -116,6 +125,9 @@ export class AuthService {
         throw new UnauthorizedException('用户不存在');
       }
 
+      // 2. 将旧的refreshToken加入黑名单
+      await this.tokenBlacklistService.addToBlacklist(refreshToken, 'refresh_token_used');
+
       const newToken = this.generateToken(userId);
       const newRefreshToken = this.generateRefreshToken(userId);
 
@@ -126,14 +138,30 @@ export class AuthService {
         token: newToken,
         refreshToken: newRefreshToken,
         expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
-      };
+        };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('无效的刷新令牌');
     }
   }
 
-  async logout(userId: string): Promise<void> {
+  async logout(userId: string, accessToken?: string, refreshToken?: string): Promise<void> {
     this.logger.log(`User ${userId} logged out`);
+
+    // 将accessToken和refreshToken加入黑名单
+    if (accessToken) {
+      await this.tokenBlacklistService.addToBlacklist(accessToken, 'logout');
+    }
+    if (refreshToken) {
+      await this.tokenBlacklistService.addToBlacklist(refreshToken, 'logout');
+    }
+
+    // 如果没有提供token，可以选择将用户所有token都加入黑名单
+    if (!accessToken && !refreshToken) {
+      await this.tokenBlacklistService.blacklistAllUserTokens(userId, 'logout');
+    }
   }
 
   /**

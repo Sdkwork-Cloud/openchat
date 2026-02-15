@@ -4,17 +4,15 @@ OpenChat 服务端通过环境变量进行配置，支持 `.env` 文件方式管
 
 ## 配置文件
 
-项目提供三个环境配置模板：
+项目提供统一的环境配置模板：
 
 | 文件 | 用途 |
 |------|------|
-| `.env.development` | 开发环境 |
-| `.env.test` | 测试环境 |
-| `.env.production` | 生产环境 |
+| `.env.example` | 环境变量配置模板 |
 
 ```bash
 # 复制配置模板
-cp .env.production .env
+cp .env.example .env
 
 # 编辑配置
 vim .env
@@ -37,6 +35,7 @@ vim .env
 | `DB_USER` | 数据库用户 | `openchat` |
 | `DB_PASSWORD` | 数据库密码 | `openchat_password` |
 | `DB_NAME` | 数据库名称 | `openchat` |
+| `DB_SYNCHRONIZE` | 自动同步表结构 | 开发环境 `true`，生产环境 `false` |
 | `DB_LOGGING` | SQL 日志 | `false` |
 
 ### 连接池配置
@@ -47,6 +46,7 @@ vim .env
 | `DB_POOL_MIN` | 最小连接数 | `5` |
 | `DB_IDLE_TIMEOUT` | 空闲超时(ms) | `30000` |
 | `DB_CONNECTION_TIMEOUT` | 连接超时(ms) | `5000` |
+| `DB_MAX_LIFETIME` | 连接最大生命周期(ms) | `300000` |
 
 ## Redis 配置
 
@@ -176,6 +176,6 @@ CONCURRENCY_MAX=10
 
 ## 下一步
 
-- [数据库配置](./database) - 数据库详细配置
-- [WukongIM 配置](./wukongim) - IM 服务配置
-- [RTC 配置](./rtc) - 音视频配置
+- [数据库配置](./database.md) - 数据库详细配置
+- [WukongIM 配置](./wukongim.md) - IM 服务配置
+- [RTC 配置](./rtc.md) - 音视频配置

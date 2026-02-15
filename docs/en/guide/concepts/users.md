@@ -1,29 +1,34 @@
-# 用户系统
+# User System
 
-## 用户模型
+## User Model
 
 ```typescript
 interface User {
-  id: string;           // 用户唯一标识
-  username: string;     // 用户名
-  nickname: string;     // 昵称
-  avatar?: string;      // 头像 URL
-  status: UserStatus;   // 在线状态
-  createdAt: Date;      // 创建时间
+  id: string;           // Unique user identifier
+  username: string;     // Username
+  nickname: string;     // Display name
+  avatar?: string;      // Avatar URL
+  status: UserStatus;   // Online status
+  createdAt: Date;      // Creation time
 }
 
 type UserStatus = 'online' | 'offline' | 'busy' | 'away';
 ```
 
-## 用户状态
+## User Status
 
-- **online** - 在线
-- **offline** - 离线
-- **busy** - 忙碌
-- **away** - 离开
+- **online** - Online
+- **offline** - Offline
+- **busy** - Busy
+- **away** - Away
 
-## 用户关系
+## User Relationships
 
-- **好友** - 双向关注关系
-- **陌生人** - 无关系
-- **黑名单** - 屏蔽关系
+- **Friend** - Mutual follow relationship
+- **Stranger** - No relationship
+- **Blacklist** - Blocked relationship
+
+## Related APIs
+
+- [User Management API](/en/api/users.md)
+- [Friend Management API](/en/api/friends.md)

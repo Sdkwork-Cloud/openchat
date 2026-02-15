@@ -265,7 +265,7 @@ OpenChat 提供完整的即时通讯功能，从基础聊天到高级音视频�
 
 ## 更多资源
 
-- [快速开始](./quickstart) - 快速上手 OpenChat
-- [架构设计](./architecture) - 了解系统架构
-- [API 文档](/api/) - 查看完整 API
-- [SDK 文档](/sdk/) - 使用 SDK 开发
+- [快速开始](./quickstart.md) - 快速上手 OpenChat
+- [架构设计](./architecture.md) - 了解系统架构
+- [API 文档](/zh/api/) - 查看完整 API
+- [SDK 文档](/zh/sdk/) - 使用 SDK 开发

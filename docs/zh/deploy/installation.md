@@ -1,5 +1,7 @@
 # OpenChat Server 安装指南
 
+本指南将帮助您在不同平台上安装和配置 OpenChat Server。
+
 ## 系统要求
 
 ### 硬件要求
@@ -12,40 +14,46 @@
 
 ### 软件要求
 
-| 软件 | 版本要求 |
-|------|---------|
-| Docker | 24.0+ |
-| Docker Compose | 2.0+ |
-| Node.js | 18+ (开发模式) |
-| PostgreSQL | 15+ (外部数据库) |
-| Redis | 7+ (外部缓存) |
+| 软件 | 版本要求 | 说明 |
+|------|---------|------|
+| Docker | 24.0+ | 容器运行时 |
+| Docker Compose | 2.0+ | 容器编排 |
+| Node.js | 18+ | 开发模式需要 |
+| pnpm | 8+ | 包管理器 |
+| Git | 2.0+ | 版本控制 |
 
 ## 安装前检查
 
 在安装前，建议运行检查脚本验证系统环境：
 
-```bash
-# Linux / macOS
-pnpm run precheck
+::: code-group
 
-# Windows
+```bash [Linux/macOS]
+# 运行预检查脚本
+pnpm run precheck
+```
+
+```powershell [Windows]
+# 运行预检查脚本
 pnpm run precheck:win
 ```
 
+:::
+
 检查项目包括：
-- 操作系统和架构
-- 内存和磁盘空间
-- Docker 和 Docker Compose 安装状态
-- 端口可用性
-- 网络连接
+- ✅ 操作系统和架构
+- ✅ 内存和磁盘空间
+- ✅ Docker 和 Docker Compose 安装状态
+- ✅ 端口可用性
+- ✅ 网络连接
 
 ## 快速安装
 
-### 一键安装 (推荐)
+### 方式一：一键安装脚本 (推荐)
 
-**Linux / macOS:**
+::: code-group
 
-```bash
+```bash [Linux/macOS]
 # 下载并运行安装脚本
 curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
 
@@ -55,9 +63,7 @@ cd openchat
 ./scripts/quick-install.sh
 ```
 
-**Windows:**
-
-```powershell
+```powershell [Windows]
 # 快速安装
 .\scripts\quick-install.bat
 
@@ -65,9 +71,17 @@ cd openchat
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-### Docker 快速启动
+:::
 
-```bash
+### 方式二：Docker 快速启动
+
+::: code-group
+
+```bash [Linux/macOS]
+# 克隆项目
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
 # 一条命令启动所有服务
 docker compose -f docker-compose.quick.yml up -d
 
@@ -81,9 +95,67 @@ docker compose ps
 docker compose logs -f
 ```
 
+```powershell [Windows]
+# 克隆项目
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# 一条命令启动所有服务
+docker compose -f docker-compose.quick.yml up -d
+
+# 或使用 npm 脚本
+pnpm run docker:quick
+
+# 查看服务状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f
+```
+
+:::
+
+### 方式三：本地开发模式
+
+::: code-group
+
+```bash [Linux/macOS]
+# 克隆项目
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# 安装依赖
+pnpm install
+
+# 配置环境
+cp .env.example .env
+
+# 启动开发服务
+pnpm run dev
+```
+
+```powershell [Windows]
+# 克隆项目
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# 安装依赖
+pnpm install
+
+# 配置环境
+copy .env.example .env
+
+# 启动开发服务
+pnpm run dev
+```
+
+:::
+
 ### 验证安装
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 健康检查
 curl http://localhost:3000/health
 
@@ -94,13 +166,28 @@ pnpm run health
 pnpm run health:full
 ```
 
-## 安装模式
+```powershell [Windows]
+# 健康检查
+Invoke-WebRequest -Uri http://localhost:3000/health
+
+# 运行健康检查脚本
+pnpm run health
+
+# 完整诊断
+pnpm run health:full
+```
+
+:::
+
+## 安装模式详解
 
 ### 1. Docker 快速模式 (推荐新手)
 
 最简单的安装方式，适合快速体验和开发测试。
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 使用快速配置
 docker compose -f docker-compose.quick.yml up -d
 
@@ -108,26 +195,57 @@ docker compose -f docker-compose.quick.yml up -d
 pnpm run docker:quick
 ```
 
+```powershell [Windows]
+# 使用快速配置
+docker compose -f docker-compose.quick.yml up -d
+
+# 或使用 npm 脚本
+pnpm run docker:quick
+```
+
+:::
+
 **特点：**
-- 自动安装所有依赖服务
-- 开箱即用
-- 易于管理和维护
+- ✅ 自动安装所有依赖服务
+- ✅ 开箱即用
+- ✅ 易于管理和维护
 
 ### 2. 外部服务模式
 
 使用外部数据库和 Redis，适合生产环境。
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 配置外部服务
 cp .env.example .env
 
-# 编辑配置
+# 编辑配置文件
+vim .env
+```
+
+```powershell [Windows]
+# 配置外部服务
+copy .env.example .env
+
+# 编辑配置文件
+notepad .env
+```
+
+:::
+
+配置内容：
+
+```bash
 DB_HOST=your-db-host
 DB_PORT=5432
 REDIS_HOST=your-redis-host
 REDIS_PORT=6379
+```
 
-# 启动
+启动服务：
+
+```bash
 docker compose -f docker-compose.external-db.yml up -d
 ```
 
@@ -135,19 +253,32 @@ docker compose -f docker-compose.external-db.yml up -d
 
 直接在服务器上运行，适合需要精细控制的场景。
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 使用安装脚本
 sudo ./scripts/install.sh standalone
 
 # 或手动安装
-npm install
-npm run build
-npm run start:prod
+pnpm install
+pnpm run build
+pnpm run start:prod
 ```
+
+```powershell [Windows]
+# 手动安装
+pnpm install
+pnpm run build
+pnpm run start:prod
+```
+
+:::
 
 ## 环境配置
 
 ### 必需配置项
+
+创建 `.env` 文件并配置以下内容：
 
 ```bash
 # 服务器 IP（音视频通话需要）
@@ -191,7 +322,9 @@ RATE_LIMIT_MAX=100
 
 ### 1. 安全配置
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 生成强密码
 openssl rand -base64 24
 
@@ -202,14 +335,26 @@ openssl rand -base64 32
 vim .env
 ```
 
+```powershell [Windows]
+# 生成强密码 (需要 OpenSSL)
+openssl rand -base64 24
+
+# 或使用 PowerShell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+
+# 更新 .env 文件
+notepad .env
+```
+
+:::
+
 ### 2. 防火墙配置
 
-```bash
-# 开放必要端口
-# 应用端口
-firewall-cmd --permanent --add-port=3000/tcp
+::: code-group
 
-# WukongIM 端口
+```bash [Linux (firewalld)]
+# 开放必要端口
+firewall-cmd --permanent --add-port=3000/tcp
 firewall-cmd --permanent --add-port=5001/tcp
 firewall-cmd --permanent --add-port=5100/tcp
 firewall-cmd --permanent --add-port=5200/tcp
@@ -218,9 +363,32 @@ firewall-cmd --permanent --add-port=5200/tcp
 firewall-cmd --reload
 ```
 
+```bash [Linux (ufw)]
+# 开放必要端口
+sudo ufw allow 3000/tcp
+sudo ufw allow 5001/tcp
+sudo ufw allow 5100/tcp
+sudo ufw allow 5200/tcp
+
+# 启用防火墙
+sudo ufw enable
+```
+
+```powershell [Windows]
+# 开放必要端口 (管理员权限)
+New-NetFirewallRule -DisplayName "OpenChat API" -Direction Inbound -Port 3000 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "WukongIM API" -Direction Inbound -Port 5001 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "WukongIM TCP" -Direction Inbound -Port 5100 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "WukongIM WS" -Direction Inbound -Port 5200 -Protocol TCP -Action Allow
+```
+
+:::
+
 ### 3. SSL 配置
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 创建 SSL 目录
 mkdir -p etc/nginx/ssl
 
@@ -235,11 +403,30 @@ mv etc/nginx/conf.d/ssl.conf.example etc/nginx/conf.d/ssl.conf
 docker compose restart nginx
 ```
 
+```powershell [Windows]
+# 创建 SSL 目录
+New-Item -ItemType Directory -Force -Path etc\nginx\ssl
+
+# 复制证书
+copy your-cert.pem etc\nginx\ssl\cert.pem
+copy your-key.pem etc\nginx\ssl\key.pem
+
+# 启用 HTTPS 配置
+Rename-Item etc\nginx\conf.d\ssl.conf.example ssl.conf
+
+# 重启 Nginx
+docker compose restart nginx
+```
+
+:::
+
 ## 验证安装
 
 ### 健康检查
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 快速检查
 ./scripts/health-check.sh quick
 
@@ -252,34 +439,76 @@ docker compose restart nginx
 ./scripts/health-check.sh wukongim
 ```
 
+```powershell [Windows]
+# 快速检查
+pnpm run health
+
+# 完整诊断
+pnpm run health:full
+```
+
+:::
+
 ### 访问测试
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # API 健康检查
 curl http://localhost:3000/health
 
-# API 文档
+# 打开 API 文档
 open http://localhost:3000/api/docs
 
-# WukongIM 管理后台
+# 打开 WukongIM 管理后台
 open http://localhost:5300/web
 ```
+
+```powershell [Windows]
+# API 健康检查
+Invoke-WebRequest -Uri http://localhost:3000/health
+
+# 打开 API 文档
+Start-Process "http://localhost:3000/api/docs"
+
+# 打开 WukongIM 管理后台
+Start-Process "http://localhost:5300/web"
+```
+
+:::
 
 ## 常见问题
 
 ### 端口被占用
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 查看端口占用
 lsof -i :3000
 
-# 修改端口
-# 编辑 .env 文件中的 PORT 配置
+# 或使用 netstat
+netstat -tlnp | grep 3000
+
+# 终止占用进程
+kill -9 <PID>
 ```
+
+```powershell [Windows]
+# 查看端口占用
+netstat -ano | findstr :3000
+
+# 终止占用进程
+taskkill /PID <PID> /F
+```
+
+:::
 
 ### 数据库连接失败
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 检查数据库状态
 docker compose ps postgres
 
@@ -290,19 +519,46 @@ docker compose logs postgres
 docker exec -it openchat-postgres psql -U openchat -d openchat
 ```
 
+```powershell [Windows]
+# 检查数据库状态
+docker compose ps postgres
+
+# 查看数据库日志
+docker compose logs postgres
+
+# 测试连接
+docker exec -it openchat-postgres psql -U openchat -d openchat
+```
+
+:::
+
 ### 内存不足
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 查看资源使用
 docker stats
 
-# 调整资源限制
-# 编辑 .env 文件中的 *_MEMORY_LIMIT 配置
+# 查看系统内存
+free -h
 ```
+
+```powershell [Windows]
+# 查看资源使用
+docker stats
+
+# 查看系统内存
+Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 10
+```
+
+:::
 
 ### 服务无法启动
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 查看日志
 docker compose logs app
 
@@ -313,9 +569,21 @@ docker compose logs app
 ./scripts/auto-fix.sh
 ```
 
+```powershell [Windows]
+# 查看日志
+docker compose logs app
+
+# 运行诊断
+pnpm run health:full
+```
+
+:::
+
 ## 升级
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 备份数据
 make db-backup
 
@@ -326,9 +594,24 @@ git pull
 make update
 ```
 
+```powershell [Windows]
+# 备份数据
+pnpm run db:backup
+
+# 拉取最新代码
+git pull
+
+# 更新服务
+pnpm run update
+```
+
+:::
+
 ## 卸载
 
-```bash
+::: code-group
+
+```bash [Linux/macOS]
 # 使用安装脚本卸载
 ./scripts/install.sh uninstall
 
@@ -337,8 +620,16 @@ docker compose down -v
 rm -rf /opt/openchat
 ```
 
+```powershell [Windows]
+# 手动卸载
+docker compose down -v
+Remove-Item -Recurse -Force .\data
+```
+
+:::
+
 ## 下一步
 
 - [配置说明](../config/) - 详细配置参数
 - [API 文档](../api/) - API 接口文档
-- [开发指南](../development/) - 开发指南
+- [项目概览](../guide/overview.md) - 了解项目架构

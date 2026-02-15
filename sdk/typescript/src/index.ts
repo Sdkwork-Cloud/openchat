@@ -50,7 +50,6 @@ export * from './core';
 
 // ==================== 类型定义 ====================
 export * from './types';
-export * from './types/message';
 
 // ==================== 核心客户端 ====================
 export { 
@@ -78,7 +77,10 @@ export {
 } from './utils/platform-detector';
 
 export {
-  createHttpClient,
+  createHttpClient
+} from './utils/http-client';
+
+export type {
   HttpRequestConfig,
   HttpResponse,
   HttpClient

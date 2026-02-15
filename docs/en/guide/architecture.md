@@ -1,14 +1,14 @@
-# 架构设计
+# Architecture Design
 
-本文档详细介绍 OpenChat 的系统架构设计，包括整体架构、数据流、模块划分等核心设计思想。
+This document details OpenChat's system architecture design, including overall architecture, data flow, module division, and other core design concepts.
 
-## 整体架构
+## Overall Architecture
 
-OpenChat 采用**分层架构**设计，从下到上分为：基础设施层、数据层、服务层、网关层和客户端层。
+OpenChat adopts a **layered architecture** design, divided from bottom to top: infrastructure layer, data layer, service layer, gateway layer, and client layer.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              客户端层 (Client Layer)                         │
+│                              Client Layer                                    │
 ├──────────────┬──────────────┬──────────────┬──────────────┬─────────────────┤
 │   Web App    │  PC Client   │  Mobile App  │   Mini App   │  Third Party    │
 │   (React)    │   (Electron) │  (React      │   (WeChat)   │  (Telegram/     │
@@ -24,14 +24,14 @@ OpenChat 采用**分层架构**设计，从下到上分为：基础设施层、�
                               └─────┬─────┘
                                     │
 ┌───────────────────────────────────┼─────────────────────────────────────────┐
-│                              网关层 (Gateway Layer)                          │
+│                              Gateway Layer                                   │
 ├───────────────────────────────────┼─────────────────────────────────────────┤
 │                           Nginx / Traefik                                    │
-│                    (负载均衡 / SSL终止 / 路由)                                │
+│                    (Load Balance / SSL Termination / Routing)               │
 └───────────────────────────────────┬─────────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────┼─────────────────────────────────────────┐
-│                              服务层 (Service Layer)                          │
+│                              Service Layer                                   │
 ├───────────────────────────────────┼─────────────────────────────────────────┤
 │                           OpenChat Server                                    │
 │  ┌──────────────┬──────────────┬──────────────┬──────────────┬─────────────┐ │
@@ -45,9 +45,9 @@ OpenChat 采用**分层架构**设计，从下到上分为：基础设施层、�
 └───────────────────────────────────┬─────────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────┼─────────────────────────────────────────┐
-│                              消息层 (Message Layer)                          │
+│                              Message Layer                                   │
 ├───────────────────────────────────┼─────────────────────────────────────────┤
-│                              悟空IM (WuKongIM)                               │
+│                              WuKongIM                                        │
 │  ┌──────────────┬──────────────┬──────────────┬──────────────┬─────────────┐ │
 │  │   TCP        │   WebSocket  │   Message    │   Channel    │   Push      │ │
 │  │   Gateway    │   Gateway    │   Router     │   Manager    │   Service   │ │
@@ -55,92 +55,92 @@ OpenChat 采用**分层架构**设计，从下到上分为：基础设施层、�
 └───────────────────────────────────┬─────────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────┼─────────────────────────────────────────┐
-│                               数据层 (Data Layer)                            │
+│                               Data Layer                                     │
 ├──────────────────┬────────────────┼────────────────┬─────────────────────────┤
 │   PostgreSQL     │     Redis      │    MinIO       │   Elasticsearch         │
-│  (关系型数据)     │   (缓存/会话)   │   (文件存储)    │    (全文搜索)           │
+│  (Relational)    │  (Cache/Session)│  (File Storage)│   (Full-text Search)    │
 └──────────────────┴────────────────┴────────────────┴─────────────────────────┘
                                     │
 ┌───────────────────────────────────┴─────────────────────────────────────────┐
-│                           基础设施层 (Infrastructure Layer)                  │
+│                           Infrastructure Layer                               │
 ├──────────────────┬────────────────┬────────────────┬─────────────────────────┤
 │      Docker      │  Kubernetes    │     CI/CD      │    Monitoring           │
-│   (容器化)        │   (编排)        │   (GitHub      │    (Prometheus/         │
-│                  │                │    Actions)    │     Grafana)            │
+│  (Container)     │  (Orchestration)│  (GitHub       │    (Prometheus/         │
+│                  │                │   Actions)     │     Grafana)            │
 └──────────────────┴────────────────┴────────────────┴─────────────────────────┘
 ```
 
-## 核心模块
+## Core Modules
 
-### 1. 认证服务 (Auth Service)
+### 1. Auth Service
 
-负责用户认证和授权：
+Responsible for user authentication and authorization:
 
-- **功能**: 用户注册、登录、Token 管理、权限验证
-- **技术**: JWT、bcrypt、Redis Session
+- **Features**: User registration, login, token management, permission verification
+- **Technology**: JWT, bcrypt, Redis Session
 - **API**: `/auth/*`
 
 ```typescript
-// 认证流程
+// Authentication Flow
 Client -> Login API -> Validate -> Generate JWT -> Return Token
-                    -> Store Session in Redis
+                       -> Store Session in Redis
 ```
 
-### 2. 用户服务 (User Service)
+### 2. User Service
 
-管理用户信息和状态：
+Manages user information and status:
 
-- **功能**: 用户信息管理、在线状态、用户搜索
-- **数据**: User 表、UserStatus 表
+- **Features**: User info management, online status, user search
+- **Data**: User table, UserStatus table
 - **API**: `/users/*`
 
-### 3. 消息服务 (Message Service)
+### 3. Message Service
 
-处理消息相关业务：
+Handles message-related business:
 
-- **功能**: 消息存储、历史查询、消息撤回、已读回执
-- **数据**: Message 表、Conversation 表
+- **Features**: Message storage, history query, message recall, read receipts
+- **Data**: Message table, Conversation table
 - **API**: `/messages/*`
 
-### 4. 群组服务 (Group Service)
+### 4. Group Service
 
-管理群组和群成员：
+Manages groups and group members:
 
-- **功能**: 群组创建、成员管理、群设置
-- **数据**: Group 表、GroupMember 表
+- **Features**: Group creation, member management, group settings
+- **Data**: Group table, GroupMember table
 - **API**: `/groups/*`
 
-### 5. 好友服务 (Friend Service)
+### 5. Friend Service
 
-管理好友关系：
+Manages friend relationships:
 
-- **功能**: 好友申请、好友列表、黑名单
-- **数据**: Friend 表、FriendRequest 表
+- **Features**: Friend requests, friend list, blacklist
+- **Data**: Friend table, FriendRequest table
 - **API**: `/friends/*`
 
-### 6. RTC 服务 (RTC Service)
+### 6. RTC Service
 
-音视频通话管理：
+Audio/video call management:
 
-- **功能**: 房间管理、Token 生成、通话记录
-- **集成**: 火山引擎 RTC、腾讯云 RTC
+- **Features**: Room management, token generation, call records
+- **Integration**: Volcengine RTC, Tencent Cloud RTC
 - **API**: `/rtc/*`
 
-### 7. AI Bot 服务
+### 7. AI Bot Service
 
-AI 助手功能：
+AI assistant features:
 
-- **功能**: Bot 管理、对话管理、AI 接口调用
-- **集成**: OpenAI GPT、Claude
+- **Features**: Bot management, conversation management, AI interface calls
+- **Integration**: OpenAI GPT, Claude
 - **API**: `/ai-bots/*`
 
-## 数据流
+## Data Flow
 
-### 消息发送流程
+### Message Sending Flow
 
 ```
 ┌─────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Client  │────▶│   OpenChat  │────▶│   悟空IM    │────▶│   Target    │
+│ Client  │────▶│   OpenChat  │────▶│   WuKongIM  │────▶│   Target    │
 │         │     │   Server    │     │             │     │   Client    │
 └─────────┘     └─────────────┘     └─────────────┘     └─────────────┘
       │                │                   │                   │
@@ -156,7 +156,7 @@ AI 助手功能：
       │◀───────────────│                   │                   │
 ```
 
-### 用户登录流程
+### User Login Flow
 
 ```
 ┌─────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -178,44 +178,44 @@ AI 助手功能：
       │◀───────────────│◀──────────────────│                   │
 ```
 
-## 技术选型
+## Technology Stack
 
-### 后端技术栈
+### Backend Stack
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| [NestJS](https://nestjs.com/) | ^10.0 | Node.js 框架 |
-| [TypeScript](https://www.typescriptlang.org/) | ^5.0 | 开发语言 |
-| [TypeORM](https://typeorm.io/) | ^0.3 | ORM 框架 |
-| [PostgreSQL](https://www.postgresql.org/) | 15+ | 关系型数据库 |
-| [Redis](https://redis.io/) | 7+ | 缓存/会话 |
-| [悟空IM](https://githubim.com/) | v2 | IM 消息服务 |
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| [NestJS](https://nestjs.com/) | ^10.0 | Node.js framework |
+| [TypeScript](https://www.typescriptlang.org/) | ^5.0 | Development language |
+| [TypeORM](https://typeorm.io/) | ^0.3 | ORM framework |
+| [PostgreSQL](https://www.postgresql.org/) | 15+ | Relational database |
+| [Redis](https://redis.io/) | 7+ | Cache/Session |
+| [WuKongIM](https://githubim.com/) | v2 | IM message service |
 
-### 前端技术栈
+### Frontend Stack
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| [React](https://react.dev/) | ^18.0 | UI 框架 |
-| [TypeScript](https://www.typescriptlang.org/) | ^5.0 | 开发语言 |
-| [Tailwind CSS](https://tailwindcss.com/) | ^3.0 | CSS 框架 |
-| [Zustand](https://github.com/pmndrs/zustand) | ^4.4 | 状态管理 |
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| [React](https://react.dev/) | ^18.0 | UI framework |
+| [TypeScript](https://www.typescriptlang.org/) | ^5.0 | Development language |
+| [Tailwind CSS](https://tailwindcss.com/) | ^3.0 | CSS framework |
+| [Zustand](https://github.com/pmndrs/zustand) | ^4.4 | State management |
 
-### 基础设施
+### Infrastructure
 
-| 技术 | 用途 |
-|------|------|
-| [Docker](https://www.docker.com/) | 容器化 |
-| [Docker Compose](https://docs.docker.com/compose/) | 本地编排 |
-| [Kubernetes](https://kubernetes.io/) | 生产编排 |
-| [Prometheus](https://prometheus.io/) | 监控 |
-| [Grafana](https://grafana.com/) | 可视化 |
+| Technology | Purpose |
+|------------|---------|
+| [Docker](https://www.docker.com/) | Containerization |
+| [Docker Compose](https://docs.docker.com/compose/) | Local orchestration |
+| [Kubernetes](https://kubernetes.io/) | Production orchestration |
+| [Prometheus](https://prometheus.io/) | Monitoring |
+| [Grafana](https://grafana.com/) | Visualization |
 
-## 数据库设计
+## Database Design
 
-### 核心表结构
+### Core Table Structure
 
 ```sql
--- 用户表
+-- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -227,7 +227,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 消息表
+-- Messages table
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_id UUID REFERENCES users(id),
@@ -239,7 +239,7 @@ CREATE TABLE messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 群组表
+-- Groups table
 CREATE TABLE groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
@@ -250,9 +250,9 @@ CREATE TABLE groups (
 );
 ```
 
-## 扩展性设计
+## Scalability Design
 
-### 水平扩展
+### Horizontal Scaling
 
 ```
                     ┌─────────────┐
@@ -281,66 +281,66 @@ CREATE TABLE groups (
                     └─────────────┘
 ```
 
-### 微服务拆分
+### Microservices Split
 
-未来可拆分为独立微服务：
+Future split into independent microservices:
 
-- **用户服务**: 用户管理、认证授权
-- **消息服务**: 消息存储、历史查询
-- **群组服务**: 群组管理、成员管理
-- **RTC 服务**: 音视频通话
-- **AI 服务**: AI Bot、智能助手
-- **推送服务**: 消息推送、通知
+- **User Service**: User management, authentication
+- **Message Service**: Message storage, history query
+- **Group Service**: Group management, member management
+- **RTC Service**: Audio/video calls
+- **AI Service**: AI Bot, smart assistant
+- **Push Service**: Message push, notifications
 
-## 安全设计
+## Security Design
 
-### 认证安全
+### Authentication Security
 
-- JWT Token 签名验证
-- Token 过期刷新机制
-- Redis 存储会话状态
-- 密码 bcrypt 加密
+- JWT Token signature verification
+- Token expiration refresh mechanism
+- Redis session state storage
+- Password bcrypt encryption
 
-### 传输安全
+### Transport Security
 
-- HTTPS/TLS 加密传输
-- WebSocket WSS 加密
-- API 限流保护
+- HTTPS/TLS encrypted transmission
+- WebSocket WSS encryption
+- API rate limiting protection
 
-### 数据安全
+### Data Security
 
-- 数据库连接加密
-- 敏感字段加密存储
-- 定期数据备份
+- Database connection encryption
+- Sensitive field encryption
+- Regular data backup
 
-## 监控与日志
+## Monitoring & Logging
 
-### 监控指标
+### Monitoring Metrics
 
-- **系统指标**: CPU、内存、磁盘、网络
-- **应用指标**: QPS、延迟、错误率
-- **业务指标**: 在线用户数、消息量
+- **System Metrics**: CPU, memory, disk, network
+- **Application Metrics**: QPS, latency, error rate
+- **Business Metrics**: Online users, message volume
 
-### 日志收集
+### Log Collection
 
 ```
 App Logs -> Filebeat -> Logstash -> Elasticsearch -> Kibana
 ```
 
-## 部署架构
+## Deployment Architecture
 
-### 开发环境
+### Development Environment
 
 ```
 Docker Compose (Single Node)
 ├── PostgreSQL
 ├── Redis
-├── 悟空IM
+├── WuKongIM
 ├── OpenChat Server
 └── Prometheus
 ```
 
-### 生产环境
+### Production Environment
 
 ```
 Kubernetes Cluster
@@ -348,32 +348,32 @@ Kubernetes Cluster
 ├── OpenChat Server (3+ Replicas)
 ├── PostgreSQL (HA)
 ├── Redis (Cluster)
-├── 悟空IM (Cluster)
+├── WuKongIM (Cluster)
 └── Monitoring Stack
 ```
 
-## 性能优化
+## Performance Optimization
 
-### 数据库优化
+### Database Optimization
 
-- 索引优化
-- 读写分离
-- 分库分表（未来）
+- Index optimization
+- Read-write separation
+- Sharding (future)
 
-### 缓存策略
+### Caching Strategy
 
-- Redis 缓存热点数据
-- 本地缓存常用配置
-- CDN 加速静态资源
+- Redis cache for hot data
+- Local cache for common configs
+- CDN for static resources
 
-### 消息优化
+### Message Optimization
 
-- 消息队列异步处理
-- 批量消息处理
-- 消息压缩传输
+- Async message queue processing
+- Batch message processing
+- Message compression
 
-## 更多资源
+## More Resources
 
-- [API 文档](/api/) - 完整的 API 接口文档
-- [部署指南](/deploy/) - 详细的部署说明
-- [配置说明](/config/) - 配置项详细说明
+- [API Documentation](/en/api/) - Complete API reference
+- [Deployment Guide](/en/deploy/) - Detailed deployment instructions
+- [Configuration Guide](/en/config/) - Configuration parameter details

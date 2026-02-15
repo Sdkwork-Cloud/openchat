@@ -1,6 +1,6 @@
-# 悟空IM 配置
+# WuKongIM Configuration
 
-## 基本配置
+## Basic Configuration
 
 ```json
 {
@@ -17,10 +17,24 @@
 }
 ```
 
-## 环境变量
+## Environment Variables
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `WUKONGIM_API_URL` | API 地址 | `http://localhost:5001` |
-| `WUKONGIM_TCP_ADDR` | TCP 地址 | `localhost:5100` |
-| `WUKONGIM_WS_URL` | WebSocket 地址 | `ws://localhost:5200` |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `WUKONGIM_API_URL` | API URL | `http://localhost:5001` |
+| `WUKONGIM_TCP_ADDR` | TCP Address | `localhost:5100` |
+| `WUKONGIM_WS_URL` | WebSocket URL | `ws://localhost:5200` |
+
+## Connection Endpoints
+
+| Endpoint | Port | Protocol |
+|----------|------|----------|
+| API | 5001 | HTTP |
+| TCP | 5100 | TCP |
+| WebSocket | 5200 | WebSocket |
+| Manager | 5300 | HTTP |
+
+## Next Steps
+
+- [Server Configuration](./server.md) - Server config
+- [Database Configuration](./database.md) - Database config

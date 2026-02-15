@@ -1,23 +1,39 @@
-# 小程序应用
+# Mini Program App
 
-OpenChat 微信小程序，无需下载安装即可使用。
+OpenChat WeChat Mini Program, no download required.
 
-## 技术栈
+## Tech Stack
 
-- 微信小程序原生开发
+- WeChat Mini Program native development
 - TypeScript
-- WeUI 组件库
+- WeUI component library
 
-## 快速开始
+## Quick Start
 
-1. 下载微信开发者工具
-2. 导入项目 `app/openchat-miniprogram`
-3. 修改 `config.js` 中的服务器地址
-4. 编译预览
+1. Download WeChat Developer Tools
+2. Import project `app/openchat-miniprogram`
+3. Modify server address in `config.js`
+4. Compile and preview
 
-## 功能特性
+## Features
 
-- 💬 即时通讯
-- 👥 群组聊天
-- 📎 文件传输
-- 🔊 语音通话
+- 💬 Instant Messaging
+- 👥 Group Chat
+- 📎 File Transfer
+- 🔊 Voice Call
+
+## Project Structure
+
+```
+app/openchat-miniprogram/
+├── pages/              # Pages
+├── components/         # Components
+├── utils/              # Utilities
+├── services/           # API services
+└── app.json            # App config
+```
+
+## Next Steps
+
+- [React PC](./react-pc.md) - Desktop app
+- [React Native](./react-native.md) - Mobile app

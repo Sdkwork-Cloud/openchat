@@ -371,17 +371,21 @@ export class WukongIMProtocol implements IMProtocol {
   private convertFromWKMessage(wkMessage: WKIMMessage): Message {
     return {
       id: wkMessage.messageId,
-      type: wkMessage.messageType as MessageType,
+      type: wkMessage.messageType as string | MessageType,
       content: wkMessage.content,
+      fromUserId: wkMessage.fromUid,
       fromUid: wkMessage.fromUid,
+      toUserId: wkMessage.toUid,
       toUid: wkMessage.toUid,
       channelId: wkMessage.channelId,
       channelType: this.parseChannelType(wkMessage.channelType),
       status: MessageStatus.SENT,
       timestamp: wkMessage.timestamp,
+      createdAt: new Date(wkMessage.timestamp).toISOString(),
+      updatedAt: new Date(wkMessage.timestamp).toISOString(),
       clientSeq: wkMessage.clientSeq,
       isRead: false,
-    };
+    } as Message;
   }
 
   // 转换频道类型

@@ -8,7 +8,7 @@ OpenChat 提供完整的 RESTful API，支持即时通讯、用户管理、群�
 
 | 项目 | 说明 |
 |------|------|
-| 基础 URL | `http://your-server:3000/api` |
+| 基础 URL | `http://your-server:3000/api/v1` |
 | 协议 | HTTP/HTTPS |
 | 数据格式 | JSON |
 | 字符编码 | UTF-8 |
@@ -18,13 +18,24 @@ OpenChat 提供完整的 RESTful API，支持即时通讯、用户管理、群�
 
 | 模块 | 路径前缀 | 说明 |
 |------|----------|------|
-| 认证授权 | `/api/auth` | 登录、注册、Token 管理 |
-| 用户管理 | `/api/users` | 用户信息、搜索、设置 |
-| 消息管理 | `/api/messages` | 消息发送、查询、撤回 |
-| 会话管理 | `/api/conversations` | 会话列表、未读管理 |
-| 群组管理 | `/api/groups` | 群组创建、成员管理 |
-| 好友管理 | `/api/friends` | 好友申请、分组管理 |
-| IM 集成 | `/api/im` | WukongIM 相关接口 |
+| 认证授权 | `/api/v1/auth` | 登录、注册、Token 管理 |
+| 用户管理 | `/api/v1/users` | 用户信息、搜索、设置 |
+| 消息管理 | `/api/v1/messages` | 消息发送、查询、撤回 |
+| 消息搜索 | `/api/v1/message-search` | 消息全文搜索、高级搜索 |
+| 会话管理 | `/api/v1/conversations` | 会话列表、未读管理 |
+| 群组管理 | `/api/v1/groups` | 群组创建、成员管理 |
+| 好友管理 | `/api/v1/friends` | 好友申请、分组管理 |
+| 联系人管理 | `/api/v1/contacts` | 联系人管理、分组 |
+| 实时音视频 | `/api/v1/rtc` | 音视频通话、信令 |
+| AI 机器人 | `/api/v1/ai-bots` | AI 机器人管理、消息处理 |
+| AI Agent | `/api/v1/agents` | AI Agent 管理、工具调用 |
+| 机器人平台 | `/api/v1/bots` | 多平台机器人集成 |
+| 记忆管理 | `/api/v1/memory` | 对话记忆、知识库管理 |
+| IoT | `/iot` | IoT 设备管理、消息控制 |
+| 健康检查 | `/health` | 服务健康状态检查 |
+| 监控指标 | `/metrics` | Prometheus 监控指标 |
+| 第三方集成 | `/third-party` | 多平台消息集成 |
+| IM 集成 | `/api/v1/im` | WukongIM 相关接口 |
 
 ---
 
@@ -35,7 +46,7 @@ OpenChat 使用 JWT (JSON Web Token) 进行 API 认证。
 ### 获取 Token
 
 ```http
-POST /api/auth/login
+POST /api/v1/auth/login
 Content-Type: application/json
 
 {
@@ -69,7 +80,6 @@ Authorization: Bearer <your-access-token>
 {
   "success": true,
   "data": {
-    // 响应数据
   },
   "message": "操作成功"
 }
@@ -152,21 +162,71 @@ Authorization: Bearer <your-access-token>
 
 ### 认证相关
 
-- [认证授权 API](./auth.md) - 登录、注册、Token 刷新
+| 文档 | 说明 |
+|------|------|
+| [认证授权 API](./auth.md) | 登录、注册、Token 刷新、密码管理 |
 
 ### 用户相关
 
-- [用户管理 API](./users.md) - 用户信息、搜索、设置
+| 文档 | 说明 |
+|------|------|
+| [用户管理 API](./users.md) | 用户信息、搜索、设置 |
+| [联系人管理 API](./contacts.md) | 联系人管理、分组、备注 |
 
 ### 消息相关
 
-- [消息管理 API](./messages.md) - 消息发送、查询、撤回
-- [WukongIM 集成 API](./wukongim.md) - IM 消息引擎接口
+| 文档 | 说明 |
+|------|------|
+| [消息管理 API](./messages.md) | 消息发送、查询、撤回、转发 |
+| [消息搜索 API](./message-search.md) | 消息全文搜索、高级搜索 |
+| [WukongIM 集成 API](./wukongim.md) | IM 消息引擎接口 |
+
+### 会话相关
+
+| 文档 | 说明 |
+|------|------|
+| [会话管理 API](./conversations.md) | 会话列表、置顶、免打扰、未读管理 |
 
 ### 社交相关
 
-- [群组管理 API](./groups.md) - 群组创建、成员管理
-- [好友管理 API](./friends.md) - 好友申请、分组管理
+| 文档 | 说明 |
+|------|------|
+| [群组管理 API](./groups.md) | 群组创建、成员管理、权限设置 |
+| [好友管理 API](./friends.md) | 好友申请、分组管理、黑名单 |
+
+### 实时通讯
+
+| 文档 | 说明 |
+|------|------|
+| [实时音视频 API](./rtc.md) | 音视频通话、信令交换 |
+
+### AI 功能
+
+| 文档 | 说明 |
+|------|------|
+| [AI 机器人 API](./ai-bots.md) | AI 机器人管理、消息处理 |
+| [AI Agent API](./agents.md) | AI Agent 管理、工具调用、工作流 |
+| [机器人平台 API](./bots.md) | 多平台机器人集成 |
+| [记忆管理 API](./memory.md) | 对话记忆、向量存储、知识库 |
+
+### IoT 功能
+
+| 文档 | 说明 |
+|------|------|
+| [IoT API](./iot.md) | IoT 设备管理、消息控制 |
+
+### 运维监控
+
+| 文档 | 说明 |
+|------|------|
+| [健康检查 API](./health.md) | 服务健康状态检查 |
+| [监控指标 API](./metrics.md) | Prometheus 监控指标 |
+
+### 集成功能
+
+| 文档 | 说明 |
+|------|------|
+| [第三方集成 API](./third-party.md) | WhatsApp、Telegram、微信等平台集成 |
 
 ---
 
@@ -175,7 +235,7 @@ Authorization: Bearer <your-access-token>
 ### 1. 注册用户
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -187,7 +247,7 @@ curl -X POST http://localhost:3000/api/auth/register \
 ### 2. 登录获取 Token
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -198,13 +258,18 @@ curl -X POST http://localhost:3000/api/auth/login \
 ### 3. 发送消息
 
 ```bash
-curl -X POST http://localhost:3000/api/messages \
+curl -X POST http://localhost:3000/api/v1/messages \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "receiver-user-id",
     "type": "text",
-    "content": "Hello, OpenChat!"
+    "content": {
+      "text": {
+        "text": "Hello, OpenChat!"
+      }
+    },
+    "fromUserId": "your-user-id",
+    "toUserId": "receiver-user-id"
   }'
 ```
 
@@ -236,9 +301,10 @@ await client.auth.login({
 
 // 发送消息
 await client.message.send({
-  to: 'receiver-id',
   type: 'text',
-  content: 'Hello!'
+  content: { text: { text: 'Hello!' } },
+  fromUserId: 'your-user-id',
+  toUserId: 'receiver-id'
 });
 
 // 监听消息

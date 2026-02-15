@@ -27,3 +27,8 @@ type UserStatus = 'online' | 'offline' | 'busy' | 'away';
 - **好友** - 双向关注关系
 - **陌生人** - 无关系
 - **黑名单** - 屏蔽关系
+
+## 相关 API
+
+- [用户管理 API](/zh/api/users.md)
+- [好友管理 API](/zh/api/friends.md)

@@ -115,7 +115,7 @@ export class LRU<K, V> {
    * 获取缓存大小
    * @returns 缓存大小
    */
-  size(): number {
+  get size(): number {
     return this.map.size;
   }
 
@@ -177,7 +177,8 @@ export class LRU<K, V> {
       return;
     }
 
-    const tailNode = this.map.get(this.tail)!;
+    const oldTail = this.tail;
+    const tailNode = this.map.get(oldTail)!;
 
     if (tailNode.prev) {
       const prevNode = this.map.get(tailNode.prev)!;
@@ -188,6 +189,6 @@ export class LRU<K, V> {
       this.tail = null;
     }
 
-    this.map.delete(this.tail!);
+    this.map.delete(oldTail);
   }
 }

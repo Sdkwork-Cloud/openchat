@@ -1,6 +1,6 @@
-# AI 配置
+# AI Configuration
 
-## OpenAI 配置
+## OpenAI Configuration
 
 ```json
 {
@@ -17,8 +17,21 @@
 }
 ```
 
-## 环境变量
+## Environment Variables
 
-| 变量名 | 说明 |
-|--------|------|
+| Variable | Description |
+|----------|-------------|
 | `OPENAI_API_KEY` | OpenAI API Key |
+
+## Supported Providers
+
+| Provider | Models |
+|----------|--------|
+| OpenAI | GPT-4, GPT-3.5 |
+| Claude | Claude 3 |
+| Azure OpenAI | GPT-4, GPT-3.5 |
+
+## Next Steps
+
+- [Server Configuration](./server.md) - Server config
+- [RTC Configuration](./rtc.md) - RTC config

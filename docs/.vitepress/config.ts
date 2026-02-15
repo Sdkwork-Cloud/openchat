@@ -82,10 +82,57 @@ const zhConfig = {
             { text: 'API 概览', link: '/zh/api/' },
             { text: '认证授权', link: '/zh/api/auth' },
             { text: '用户管理', link: '/zh/api/users' },
+            { text: '联系人管理', link: '/zh/api/contacts' }
+          ]
+        },
+        {
+          text: '消息与会话',
+          items: [
             { text: '消息管理', link: '/zh/api/messages' },
+            { text: '消息搜索', link: '/zh/api/message-search' },
+            { text: '会话管理', link: '/zh/api/conversations' }
+          ]
+        },
+        {
+          text: '社交功能',
+          items: [
             { text: '群组管理', link: '/zh/api/groups' },
-            { text: '好友管理', link: '/zh/api/friends' },
+            { text: '好友管理', link: '/zh/api/friends' }
+          ]
+        },
+        {
+          text: '实时通讯',
+          items: [
+            { text: '实时音视频', link: '/zh/api/rtc' },
             { text: '悟空IM', link: '/zh/api/wukongim' }
+          ]
+        },
+        {
+          text: 'AI 功能',
+          items: [
+            { text: 'AI 机器人', link: '/zh/api/ai-bots' },
+            { text: 'AI Agent', link: '/zh/api/agents' },
+            { text: '机器人平台', link: '/zh/api/bots' },
+            { text: '记忆管理', link: '/zh/api/memory' }
+          ]
+        },
+        {
+          text: 'IoT 功能',
+          items: [
+            { text: 'IoT 设备', link: '/zh/api/iot' }
+          ]
+        },
+        {
+          text: '运维监控',
+          items: [
+            { text: '健康检查', link: '/zh/api/health' },
+            { text: '监控指标', link: '/zh/api/metrics' }
+          ]
+        },
+        {
+          text: '集成功能',
+          items: [
+            { text: '第三方集成', link: '/zh/api/third-party' }
           ]
         }
       ],
@@ -241,10 +288,57 @@ const enConfig = {
             { text: 'API Overview', link: '/en/api/' },
             { text: 'Authentication', link: '/en/api/auth' },
             { text: 'User Management', link: '/en/api/users' },
+            { text: 'Contact Management', link: '/en/api/contacts' }
+          ]
+        },
+        {
+          text: 'Messages & Conversations',
+          items: [
             { text: 'Message Management', link: '/en/api/messages' },
+            { text: 'Message Search', link: '/en/api/message-search' },
+            { text: 'Conversation Management', link: '/en/api/conversations' }
+          ]
+        },
+        {
+          text: 'Social Features',
+          items: [
             { text: 'Group Management', link: '/en/api/groups' },
-            { text: 'Friend Management', link: '/en/api/friends' },
+            { text: 'Friend Management', link: '/en/api/friends' }
+          ]
+        },
+        {
+          text: 'Real-time Communication',
+          items: [
+            { text: 'Real-time Audio/Video', link: '/en/api/rtc' },
             { text: 'WuKongIM', link: '/en/api/wukongim' }
+          ]
+        },
+        {
+          text: 'AI Features',
+          items: [
+            { text: 'AI Bots', link: '/en/api/ai-bots' },
+            { text: 'AI Agents', link: '/en/api/agents' },
+            { text: 'Bot Platform', link: '/en/api/bots' },
+            { text: 'Memory Management', link: '/en/api/memory' }
+          ]
+        },
+        {
+          text: 'IoT Features',
+          items: [
+            { text: 'IoT Devices', link: '/en/api/iot' }
+          ]
+        },
+        {
+          text: 'Operations & Monitoring',
+          items: [
+            { text: 'Health Check', link: '/en/api/health' },
+            { text: 'Metrics', link: '/en/api/metrics' }
+          ]
+        },
+        {
+          text: 'Integrations',
+          items: [
+            { text: 'Third-party Integration', link: '/en/api/third-party' }
           ]
         }
       ],

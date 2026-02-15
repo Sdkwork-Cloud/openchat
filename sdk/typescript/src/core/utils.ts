@@ -98,7 +98,7 @@ export function deepClone<T>(obj: T): T {
   if (obj instanceof Object) {
     const cloned: Record<string, any> = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         cloned[key] = deepClone((obj as Record<string, any>)[key]);
       }
     }
@@ -125,7 +125,7 @@ export function deepMerge(
   if (!source) return target;
   
   for (const key in source) {
-    if (source.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
       const targetValue = target[key];
       const sourceValue = source[key];
       

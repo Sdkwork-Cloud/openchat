@@ -202,7 +202,7 @@ After deployment, access:
 
 ## Next Steps
 
-- [Quick Start](./quickstart) - Get started with OpenChat in 5 minutes
-- [Architecture](./architecture) - Understand the system architecture
-- [Features](./features) - Explore all features
+- [Quick Start](./quickstart.md) - Get started with OpenChat in 5 minutes
+- [Architecture](./architecture.md) - Understand the system architecture
+- [Features](./features.md) - Explore all features
 - [API Documentation](/en/api/) - View complete API documentation

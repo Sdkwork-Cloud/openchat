@@ -1,27 +1,32 @@
-# 频道类型
+# Channel Types
 
-## 频道模型
+## Channel Model
 
 ```typescript
 interface Channel {
-  id: string;           // 频道 ID
-  type: ChannelType;    // 频道类型
-  name?: string;        // 频道名称
+  id: string;           // Channel ID
+  type: ChannelType;    // Channel type
+  name?: string;        // Channel name
 }
 
 type ChannelType = 1 | 2;
-// 1: 个人频道
-// 2: 群组频道
+// 1: Personal channel
+// 2: Group channel
 ```
 
-## 频道类型
+## Channel Types
 
-| 类型值 | 类型 | 说明 |
-|--------|------|------|
-| 1 | 个人频道 | 一对一私聊 |
-| 2 | 群组频道 | 多人群组聊天 |
+| Type Value | Type | Description |
+|------------|------|-------------|
+| 1 | Personal Channel | One-on-one private chat |
+| 2 | Group Channel | Multi-member group chat |
 
-## 频道 ID 规范
+## Channel ID Convention
 
-- 个人频道：使用对方用户 ID
-- 群组频道：使用群组 ID
+- Personal Channel: Use the other user's ID
+- Group Channel: Use the group ID
+
+## Related APIs
+
+- [Message Management API](/en/api/messages.md)
+- [Group Management API](/en/api/groups.md)

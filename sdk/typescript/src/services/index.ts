@@ -8,10 +8,13 @@ export { ApiService } from './api-service';
 
 // ==================== IM服务 ====================
 export {
-  IIMService,
-  IMServiceConfig,
   IMServiceEvent,
   ConnectionState,
+} from './im-service';
+
+export type {
+  IIMService,
+  IMServiceConfig,
   CreateConversationParams,
   UpdateConversationParams,
 } from './im-service';

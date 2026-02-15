@@ -458,5 +458,5 @@ docker compose --profile monitoring up -d
 ## 下一步
 
 - [配置说明](../config/) - 详细配置参数
-- [Kubernetes 部署](./kubernetes) - 集群部署
-- [传统部署](./traditional) - 非 Docker 部署
+- [Kubernetes 部署](./kubernetes.md) - 集群部署
+- [传统部署](./traditional.md) - 非 Docker 部署

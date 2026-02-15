@@ -1,12 +1,12 @@
-# 好友管理
+# Friend Management
 
-## 获取好友列表
+## Get Friend List
 
 ### GET /friends
 
-获取好友列表。
+Get the friend list.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -15,7 +15,7 @@
     {
       "id": "friend-uuid",
       "userId": "user-uuid",
-      "nickname": "好友昵称",
+      "nickname": "Friend Nickname",
       "avatar": "https://example.com/avatar.jpg",
       "status": "online"
     }
@@ -23,33 +23,38 @@
 }
 ```
 
-## 发送好友申请
+## Send Friend Request
 
 ### POST /friends/requests
 
-发送好友申请。
+Send a friend request.
 
-**请求参数：**
+**Request Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| toUserId | string | 是 | 目标用户 ID |
-| message | string | 否 | 申请留言 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| toUserId | string | Yes | Target user ID |
+| message | string | No | Request message |
 
-## 处理好友申请
+## Handle Friend Request
 
 ### PUT /friends/requests/:id
 
-接受或拒绝好友申请。
+Accept or reject a friend request.
 
-**请求参数：**
+**Request Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| accept | boolean | 是 | 是否接受 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| accept | boolean | Yes | Whether to accept |
 
-## 删除好友
+## Delete Friend
 
 ### DELETE /friends/:id
 
-删除好友。
+Delete a friend.
+
+## Next Steps
+
+- [User Management](./users.md) - User API
+- [Group Management](./groups.md) - Group API

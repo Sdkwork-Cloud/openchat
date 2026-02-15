@@ -121,33 +121,61 @@ export enum UserStatus {
 export interface UserInfo {
   user: User;
   token: string;
-  expiresAt?: number;
+  refreshToken?: string;
+  expiresIn?: number;
+  imConfig?: {
+    wsUrl: string;
+    uid: string;
+    token: string;
+  };
 }
 
 // ==================== 消息类型 ====================
 
-// 基础消息接口（完整定义在 ./message.ts）
+// 基础消息接口（与API文档一致）
 export interface Message {
   /** 消息ID */
   id: string;
-  /** 消息类型 */
-  type: MessageType;
+  /** 消息UUID（客户端生成，用于去重） */
+  uuid?: string;
+  /** 消息类型（字符串类型） */
+  type: string | MessageType;
+  /** 消息类型（枚举类型，为了向后兼容） */
+  messageType?: MessageType;
   /** 消息内容 */
   content: any;
-  /** 发送者ID */
-  fromUid: string;
-  /** 接收者ID（单聊） */
+  /** 发送者用户ID */
+  fromUserId?: string;
+  /** 发送者用户ID（别名） */
+  fromUid?: string;
+  /** 接收者用户ID（单聊） */
+  toUserId?: string;
+  /** 接收者用户ID（别名） */
   toUid?: string;
-  /** 频道ID（群聊） */
+  /** 群组ID（群聊） */
+  groupId?: string;
+  /** 频道ID */
   channelId?: string;
   /** 频道类型 */
-  channelType: ChannelType;
+  channelType?: ChannelType;
+  /** 回复的消息ID */
+  replyToId?: string;
+  /** 转发来源消息ID */
+  forwardFromId?: string;
   /** 消息状态 */
   status: MessageStatus;
-  /** 发送时间 */
-  timestamp: number;
   /** 客户端序列号 */
   clientSeq?: number;
+  /** 扩展数据 */
+  extra?: Record<string, any>;
+  /** 是否需要已读回执 */
+  needReadReceipt?: boolean;
+  /** 创建时间（字符串） */
+  createdAt?: string;
+  /** 更新时间（字符串） */
+  updatedAt?: string;
+  /** 时间戳（毫秒，向后兼容） */
+  timestamp?: number;
   /** 是否已读 */
   isRead?: boolean;
 }
@@ -158,9 +186,37 @@ export enum MessageType {
   AUDIO = 3,
   VIDEO = 4,
   FILE = 5,
-  LOCATION = 6,
-  CARD = 7,
+  MUSIC = 6,
+  LOCATION = 7,
+  DOCUMENT = 8,
+  CODE = 9,
+  PPT = 10,
+  CARD = 11,
+  CHARACTER = 12,
+  MODEL_3D = 13,
+  SYSTEM = 14,
   CUSTOM = 99,
+}
+
+/**
+ * 消息类型字符串枚举（与API文档一致）
+ */
+export enum MessageTypeString {
+  TEXT = 'text',
+  IMAGE = 'image',
+  AUDIO = 'audio',
+  VIDEO = 'video',
+  FILE = 'file',
+  MUSIC = 'music',
+  LOCATION = 'location',
+  DOCUMENT = 'document',
+  CODE = 'code',
+  PPT = 'ppt',
+  CARD = 'card',
+  CHARACTER = 'character',
+  MODEL_3D = 'model_3d',
+  SYSTEM = 'system',
+  CUSTOM = 'custom',
 }
 
 export enum ChannelType {
@@ -215,15 +271,6 @@ export interface LocationContent {
   longitude: number;
   address?: string;
   name?: string;
-}
-
-export interface CardContent {
-  type: string;
-  title?: string;
-  description?: string;
-  imageUrl?: string;
-  url?: string;
-  data?: Record<string, any>;
 }
 
 // ==================== 会话类型 ====================
@@ -488,11 +535,6 @@ export enum ErrorCode {
   RTC_CALL_FAILED = 2102,
 }
 
-export interface OpenChatError extends Error {
-  code: ErrorCode;
-  data?: any;
-}
-
 export class OpenChatError extends Error {
   code: ErrorCode;
   data?: any;
@@ -515,6 +557,42 @@ export interface SendMessageOptions {
   /** 超时时间 */
   timeout?: number;
 }
+
+// ==================== 记忆管理类型导出 ====================
+
+export * from './memory';
+
+// ==================== Agent类型导出 ====================
+
+export * from './agent';
+
+// ==================== AI Bot类型导出 ====================
+
+export * from './ai-bot';
+
+// ==================== 机器人平台类型导出 ====================
+
+export * from './bot-platform';
+
+// ==================== RTC类型导出 ====================
+
+export * from './rtc';
+
+// ==================== IoT类型导出 ====================
+
+export * from './iot';
+
+// ==================== 消息搜索类型导出 ====================
+
+export * from './message-search';
+
+// ==================== 健康检查类型导出 ====================
+
+export * from './health';
+
+// ==================== 第三方集成类型导出 ====================
+
+export * from './third-party';
 
 export interface QueryMessagesOptions {
   /** 起始消息ID */
@@ -545,3 +623,7 @@ export type UserCallback = EventCallback<User>;
 export type ErrorCallback = EventCallback<OpenChatError>;
 export type ConnectionCallback = EventCallback<{ uid: string }>;
 export type DisconnectionCallback = EventCallback<{ code: number; reason: string }>;
+
+// ==================== 消息类型导出（从message.ts显式导出，避免冲突） ====================
+
+export * from './message';

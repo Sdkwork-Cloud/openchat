@@ -330,15 +330,29 @@ export class MessageService implements MessageManager {
       await this.messageDeduplicationService.commitTransactionalMark(transactionId);
 
       // 异步发送到 IM（批量处理，减少网络往返）
-      const imSendPromises = savedMessages.map((msg, index) => {
-        // 找到原始消息数据的索引
-        let originalIndex = index;
-        let offset = 0;
-        while (originalIndex + offset < batch.length && duplicateIndexes.includes(originalIndex + offset)) {
-          offset++;
+      const imSendPromises = savedMessages.map((msg, savedIndex) => {
+        // 找到原始消息数据的索引 - 更安全的实现
+        let batchIndex = 0;
+        let foundCount = 0;
+        
+        // 遍历batch，找到对应位置的非duplicate消息
+        for (let i = 0; i < batch.length; i++) {
+          if (!duplicateIndexes.includes(i)) {
+            if (foundCount === savedIndex) {
+              batchIndex = i;
+              break;
+            }
+            foundCount++;
+          }
         }
         
-        return this.sendToIMProvider(msg, batch[originalIndex + offset]);
+        // 安全检查
+        if (batchIndex >= batch.length || !batch[batchIndex]) {
+          this.logger.error(`Failed to find original message for saved index ${savedIndex}`);
+          return Promise.resolve();
+        }
+        
+        return this.sendToIMProvider(msg, batch[batchIndex]);
       });
 
       // 并行发送到 IM，提高性能
@@ -651,6 +665,12 @@ export class MessageService implements MessageManager {
         return '[文档]';
       case MessageType.CODE:
         return '[代码]';
+      case MessageType.PPT:
+        return '[演示文稿]';
+      case MessageType.CHARACTER:
+        return '[数字人]';
+      case MessageType.MODEL_3D:
+        return '[3D模型]';
       case MessageType.LOCATION:
         return '[位置]';
       case MessageType.CARD:

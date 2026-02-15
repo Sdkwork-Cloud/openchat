@@ -6,11 +6,11 @@ OpenChat provides multiple deployment options to meet different scenarios.
 
 | Document | Description |
 |----------|-------------|
-| [Installation Guide](./installation) | Detailed installation steps and system requirements |
-| [Docker Deployment](./docker) | Docker deployment guide |
-| [Kubernetes Deployment](./kubernetes) | Cluster deployment guide |
-| [Traditional Deployment](./traditional) | Non-Docker deployment |
-| [Quick Start](./quickstart) | Quick experience deployment |
+| [Installation Guide](./installation.md) | Detailed installation steps and system requirements |
+| [Docker Deployment](./docker.md) | Docker deployment guide |
+| [Kubernetes Deployment](./kubernetes.md) | Cluster deployment guide |
+| [Traditional Deployment](./traditional.md) | Non-Docker deployment |
+| [Quick Start](./quickstart.md) | Quick experience deployment |
 
 ## Deployment Methods
 
@@ -24,8 +24,11 @@ OpenChat provides multiple deployment options to meet different scenarios.
 ## One-Click Installation
 
 ```bash
-# Download and run the installation script
+# Linux / macOS
 curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
+
+# Windows
+.\scripts\quick-install.bat
 ```
 
 ## Quick Selection
@@ -40,20 +43,27 @@ git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # Start all services
-docker compose up -d
+docker compose -f docker-compose.quick.yml up -d
+
+# Or use npm script
+pnpm run docker:quick
 ```
 
 ### Production
 
-Recommended: Installation wizard:
+Recommended: Use production configuration:
 
 ```bash
-# Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/setup-wizard.sh | bash
+# Clone the project
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
 
-# Windows
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/setup-wizard.bat" -OutFile "setup-wizard.bat"
-.\setup-wizard.bat
+# Configure environment
+cp .env.example .env
+vim .env
+
+# Start with production config
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ## System Requirements
@@ -79,28 +89,27 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Sdkwork-Cloud/openchat
 OpenChat provides a complete set of operations tools:
 
 ```bash
-# System pre-check
-./scripts/precheck.sh
+# Pre-installation check
+pnpm run precheck
 
-# Installation verification
-./scripts/install-test.sh quick
+# Health check
+pnpm run health
 
-# Error diagnosis
-./scripts/diagnose.sh
+# Full diagnosis
+pnpm run health:full
 
-# Auto-fix
-./scripts/auto-fix.sh --all
+# View logs
+pnpm run docker:logs
 
-# Log analysis
-./scripts/log-analyzer.sh analyze
-
-# Health monitoring
-./scripts/health-check.sh --monitor
+# Service management
+pnpm run docker:up      # Start services
+pnpm run docker:down    # Stop services
+pnpm run docker:ps      # View status
 ```
 
 ## Next Steps
 
-- [Docker Deployment](./docker) - Detailed Docker Compose guide
-- [Kubernetes Deployment](./kubernetes) - Cluster deployment
-- [Traditional Deployment](./traditional) - Non-Docker deployment
-- [Quick Start](./quickstart) - One-click deployment script
+- [Docker Deployment](./docker.md) - Detailed Docker Compose guide
+- [Kubernetes Deployment](./kubernetes.md) - Cluster deployment
+- [Traditional Deployment](./traditional.md) - Non-Docker deployment
+- [Quick Start](./quickstart.md) - One-click deployment script

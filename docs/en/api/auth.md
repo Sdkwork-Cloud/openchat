@@ -343,6 +343,6 @@ async function fetchWithAuth(url, options = {}) {
 
 ## Next Steps
 
-- [User Management API](./users) - User-related endpoints
-- [Message Management API](./messages) - Messaging endpoints
+- [User Management API](./users.md) - User-related endpoints
+- [Message Management API](./messages.md) - Messaging endpoints
 - [SDK Documentation](../sdk/) - Simplify development with SDK

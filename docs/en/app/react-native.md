@@ -1,33 +1,53 @@
-# React Native 应用
+# React Native App
 
-OpenChat React Native 应用支持 iOS 和 Android 双平台。
+OpenChat React Native app supports both iOS and Android platforms.
 
-## 技术栈
+## Tech Stack
 
 - React Native 0.72+
 - TypeScript 5.0+
 - React Navigation 6.x
 - Zustand 4.x
 
-## 快速开始
+## Quick Start
 
 ```bash
 cd app/openchat-rn
 
-# 安装依赖
-npm install
+# Install dependencies
+pnpm install
 
 # iOS
 cd ios && pod install && cd ..
-npx react-native run-ios
+pnpm ios
 
 # Android
-npx react-native run-android
+pnpm android
 ```
 
-## 功能特性
+## Features
 
-- 💬 即时通讯
-- 🔊 音视频通话
-- 📎 文件传输
-- 🔔 推送通知
+- 💬 Instant Messaging
+- 🔊 Audio/Video Calls
+- 📎 File Transfer
+- 🔔 Push Notifications
+
+## Project Structure
+
+```
+app/openchat-rn/
+├── src/
+│   ├── components/     # Components
+│   ├── screens/        # Screens
+│   ├── navigation/     # Navigation
+│   ├── hooks/          # Custom hooks
+│   ├── stores/         # State management
+│   └── services/       # API services
+├── ios/                # iOS native
+└── android/            # Android native
+```
+
+## Next Steps
+
+- [React PC](./react-pc.md) - Desktop app
+- [Mini Program](./miniprogram.md) - WeChat mini program

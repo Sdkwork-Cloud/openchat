@@ -18,13 +18,24 @@ OpenChat provides a complete RESTful API for building instant messaging applicat
 
 | Module | Path Prefix | Description |
 |--------|-------------|-------------|
-| Authentication | `/api/auth` | Login, registration, token management |
-| User Management | `/api/users` | User info, search, settings |
-| Message Management | `/api/messages` | Send messages, history, recall |
-| Conversation Management | `/api/conversations` | Conversation list, unread management |
-| Group Management | `/api/groups` | Group creation, member management |
-| Friend Management | `/api/friends` | Friend requests, groups |
-| IM Integration | `/api/im` | WukongIM related endpoints |
+| Authentication | `/api/v1/auth` | Login, registration, token management |
+| User Management | `/api/v1/users` | User info, search, settings |
+| Message Management | `/api/v1/messages` | Send messages, history, recall |
+| Message Search | `/api/v1/message-search` | Full-text search, advanced search |
+| Conversation Management | `/api/v1/conversations` | Conversation list, unread management |
+| Group Management | `/api/v1/groups` | Group creation, member management |
+| Friend Management | `/api/v1/friends` | Friend requests, groups |
+| Contact Management | `/api/v1/contacts` | Contact management, groups |
+| Real-time Audio/Video | `/api/v1/rtc` | Audio/video calls, signaling |
+| AI Bots | `/api/v1/ai-bots` | AI bot management, message processing |
+| AI Agents | `/api/v1/agents` | AI Agent management, tool calls |
+| Bot Platform | `/api/v1/bots` | Multi-platform bot integration |
+| Memory Management | `/api/v1/memory` | Conversation memory, knowledge base |
+| IoT | `/iot` | IoT device management, message control |
+| Health Check | `/health` | Service health status check |
+| Metrics | `/metrics` | Prometheus monitoring metrics |
+| Third-party Integration | `/third-party` | Multi-platform message integration |
+| IM Integration | `/api/v1/im` | WukongIM related endpoints |
 
 ---
 
@@ -152,21 +163,71 @@ Authorization: Bearer <your-access-token>
 
 ### Authentication
 
-- [Authentication API](./auth.md) - Login, registration, token refresh
+| Documentation | Description |
+|------|------|
+| [Authentication API](./auth.md) | Login, registration, token refresh, password management |
 
 ### Users
 
-- [User Management API](./users.md) - User info, search, settings
+| Documentation | Description |
+|------|------|
+| [User Management API](./users.md) | User info, search, settings |
+| [Contact Management API](./contacts.md) | Contact management, groups, notes |
 
 ### Messages
 
-- [Message Management API](./messages.md) - Send messages, history, recall
-- [WukongIM Integration API](./wukongim.md) - IM message engine endpoints
+| Documentation | Description |
+|------|------|
+| [Message Management API](./messages.md) | Send messages, history, recall, forward |
+| [Message Search API](./message-search.md) | Full-text search, advanced search |
+| [WukongIM Integration API](./wukongim.md) | IM message engine endpoints |
+
+### Conversations
+
+| Documentation | Description |
+|------|------|
+| [Conversation Management API](./conversations.md) | Conversation list, pin, mute, unread management |
 
 ### Social
 
-- [Group Management API](./groups.md) - Group creation, member management
-- [Friend Management API](./friends.md) - Friend requests, groups
+| Documentation | Description |
+|------|------|
+| [Group Management API](./groups.md) | Group creation, member management, permission settings |
+| [Friend Management API](./friends.md) | Friend requests, group management, blacklist |
+
+### Real-time Communication
+
+| Documentation | Description |
+|------|------|
+| [Real-time Audio/Video API](./rtc.md) | Audio/video calls, signaling exchange |
+
+### AI Features
+
+| Documentation | Description |
+|------|------|
+| [AI Bots API](./ai-bots.md) | AI bot management, message processing |
+| [AI Agents API](./agents.md) | AI Agent management, tool calls, workflows |
+| [Bot Platform API](./bots.md) | Multi-platform bot integration |
+| [Memory Management API](./memory.md) | Conversation memory, vector storage, knowledge base |
+
+### IoT Features
+
+| Documentation | Description |
+|------|------|
+| [IoT API](./iot.md) | IoT device management, message control |
+
+### Operations & Monitoring
+
+| Documentation | Description |
+|------|------|
+| [Health Check API](./health.md) | Service health status check |
+| [Metrics API](./metrics.md) | Prometheus monitoring metrics |
+
+### Integrations
+
+| Documentation | Description |
+|------|------|
+| [Third-party Integration API](./third-party.md) | WhatsApp, Telegram, WeChat and other platform integration |
 
 ---
 

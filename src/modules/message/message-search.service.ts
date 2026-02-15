@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Message } from './message.entity';
+import { GroupMember } from '../group/group-member.entity';
 
 /**
  * 搜索结果接口
@@ -40,7 +41,28 @@ export class MessageSearchService {
   constructor(
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
+    @InjectRepository(GroupMember)
+    private groupMemberRepository: Repository<GroupMember>,
   ) {}
+
+  /**
+   * 检查用户是否在群聊中
+   */
+  private async isUserInGroup(userId: string, groupId: string): Promise<boolean> {
+    if (!userId || !groupId) {
+      return false;
+    }
+
+    const member = await this.groupMemberRepository.findOne({
+      where: {
+        groupId,
+        userId,
+        status: 'joined',
+      },
+    });
+
+    return !!member;
+  }
 
   /**
    * 搜索消息
@@ -64,27 +86,38 @@ export class MessageSearchService {
     // 基本查询条件
     queryBuilder.where('message.status = :status', { status: 'sent' });
 
-    // 用户权限过滤（只能搜索自己参与的消息）
-    if (userId) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('message.fromUserId = :userId', { userId })
-            .orWhere('message.toUserId = :userId', { userId });
-        }),
-      );
+    // 群聊权限检查
+    if (targetId && type === 'group' && userId) {
+      const isMember = await this.isUserInGroup(userId, targetId);
+      if (!isMember) {
+        this.logger.warn(`User ${userId} attempted to search group ${targetId} without permission`);
+        throw new ForbiddenException('您没有权限访问该群的消息');
+      }
     }
 
-    // 目标过滤（单聊对方或群聊）
-    if (targetId) {
-      if (type === 'single') {
+    // 用户权限过滤（只能搜索自己参与的消息）
+    if (userId) {
+      if (type === 'group' && targetId) {
+        // 群聊：只检查群聊消息，不检查fromUserId/toUserId
+        queryBuilder.andWhere('message.groupId = :targetId', { targetId });
+      } else {
+        // 单聊：检查fromUserId或toUserId
         queryBuilder.andWhere(
           new Brackets((qb) => {
-            qb.where('message.toUserId = :targetId', { targetId })
-              .orWhere('message.fromUserId = :targetId', { targetId });
+            qb.where('message.fromUserId = :userId', { userId })
+              .orWhere('message.toUserId = :userId', { userId });
           }),
         );
-      } else if (type === 'group') {
-        queryBuilder.andWhere('message.groupId = :targetId', { targetId });
+
+        // 单聊目标过滤
+        if (targetId && type === 'single') {
+          queryBuilder.andWhere(
+            new Brackets((qb) => {
+              qb.where('message.toUserId = :targetId', { targetId })
+                .orWhere('message.fromUserId = :targetId', { targetId });
+            }),
+          );
+        }
       }
     }
 
@@ -94,7 +127,7 @@ export class MessageSearchService {
     } else {
       // 默认只搜索文本和系统消息
       queryBuilder.andWhere('message.type IN (:...types)', {
-        types: ['text', 'system', 'card'],
+        types: ['text', 'system', 'card', 'document', 'code', 'ppt'],
       });
     }
 

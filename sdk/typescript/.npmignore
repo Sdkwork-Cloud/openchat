@@ -1,0 +1,39 @@
+# Source files
+src/
+test/
+examples/
+
+# Config files
+tsconfig.json
+jest.config.js
+rollup.config.js
+.eslintrc.json
+.prettierrc
+.editorconfig
+
+# Development files
+*.log
+*.tsbuildinfo
+.npmrc
+.npmignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+coverage/
+.node_modules/
+node_modules/
+
+# Misc
+*.tgz
+.npm/
+.eslintcache

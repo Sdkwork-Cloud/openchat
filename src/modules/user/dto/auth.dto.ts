@@ -317,6 +317,14 @@ export class LogoutDto {
   @IsOptional()
   @IsString()
   token?: string;
+
+  @ApiProperty({
+    description: '刷新令牌（可选，用于撤销刷新令牌）',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
 }
 
 /**

@@ -1,59 +1,64 @@
-# 群组管理
+# Group Management
 
-## 创建群组
+## Create Group
 
 ### POST /groups
 
-创建新群组。
+Create a new group.
 
-**请求参数：**
+**Request Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| name | string | 是 | 群组名称 |
-| description | string | 否 | 群组描述 |
-| members | array | 否 | 初始成员 ID 列表 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Group name |
+| description | string | No | Group description |
+| members | array | No | Initial member ID list |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
   "success": true,
   "data": {
     "id": "group-uuid",
-    "name": "开发团队",
+    "name": "Dev Team",
     "ownerId": "user-uuid",
     "memberCount": 1
   }
 }
 ```
 
-## 获取群组列表
+## Get Group List
 
 ### GET /groups
 
-获取当前用户的群组列表。
+Get the current user's group list.
 
-## 获取群组详情
+## Get Group Details
 
 ### GET /groups/:id
 
-获取群组详细信息。
+Get group detailed information.
 
-## 加入群组
+## Join Group
 
 ### POST /groups/:id/join
 
-加入群组。
+Join a group.
 
-## 邀请成员
+## Invite Members
 
 ### POST /groups/:id/invite
 
-邀请成员加入群组。
+Invite members to join a group.
 
-**请求参数：**
+**Request Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| userIds | array | 是 | 用户 ID 列表 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| userIds | array | Yes | User ID list |
+
+## Next Steps
+
+- [Friend Management](./friends.md) - Friend API
+- [Message Management](./messages.md) - Message API

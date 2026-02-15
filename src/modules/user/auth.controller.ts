@@ -61,8 +61,10 @@ export class AuthController {
   @ApiOperation({ summary: '用户登出' })
   @ApiResponse({ status: 200, description: '登出成功' })
   @ApiResponse({ status: 401, description: '未授权' })
-  async logout(@Request() req: { user: { userId: string } }, @Body() logoutDto?: LogoutDto): Promise<{ success: boolean }> {
-    await this.authService.logout(req.user.userId);
+  async logout(@Request() req: { user: { userId: string }; headers: { authorization?: string } }, @Body() logoutDto?: LogoutDto): Promise<{ success: boolean }> {
+    const accessToken = req.headers.authorization?.replace('Bearer ', '');
+    const refreshToken = logoutDto?.refreshToken;
+    await this.authService.logout(req.user.userId, accessToken, refreshToken);
     return { success: true };
   }
 

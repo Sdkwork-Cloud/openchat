@@ -46,20 +46,33 @@ interface HealthCheckResult {
  * 验证环境变量
  */
 function validateEnvironment(): boolean {
-  const requiredEnvVars = [
+  const criticalEnvVars = [
     'JWT_SECRET',
+  ];
+
+  const missing = criticalEnvVars.filter(varName => !process.env[varName]);
+
+  if (missing.length > 0) {
+    logger.error(`Missing critical environment variables: ${missing.join(', ')}`);
+    logger.warn('Please set these variables in .env file');
+    return false;
+  }
+
+  // 警告性检查（有默认值，但生产环境建议设置）
+  const warningEnvVars = [
     'DB_HOST',
     'DB_PORT',
     'DB_USER',
     'DB_PASSWORD',
     'DB_NAME',
+    'REDIS_HOST',
+    'REDIS_PORT',
   ];
 
-  const missing = requiredEnvVars.filter(varName => !process.env[varName]);
-
-  if (missing.length > 0) {
-    logger.error(`Missing required environment variables: ${missing.join(', ')}`);
-    return false;
+  const unset = warningEnvVars.filter(varName => !process.env[varName]);
+  if (unset.length > 0 && process.env.NODE_ENV === 'production') {
+    logger.warn(`Using default values for: ${unset.join(', ')}`);
+    logger.warn('Consider setting these explicitly in production');
   }
 
   return true;

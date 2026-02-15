@@ -1,17 +1,17 @@
 # Python SDK
 
-## 安装
+## Installation
 
 ```bash
 pip install openchat-sdk
 ```
 
-## 快速开始
+## Quick Start
 
 ```python
 from openchat import OpenChatClient
 
-# 创建客户端
+# Create client
 client = OpenChatClient(
     server_url="http://localhost:3000",
     im_config={
@@ -20,16 +20,16 @@ client = OpenChatClient(
     }
 )
 
-# 初始化
+# Initialize
 await client.init()
 
-# 登录
+# Login
 response = await client.auth.login(
     username="user1",
     password="password123"
 )
 
-# 发送消息
+# Send message
 await client.messages.send(
     to="user2",
     type="text",
@@ -37,9 +37,9 @@ await client.messages.send(
 )
 ```
 
-## 异步支持
+## Async Support
 
-SDK 完全支持 Python 异步编程：
+The SDK fully supports Python async programming:
 
 ```python
 import asyncio
@@ -53,6 +53,11 @@ async def main():
 asyncio.run(main())
 ```
 
-## 更多示例
+## More Examples
 
-请参考 [GitHub 示例项目](https://github.com/openchat-team/sdk-python-examples)。
+See [GitHub Examples](https://github.com/openchat-team/sdk-python-examples).
+
+## Next Steps
+
+- [TypeScript SDK](./typescript.md) - TypeScript SDK
+- [API Documentation](../api/) - Complete API reference

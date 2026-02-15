@@ -201,7 +201,7 @@ docker compose up -d
 
 ## 下一步
 
-- [快速开始](./quickstart) - 5分钟上手 OpenChat
-- [架构设计](./architecture) - 深入了解系统架构
-- [功能特性](./features) - 探索所有功能特性
+- [快速开始](./quickstart.md) - 5分钟上手 OpenChat
+- [架构设计](./architecture.md) - 深入了解系统架构
+- [功能特性](./features.md) - 探索所有功能特性
 - [API 文档](/zh/api/) - 查看完整的 API 文档

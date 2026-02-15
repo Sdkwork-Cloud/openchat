@@ -1,6 +1,6 @@
-# 数据库配置
+# Database Configuration
 
-## PostgreSQL 配置
+## PostgreSQL Configuration
 
 ```json
 {
@@ -17,12 +17,30 @@
 }
 ```
 
-## 环境变量
+## Environment Variables
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `DB_HOST` | 数据库主机 | `localhost` |
-| `DB_PORT` | 数据库端口 | `5432` |
-| `DB_USER` | 数据库用户名 | `openchat` |
-| `DB_PASSWORD` | 数据库密码 | - |
-| `DB_NAME` | 数据库名称 | `openchat` |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_HOST` | Database host | `localhost` |
+| `DB_PORT` | Database port | `5432` |
+| `DB_USER` | Database user | `openchat` |
+| `DB_PASSWORD` | Database password | - |
+| `DB_NAME` | Database name | `openchat` |
+
+## Connection Pool
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_POOL_SIZE` | Pool size | `10` |
+| `DB_POOL_IDLE` | Idle timeout (ms) | `10000` |
+
+## Performance Tuning
+
+- Use connection pooling for production
+- Set appropriate pool size based on load
+- Enable SSL for production environments
+
+## Next Steps
+
+- [Server Configuration](./server.md) - Server config
+- [WuKongIM Configuration](./wukongim.md) - IM service config

@@ -97,7 +97,7 @@ import { WukongIMModule } from './modules/wukongim/wukongim.module';
         const dbConfig = {
           host: configService.get('DB_HOST', 'localhost'),
           port: configService.get('DB_PORT', 5432),
-          username: configService.get('DB_USER', 'openchat_user'),
+          username: configService.get('DB_USER', 'openchat'),
           password: configService.get('DB_PASSWORD', 'openchat_password'),
           database: configService.get('DB_NAME', 'openchat')
         };

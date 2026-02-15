@@ -52,10 +52,14 @@ export class HttpCache {
   };
 
   constructor(options: HttpCacheOptions = {}) {
-    this.defaultTTL = options.defaultTTL || 60000; // 默认1分钟
+    this.defaultTTL = options.defaultTTL !== undefined ? options.defaultTTL : 60000; // 默认1分钟
     this.keyGenerator = options.keyGenerator || defaultKeyGenerator;
     this.enabled = options.enabled !== false;
-    this.cache = new LRU(options.maxSize || 100);
+    const maxSize = options.maxSize === 0 ? 1 : (options.maxSize || 100);
+    this.cache = new LRU(maxSize);
+    if (options.maxSize === 0) {
+      this.enabled = false;
+    }
     this.stats = {
       hits: 0,
       misses: 0,
@@ -73,12 +77,22 @@ export class HttpCache {
   /**
    * 获取缓存
    */
-  get<T>(url: string, params?: any, data?: any): T | null {
+  get<T>(key: string): T | null;
+  get<T>(url: string, params?: any, data?: any): T | null;
+  get<T>(...args: any[]): T | null {
+    this.stats.requests++;
+
     if (!this.enabled) {
+      this.stats.misses++;
       return null;
     }
 
-    const key = this.generateKey(url, params, data);
+    let key: string;
+    if (args.length === 1) {
+      key = args[0];
+    } else {
+      key = this.generateKey(args[0], args[1], args[2]);
+    }
     const item = this.cache.get(key);
 
     if (!item) {
@@ -87,7 +101,7 @@ export class HttpCache {
     }
 
     // 检查是否过期
-    if (Date.now() - item.timestamp > item.ttl) {
+    if (item.ttl <= 0 || Date.now() - item.timestamp > item.ttl) {
       this.cache.delete(key);
       this.stats.misses++;
       return null;
@@ -119,8 +133,12 @@ export class HttpCache {
     let value: T;
     let ttl: number | undefined;
 
-    if (args.length === 3) {
-      // 直接使用缓存键
+    if (args.length === 2) {
+      // 直接使用缓存键（key, value）
+      [key, value] = args;
+      ttl = undefined;
+    } else if (args.length === 3) {
+      // 直接使用缓存键（key, value, ttl）
       [key, value, ttl] = args;
     } else if (args.length >= 4) {
       // 通过URL、参数和数据生成缓存键
@@ -135,19 +153,26 @@ export class HttpCache {
     this.cache.set(key, {
       data: value,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL,
+      ttl: ttl !== undefined ? ttl : this.defaultTTL,
     });
   }
 
   /**
    * 删除缓存
    */
-  delete(url: string, params?: any, data?: any): void {
+  delete(key: string): void;
+  delete(url: string, params?: any, data?: any): void;
+  delete(...args: any[]): void {
     if (!this.enabled) {
       return;
     }
 
-    const key = this.generateKey(url, params, data);
+    let key: string;
+    if (args.length === 1) {
+      key = args[0];
+    } else {
+      key = this.generateKey(args[0], args[1], args[2]);
+    }
     this.cache.delete(key);
   }
 
@@ -156,6 +181,50 @@ export class HttpCache {
    */
   clear(): void {
     this.cache.clear();
+  }
+
+  /**
+   * 获取缓存大小
+   */
+  size(): number {
+    return this.cache.size;
+  }
+
+  /**
+   * 检查缓存是否为空
+   */
+  isEmpty(): boolean {
+    return this.cache.size === 0;
+  }
+
+  /**
+   * 检查缓存是否包含指定键
+   */
+  has(key: string): boolean;
+  has(url: string, params?: any, data?: any): boolean;
+  has(...args: any[]): boolean {
+    if (!this.enabled) {
+      return false;
+    }
+
+    let key: string;
+    if (args.length === 1) {
+      key = args[0];
+    } else {
+      key = this.generateKey(args[0], args[1], args[2]);
+    }
+    return this.cache.has(key);
+  }
+
+  /**
+   * 重置缓存统计信息
+   */
+  resetStats(): void {
+    this.stats = {
+      hits: 0,
+      misses: 0,
+      requests: 0,
+    };
   }
 
   /**

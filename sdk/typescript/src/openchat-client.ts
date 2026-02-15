@@ -96,7 +96,7 @@ export class OpenChatClient extends EventEmitter {
   private config: OpenChatSDKConfig;
 
   // 服务层
-  private api: ApiService;
+  private apiService: ApiService;
   private imService: WukongIMService;
   private rtcManager: RTCManager | null = null;
 
@@ -108,6 +108,7 @@ export class OpenChatClient extends EventEmitter {
   public readonly auth: AuthModule;
   public readonly im: IMModule;
   public readonly rtc: RTCModule;
+  public readonly api: ApiServiceAccessor;
 
   constructor(config: OpenChatSDKConfig) {
     super();
@@ -130,13 +131,14 @@ export class OpenChatClient extends EventEmitter {
     } as OpenChatSDKConfig;
 
     // 初始化服务
-    this.api = new ApiService(this.config);
+    this.apiService = new ApiService(this.config);
     this.imService = new WukongIMService();
 
     // 初始化模块
     this.auth = new AuthModule(this);
     this.im = new IMModule(this);
     this.rtc = new RTCModule(this);
+    this.api = new ApiServiceAccessor(this);
 
     // 绑定IM事件
     this.bindIMEvents();
@@ -156,7 +158,7 @@ export class OpenChatClient extends EventEmitter {
 
     try {
       // 获取当前用户信息
-      this.currentUser = await this.api.getCurrentUser();
+      this.currentUser = await this.apiService.getCurrentUser();
 
       // 连接IM服务器（内部封装，用户无感知）
       await this.imService.connect({
@@ -299,7 +301,7 @@ export class OpenChatClient extends EventEmitter {
   }
 
   getApiService(): ApiService {
-    return this.api;
+    return this.apiService;
   }
 
   getIMService(): WukongIMService {
@@ -316,7 +318,7 @@ export class OpenChatClient extends EventEmitter {
 
   setToken(token: string): void {
     this.config.auth.token = token;
-    this.api.setToken(token);
+    this.apiService.setToken(token);
   }
 
   /**
@@ -390,6 +392,14 @@ class AuthModule {
     const userInfo = await this.client.getApiService().login(username, password);
     this.client.setCurrentUser(userInfo.user);
     this.client.setToken(userInfo.token);
+    
+    if (userInfo.imConfig) {
+      const config = this.client.getConfig();
+      config.im.wsUrl = userInfo.imConfig.wsUrl;
+      config.auth.uid = userInfo.imConfig.uid;
+      config.auth.token = userInfo.imConfig.token;
+    }
+    
     await this.client.init();
     return userInfo;
   }
@@ -398,29 +408,37 @@ class AuthModule {
    * 注册
    * @param userInfo 用户信息
    */
-  async register(userInfo: { username: string; password: string; nickname?: string }): Promise<UserInfo> {
-    const { username, password, nickname } = userInfo;
-    const result = await this.client.getApiService().register(username, password, nickname);
+  async register(userInfo: { username: string; password: string; nickname?: string; email?: string; phone?: string }): Promise<UserInfo> {
+    const { username, password, ...options } = userInfo;
+    const result = await this.client.getApiService().register(username, password, options);
     this.client.setCurrentUser(result.user);
     this.client.setToken(result.token);
+    
+    if (result.imConfig) {
+      const config = this.client.getConfig();
+      config.im.wsUrl = result.imConfig.wsUrl;
+      config.auth.uid = result.imConfig.uid;
+      config.auth.token = result.imConfig.token;
+    }
+    
     return result;
   }
 
   /**
    * 登出
    */
-  async logout(): Promise<void> {
-    await this.client.getApiService().logout();
+  async logout(refreshToken?: string): Promise<void> {
+    await this.client.getApiService().logout(refreshToken);
     this.client.destroy();
   }
 
   /**
    * 刷新令牌
    */
-  async refreshToken(): Promise<string> {
-    const token = await this.client.getApiService().refreshToken();
-    this.client.setToken(token);
-    return token;
+  async refreshToken(refreshToken?: string): Promise<string> {
+    const userInfo = await this.client.getApiService().refreshToken(refreshToken);
+    this.client.setToken(userInfo.token);
+    return userInfo.token;
   }
 
   /**
@@ -824,23 +842,38 @@ class ContactsModule {
   /**
    * 获取联系人列表
    */
-  async getContacts(): Promise<Contact[]> {
-    return this.client.getApiService().getContacts();
+  async getContacts(options?: {
+    userId: string;
+    type?: 'user' | 'group';
+    status?: 'active' | 'blocked' | 'deleted';
+    isFavorite?: boolean;
+    tag?: string;
+    keyword?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Contact[]> {
+    return this.client.getApiService().getContacts(options);
   }
 
   /**
-   * 添加联系人
-   * @param uid 用户ID
+   * 创建联系人
    */
-  async addContact(uid: string): Promise<Contact> {
-    return this.client.getApiService().addContact(uid);
+  async createContact(data: {
+    userId: string;
+    contactId: string;
+    type: 'user' | 'group';
+    name: string;
+    remark?: string;
+    tags?: string[];
+  }): Promise<Contact> {
+    return this.client.getApiService().createContact(data);
   }
 
   /**
    * 删除联系人
    * @param id 联系人ID
    */
-  async deleteContact(id: string): Promise<void> {
+  async deleteContact(id: string): Promise<boolean> {
     return this.client.getApiService().deleteContact(id);
   }
 
@@ -849,7 +882,16 @@ class ContactsModule {
    * @param id 联系人ID
    * @param data 更新数据
    */
-  async updateContact(id: string, data: Partial<Contact>): Promise<Contact> {
+  async updateContact(
+    id: string,
+    data: {
+      name?: string;
+      remark?: string;
+      tags?: string[];
+      isFavorite?: boolean;
+      status?: 'active' | 'blocked' | 'deleted';
+    }
+  ): Promise<Contact | null> {
     return this.client.getApiService().updateContact(id, data);
   }
 }
@@ -917,11 +959,12 @@ class ConversationsModule {
 
   /**
    * 创建会话
-   * @param targetId 目标ID
    * @param type 会话类型
+   * @param userId 用户ID
+   * @param targetId 目标ID
    */
-  async createConversation(targetId: string, type: ConversationType): Promise<Conversation> {
-    return this.client.getApiService().createConversation(targetId, type);
+  async createConversation(type: 'single' | 'group', userId: string, targetId: string): Promise<Conversation> {
+    return this.client.getApiService().createConversation(type, userId, targetId);
   }
 }
 
@@ -1202,6 +1245,416 @@ class RTCModule {
     const rtcManager = this.client.getRTCManager();
     if (!rtcManager) return;
     rtcManager.off(event, callback);
+  }
+}
+
+/**
+ * API服务访问器
+ * 提供对所有API的便捷访问
+ */
+class ApiServiceAccessor {
+  private client: OpenChatClient;
+
+  constructor(client: OpenChatClient) {
+    this.client = client;
+  }
+
+  /**
+   * 直接访问底层ApiService实例
+   * 所有API方法都可以通过 client.api.service.xxx() 访问
+   */
+  get service() {
+    return this.client.getApiService();
+  }
+
+  // ==================== 认证相关 ====================
+
+  async register(username: string, password: string, options?: {
+    nickname?: string;
+    email?: string;
+    phone?: string;
+    verificationCode?: string;
+  }) {
+    return this.client.getApiService().register(username, password, options);
+  }
+
+  async login(username: string, password: string) {
+    return this.client.getApiService().login(username, password);
+  }
+
+  async logout(refreshToken?: string) {
+    return this.client.getApiService().logout(refreshToken);
+  }
+
+  async refreshToken(refreshToken?: string) {
+    return this.client.getApiService().refreshToken(refreshToken);
+  }
+
+  async validateToken(token: string) {
+    return this.client.getApiService().validateToken(token);
+  }
+
+  async getAuthMe() {
+    return this.client.getApiService().getAuthMe();
+  }
+
+  async updatePassword(oldPassword: string, newPassword: string) {
+    return this.client.getApiService().updatePassword(oldPassword, newPassword);
+  }
+
+  async forgotPassword(options: { email?: string; phone?: string }) {
+    return this.client.getApiService().forgotPassword(options);
+  }
+
+  async sendVerificationCode(options: {
+    email?: string;
+    phone?: string;
+    type: 'register' | 'login' | 'reset';
+  }) {
+    return this.client.getApiService().sendVerificationCode(options);
+  }
+
+  async verifyVerificationCode(options: {
+    email?: string;
+    phone?: string;
+    code: string;
+    type: 'register' | 'login' | 'reset';
+  }) {
+    return this.client.getApiService().verifyVerificationCode(options);
+  }
+
+  async getUserOnlineStatus(userId: string) {
+    return this.client.getApiService().getUserOnlineStatus(userId);
+  }
+
+  async batchGetUserOnlineStatus(userIds: string[]) {
+    return this.client.getApiService().batchGetUserOnlineStatus(userIds);
+  }
+
+  // ==================== 用户相关 ====================
+
+  async getCurrentUser() {
+    return this.client.getApiService().getCurrentUser();
+  }
+
+  async getUser(uid: string) {
+    return this.client.getApiService().getUser(uid);
+  }
+
+  async getUsers(uids: string[]) {
+    return this.client.getApiService().getUsers(uids);
+  }
+
+  async updateUser(uid: string, data: any) {
+    return this.client.getApiService().updateUser(uid, data);
+  }
+
+  async searchUsers(keyword: string, limit?: number) {
+    return this.client.getApiService().searchUsers(keyword, limit);
+  }
+
+  // ==================== 好友相关 ====================
+
+  async getFriends() {
+    return this.client.getApiService().getFriends();
+  }
+
+  async sendFriendRequest(toUid: string, message?: string) {
+    return this.client.getApiService().sendFriendRequest(toUid, message);
+  }
+
+  async acceptFriendRequest(requestId: string) {
+    return this.client.getApiService().acceptFriendRequest(requestId);
+  }
+
+  async rejectFriendRequest(requestId: string) {
+    return this.client.getApiService().rejectFriendRequest(requestId);
+  }
+
+  async removeFriend(uid: string) {
+    return this.client.getApiService().removeFriend(uid);
+  }
+
+  async getReceivedFriendRequests() {
+    return this.client.getApiService().getReceivedFriendRequests();
+  }
+
+  async getSentFriendRequests() {
+    return this.client.getApiService().getSentFriendRequests();
+  }
+
+  async setFriendRemark(uid: string, remark: string) {
+    return this.client.getApiService().setFriendRemark(uid, remark);
+  }
+
+  async blockFriend(uid: string) {
+    return this.client.getApiService().blockFriend(uid);
+  }
+
+  async unblockFriend(uid: string) {
+    return this.client.getApiService().unblockFriend(uid);
+  }
+
+  // ==================== 群组相关 ====================
+
+  async createGroup(name: string, memberUids: string[], options?: { avatar?: string; notice?: string }) {
+    return this.client.getApiService().createGroup(name, memberUids, options);
+  }
+
+  async getGroup(groupId: string) {
+    return this.client.getApiService().getGroup(groupId);
+  }
+
+  async getMyGroups() {
+    return this.client.getApiService().getMyGroups();
+  }
+
+  async updateGroup(groupId: string, data: any) {
+    return this.client.getApiService().updateGroup(groupId, data);
+  }
+
+  async dissolveGroup(groupId: string) {
+    return this.client.getApiService().dissolveGroup(groupId);
+  }
+
+  async getGroupMembers(groupId: string) {
+    return this.client.getApiService().getGroupMembers(groupId);
+  }
+
+  async addGroupMember(groupId: string, uid: string) {
+    return this.client.getApiService().addGroupMember(groupId, uid);
+  }
+
+  async removeGroupMember(groupId: string, uid: string) {
+    return this.client.getApiService().removeGroupMember(groupId, uid);
+  }
+
+  async quitGroup(groupId: string) {
+    return this.client.getApiService().quitGroup(groupId);
+  }
+
+  async setGroupMemberRole(groupId: string, uid: string, role: number) {
+    return this.client.getApiService().setGroupMemberRole(groupId, uid, role);
+  }
+
+  async transferGroupOwner(groupId: string, uid: string) {
+    return this.client.getApiService().transferGroupOwner(groupId, uid);
+  }
+
+  // ==================== 会话相关 ====================
+
+  async getConversations(options?: {
+    userId: string;
+    type?: 'single' | 'group';
+    isPinned?: boolean;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.client.getApiService().getConversations(options);
+  }
+
+  async getConversation(conversationId: string) {
+    return this.client.getApiService().getConversation(conversationId);
+  }
+
+  async getConversationByTarget(userId: string, targetId: string, type: 'single' | 'group') {
+    return this.client.getApiService().getConversationByTarget(userId, targetId, type);
+  }
+
+  async createConversation(type: 'single' | 'group', userId: string, targetId: string) {
+    return this.client.getApiService().createConversation(type, userId, targetId);
+  }
+
+  async updateConversation(conversationId: string, data: { isPinned?: boolean; isMuted?: boolean }) {
+    return this.client.getApiService().updateConversation(conversationId, data);
+  }
+
+  async deleteConversation(conversationId: string) {
+    return this.client.getApiService().deleteConversation(conversationId);
+  }
+
+  async batchDeleteConversations(ids: string[]) {
+    return this.client.getApiService().batchDeleteConversations(ids);
+  }
+
+  async pinConversation(conversationId: string, isPinned: boolean) {
+    return this.client.getApiService().pinConversation(conversationId, isPinned);
+  }
+
+  async muteConversation(conversationId: string, isMuted: boolean) {
+    return this.client.getApiService().muteConversation(conversationId, isMuted);
+  }
+
+  async clearConversationUnread(conversationId: string) {
+    return this.client.getApiService().clearConversationUnread(conversationId);
+  }
+
+  async getTotalUnreadCount(userId: string) {
+    return this.client.getApiService().getTotalUnreadCount(userId);
+  }
+
+  // ==================== 消息相关 ====================
+
+  async sendMessage(data: any): Promise<any> {
+    return this.client.getApiService().sendMessage(data);
+  }
+
+  async batchSendMessages(messages: any[]): Promise<any[]> {
+    return this.client.getApiService().batchSendMessages(messages);
+  }
+
+  async getMessage(id: string): Promise<any> {
+    return this.client.getApiService().getMessage(id);
+  }
+
+  async getUserMessages(userId: string, options?: { limit?: number; offset?: number; cursor?: string }): Promise<any[]> {
+    return this.client.getApiService().getUserMessages(userId, options);
+  }
+
+  async getGroupMessages(groupId: string, options?: { limit?: number; offset?: number; cursor?: string }): Promise<any[]> {
+    return this.client.getApiService().getGroupMessages(groupId, options);
+  }
+
+  async updateMessageStatus(id: string, status: string): Promise<boolean> {
+    return this.client.getApiService().updateMessageStatus(id, status);
+  }
+
+  async deleteMessage(messageId: string): Promise<boolean> {
+    return this.client.getApiService().deleteMessage(messageId);
+  }
+
+  async markMessagesAsRead(userId: string, messageIds: string[]): Promise<boolean> {
+    return this.client.getApiService().markMessagesAsRead(userId, messageIds);
+  }
+
+  async recallMessage(messageId: string) {
+    return this.client.getApiService().recallMessage(messageId);
+  }
+
+  async forwardMessage(
+    messageId: string,
+    options: { toUserIds?: string[]; toGroupIds?: string[] }
+  ): Promise<any[]> {
+    return this.client.getApiService().forwardMessage(messageId, options);
+  }
+
+  async retrySendMessage(messageId: string): Promise<{ success: boolean; message?: any }> {
+    return this.client.getApiService().retrySendMessage(messageId);
+  }
+
+  async getMessages(channelId: string, channelType: any, options?: any) {
+    return this.client.getApiService().getMessages(channelId, channelType, options);
+  }
+
+  // ==================== 联系人相关 ====================
+
+  async getContacts(options?: {
+    userId: string;
+    type?: 'user' | 'group';
+    status?: 'active' | 'blocked' | 'deleted';
+    isFavorite?: boolean;
+    tag?: string;
+    keyword?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.client.getApiService().getContacts(options);
+  }
+
+  async getContactById(id: string) {
+    return this.client.getApiService().getContactById(id);
+  }
+
+  async createContact(data: {
+    userId: string;
+    contactId: string;
+    type: 'user' | 'group';
+    name: string;
+    remark?: string;
+    tags?: string[];
+  }) {
+    return this.client.getApiService().createContact(data);
+  }
+
+  async updateContact(
+    id: string,
+    data: {
+      name?: string;
+      remark?: string;
+      tags?: string[];
+      isFavorite?: boolean;
+      status?: 'active' | 'blocked' | 'deleted';
+    }
+  ) {
+    return this.client.getApiService().updateContact(id, data);
+  }
+
+  async deleteContact(id: string) {
+    return this.client.getApiService().deleteContact(id);
+  }
+
+  async batchDeleteContacts(ids: string[]) {
+    return this.client.getApiService().batchDeleteContacts(ids);
+  }
+
+  async setContactFavorite(id: string, isFavorite: boolean) {
+    return this.client.getApiService().setContactFavorite(id, isFavorite);
+  }
+
+  async setContactRemark(id: string, remark: string) {
+    return this.client.getApiService().setContactRemark(id, remark);
+  }
+
+  async addContactTag(id: string, tag: string) {
+    return this.client.getApiService().addContactTag(id, tag);
+  }
+
+  async removeContactTag(id: string, tag: string) {
+    return this.client.getApiService().removeContactTag(id, tag);
+  }
+
+  async searchContacts(userId: string, keyword: string) {
+    return this.client.getApiService().searchContacts(userId, keyword);
+  }
+
+  async getContactStats(userId: string) {
+    return this.client.getApiService().getContactStats(userId);
+  }
+
+  // ==================== 消息搜索相关 ====================
+
+  async searchMessages(params: any) {
+    return this.client.getApiService().searchMessages(params);
+  }
+
+  async quickSearchMessages(keyword: string, limit?: number) {
+    return this.client.getApiService().quickSearchMessages(keyword, limit);
+  }
+
+  async searchMessagesInConversation(params: any) {
+    return this.client.getApiService().searchMessagesInConversation(params);
+  }
+
+  async getMessageStats(params?: any) {
+    return this.client.getApiService().getMessageStats(params);
+  }
+
+  // ==================== 健康检查相关 ====================
+
+  async checkHealth() {
+    return this.client.getApiService().checkHealth();
+  }
+
+  async checkDetailedHealth() {
+    return this.client.getApiService().checkDetailedHealth();
+  }
+
+  async checkReady() {
+    return this.client.getApiService().checkReady();
+  }
+
+  async checkLive() {
+    return this.client.getApiService().checkLive();
   }
 }
 

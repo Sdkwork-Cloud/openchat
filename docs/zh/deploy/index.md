@@ -6,11 +6,11 @@
 
 | 文档 | 说明 |
 |------|------|
-| [安装指南](./installation) | 详细安装步骤和系统要求 |
-| [Docker 部署](./docker) | Docker 部署详解 |
-| [Kubernetes 部署](./kubernetes) | 集群部署指南 |
-| [传统部署](./traditional) | 非 Docker 部署方式 |
-| [快速部署](./quickstart) | 快速体验部署 |
+| [安装指南](./installation.md) | 详细安装步骤和系统要求 |
+| [Docker 部署](./docker.md) | Docker 部署详解 |
+| [Kubernetes 部署](./kubernetes.md) | 集群部署指南 |
+| [传统部署](./traditional.md) | 非 Docker 部署方式 |
+| [快速部署](./quickstart.md) | 快速体验部署 |
 
 ## 环境说明
 
@@ -392,6 +392,6 @@ docker compose logs -f wukongim
 
 ## 下一步
 
-- [Docker 部署详解](./docker) - Docker 部署详细说明
+- [Docker 部署详解](./docker.md) - Docker 部署详细说明
 - [配置说明](../config/) - 完整配置参数
 - [API 文档](../api/) - API 接口文档

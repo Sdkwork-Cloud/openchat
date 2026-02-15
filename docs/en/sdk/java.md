@@ -1,6 +1,6 @@
 # Java SDK
 
-## 安装
+## Installation
 
 ### Maven
 
@@ -18,7 +18,7 @@
 implementation 'io.openchat:sdk:1.0.0'
 ```
 
-## 快速开始
+## Quick Start
 
 ```java
 import io.openchat.sdk.OpenChatClient;
@@ -31,15 +31,15 @@ OpenChatClient client = new OpenChatClient.Builder()
         .build())
     .build();
 
-// 初始化
+// Initialize
 client.init();
 
-// 登录
+// Login
 AuthResponse response = client.auth().login(
     new LoginRequest("username", "password")
 );
 
-// 发送消息
+// Send message
 client.messages().send(new MessageRequest()
     .to("user2")
     .type(MessageType.TEXT)
@@ -47,6 +47,11 @@ client.messages().send(new MessageRequest()
 );
 ```
 
-## 更多示例
+## More Examples
 
-请参考 [GitHub 示例项目](https://github.com/openchat-team/sdk-java-examples)。
+See [GitHub Examples](https://github.com/openchat-team/sdk-java-examples).
+
+## Next Steps
+
+- [TypeScript SDK](./typescript.md) - TypeScript SDK
+- [API Documentation](../api/) - Complete API reference

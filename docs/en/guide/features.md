@@ -1,271 +1,246 @@
-# 功能特性
+# Features
 
-OpenChat 提供完整的即时通讯功能，从基础聊天到高级音视频通话，满足各种场景需求。
+OpenChat provides complete instant messaging features, from basic chat to advanced audio/video calls, meeting various scenario needs.
 
-## 核心功能
+## Core Features
 
-### 💬 即时通讯
+### 💬 Instant Messaging
 
-#### 消息类型
+#### Message Types
 
-| 类型 | 说明 | 特性 |
-|------|------|------|
-| **文本消息** | 普通文字消息 | 支持 @提及、表情、链接预览 |
-| **图片消息** | 图片发送 | 支持压缩、缩略图、原图查看 |
-| **语音消息** | 语音发送 | 支持语音转文字、播放进度 |
-| **视频消息** | 视频发送 | 支持预览、播放、下载 |
-| **文件消息** | 文件传输 | 支持断点续传、在线预览 |
-| **位置消息** | 位置分享 | 支持地图展示、导航 |
-| **名片消息** | 联系人分享 | 一键添加好友 |
-| **合并转发** | 消息合并 | 多条消息合并转发 |
+| Type | Description | Features |
+|------|-------------|----------|
+| **Text Message** | Plain text messages | @mentions, emojis, link previews |
+| **Image Message** | Image sharing | Compression, thumbnails, original view |
+| **Voice Message** | Voice recording | Speech-to-text, playback progress |
+| **Video Message** | Video sharing | Preview, playback, download |
+| **File Message** | File transfer | Resume upload, online preview |
+| **Location Message** | Location sharing | Map display, navigation |
+| **Contact Card** | Contact sharing | One-click add friend |
+| **Combined Forward** | Message merge | Forward multiple messages together |
 
-#### 消息特性
+#### Message Features
 
-- ✅ **已读回执** - 查看对方是否已读消息
-- ✅ **消息撤回** - 支持撤回 2 分钟内的消息
-- ✅ **消息引用** - 回复特定消息
-- ✅ **消息搜索** - 全文搜索历史消息
-- ✅ **消息收藏** - 收藏重要消息
-- ✅ **消息免打扰** - 设置会话免打扰
-- ✅ **@功能** - 群组中 @特定成员
-- ✅ **输入状态** - 显示对方正在输入
+- ✅ **Read Receipts** - See if messages are read
+- ✅ **Message Recall** - Recall messages within 2 minutes
+- ✅ **Message Quote** - Reply to specific messages
+- ✅ **Message Search** - Full-text search history
+- ✅ **Message Favorite** - Save important messages
+- ✅ **Do Not Disturb** - Mute conversations
+- ✅ **@Mentions** - @mention specific members in groups
+- ✅ **Typing Indicator** - Show when someone is typing
 
-### 👥 群组功能
+### 👥 Group Features
 
-#### 群组类型
+#### Group Types
 
-| 类型 | 成员上限 | 特性 |
-|------|----------|------|
-| **普通群** | 2000 人 | 基础聊天功能 |
-| **大群** | 10000 人 | 支持禁言、公告 |
-| **直播群** | 无上限 | 仅管理员发言 |
+| Type | Member Limit | Features |
+|------|--------------|----------|
+| **Regular Group** | 2,000 | Basic chat features |
+| **Large Group** | 10,000 | Mute, announcements |
+| **Live Group** | Unlimited | Admin-only messages |
 
-#### 群管理功能
+#### Group Management
 
-- ✅ **群公告** - 发布群公告，全员通知
-- ✅ **群禁言** - 全员禁言或指定成员禁言
-- ✅ **群管理员** - 设置多个群管理员
-- ✅ **入群验证** - 需要群主/管理员审核
-- ✅ **群邀请** - 邀请好友加入群组
-- ✅ **群转让** - 转让群主身份
-- ✅ **群解散** - 群主解散群组
-- ✅ **群成员管理** - 查看、移除群成员
+- ✅ **Group Announcement** - Announce to all members
+- ✅ **Group Mute** - Mute all or specific members
+- ✅ **Group Admins** - Set multiple admins
+- ✅ **Join Approval** - Require admin approval
+- ✅ **Group Invite** - Invite friends to join
+- ✅ **Transfer Ownership** - Transfer group ownership
+- ✅ **Disband Group** - Owner can disband
+- ✅ **Member Management** - View and remove members
 
-### 🔊 实时音视频
+### 🔊 Real-time Audio/Video
 
-#### 音视频通话
+#### Audio/Video Calls
 
-- ✅ **一对一通话** - 高清音视频通话
-- ✅ **群组通话** - 支持最多 50 人同时通话
-- ✅ **屏幕共享** - 分享屏幕内容
-- ✅ **通话录制** - 录制通话内容
-- ✅ **美颜滤镜** - 视频美颜、虚拟背景
+- ✅ **One-on-One Call** - HD audio/video calls
+- ✅ **Group Call** - Up to 50 participants
+- ✅ **Screen Sharing** - Share screen content
+- ✅ **Call Recording** - Record calls
+- ✅ **Beauty Filters** - Video beauty, virtual backgrounds
 
-#### 互动直播
+#### Interactive Live Streaming
 
-- ✅ **主播开播** - 开始直播推流
-- ✅ **观众连麦** - 观众申请上麦
-- ✅ **弹幕消息** - 实时弹幕互动
-- ✅ **礼物打赏** - 虚拟礼物系统
-- ✅ **直播间管理** - 禁言、踢人、设置管理员
+- ✅ **Start Streaming** - Begin live broadcast
+- ✅ **Audience Co-host** - Audience join as co-host
+- ✅ **Danmaku** - Real-time bullet comments
+- ✅ **Gift System** - Virtual gifts
+- ✅ **Room Management** - Mute, kick, set admins
 
-### 🤖 AI 助手
+### 🤖 AI Assistant
 
-#### AI Bot 功能
+#### AI Bot Features
 
-- ✅ **智能客服** - 自动回复常见问题
-- ✅ **智能问答** - 基于知识库回答问题
-- ✅ **内容生成** - 辅助写作、翻译
-- ✅ **代码助手** - 编程辅助、代码解释
-- ✅ **多模型支持** - GPT-4、Claude、文心一言
+- ✅ **Smart Customer Service** - Auto-reply FAQs
+- ✅ **Smart Q&A** - Knowledge-based answers
+- ✅ **Content Generation** - Writing assistance, translation
+- ✅ **Code Assistant** - Programming help, code explanation
+- ✅ **Multi-model Support** - GPT-4, Claude, Wenxin
 
-#### AI 应用场景
-
-```
-用户问题 -> AI Bot -> 智能回复
-              ↓
-         知识库检索
-              ↓
-         大模型生成
-              ↓
-         返回给用户
-```
-
-### 🔌 第三方集成
-
-#### 平台集成
-
-| 平台 | 功能 | 状态 |
-|------|------|------|
-| **Telegram** | 消息同步、Bot 对接 | ✅ 已支持 |
-| **WhatsApp** | 消息同步、商业 API | ✅ 已支持 |
-| **企业微信** | 消息同步、应用对接 | 🚧 开发中 |
-| **钉钉** | 消息同步、机器人 | 🚧 开发中 |
-| **飞书** | 消息同步、应用对接 | 🚧 开发中 |
-
-#### Webhook 支持
-
-- ✅ **消息推送** - 实时推送消息到外部系统
-- ✅ **事件通知** - 用户上线、消息发送等事件
-- ✅ **自定义处理** - 自定义业务逻辑处理
-
-## 高级功能
-
-### 🔐 安全特性
-
-#### 认证安全
-
-- ✅ **JWT 认证** - 基于 Token 的身份验证
-- ✅ **双因素认证** - 短信/邮箱验证码
-- ✅ **设备管理** - 查看和管理登录设备
-- ✅ **登录保护** - 异常登录提醒
-
-#### 消息安全
-
-- ✅ **端到端加密** - 消息内容加密传输
-- ✅ **阅后即焚** - 消息阅读后自动销毁
-- ✅ **防截屏** - 敏感内容防截屏保护
-- ✅ **水印** - 聊天界面显示用户水印
-
-#### 数据安全
-
-- ✅ **数据备份** - 自动数据备份
-- ✅ **数据恢复** - 支持数据恢复
-- ✅ **审计日志** - 操作日志记录
-- ✅ **敏感词过滤** - 自动过滤敏感内容
-
-### 📊 管理后台
-
-#### 用户管理
-
-- ✅ **用户列表** - 查看所有用户信息
-- ✅ **用户搜索** - 按条件搜索用户
-- ✅ **用户禁用** - 禁用违规用户
-- ✅ **用户统计** - 用户活跃度统计
-
-#### 群组管理
-
-- ✅ **群组列表** - 查看所有群组
-- ✅ **群组审核** - 审核新建群组
-- ✅ **群组监控** - 监控群组消息
-- ✅ **群组统计** - 群组活跃度统计
-
-#### 系统监控
-
-- ✅ **实时监控** - 在线人数、消息量
-- ✅ **性能监控** - CPU、内存、网络
-- ✅ **日志查看** - 系统日志查询
-- ✅ **告警通知** - 异常告警通知
-
-### 🎨 个性化
-
-#### 界面定制
-
-- ✅ **主题切换** - 亮色/暗色主题
-- ✅ **主题色** - 自定义主题颜色
-- ✅ **字体大小** - 调整字体大小
-- ✅ **聊天背景** - 自定义聊天背景
-
-#### 消息设置
-
-- ✅ **消息提示音** - 自定义提示音
-- ✅ **消息震动** - 开启/关闭震动
-- ✅ **消息预览** - 锁屏消息预览
-- ✅ **消息同步** - 多设备消息同步
-
-## 性能特性
-
-### 高并发支持
+#### AI Application Flow
 
 ```
-单节点支持:
-- 同时在线: 10万+
-- 消息吞吐: 10万/秒
-- 音视频并发: 1000+
-
-集群支持:
-- 同时在线: 1000万+
-- 消息吞吐: 100万/秒
-- 音视频并发: 10万+
+User Question -> AI Bot -> Smart Reply
+                  ↓
+             Knowledge Base
+                  ↓
+             LLM Generation
+                  ↓
+             Return to User
 ```
 
-### 消息可靠性
+### 🔌 Third-party Integration
 
-- ✅ **消息必达** - 消息 100% 送达保证
-- ✅ **有序投递** - 消息按序投递
-- ✅ **去重机制** - 自动消息去重
-- ✅ **离线消息** - 离线消息推送
+#### Platform Integration
 
-### 低延迟
+| Platform | Features | Status |
+|----------|----------|--------|
+| **Telegram** | Message sync, Bot integration | ✅ Available |
+| **WhatsApp** | Message sync, Business API | ✅ Available |
+| **WeCom** | Message sync, App integration | 🚧 In Progress |
+| **DingTalk** | Message sync, Bot | 🚧 In Progress |
+| **Feishu** | Message sync, App integration | 🚧 In Progress |
 
-| 场景 | 延迟 |
-|------|------|
-| 消息发送 | < 100ms |
-| 消息投递 | < 200ms |
-| 音视频首帧 | < 500ms |
-| 音视频延迟 | < 300ms |
+#### Webhook Support
 
-## 平台支持
+- ✅ **Message Push** - Real-time push to external systems
+- ✅ **Event Notification** - User online, message events
+- ✅ **Custom Processing** - Custom business logic
 
-### 客户端支持
+## Advanced Features
 
-| 平台 | 技术栈 | 状态 |
-|------|--------|------|
-| **Web** | React + TypeScript | ✅ 已支持 |
-| **PC** | React + Electron | ✅ 已支持 |
-| **iOS** | React Native | ✅ 已支持 |
-| **Android** | React Native | ✅ 已支持 |
-| **小程序** | 微信小程序 | ✅ 已支持 |
-| **H5** | React | ✅ 已支持 |
+### 🔐 Security
 
-### SDK 支持
+#### Authentication Security
 
-| 语言 | 版本 | 状态 |
-|------|------|------|
-| **TypeScript** | ^5.0 | ✅ 已支持 |
-| **Java** | 11+ | ✅ 已支持 |
-| **Go** | 1.21+ | ✅ 已支持 |
-| **Python** | 3.9+ | ✅ 已支持 |
-| **Swift** | 5.0+ | 🚧 开发中 |
-| **Kotlin** | 1.9+ | 🚧 开发中 |
+- ✅ **JWT Authentication** - Token-based auth
+- ✅ **Two-Factor Auth** - SMS/Email verification
+- ✅ **Device Management** - View and manage devices
+- ✅ **Login Protection** - Anomaly detection
 
-## 部署方式
+#### Message Security
 
-### 部署选项
+- ✅ **End-to-End Encryption** - Encrypted transmission
+- ✅ **Self-Destruct** - Auto-delete after reading
+- ✅ **Screenshot Prevention** - Protect sensitive content
+- ✅ **Watermark** - User watermark on chat
 
-| 方式 | 适用场景 | 复杂度 |
-|------|----------|--------|
-| **Docker Compose** | 开发/测试/小型生产 | ⭐ |
-| **Kubernetes** | 大型生产/云原生 | ⭐⭐⭐⭐ |
-| **传统部署** | 遗留系统/特殊环境 | ⭐⭐⭐ |
-| **云服务** | 阿里云/腾讯云/AWS | ⭐⭐ |
+#### Data Security
 
-### 云服务集成
+- ✅ **Data Backup** - Automatic backup
+- ✅ **Data Recovery** - Restore data
+- ✅ **Audit Log** - Operation logs
+- ✅ **Content Filtering** - Filter sensitive content
 
-- ✅ **阿里云** - ECS、RDS、Redis、OSS
-- ✅ **腾讯云** - CVM、TDSQL、Redis、COS
-- ✅ **AWS** - EC2、RDS、ElastiCache、S3
-- ✅ **Azure** - VM、PostgreSQL、Cache、Blob
+### 📊 Admin Panel
 
-## 开发特性
+#### User Management
 
-### API 设计
+- ✅ **User List** - View all users
+- ✅ **User Search** - Search by criteria
+- ✅ **User Ban** - Ban violating users
+- ✅ **User Statistics** - Activity stats
 
-- ✅ **RESTful API** - 标准 REST 接口
-- ✅ **GraphQL** - 灵活的数据查询
-- ✅ **WebSocket** - 实时双向通信
-- ✅ **gRPC** - 高性能 RPC（未来）
+#### Group Management
 
-### 开发工具
+- ✅ **Group List** - View all groups
+- ✅ **Group Review** - Review new groups
+- ✅ **Group Monitoring** - Monitor messages
+- ✅ **Group Statistics** - Activity stats
 
-- ✅ **Swagger 文档** - 自动生成 API 文档
-- ✅ **Postman 集合** - 预置 API 测试集合
-- ✅ **SDK 生成** - 自动生成多语言 SDK
-- ✅ **Mock 服务** - 本地开发 Mock 数据
+#### System Monitoring
 
-## 更多资源
+- ✅ **Real-time Monitoring** - Online users, message volume
+- ✅ **Performance Monitoring** - CPU, memory, network
+- ✅ **Log Viewer** - System logs
+- ✅ **Alert Notifications** - Anomaly alerts
 
-- [快速开始](./quickstart) - 快速上手 OpenChat
-- [架构设计](./architecture) - 了解系统架构
-- [API 文档](/api/) - 查看完整 API
-- [SDK 文档](/sdk/) - 使用 SDK 开发
+### 🎨 Personalization
+
+#### Interface Customization
+
+- ✅ **Theme Switch** - Light/Dark mode
+- ✅ **Theme Color** - Custom accent color
+- ✅ **Font Size** - Adjust text size
+- ✅ **Chat Background** - Custom wallpaper
+
+#### Message Settings
+
+- ✅ **Notification Sound** - Custom sounds
+- ✅ **Vibration** - Enable/disable
+- ✅ **Lock Screen Preview** - Preview on lock screen
+- ✅ **Message Sync** - Multi-device sync
+
+## Performance
+
+### High Concurrency
+
+```
+Single Node:
+- Concurrent Users: 100,000+
+- Message Throughput: 100,000/sec
+- Audio/Video Concurrent: 1,000+
+
+Cluster:
+- Concurrent Users: 10,000,000+
+- Message Throughput: 1,000,000/sec
+- Audio/Video Concurrent: 100,000+
+```
+
+### Message Reliability
+
+- ✅ **Guaranteed Delivery** - 100% message delivery
+- ✅ **Ordered Delivery** - Messages in order
+- ✅ **Deduplication** - Auto message dedup
+- ✅ **Offline Messages** - Push when online
+
+### Low Latency
+
+| Scenario | Latency |
+|----------|---------|
+| Message Send | < 100ms |
+| Message Delivery | < 200ms |
+| Audio/Video First Frame | < 500ms |
+| Audio/Video Latency | < 300ms |
+
+## Platform Support
+
+### Client Support
+
+| Platform | Tech Stack | Status |
+|----------|------------|--------|
+| **Web** | React + TypeScript | ✅ Available |
+| **PC** | React + Electron | ✅ Available |
+| **iOS** | React Native | ✅ Available |
+| **Android** | React Native | ✅ Available |
+| **Mini Program** | WeChat Mini Program | ✅ Available |
+| **H5** | React | ✅ Available |
+
+### SDK Support
+
+| Language | Version | Status |
+|----------|---------|--------|
+| **TypeScript** | ^5.0 | ✅ Available |
+| **Java** | 11+ | ✅ Available |
+| **Go** | 1.21+ | ✅ Available |
+| **Python** | 3.9+ | ✅ Available |
+| **Swift** | 5.0+ | 🚧 In Progress |
+| **Kotlin** | 1.9+ | 🚧 In Progress |
+
+## Deployment Options
+
+| Method | Use Case | Complexity |
+|--------|----------|------------|
+| **Docker Compose** | Dev/Test/Small Production | ⭐ |
+| **Kubernetes** | Large Production/Cloud Native | ⭐⭐⭐⭐ |
+| **Traditional** | Legacy Systems | ⭐⭐⭐ |
+| **Cloud Services** | Alibaba/Tencent/AWS | ⭐⭐ |
+
+## More Resources
+
+- [Quick Start](./quickstart.md) - Get started with OpenChat
+- [Architecture](./architecture.md) - Understand the system
+- [API Documentation](/en/api/) - View complete API
+- [SDK Documentation](/en/sdk/) - Develop with SDK

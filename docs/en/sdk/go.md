@@ -1,12 +1,12 @@
 # Go SDK
 
-## 安装
+## Installation
 
 ```bash
 go get github.com/openchat-team/sdk-go
 ```
 
-## 快速开始
+## Quick Start
 
 ```go
 package main
@@ -28,12 +28,12 @@ func main() {
         log.Fatal(err)
     }
 
-    // 初始化
+    // Initialize
     if err := client.Init(); err != nil {
         log.Fatal(err)
     }
 
-    // 登录
+    // Login
     resp, err := client.Auth.Login(&openchat.LoginRequest{
         Username: "user1",
         Password: "password123",
@@ -42,7 +42,7 @@ func main() {
         log.Fatal(err)
     }
 
-    // 发送消息
+    // Send message
     _, err = client.Messages.Send(&openchat.MessageRequest{
         To:      "user2",
         Type:    openchat.MessageTypeText,
@@ -54,6 +54,11 @@ func main() {
 }
 ```
 
-## 更多示例
+## More Examples
 
-请参考 [GitHub 示例项目](https://github.com/openchat-team/sdk-go-examples)。
+See [GitHub Examples](https://github.com/openchat-team/sdk-go-examples).
+
+## Next Steps
+
+- [TypeScript SDK](./typescript.md) - TypeScript SDK
+- [API Documentation](../api/) - Complete API reference

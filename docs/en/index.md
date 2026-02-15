@@ -17,7 +17,7 @@ hero:
       link: /en/guide/overview
     - theme: alt
       text: GitHub
-      link: https://github.com/openchat-team/openchat-server
+      link: https://github.com/Sdkwork-Cloud/openchat
 
 features:
   - icon: 🚀
@@ -65,36 +65,35 @@ features:
 
 ::: code-group
 
-```bash [Docker One-Click]
-# Clone
-git clone https://github.com/openchat-team/openchat-server.git
-cd openchat-server
+```bash [One-Click Install]
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
 
-# Deploy
-chmod +x scripts/quick-start.sh
-./scripts/quick-start.sh
+# Windows
+.\scripts\quick-install.bat
+```
+
+```bash [Docker Quick Start]
+# Clone
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+
+# One-click start
+docker compose -f docker-compose.quick.yml up -d
+
+# Or use npm script
+pnpm run docker:quick
 ```
 
 ```bash [Local Development]
 # Install
-npm install
+pnpm install
+
+# Configure
+cp .env.example .env
 
 # Start dev server
-npm run start:dev
-```
-
-```typescript [Client Integration]
-import { OpenChatClient } from '@openchat/sdk';
-
-const client = new OpenChatClient({
-  serverUrl: 'http://localhost:3000',
-  imConfig: {
-    tcpAddr: 'localhost:5100',
-    wsUrl: 'ws://localhost:5200'
-  }
-});
-
-await client.init();
+pnpm run dev
 ```
 
 :::
@@ -102,12 +101,12 @@ await client.init();
 ## Tech Stack
 
 <div style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 32px 0;">
-  <img src="https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9+-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Redis-7+-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
+  <img src="https://img.shields.io/badge/Docker-24.0+-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/WukongIM-v2-orange?style=for-the-badge" alt="WukongIM" />
 </div>
 
 ## Project Structure
@@ -115,26 +114,55 @@ await client.init();
 ```
 openchat-server/
 ├── 📁 src/                 # Server source code
+│   ├── 📁 common/         # Common modules
+│   ├── 📁 modules/        # Business modules
+│   └── 📁 gateways/       # WebSocket gateways
 ├── 📁 sdk/                 # SDK directory
 │   ├── typescript/        # TypeScript SDK
-│   ├── java/              # Java SDK
-│   ├── go/                # Go SDK
-│   └── python/            # Python SDK
+│   ├── android/           # Android SDK
+│   ├── ios/               # iOS SDK
+│   ├── flutter/           # Flutter SDK
+│   ├── python/            # Python SDK
+│   └── nodejs/            # Node.js SDK
 ├── 📁 app/                 # Applications
-│   ├── openchat-react-pc/ # React PC client
-│   └── openchat-rn/       # React Native
+│   ├── openchat/          # Main app
+│   ├── openchat-admin/    # Admin panel
+│   ├── openchat-react-mobile/  # Mobile
+│   └── openchat-react-pc/ # PC client
 ├── 📁 docs/                # Documentation
 ├── 📁 database/            # Database scripts
 ├── 📁 scripts/             # Deployment scripts
-└── 📁 k8s/                 # Kubernetes configs
+├── 📁 k8s/                 # Kubernetes configs
+└── 📁 xiaozhi-esp32/       # ESP32 IoT firmware
+```
+
+## Operations Tools
+
+```bash
+# Pre-installation check
+pnpm run precheck
+
+# Health check
+pnpm run health
+
+# Full diagnosis
+pnpm run health:full
+
+# View logs
+pnpm run docker:logs
+
+# Service management
+pnpm run docker:up      # Start services
+pnpm run docker:down    # Stop services
+pnpm run docker:ps      # View status
 ```
 
 ## Community & Support
 
-- 💬 [GitHub Discussions](https://github.com/openchat-team/openchat-server/discussions)
-- 🐛 [Issue Report](https://github.com/openchat-team/openchat-server/issues)
-- 📧 Email: support@openchat.dev
+- 💬 [GitHub Discussions](https://github.com/Sdkwork-Cloud/openchat/discussions)
+- 🐛 [Issue Report](https://github.com/Sdkwork-Cloud/openchat/issues)
+- 📧 Email: contact@sdkwork.com
 
 ## License
 
-[MIT](https://github.com/openchat-team/openchat-server/blob/main/LICENSE)
+[AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0)

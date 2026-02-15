@@ -1,33 +1,37 @@
-# 消息系统
+# Message System
 
-## 消息模型
+## Message Model
 
 ```typescript
 interface Message {
-  id: string;           // 消息唯一标识
-  type: MessageType;    // 消息类型
-  content: any;         // 消息内容
-  from: string;         // 发送者 ID
-  to: string;           // 接收者 ID
-  timestamp: number;    // 发送时间戳
-  status: MessageStatus; // 消息状态
+  id: string;           // Unique message identifier
+  type: MessageType;    // Message type
+  content: any;         // Message content
+  from: string;         // Sender ID
+  to: string;           // Receiver ID
+  timestamp: number;    // Send timestamp
+  status: MessageStatus; // Message status
 }
 
 type MessageType = 'text' | 'image' | 'audio' | 'video' | 'file';
 type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read';
 ```
 
-## 消息类型
+## Message Types
 
-- **text** - 文本消息
-- **image** - 图片消息
-- **audio** - 语音消息
-- **video** - 视频消息
-- **file** - 文件消息
+- **text** - Text message
+- **image** - Image message
+- **audio** - Voice message
+- **video** - Video message
+- **file** - File message
 
-## 消息状态
+## Message Status
 
-- **sending** - 发送中
-- **sent** - 已发送
-- **delivered** - 已送达
-- **read** - 已读
+- **sending** - Sending
+- **sent** - Sent
+- **delivered** - Delivered
+- **read** - Read
+
+## Related APIs
+
+- [Message Management API](/en/api/messages.md)

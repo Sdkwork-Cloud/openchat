@@ -20,8 +20,8 @@ export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  username: process.env.DB_USER || 'openchat',
+  password: process.env.DB_PASSWORD || 'openchat_password',
   database: process.env.DB_NAME || 'openchat',
   entities: [
     UserEntity,
@@ -42,6 +42,6 @@ export const AppDataSource = new DataSource({
   ],
   migrations: ['src/migrations/**/*.ts'],
   subscribers: [],
-  synchronize: false,
-  logging: true,
+  synchronize: process.env.DB_SYNCHRONIZE === 'true',
+  logging: process.env.DB_LOGGING === 'true',
 });

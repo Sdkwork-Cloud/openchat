@@ -25,3 +25,8 @@ type ChannelType = 1 | 2;
 
 - 个人频道：使用对方用户 ID
 - 群组频道：使用群组 ID
+
+## 相关 API
+
+- [消息管理 API](/zh/api/messages.md)
+- [群组管理 API](/zh/api/groups.md)

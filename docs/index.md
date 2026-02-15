@@ -11,10 +11,10 @@ hero:
   actions:
     - theme: brand
       text: 快速开始
-      link: /guide/quickstart
+      link: /zh/guide/quickstart
     - theme: alt
       text: 项目概览
-      link: /guide/overview
+      link: /zh/guide/overview
     - theme: alt
       text: GitHub
       link: https://github.com/Sdkwork-Cloud/openchat
@@ -65,33 +65,35 @@ features:
 
 ::: code-group
 
-```bash [安装向导]
+```bash [一键安装]
 # Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/setup-wizard.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
 
 # Windows
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/setup-wizard.bat" -OutFile "setup-wizard.bat"
-.\setup-wizard.bat
+.\scripts\quick-install.bat
 ```
 
-```bash [Docker 部署]
+```bash [Docker 快速启动]
 # 克隆项目
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # 一键启动
-docker compose up -d
+docker compose -f docker-compose.quick.yml up -d
+
+# 或使用 npm 脚本
+pnpm run docker:quick
 ```
 
 ```bash [本地开发]
 # 安装依赖
-npm install
+pnpm install
 
 # 配置环境
 cp .env.example .env
 
 # 启动开发服务
-npm run start:dev
+pnpm run dev
 ```
 
 :::
@@ -137,23 +139,22 @@ openchat-server/
 ## 运维工具
 
 ```bash
-# 系统预检查
-./scripts/precheck.sh
+# 安装前检查
+pnpm run precheck
 
-# 安装测试验证
-./scripts/install-test.sh quick
+# 健康检查
+pnpm run health
 
-# 错误诊断
-./scripts/diagnose.sh
+# 完整诊断
+pnpm run health:full
 
-# 自动修复
-./scripts/auto-fix.sh --all
+# 查看日志
+pnpm run docker:logs
 
-# 日志分析
-./scripts/log-analyzer.sh analyze
-
-# 健康监控
-./scripts/health-check.sh --monitor
+# 服务管理
+pnpm run docker:up      # 启动服务
+pnpm run docker:down    # 停止服务
+pnpm run docker:ps      # 查看状态
 ```
 
 ## 社区与支持

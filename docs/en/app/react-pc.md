@@ -1,93 +1,93 @@
-# React PC 端应用
+# React PC App
 
-OpenChat React PC 端是一个基于 React + TypeScript + Tailwind CSS 开发的桌面聊天应用，提供完整的即时通讯功能。
+OpenChat React PC is a desktop chat application built with React + TypeScript + Tailwind CSS, providing complete instant messaging features.
 
-## 功能特性
+## Features
 
-- 💬 **即时通讯** - 支持单聊、群聊、消息撤回、已读回执
-- 🔊 **音视频通话** - 集成 RTC，支持高清音视频通话
-- 📎 **文件传输** - 支持图片、文件、语音消息
-- 🎨 **主题切换** - 支持亮色/暗色主题
-- 🔔 **消息通知** - 桌面消息通知提醒
-- 🔍 **全局搜索** - 支持搜索消息、联系人、群组
+- 💬 **Instant Messaging** - Private chat, group chat, message recall, read receipts
+- 🔊 **Audio/Video Calls** - Integrated RTC for HD calls
+- 📎 **File Transfer** - Images, files, voice messages
+- 🎨 **Theme Switching** - Light/Dark theme support
+- 🔔 **Notifications** - Desktop message notifications
+- 🔍 **Global Search** - Search messages, contacts, groups
 
-## 技术栈
+## Tech Stack
 
-| 技术 | 用途 | 版本 |
-|------|------|------|
-| React | UI 框架 | ^18.0 |
-| TypeScript | 开发语言 | ^5.0 |
-| Tailwind CSS | CSS 框架 | ^3.0 |
-| Zustand | 状态管理 | ^4.4 |
-| React Query | 数据获取 | ^5.0 |
-| React Router | 路由管理 | ^6.0 |
-| Socket.io | 实时通信 | ^4.7 |
+| Technology | Purpose | Version |
+|------------|---------|---------|
+| React | UI Framework | ^18.0 |
+| TypeScript | Language | ^5.0 |
+| Tailwind CSS | CSS Framework | ^3.0 |
+| Zustand | State Management | ^4.4 |
+| React Query | Data Fetching | ^5.0 |
+| React Router | Routing | ^6.0 |
+| Socket.io | Real-time | ^4.7 |
 
-## 项目结构
+## Project Structure
 
 ```
 app/openchat-react-pc/
 ├── src/
-│   ├── components/          # 组件目录
-│   │   ├── Chat/           # 聊天相关组件
-│   │   ├── Contact/        # 联系人组件
-│   │   ├── Group/          # 群组组件
-│   │   ├── Message/        # 消息组件
-│   │   └── UI/             # 通用 UI 组件
-│   ├── hooks/              # 自定义 Hooks
-│   ├── stores/             # 状态管理
-│   ├── services/           # API 服务
-│   ├── utils/              # 工具函数
-│   ├── types/              # TypeScript 类型
-│   └── App.tsx             # 应用入口
-├── public/                 # 静态资源
+│   ├── components/          # Components
+│   │   ├── Chat/           # Chat components
+│   │   ├── Contact/        # Contact components
+│   │   ├── Group/          # Group components
+│   │   ├── Message/        # Message components
+│   │   └── UI/             # Common UI components
+│   ├── hooks/              # Custom Hooks
+│   ├── stores/             # State management
+│   ├── services/           # API services
+│   ├── utils/              # Utilities
+│   ├── types/              # TypeScript types
+│   └── App.tsx             # App entry
+├── public/                 # Static assets
 └── package.json
 ```
 
-## 快速开始
+## Quick Start
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 cd app/openchat-react-pc
-npm install
+pnpm install
 ```
 
-### 配置环境变量
+### Configure Environment
 
-创建 `.env.local` 文件：
+Create `.env.local` file:
 
 ```env
-# API 地址
+# API URL
 VITE_API_URL=http://localhost:3000
 
-# 悟空IM 配置
+# WuKongIM Config
 VITE_IM_TCP_ADDR=localhost:5100
 VITE_IM_WS_URL=ws://localhost:5200
 
-# RTC 配置
+# RTC Config
 VITE_RTC_PROVIDER=volcengine
 ```
 
-### 启动开发服务器
+### Start Dev Server
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
-访问 http://localhost:5173
+Visit http://localhost:5173
 
-### 构建生产版本
+### Build for Production
 
 ```bash
-npm run build
+pnpm build
 ```
 
-## 核心组件
+## Core Components
 
 ### ChatContainer
 
-聊天容器组件，包含消息列表和输入框：
+Chat container component with message list and input:
 
 ```tsx
 import { ChatContainer } from '@/components/Chat';
@@ -104,7 +104,7 @@ function ChatPage() {
 
 ### MessageList
 
-消息列表组件：
+Message list component:
 
 ```tsx
 import { MessageList } from '@/components/Message';
@@ -122,7 +122,7 @@ function ChatPage() {
 
 ### MessageInput
 
-消息输入组件：
+Message input component:
 
 ```tsx
 import { MessageInput } from '@/components/Message';
@@ -137,9 +137,9 @@ function ChatPage() {
 }
 ```
 
-## 状态管理
+## State Management
 
-使用 Zustand 管理应用状态：
+Using Zustand for state management:
 
 ```typescript
 // stores/userStore.ts
@@ -158,11 +158,11 @@ export const useUserStore = create<UserState>((set) => ({
 }));
 ```
 
-## 自定义 Hooks
+## Custom Hooks
 
 ### useChat
 
-聊天相关功能 Hook：
+Chat functionality hook:
 
 ```typescript
 import { useChat } from '@/hooks/useChat';
@@ -181,7 +181,7 @@ function ChatPage() {
 
 ### useRTC
 
-音视频通话 Hook：
+Audio/video call hook:
 
 ```typescript
 import { useRTC } from '@/hooks/useRTC';
@@ -191,17 +191,17 @@ function CallButton() {
   
   return (
     <button onClick={() => startCall(userId)}>
-      {isInCall ? '结束通话' : '开始通话'}
+      {isInCall ? 'End Call' : 'Start Call'}
     </button>
   );
 }
 ```
 
-## 主题定制
+## Theme Customization
 
-### 修改主题色
+### Modify Theme Color
 
-编辑 `tailwind.config.js`：
+Edit `tailwind.config.js`:
 
 ```javascript
 module.exports = {
@@ -218,7 +218,7 @@ module.exports = {
 };
 ```
 
-### 切换主题
+### Toggle Theme
 
 ```typescript
 import { useTheme } from '@/hooks/useTheme';
@@ -234,35 +234,35 @@ function ThemeToggle() {
 }
 ```
 
-## 部署
+## Deployment
 
-### 静态部署
+### Static Deployment
 
 ```bash
-npm run build
-# 将 dist 目录部署到 CDN 或静态服务器
+pnpm build
+# Deploy dist directory to CDN or static server
 ```
 
-### Docker 部署
+### Docker Deployment
 
 ```dockerfile
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN pnpm install
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 ```
 
-## 常见问题
+## Common Issues
 
-### 跨域问题
+### CORS Issues
 
-在开发环境中，配置 vite.config.ts：
+Configure vite.config.ts in development:
 
 ```typescript
 export default defineConfig({
@@ -277,9 +277,9 @@ export default defineConfig({
 });
 ```
 
-### 消息通知
+### Notifications
 
-确保请求通知权限：
+Request notification permission:
 
 ```typescript
 if ('Notification' in window) {
@@ -287,7 +287,7 @@ if ('Notification' in window) {
 }
 ```
 
-## 更多资源
+## More Resources
 
-- [设计稿 (Figma)](https://figma.com/openchat-design)
-- [组件文档 Storybook](https://storybook.openchat.dev)
+- [Design (Figma)](https://figma.com/openchat-design)
+- [Components (Storybook)](https://storybook.openchat.dev)

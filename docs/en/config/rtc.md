@@ -1,6 +1,6 @@
-# RTC 配置
+# RTC Configuration
 
-## 火山引擎 RTC
+## Volcengine RTC
 
 ```json
 {
@@ -18,10 +18,23 @@
 }
 ```
 
-## 环境变量
+## Environment Variables
 
-| 变量名 | 说明 |
-|--------|------|
-| `VOLCENGINE_APP_ID` | 火山引擎 App ID |
-| `VOLCENGINE_APP_KEY` | 火山引擎 App Key |
-| `VOLCENGINE_APP_SECRET` | 火山引擎 App Secret |
+| Variable | Description |
+|----------|-------------|
+| `VOLCENGINE_APP_ID` | Volcengine App ID |
+| `VOLCENGINE_APP_KEY` | Volcengine App Key |
+| `VOLCENGINE_APP_SECRET` | Volcengine App Secret |
+
+## Supported Providers
+
+| Provider | Features |
+|----------|----------|
+| Volcengine | Audio/Video calls, Live streaming |
+| Tencent Cloud | Audio/Video calls, Live streaming |
+| Agora | Audio/Video calls |
+
+## Next Steps
+
+- [Server Configuration](./server.md) - Server config
+- [AI Configuration](./ai.md) - AI config

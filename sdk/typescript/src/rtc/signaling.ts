@@ -89,7 +89,7 @@ export class RTCSignaling {
 
   // 状态
   private initialized: boolean = false;
-  private pendingAcks: Map<string, { resolve: Function; reject: Function; timer: NodeJS.Timeout }> = new Map();
+  private pendingAcks: Map<string, { resolve: () => void; reject: (reason?: unknown) => void; timer: NodeJS.Timeout }> = new Map();
 
   // 常量
   private readonly SIGNAL_CUSTOM_TYPE = 'rtc_signal';

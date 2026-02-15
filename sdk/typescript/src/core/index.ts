@@ -7,22 +7,23 @@
 export {
   BaseService,
   ServiceState,
-  ServiceConfig,
   ServiceEvent,
   ServiceError,
 } from './base-service';
 
+export type { ServiceConfig } from './base-service';
+
 // ==================== 重试机制 ====================
 export {
   RetryPolicy,
-  RetryConfig,
-  RetryContext,
   ExponentialBackoff,
   FixedIntervalBackoff,
   LinearBackoff,
   createRetryPolicy,
   createNetworkRetryPolicy,
 } from './retry-policy';
+
+export type { RetryConfig, RetryContext } from './retry-policy';
 
 // ==================== 工具函数 ====================
 export {

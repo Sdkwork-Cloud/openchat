@@ -1,18 +1,18 @@
-# 用户管理
+# User Management
 
-## 获取当前用户
+## Get Current User
 
 ### GET /users/me
 
-获取当前登录用户信息。
+Get current logged-in user information.
 
-**请求头：**
+**Request Headers:**
 
 ```
 Authorization: Bearer <token>
 ```
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -20,39 +20,39 @@ Authorization: Bearer <token>
   "data": {
     "id": "user-uuid",
     "username": "user1",
-    "nickname": "用户1",
+    "nickname": "User 1",
     "avatar": "https://example.com/avatar.jpg",
     "status": "online"
   }
 }
 ```
 
-## 更新用户信息
+## Update User Info
 
 ### PUT /users/me
 
-更新当前用户信息。
+Update current user information.
 
-**请求参数：**
+**Request Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| nickname | string | 否 | 昵称 |
-| avatar | string | 否 | 头像 URL |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| nickname | string | No | Nickname |
+| avatar | string | No | Avatar URL |
 
-## 搜索用户
+## Search Users
 
 ### GET /users/search
 
-搜索用户。
+Search for users.
 
-**查询参数：**
+**Query Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| keyword | string | 是 | 搜索关键词 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| keyword | string | Yes | Search keyword |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -61,8 +61,13 @@ Authorization: Bearer <token>
     {
       "id": "user-uuid",
       "username": "user1",
-      "nickname": "用户1"
+      "nickname": "User 1"
     }
   ]
 }
 ```
+
+## Next Steps
+
+- [Friend Management](./friends.md) - Friend API
+- [Group Management](./groups.md) - Group API

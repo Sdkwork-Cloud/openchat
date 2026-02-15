@@ -6,6 +6,9 @@ import {
   FileMediaResource,
   DocumentMediaResource,
   CodeMediaResource,
+  PptMediaResource,
+  CharacterMediaResource,
+  Model3DMediaResource,
 } from '../../common/media-resource';
 
 export {
@@ -16,6 +19,9 @@ export {
   FileMediaResource,
   DocumentMediaResource,
   CodeMediaResource,
+  PptMediaResource,
+  CharacterMediaResource,
+  Model3DMediaResource,
 };
 
 export enum MessageType {
@@ -31,6 +37,9 @@ export enum MessageType {
   MUSIC = 'music',
   DOCUMENT = 'document',
   CODE = 'code',
+  PPT = 'ppt',
+  CHARACTER = 'character',
+  MODEL_3D = 'model_3d',
 }
 
 export enum MessageStatus {
@@ -86,6 +95,9 @@ export interface MessageContent {
   file?: FileMediaResource;
   document?: DocumentMediaResource;
   code?: CodeMediaResource;
+  ppt?: PptMediaResource;
+  character?: CharacterMediaResource;
+  model3d?: Model3DMediaResource;
   location?: LocationContent;
   card?: CardContent;
   system?: SystemContent;

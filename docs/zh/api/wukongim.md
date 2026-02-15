@@ -4,22 +4,31 @@ OpenChat 与 WukongIM 深度集成，提供可靠的实时消息服务。本文�
 
 ## 概述
 
-WukongIM 是一个高性能的即时通讯消息引擎，OpenChat 通过 WukongIM 实现：
+WukongIM API 的路径前缀为 `/api/v1/im`，大部分接口需要 JWT 认证。
 
-- 消息的实时推送和接收
-- 用户在线状态管理
-- 消息的离线存储和同步
-- 群组消息的路由
+| 接口 | 方法 | 路径 | 说明 | 是否需要认证 |
+|------|------|------|------|-------------|
+| 获取悟空IM连接配置 | GET | `/im/config` | 获取悟空IM连接所需配置信息 | 是 |
+| 获取悟空IM用户Token | POST | `/im/token` | 获取悟空IM用户Token | 是 |
+| 发送消息 | POST | `/im/message/send` | 通过WukongIM发送消息 | 是 |
+| 批量发送消息 | POST | `/im/message/sendbatch` | 批量发送消息 | 是 |
+| 同步消息 | GET | `/im/message/sync` | 同步历史消息 | 是 |
+| 创建频道 | POST | `/im/channel/create` | 创建新的消息频道 | 是 |
+| 删除频道 | POST | `/im/channel/delete` | 删除消息频道 | 是 |
+| 添加订阅者 | POST | `/im/channel/subscriber/add` | 向频道添加订阅者 | 是 |
+| 移除订阅者 | POST | `/im/channel/subscriber/remove` | 从频道移除订阅者 | 是 |
+| 健康检查 | GET | `/im/health` | 悟空IM健康检查 | 否 |
+| 获取系统信息 | GET | `/im/system/info` | 获取悟空IM系统信息 | 是 |
 
-## 连接配置
+---
 
-### 获取 IM 配置
+## 获取悟空IM连接配置
 
-获取 WukongIM 连接所需配置信息。
+获取悟空IM连接所需配置信息。
 
 ```http
-GET /api/im/config
-Authorization: Bearer <access-token>
+GET /api/v1/im/config
+Authorization: Bearer &lt;access-token&gt;
 ```
 
 **响应示例：**
@@ -28,34 +37,54 @@ Authorization: Bearer <access-token>
 {
   "success": true,
   "data": {
-    "tcpAddr": "your-server:5100",
     "wsUrl": "ws://your-server:5200",
+    "tcpAddr": "your-server:5100",
     "apiUrl": "http://your-server:5001",
     "managerUrl": "http://your-server:5300"
   }
 }
 ```
 
-**字段说明：**
+---
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| tcpAddr | string | TCP 连接地址，用于移动端长连接 |
-| wsUrl | string | WebSocket 连接地址，用于 Web 端 |
-| apiUrl | string | HTTP API 地址 |
-| managerUrl | string | 管理后台地址 |
+## 获取悟空IM用户Token
+
+获取悟空IM用户Token。
+
+```http
+POST /api/v1/im/token
+Authorization: Bearer &lt;access-token&gt;
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "wukongim-token"
+  }
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "获取Token失败"
+}
+```
 
 ---
 
-## 消息发送
+## 发送消息
 
-### 发送消息
-
-通过 WukongIM 发送消息。
+通过WukongIM发送消息。
 
 ```http
-POST /api/im/message/send
-Authorization: Bearer <access-token>
+POST /api/v1/im/message/send
+Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
 
@@ -63,15 +92,10 @@ Content-Type: application/json
 
 ```json
 {
-  "channelId": "string",      // 必填，接收者 ID（用户ID或群组ID）
-  "channelType": 1,           // 必填，频道类型：1=单聊，2=群聊
-  "fromUid": "string",        // 必填，发送者用户 ID
-  "payload": "string",        // 必填，消息内容（Base64 编码）
-  "header": {                 // 可选，消息头
-    "noPersist": 0,           // 是否不存储：0=存储，1=不存储
-    "redPacket": 0,           // 是否红包消息
-    "syncOnce": 0             // 是否只同步一次
-  }
+  "channelId": "string",
+  "channelType": 1,
+  "payload": "string",
+  "clientMsgNo": "string"
 }
 ```
 
@@ -79,32 +103,10 @@ Content-Type: application/json
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| channelId | string | 是 | 接收者 ID。单聊为用户 ID，群聊为群组 ID |
+| channelId | string | 是 | 频道ID |
 | channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
-| fromUid | string | 是 | 发送者用户 ID |
-| payload | string | 是 | 消息内容，Base64 编码的 JSON 字符串 |
-| header | object | 否 | 消息头配置 |
-| header.noPersist | number | 否 | 是否不存储：0=存储，1=不存储 |
-| header.redPacket | number | 否 | 是否红包消息：0=否，1=是 |
-| header.syncOnce | number | 否 | 是否只同步一次：0=否，1=是 |
-
-**Payload 格式：**
-
-Payload 是 Base64 编码的 JSON 字符串，解码后的格式：
-
-```json
-{
-  "type": 1,                  // 消息类型：1=文本，2=图片，3=语音，4=视频，5=文件
-  "content": "消息内容",       // 文本内容或媒体 URL
-  "extra": {                  // 扩展信息
-    "width": 1920,            // 图片/视频宽度
-    "height": 1080,           // 图片/视频高度
-    "duration": 60,           // 语音/视频时长（秒）
-    "size": 1024000,          // 文件大小（字节）
-    "fileName": "file.pdf"    // 文件名
-  }
-}
-```
+| payload | string | 是 | 消息内容（Base64编码） |
+| clientMsgNo | string | 否 | 客户端消息编号 |
 
 **响应示例：**
 
@@ -112,224 +114,45 @@ Payload 是 Base64 编码的 JSON 字符串，解码后的格式：
 {
   "success": true,
   "data": {
-    "messageId": "msg_xxxxx",
-    "messageSeq": 12345,
-    "timestamp": 1705312800000
+    "messageId": "msg-xxx",
+    "messageSeq": 12345
   }
 }
 ```
 
----
-
-### 同步消息
-
-同步历史消息。
-
-```http
-GET /api/im/message/sync
-Authorization: Bearer <access-token>
-```
-
-**查询参数：**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| channelId | string | 是 | 频道 ID |
-| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
-| startMessageSeq | number | 否 | 起始消息序列号 |
-| endMessageSeq | number | 否 | 结束消息序列号 |
-| limit | number | 否 | 消息数量限制，默认 20，最大 100 |
-| pullMode | number | 否 | 拉取模式：0=向下拉取，1=向上拉取 |
-
-**响应示例：**
+**错误响应：**
 
 ```json
 {
-  "success": true,
-  "data": {
-    "messages": [
-      {
-        "messageId": "msg_xxxxx",
-        "messageSeq": 12345,
-        "channelId": "user2",
-        "channelType": 1,
-        "fromUid": "user1",
-        "payload": "Base64EncodedPayload",
-        "timestamp": 1705312800000,
-        "status": 1
-      }
-    ],
-    "more": true
-  }
+  "success": false,
+  "message": "发送消息失败"
 }
 ```
 
 ---
 
-## 频道管理
+## 批量发送消息
 
-### 创建频道
-
-创建新的消息频道。
+批量发送消息。
 
 ```http
-POST /api/im/channel/create
-Authorization: Bearer <access-token>
+POST /api/v1/im/message/sendbatch
+Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
 
 **请求体：**
 
 ```json
-{
-  "channelId": "string",      // 必填，频道 ID
-  "channelType": 2,           // 必填，频道类型：1=单聊，2=群聊
-  "groupName": "string",      // 群聊时必填，群组名称
-  "groupAvatar": "string"     // 可选，群组头像 URL
-}
-```
-
-**参数说明：**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| channelId | string | 是 | 频道 ID，建议使用 UUID |
-| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
-| groupName | string | 群聊必填 | 群组名称，1-50 字符 |
-| groupAvatar | string | 否 | 群组头像 URL |
-
-**响应示例：**
-
-```json
-{
-  "success": true,
-  "data": {
-    "channelId": "group_xxxxx",
-    "channelType": 2,
-    "createdAt": 1705312800000
+[
+  {
+    "channelId": "string",
+    "channelType": 1,
+    "payload": "string",
+    "clientMsgNo": "string"
   }
-}
+]
 ```
-
----
-
-### 删除频道
-
-删除消息频道。
-
-```http
-POST /api/im/channel/delete
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-**请求体：**
-
-```json
-{
-  "channelId": "string",      // 必填，频道 ID
-  "channelType": 2            // 必填，频道类型
-}
-```
-
-**响应示例：**
-
-```json
-{
-  "success": true,
-  "message": "频道删除成功"
-}
-```
-
----
-
-### 添加订阅者
-
-向频道添加订阅者（成员）。
-
-```http
-POST /api/im/channel/subscriber/add
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-**请求体：**
-
-```json
-{
-  "channelId": "string",      // 必填，频道 ID
-  "channelType": 2,           // 必填，频道类型
-  "subscribers": [            // 必填，订阅者列表
-    {
-      "uid": "string",        // 用户 ID
-      "role": 0               // 角色：0=普通成员，1=管理员，2=群主
-    }
-  ]
-}
-```
-
-**参数说明：**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| channelId | string | 是 | 频道 ID |
-| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
-| subscribers | array | 是 | 订阅者列表 |
-| subscribers[].uid | string | 是 | 用户 ID |
-| subscribers[].role | number | 否 | 角色：0=普通成员，1=管理员，2=群主 |
-
-**响应示例：**
-
-```json
-{
-  "success": true,
-  "data": {
-    "added": 5,
-    "failed": 0
-  }
-}
-```
-
----
-
-### 移除订阅者
-
-从频道移除订阅者。
-
-```http
-POST /api/im/channel/subscriber/remove
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-**请求体：**
-
-```json
-{
-  "channelId": "string",      // 必填，频道 ID
-  "channelType": 2,           // 必填，频道类型
-  "uids": ["user1", "user2"]  // 必填，要移除的用户 ID 列表
-}
-```
-
----
-
-## 在线状态
-
-### 获取在线状态
-
-获取用户在线状态。
-
-```http
-GET /api/im/online
-Authorization: Bearer <access-token>
-```
-
-**查询参数：**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| uids | string | 是 | 用户 ID 列表，逗号分隔 |
 
 **响应示例：**
 
@@ -338,178 +161,352 @@ Authorization: Bearer <access-token>
   "success": true,
   "data": [
     {
-      "uid": "user1",
-      "online": true,
-      "deviceFlag": 1,
-      "lastOffline": 1705312800000
+      "messageId": "msg-xxx",
+      "messageSeq": 12345
     }
   ]
 }
 ```
 
-**字段说明：**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| uid | string | 用户 ID |
-| online | boolean | 是否在线 |
-| deviceFlag | number | 设备标识：1=Web，2=iOS，4=Android，8=PC |
-| lastOffline | number | 最后离线时间戳 |
-
----
-
-## 消息类型
-
-### 支持的消息类型
-
-| 类型值 | 类型名 | 说明 |
-|--------|--------|------|
-| 1 | 文本消息 | 纯文本内容 |
-| 2 | 图片消息 | 图片 URL + 宽高信息 |
-| 3 | 语音消息 | 语音文件 URL + 时长 |
-| 4 | 视频消息 | 视频文件 URL + 时长 + 缩略图 |
-| 5 | 文件消息 | 文件 URL + 文件名 + 大小 |
-| 6 | 位置消息 | 经纬度 + 地址描述 |
-| 7 | 名片消息 | 用户名片信息 |
-| 8 | 撤回消息 | 撤回通知 |
-| 9 | 系统消息 | 系统通知 |
-| 10 | 自定义消息 | 自定义 JSON 数据 |
-
-### 消息内容格式示例
-
-#### 文本消息
+**错误响应：**
 
 ```json
 {
-  "type": 1,
-  "content": "这是一条文本消息"
-}
-```
-
-#### 图片消息
-
-```json
-{
-  "type": 2,
-  "content": "https://example.com/image.jpg",
-  "extra": {
-    "width": 1920,
-    "height": 1080,
-    "size": 512000
-  }
-}
-```
-
-#### 语音消息
-
-```json
-{
-  "type": 3,
-  "content": "https://example.com/voice.mp3",
-  "extra": {
-    "duration": 30,
-    "size": 102400
-  }
-}
-```
-
-#### 视频消息
-
-```json
-{
-  "type": 4,
-  "content": "https://example.com/video.mp4",
-  "extra": {
-    "width": 1920,
-    "height": 1080,
-    "duration": 120,
-    "size": 10240000,
-    "thumbnail": "https://example.com/thumb.jpg"
-  }
-}
-```
-
-#### 文件消息
-
-```json
-{
-  "type": 5,
-  "content": "https://example.com/file.pdf",
-  "extra": {
-    "fileName": "document.pdf",
-    "size": 1024000
-  }
+  "success": false,
+  "message": "批量发送消息失败"
 }
 ```
 
 ---
 
-## 错误码
+## 同步消息
 
-| 错误码 | 说明 |
-|--------|------|
-| 1001 | 用户不存在 |
-| 1002 | 频道不存在 |
-| 1003 | 无权限操作 |
-| 1004 | 消息发送失败 |
-| 1005 | 消息内容无效 |
-| 1006 | 频道类型错误 |
-| 1007 | 订阅者已存在 |
-| 1008 | 订阅者不存在 |
+同步历史消息。
+
+```http
+GET /api/v1/im/message/sync
+Authorization: Bearer &lt;access-token&gt;
+```
+
+**查询参数：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| channelId | string | 是 | 频道ID |
+| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
+| lastMessageSeq | number | 否 | 最后一条消息序列号 |
+| limit | number | 否 | 消息数量限制，默认50 |
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "messageId": "msg-xxx",
+      "messageSeq": 12345,
+      "channelId": "user1",
+      "channelType": 1,
+      "fromUid": "user2",
+      "payload": "base64-encoded-payload",
+      "timestamp": 1705312800000
+    }
+  ]
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "channelId and channelType are required"
+}
+```
 
 ---
 
-## 最佳实践
+## 创建频道
 
-### 1. 消息发送流程
+创建新的消息频道。
 
-```
-1. 客户端构建消息内容 JSON
-2. 将 JSON 转为字符串并 Base64 编码
-3. 调用发送接口
-4. 处理响应，获取消息 ID 和序列号
-5. 本地更新消息状态
+```http
+POST /api/v1/im/channel/create
+Authorization: Bearer &lt;access-token&gt;
+Content-Type: application/json
 ```
 
-### 2. 消息同步策略
+**请求体：**
+
+```json
+{
+  "channelId": "string",
+  "channelType": 2,
+  "name": "string",
+  "avatar": "string"
+}
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| channelId | string | 是 | 频道ID |
+| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
+| name | string | 否 | 频道名称 |
+| avatar | string | 否 | 频道头像URL |
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "channelId": "channel-xxx",
+    "channelType": 2,
+    "name": "群组名称",
+    "avatar": "https://example.com/avatar.jpg"
+  }
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "创建频道失败"
+}
+```
+
+---
+
+## 删除频道
+
+删除消息频道。
+
+```http
+POST /api/v1/im/channel/delete
+Authorization: Bearer &lt;access-token&gt;
+Content-Type: application/json
+```
+
+**请求体：**
+
+```json
+{
+  "channelId": "string",
+  "channelType": 2
+}
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| channelId | string | 是 | 频道ID |
+| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "channelId": "channel-xxx"
+  }
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "删除频道失败"
+}
+```
+
+---
+
+## 添加订阅者
+
+向频道添加订阅者。
+
+```http
+POST /api/v1/im/channel/subscriber/add
+Authorization: Bearer &lt;access-token&gt;
+Content-Type: application/json
+```
+
+**请求体：**
+
+```json
+{
+  "channelId": "string",
+  "channelType": 2,
+  "subscribers": ["string"]
+}
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| channelId | string | 是 | 频道ID |
+| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
+| subscribers | array | 是 | 订阅者ID列表 |
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "added": 5
+  }
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "添加订阅者失败"
+}
+```
+
+---
+
+## 移除订阅者
+
+从频道移除订阅者。
+
+```http
+POST /api/v1/im/channel/subscriber/remove
+Authorization: Bearer &lt;access-token&gt;
+Content-Type: application/json
+```
+
+**请求体：**
+
+```json
+{
+  "channelId": "string",
+  "channelType": 2,
+  "subscribers": ["string"]
+}
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| channelId | string | 是 | 频道ID |
+| channelType | number | 是 | 频道类型：1=单聊，2=群聊 |
+| subscribers | array | 是 | 订阅者ID列表 |
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "removed": 5
+  }
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "移除订阅者失败"
+}
+```
+
+---
+
+## 健康检查
+
+悟空IM健康检查。
+
+```http
+GET /api/v1/im/health
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+---
+
+## 获取系统信息
+
+获取悟空IM系统信息。
+
+```http
+GET /api/v1/im/system/info
+Authorization: Bearer &lt;access-token&gt;
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "version": "1.0.0",
+    "uptime": 86400,
+    "connections": 1000
+  }
+}
+```
+
+**错误响应：**
+
+```json
+{
+  "success": false,
+  "message": "获取系统信息失败"
+}
+```
+
+---
+
+## 数据类型
 
 ```typescript
-// 首次进入会话
-const messages = await syncMessages({
-  channelId: 'user2',
-  channelType: 1,
-  limit: 20
-});
+interface WukongIMChannelType {
+  PRIVATE: 1;
+  GROUP: 2;
+}
 
-// 上拉加载更多
-const moreMessages = await syncMessages({
-  channelId: 'user2',
-  channelType: 1,
-  startMessageSeq: messages[0].messageSeq,
-  pullMode: 1,
-  limit: 20
-});
-```
+interface SendMessageOptions {
+  channelId: string;
+  channelType: WukongIMChannelType;
+  fromUid: string;
+  payload: string;
+  clientMsgNo?: string;
+}
 
-### 3. 连接管理
-
-```typescript
-// WebSocket 连接示例
-const ws = new WebSocket('ws://your-server:5200');
-
-ws.onopen = () => {
-  // 发送认证包
-  ws.send(JSON.stringify({
-    type: 'auth',
-    token: 'your-jwt-token',
-    uid: 'user1'
-  }));
-};
-
-ws.onmessage = (event) => {
-  const message = JSON.parse(event.data);
-  // 处理接收到的消息
-};
+interface CreateChannelOptions {
+  channelId: string;
+  channelType: WukongIMChannelType;
+  name?: string;
+  avatar?: string;
+}
 ```
 
 ---

@@ -22,9 +22,13 @@ import {
   FileMediaResource,
   DocumentMediaResource,
   CodeMediaResource,
+  CardMediaResource,
+  PptMediaResource,
+  CharacterMediaResource,
+  Model3DMediaResource,
 } from '../../../common/media-resource';
 
-export { ImageMediaResource, VideoMediaResource, AudioMediaResource, MusicMediaResource, FileMediaResource, DocumentMediaResource, CodeMediaResource };
+export { ImageMediaResource, VideoMediaResource, AudioMediaResource, MusicMediaResource, FileMediaResource, DocumentMediaResource, CodeMediaResource, CardMediaResource, PptMediaResource, CharacterMediaResource, Model3DMediaResource };
 
 export enum MessageType {
   TEXT = 'text',
@@ -39,6 +43,9 @@ export enum MessageType {
   MUSIC = 'music',
   DOCUMENT = 'document',
   CODE = 'code',
+  PPT = 'ppt',
+  CHARACTER = 'character',
+  MODEL_3D = 'model_3d',
 }
 
 export enum MessageStatus {
@@ -188,6 +195,24 @@ export class MessageContent {
   @Type(() => CodeMediaResource)
   code?: CodeMediaResource;
 
+  @ApiPropertyOptional({ description: '演示文稿资源' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PptMediaResource)
+  ppt?: PptMediaResource;
+
+  @ApiPropertyOptional({ description: '数字人/角色资源' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CharacterMediaResource)
+  character?: CharacterMediaResource;
+
+  @ApiPropertyOptional({ description: '3D模型资源' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => Model3DMediaResource)
+  model3d?: Model3DMediaResource;
+
   @ApiPropertyOptional({ description: '位置内容' })
   @IsOptional()
   @ValidateNested()
@@ -199,6 +224,12 @@ export class MessageContent {
   @ValidateNested()
   @Type(() => CardContent)
   card?: CardContent;
+
+  @ApiPropertyOptional({ description: '卡片资源（小程序、应用等）' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CardMediaResource)
+  cardResource?: CardMediaResource;
 
   @ApiPropertyOptional({ description: '系统消息内容' })
   @IsOptional()

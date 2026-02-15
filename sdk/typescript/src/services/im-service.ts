@@ -9,17 +9,11 @@
  * 5. 支持开闭原则，易于扩展新的协议实现
  */
 
-import type { EventEmitter } from 'eventemitter3';
 import {
   Message,
-  MessageStatus,
   ReadReceipt,
   Conversation,
   ConversationType,
-  OpenChatEvent,
-  ErrorCode,
-  OpenChatError,
-  User,
   ConversationMember,
   QueryConversationsOptions,
   QueryMessagesOptions,
@@ -33,11 +27,9 @@ import {
   FileMediaResource,
   LocationMediaResource,
   CardMediaResource,
-  CustomMediaResource,
   CharacterMediaResource,
   MusicMediaResource,
   Model3DMediaResource,
-  MediaResourceType,
   SendTextMessageParams,
   SendMediaMessageParams,
   SendCombinedMessageParams,

@@ -24,7 +24,24 @@ export enum MediaResourceType {
   CHARACTER = 'CHARACTER',
   MODEL_3D = 'MODEL_3D',
   PPT = 'PPT',
-  CODE = 'CODE'
+  CODE = 'CODE',
+  CARD = 'CARD'
+}
+
+export enum CardType {
+  MINI_PROGRAM = 'MINI_PROGRAM',
+  APP = 'APP',
+  LINK = 'LINK',
+  ARTICLE = 'ARTICLE',
+  PRODUCT = 'PRODUCT',
+  ORDER = 'ORDER',
+  PAYMENT = 'PAYMENT',
+  INVITATION = 'INVITATION',
+  RED_PACKET = 'RED_PACKET',
+  LOCATION = 'LOCATION',
+  CONTACT = 'CONTACT',
+  FILE_PREVIEW = 'FILE_PREVIEW',
+  CUSTOM = 'CUSTOM'
 }
 
 export enum AudioFormat {
@@ -709,6 +726,159 @@ export class Model3DMediaResource extends MediaResource {
   textureUrls?: string[];
 }
 
+export class CardAction {
+  @ApiProperty({ description: '动作类型', example: 'open_url' })
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @ApiPropertyOptional({ description: '动作目标URL' })
+  @IsOptional()
+  @IsString()
+  url?: string;
+
+  @ApiPropertyOptional({ description: '动作参数' })
+  @IsOptional()
+  @IsObject()
+  params?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '小程序appId（小程序卡片时使用）' })
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @ApiPropertyOptional({ description: '小程序路径（小程序卡片时使用）' })
+  @IsOptional()
+  @IsString()
+  appPath?: string;
+}
+
+export class CardButton {
+  @ApiProperty({ description: '按钮文本' })
+  @IsString()
+  @IsNotEmpty()
+  text: string;
+
+  @ApiPropertyOptional({ description: '按钮动作' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CardAction)
+  action?: CardAction;
+
+  @ApiPropertyOptional({ description: '按钮样式', example: 'primary' })
+  @IsOptional()
+  @IsString()
+  style?: string;
+
+  @ApiPropertyOptional({ description: '按钮颜色', example: '#07C160' })
+  @IsOptional()
+  @IsString()
+  color?: string;
+}
+
+export class CardMediaResource extends MediaResource {
+  @ApiProperty({ description: '卡片类型', enum: CardType })
+  @IsEnum(CardType)
+  cardType: CardType;
+
+  @ApiProperty({ description: '卡片标题' })
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @ApiPropertyOptional({ description: '卡片描述' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: '卡片封面图片URL' })
+  @IsOptional()
+  @IsString()
+  thumbnailUrl?: string;
+
+  @ApiPropertyOptional({ description: '卡片来源名称', example: '微信小程序' })
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
+
+  @ApiPropertyOptional({ description: '卡片来源图标URL' })
+  @IsOptional()
+  @IsString()
+  sourceIcon?: string;
+
+  @ApiPropertyOptional({ description: '目标URL（点击跳转地址）' })
+  @IsOptional()
+  @IsString()
+  targetUrl?: string;
+
+  @ApiPropertyOptional({ description: '小程序appId' })
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @ApiPropertyOptional({ description: '小程序页面路径' })
+  @IsOptional()
+  @IsString()
+  appPath?: string;
+
+  @ApiPropertyOptional({ description: '小程序原始ID', example: 'gh_xxxxxxxx' })
+  @IsOptional()
+  @IsString()
+  appOriginalId?: string;
+
+  @ApiPropertyOptional({ description: '小程序版本：release, trial, develop', example: 'release' })
+  @IsOptional()
+  @IsString()
+  appVersion?: string;
+
+  @ApiPropertyOptional({ description: '应用包名（APP卡片时使用）' })
+  @IsOptional()
+  @IsString()
+  packageName?: string;
+
+  @ApiPropertyOptional({ description: '应用下载URL' })
+  @IsOptional()
+  @IsString()
+  appDownloadUrl?: string;
+
+  @ApiPropertyOptional({ description: '卡片主动作' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CardAction)
+  mainAction?: CardAction;
+
+  @ApiPropertyOptional({ description: '卡片按钮列表', type: [CardButton] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CardButton)
+  buttons?: CardButton[];
+
+  @ApiPropertyOptional({ description: '卡片额外数据' })
+  @IsOptional()
+  @IsObject()
+  extraData?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '卡片标签', example: '新品推荐' })
+  @IsOptional()
+  @IsString()
+  tag?: string;
+
+  @ApiPropertyOptional({ description: '卡片状态', example: 'active' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: '过期时间' })
+  @IsOptional()
+  @IsString()
+  expireTime?: string;
+
+  @ApiPropertyOptional({ description: '是否显示来源' })
+  @IsOptional()
+  showSource?: boolean;
+}
+
 export class AssetMediaResource extends MediaResource {
   @ApiPropertyOptional({ description: '图片资源' })
   @IsOptional()
@@ -770,6 +940,12 @@ export class AssetMediaResource extends MediaResource {
   @Type(() => Model3DMediaResource)
   model3d?: Model3DMediaResource;
 
+  @ApiPropertyOptional({ description: '卡片资源' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CardMediaResource)
+  card?: CardMediaResource;
+
   @ApiPropertyOptional({ description: '扩展属性' })
   @IsOptional()
   @IsObject()
@@ -787,6 +963,7 @@ export type AnyMediaResource =
   | PptMediaResource
   | CodeMediaResource
   | Model3DMediaResource
+  | CardMediaResource
   | AssetMediaResource;
 
 export interface MediaResourceCollection {
