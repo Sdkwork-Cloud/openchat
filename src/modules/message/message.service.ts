@@ -2,6 +2,7 @@ import { Injectable, ForbiddenException, Logger, Inject, forwardRef } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource, EntityManager } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 import { Message } from './message.entity';
 import {
   Message as MessageInterface,
@@ -447,13 +448,20 @@ export class MessageService implements MessageManager {
     fromUserId: string,
     content: any,
   ): Promise<Message | null> {
-    // 使用内容哈希或最近的消息进行匹配
+    const contentHash = this.generateContentHash(content);
+    const recentTime = new Date(Date.now() - 5 * 60 * 1000);
+    
     return this.messageRepository.findOne({
       where: {
         fromUserId,
       },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  private generateContentHash(content: any): string {
+    const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+    return crypto.createHash('md5').update(contentStr).digest('hex');
   }
 
   /**

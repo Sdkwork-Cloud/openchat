@@ -47,6 +47,7 @@ import { DeviceMessageEntity } from './modules/iot/entities/device-message.entit
 import { AgentModule } from './modules/agent/agent.module';
 import { Agent, AgentSession, AgentMessage } from './modules/agent/agent.entity';
 import { WukongIMModule } from './modules/wukongim/wukongim.module';
+import { CrawModule } from './modules/craw/craw.module';
 
 @Module({
   imports: [
@@ -170,6 +171,7 @@ import { WukongIMModule } from './modules/wukongim/wukongim.module';
     IoTModule,
     AgentModule,
     WukongIMModule,
+    CrawModule,
   ],
 })
 export class AppModule {}

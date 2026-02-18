@@ -17,7 +17,7 @@ class UpdateProfileDto {
  * 提供用户资料管理 API
  */
 @ApiTags('users')
-@Controller('v1/users')
+@Controller('users')
 @UseGuards(MultiAuthGuard)
 @ApiBearerAuth()
 export class UserController {

@@ -7,6 +7,7 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Reflector } from '@nestjs/core';
+import { SKIP_TRANSFORM_KEY } from '../decorators/response.decorator';
 
 export interface ApiResponse<T> {
   code: number;
@@ -15,8 +16,6 @@ export interface ApiResponse<T> {
   timestamp: number;
   requestId: string;
 }
-
-export const SKIP_TRANSFORM_KEY = 'skipTransform';
 
 @Injectable()
 export class TransformInterceptor<T>

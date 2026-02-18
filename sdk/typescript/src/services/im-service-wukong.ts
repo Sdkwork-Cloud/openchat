@@ -48,6 +48,10 @@ import {
   CharacterMediaResource,
   MusicMediaResource,
   Model3DMediaResource,
+  DocumentMediaResource,
+  CodeMediaResource,
+  PptMediaResource,
+  UserCardContent,
   MediaResourceType,
   ForwardInfo,
   ResourceBuilder,
@@ -426,6 +430,104 @@ export class WukongIMService extends EventEmitter implements IIMService {
           textures: params.resource.textures,
           animations: params.resource.animations,
           previewUrl: params.resource.previewUrl,
+        },
+      });
+
+      const message = this.convertWKMessageToStandard(wkMessage);
+      this.messageCache.set(message.id, message);
+      this.emit(IMServiceEvent.MESSAGE_SENT, message);
+
+      return message;
+    });
+  }
+
+  async sendDocument(params: SendMediaMessageParams<DocumentMediaResource>): Promise<Message> {
+    return this.executeWithConnection(async () => {
+      const { targetId, conversationType } = this.resolveSendParams(params);
+      const wkMessage = await this.wkim.sendCustomMessage({
+        channelId: targetId,
+        channelType: this.convertConversationTypeToChannel(conversationType),
+        customType: 'document',
+        data: {
+          url: params.resource.url,
+          format: params.resource.format,
+          pageCount: params.resource.pageCount,
+          author: params.resource.author,
+          title: params.resource.title,
+          summary: params.resource.summary,
+          coverUrl: params.resource.coverUrl,
+        },
+      });
+
+      const message = this.convertWKMessageToStandard(wkMessage);
+      this.messageCache.set(message.id, message);
+      this.emit(IMServiceEvent.MESSAGE_SENT, message);
+
+      return message;
+    });
+  }
+
+  async sendCode(params: SendMediaMessageParams<CodeMediaResource>): Promise<Message> {
+    return this.executeWithConnection(async () => {
+      const { targetId, conversationType } = this.resolveSendParams(params);
+      const wkMessage = await this.wkim.sendCustomMessage({
+        channelId: targetId,
+        channelType: this.convertConversationTypeToChannel(conversationType),
+        customType: 'code',
+        data: {
+          language: params.resource.language,
+          code: params.resource.code,
+          lineCount: params.resource.lineCount,
+        },
+      });
+
+      const message = this.convertWKMessageToStandard(wkMessage);
+      this.messageCache.set(message.id, message);
+      this.emit(IMServiceEvent.MESSAGE_SENT, message);
+
+      return message;
+    });
+  }
+
+  async sendPPT(params: SendMediaMessageParams<PptMediaResource>): Promise<Message> {
+    return this.executeWithConnection(async () => {
+      const { targetId, conversationType } = this.resolveSendParams(params);
+      const wkMessage = await this.wkim.sendCustomMessage({
+        channelId: targetId,
+        channelType: this.convertConversationTypeToChannel(conversationType),
+        customType: 'ppt',
+        data: {
+          url: params.resource.url,
+          format: params.resource.format,
+          slideCount: params.resource.slideCount,
+          theme: params.resource.theme,
+          author: params.resource.author,
+          title: params.resource.title,
+          notes: params.resource.notes,
+          slideThumbnails: params.resource.slideThumbnails,
+        },
+      });
+
+      const message = this.convertWKMessageToStandard(wkMessage);
+      this.messageCache.set(message.id, message);
+      this.emit(IMServiceEvent.MESSAGE_SENT, message);
+
+      return message;
+    });
+  }
+
+  async sendUserCard(params: { toUserId?: string; groupId?: string; resource: UserCardContent }): Promise<Message> {
+    return this.executeWithConnection(async () => {
+      const { targetId, conversationType } = this.resolveSendParams(params);
+      const wkMessage = await this.wkim.sendCustomMessage({
+        channelId: targetId,
+        channelType: this.convertConversationTypeToChannel(conversationType),
+        customType: 'user_card',
+        data: {
+          userId: params.resource.userId,
+          nickname: params.resource.nickname,
+          avatar: params.resource.avatar,
+          signature: params.resource.signature,
         },
       });
 

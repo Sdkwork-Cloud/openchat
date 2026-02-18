@@ -4,7 +4,7 @@ OpenChat 使用 JWT (JSON Web Token) 进行身份认证，支持访问令牌和�
 
 ## 概述
 
-认证授权 API 的路径前缀为 `/api/v1/auth`。
+认证授权 API 的路径前缀为 `/im/api/v1/auth`。
 
 | 接口 | 方法 | 路径 | 说明 | 是否需要认证 |
 |------|------|------|------|-------------|
@@ -27,7 +27,7 @@ OpenChat 使用 JWT (JSON Web Token) 进行身份认证，支持访问令牌和�
 使用用户名和密码登录，获取访问令牌。
 
 ```http
-POST /api/v1/auth/login
+POST /im/api/v1/auth/login
 Content-Type: application/json
 ```
 
@@ -81,7 +81,7 @@ Content-Type: application/json
 注销当前用户会话，使令牌失效。
 
 ```http
-POST /api/v1/auth/logout
+POST /im/api/v1/auth/logout
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -113,7 +113,7 @@ Content-Type: application/json
 使用刷新令牌获取新的访问令牌。
 
 ```http
-POST /api/v1/auth/refresh
+POST /im/api/v1/auth/refresh
 Content-Type: application/json
 ```
 
@@ -157,7 +157,7 @@ Content-Type: application/json
 获取当前登录用户的信息。
 
 ```http
-GET /api/v1/auth/me
+GET /im/api/v1/auth/me
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -186,7 +186,7 @@ Authorization: Bearer &lt;access-token&gt;
 更新当前用户的密码。
 
 ```http
-PUT /api/v1/auth/password
+PUT /im/api/v1/auth/password
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -227,7 +227,7 @@ Content-Type: application/json
 忘记密码，发送重置邮件或短信。
 
 ```http
-POST /api/v1/auth/forgot-password
+POST /im/api/v1/auth/forgot-password
 Content-Type: application/json
 ```
 
@@ -267,7 +267,7 @@ Content-Type: application/json
 发送验证码。
 
 ```http
-POST /api/v1/auth/send-code
+POST /im/api/v1/auth/send-code
 Content-Type: application/json
 ```
 
@@ -309,7 +309,7 @@ Content-Type: application/json
 验证验证码。
 
 ```http
-POST /api/v1/auth/verify-code
+POST /im/api/v1/auth/verify-code
 Content-Type: application/json
 ```
 
@@ -353,7 +353,7 @@ Content-Type: application/json
 注册新用户账号（支持手机号或邮箱）。
 
 ```http
-POST /api/v1/auth/register
+POST /im/api/v1/auth/register
 Content-Type: application/json
 ```
 
@@ -410,7 +410,7 @@ Content-Type: application/json
 获取指定用户的在线状态。
 
 ```http
-GET /api/v1/auth/users/:id/online-status
+GET /im/api/v1/auth/users/:id/online-status
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -437,7 +437,7 @@ Authorization: Bearer &lt;access-token&gt;
 批量获取多个用户的在线状态。
 
 ```http
-POST /api/v1/auth/users/online-status/batch
+POST /im/api/v1/auth/users/online-status/batch
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```

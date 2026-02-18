@@ -6,10 +6,10 @@
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
-| 获取当前用户 | GET | `/api/v1/users/me` | 获取当前登录用户信息 |
-| 获取用户详情 | GET | `/api/v1/users/:id` | 获取指定用户详情 |
-| 更新用户资料 | PUT | `/api/v1/users/:id` | 更新用户资料（仅限自己） |
-| 搜索用户 | GET | `/api/v1/users` | 根据关键词搜索用户 |
+| 获取当前用户 | GET | `/im/api/v1/users/me` | 获取当前登录用户信息 |
+| 获取用户详情 | GET | `/im/api/v1/users/:id` | 获取指定用户详情 |
+| 更新用户资料 | PUT | `/im/api/v1/users/:id` | 更新用户资料（仅限自己） |
+| 搜索用户 | GET | `/im/api/v1/users` | 根据关键词搜索用户 |
 
 ---
 
@@ -18,7 +18,7 @@
 获取当前登录用户的详细信息。
 
 ```http
-GET /api/v1/users/me
+GET /im/api/v1/users/me
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -55,7 +55,7 @@ Authorization: Bearer &lt;access-token&gt;
 获取指定用户的公开信息。
 
 ```http
-GET /api/v1/users/{id}
+GET /im/api/v1/users/{id}
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -90,7 +90,7 @@ null
 更新用户的个人信息（只能更新自己的资料）。
 
 ```http
-PUT /api/v1/users/{id}
+PUT /im/api/v1/users/{id}
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -149,7 +149,7 @@ Content-Type: application/json
 根据关键词搜索用户。
 
 ```http
-GET /api/v1/users?keyword=john&amp;limit=20
+GET /im/api/v1/users?keyword=john&amp;limit=20
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -218,48 +218,50 @@ interface User {
 
 ```bash
 # 获取当前用户
-curl -X GET http://localhost:3000/api/v1/users/me \
+curl -X GET http://localhost:3000/im/api/v1/users/me \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 获取指定用户
-curl -X GET http://localhost:3000/api/v1/users/user-uuid \
+curl -X GET http://localhost:3000/im/api/v1/users/user-uuid \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 更新用户资料
-curl -X PUT http://localhost:3000/api/v1/users/user-uuid \
+curl -X PUT http://localhost:3000/im/api/v1/users/user-uuid \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -H "Content-Type: application/json" \
   -d '{"nickname": "New Name"}'
 
 # 搜索用户
-curl -X GET "http://localhost:3000/api/v1/users?keyword=john&amp;limit=20" \
+curl -X GET "http://localhost:3000/im/api/v1/users?keyword=john&amp;limit=20" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
 ### TypeScript SDK
 
 ```typescript
-import { OpenChatClient } from '@openchat/sdk';
+import { OpenChatClient, DeviceFlag } from '@openchat/typescript-sdk';
 
 const client = new OpenChatClient({
-  serverUrl: 'http://localhost:3000'
+  server: { baseUrl: 'http://localhost:3000' },
+  im: { wsUrl: 'ws://localhost:5200', deviceFlag: DeviceFlag.WEB },
+  auth: { uid: 'user-uid', token: 'user-token' },
 });
 
 // 获取当前用户
-const currentUser = await client.user.getCurrentUser();
+const currentUser = client.auth.getCurrentUser();
 
 // 获取指定用户
-const user = await client.user.getById('user-uuid');
+const user = await client.api.users.getById('user-uuid');
 
 // 更新用户资料
-const updatedUser = await client.user.update('user-uuid', {
+const updatedUser = await client.api.users.update('user-uuid', {
   nickname: 'New Name',
   avatar: 'https://example.com/avatar.jpg',
   status: 'online'
 });
 
 // 搜索用户
-const users = await client.user.search('john', { limit: 20 });
+const users = await client.api.users.search('john', { limit: 20 });
 ```
 
 ---

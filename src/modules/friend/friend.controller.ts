@@ -1,126 +1,196 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { FriendService } from './friend.service';
-import { FriendRequest } from './friend.interface';
 import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
+import { CurrentUser } from '../user/decorators/current-user.decorator';
+import { UserEntity } from '../user/entities/user.entity';
+import {
+  SendFriendRequestDto,
+  HandleFriendRequestDto,
+  FriendRequestQueryDto,
+} from './dto/friend.dto';
+import {
+  ApiSuccessResponse,
+  ApiPagedResponse,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+} from '../../common/decorators/response.decorator';
+import { ApiResponseDto } from '../../common/dto/response.dto';
+import {
+  Audit,
+  AuditCreate,
+  AuditDelete,
+  AuditUpdate,
+} from '../../common/interceptors/audit.interceptor';
+import { AuditAction } from '../../common/entities/audit-log.entity';
+import { RateLimitAuth } from '../../common/decorators/rate-limit.decorator';
 
 @ApiTags('friends')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('friends')
 export class FriendController {
-  constructor(private friendService: FriendService) {}
+  constructor(private readonly friendService: FriendService) {}
 
   @Post('request')
-  @ApiOperation({ summary: '发送好友请求' })
-  @ApiBody({ description: '好友请求信息', required: true, schema: { type: 'object', properties: { fromUserId: { type: 'string' }, toUserId: { type: 'string' }, message: { type: 'string' } } } })
-  @ApiResponse({ status: 201, description: '成功发送好友请求', type: FriendRequest })
-  @ApiResponse({ status: 400, description: '好友请求已发送或好友关系已存在' })
+  @RateLimitAuth()
+  @AuditCreate('friend_request', (args) => args[1]?.toUserId)
+  @ApiOperation({ summary: 'Send friend request' })
+  @ApiSuccessResponse('Friend request sent successfully')
+  @ApiBadRequestResponse('Friend request already sent or friendship exists')
   async sendFriendRequest(
-    @Body('fromUserId') fromUserId: string,
-    @Body('toUserId') toUserId: string,
-    @Body('message') message?: string,
-  ): Promise<FriendRequest> {
-    return this.friendService.sendFriendRequest(fromUserId, toUserId, message);
+    @CurrentUser() user: UserEntity,
+    @Body() dto: SendFriendRequestDto,
+  ): Promise<ApiResponseDto<{ success: boolean; requestId: string }>> {
+    const request = await this.friendService.sendFriendRequest(
+      user.id,
+      dto.toUserId,
+      dto.message,
+    );
+    return {
+      success: true,
+      requestId: request.id,
+    } as any;
   }
 
   @Post('request/:id/accept')
-  @ApiOperation({ summary: '接受好友请求' })
-  @ApiParam({ name: 'id', description: '好友请求ID' })
-  @ApiResponse({ status: 200, description: '成功接受好友请求' })
-  @ApiResponse({ status: 400, description: '好友请求不存在或状态不正确' })
-  async acceptFriendRequest(@Param('id') id: string): Promise<boolean> {
-    return this.friendService.acceptFriendRequest(id);
+  @Audit({ action: AuditAction.UPDATE, entityType: 'friend_request' })
+  @ApiOperation({ summary: 'Accept friend request' })
+  @ApiSuccessResponse('Friend request accepted')
+  @ApiNotFoundResponse('Friend request not found')
+  async acceptFriendRequest(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    await this.friendService.acceptFriendRequest(id, user.id);
+    return { success: true } as any;
   }
 
   @Post('request/:id/reject')
-  @ApiOperation({ summary: '拒绝好友请求' })
-  @ApiParam({ name: 'id', description: '好友请求ID' })
-  @ApiResponse({ status: 200, description: '成功拒绝好友请求' })
-  @ApiResponse({ status: 400, description: '好友请求不存在或状态不正确' })
-  async rejectFriendRequest(@Param('id') id: string): Promise<boolean> {
-    return this.friendService.rejectFriendRequest(id);
+  @Audit({ action: AuditAction.UPDATE, entityType: 'friend_request' })
+  @ApiOperation({ summary: 'Reject friend request' })
+  @ApiSuccessResponse('Friend request rejected')
+  async rejectFriendRequest(
+    @Param('id') id: string,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    await this.friendService.rejectFriendRequest(id);
+    return { success: true } as any;
   }
 
   @Delete('request/:id')
-  @ApiOperation({ summary: '取消好友请求' })
-  @ApiParam({ name: 'id', description: '好友请求ID' })
-  @ApiResponse({ status: 200, description: '成功取消好友请求' })
-  @ApiResponse({ status: 400, description: '好友请求不存在或状态不正确' })
-  async cancelFriendRequest(@Param('id') id: string): Promise<boolean> {
-    return this.friendService.cancelFriendRequest(id);
+  @AuditDelete('friend_request', (args) => args[1])
+  @ApiOperation({ summary: 'Cancel friend request' })
+  @ApiSuccessResponse('Friend request cancelled')
+  async cancelFriendRequest(
+    @Param('id') id: string,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    await this.friendService.cancelFriendRequest(id);
+    return { success: true } as any;
   }
 
-  @Delete(':userId/:friendId')
-  @ApiOperation({ summary: '删除好友' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiParam({ name: 'friendId', description: '好友ID' })
-  @ApiResponse({ status: 200, description: '成功删除好友' })
-  async removeFriend(@Param('userId') userId: string, @Param('friendId') friendId: string): Promise<boolean> {
-    return this.friendService.removeFriend(userId, friendId);
+  @Delete(':friendId')
+  @AuditDelete('friend', (args) => args[2])
+  @ApiOperation({ summary: 'Remove friend' })
+  @ApiSuccessResponse('Friend removed')
+  async removeFriend(
+    @CurrentUser() user: UserEntity,
+    @Param('friendId') friendId: string,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    await this.friendService.removeFriend(user.id, friendId);
+    return { success: true } as any;
   }
 
-  @Get('requests/:userId')
-  @ApiOperation({ summary: '获取好友请求列表' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiQuery({ name: 'status', description: '请求状态', required: false })
-  @ApiResponse({ status: 200, description: '成功获取好友请求列表', type: [FriendRequest] })
+  @Get('requests')
+  @ApiOperation({ summary: 'Get friend requests' })
+  @ApiSuccessResponse('Friend requests retrieved')
   async getFriendRequests(
-    @Param('userId') userId: string,
-    @Query('status') status?: 'pending' | 'accepted' | 'rejected',
-  ): Promise<FriendRequest[]> {
-    return this.friendService.getFriendRequests(userId, status);
+    @CurrentUser() user: UserEntity,
+    @Query() query: FriendRequestQueryDto,
+  ): Promise<ApiResponseDto<any[]>> {
+    const requests = await this.friendService.getFriendRequests(
+      user.id,
+      query.status,
+    );
+    return requests as any;
   }
 
-  @Get(':userId')
-  @ApiOperation({ summary: '获取好友列表' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功获取好友列表' })
-  async getFriends(@Param('userId') userId: string): Promise<string[]> {
-    return this.friendService.getFriends(userId);
+  @Get('requests/sent')
+  @ApiOperation({ summary: 'Get sent friend requests' })
+  @ApiSuccessResponse('Sent friend requests retrieved')
+  async getSentFriendRequests(
+    @CurrentUser() user: UserEntity,
+  ): Promise<ApiResponseDto<any[]>> {
+    const requests = await this.friendService.getSentFriendRequests(user.id);
+    return requests as any;
   }
 
-  @Get(':userId/:friendId/check')
-  @ApiOperation({ summary: '检查好友关系' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiParam({ name: 'friendId', description: '好友ID' })
-  @ApiResponse({ status: 200, description: '成功检查好友关系' })
-  async checkFriendship(@Param('userId') userId: string, @Param('friendId') friendId: string): Promise<boolean> {
-    return this.friendService.checkFriendship(userId, friendId);
+  @Get()
+  @ApiOperation({ summary: 'Get friends list' })
+  @ApiSuccessResponse('Friends list retrieved')
+  async getFriends(
+    @CurrentUser() user: UserEntity,
+  ): Promise<ApiResponseDto<string[]>> {
+    const friends = await this.friendService.getFriends(user.id);
+    return friends as any;
   }
 
-  @Get('requests/sent/:userId')
-  @ApiOperation({ summary: '获取发送的好友请求列表' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功获取发送的好友请求列表', type: [FriendRequest] })
-  async getSentFriendRequests(@Param('userId') userId: string): Promise<FriendRequest[]> {
-    return this.friendService.getSentFriendRequests(userId);
+  @Get(':friendId/check')
+  @ApiOperation({ summary: 'Check friendship status' })
+  @ApiSuccessResponse('Friendship status checked')
+  async checkFriendship(
+    @CurrentUser() user: UserEntity,
+    @Param('friendId') friendId: string,
+  ): Promise<ApiResponseDto<{ isFriend: boolean }>> {
+    const isFriend = await this.friendService.checkFriendship(user.id, friendId);
+    return { isFriend } as any;
   }
 
-  @Post(':userId/:friendId/block')
-  @ApiOperation({ summary: '拉黑好友' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiParam({ name: 'friendId', description: '好友ID' })
-  @ApiResponse({ status: 200, description: '成功拉黑好友' })
-  async blockFriend(@Param('userId') userId: string, @Param('friendId') friendId: string): Promise<boolean> {
-    return this.friendService.blockFriend(userId, friendId);
+  @Post(':friendId/block')
+  @Audit({ action: AuditAction.UPDATE, entityType: 'friend' })
+  @ApiOperation({ summary: 'Block friend' })
+  @ApiSuccessResponse('Friend blocked')
+  async blockFriend(
+    @CurrentUser() user: UserEntity,
+    @Param('friendId') friendId: string,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    await this.friendService.blockFriend(user.id, friendId);
+    return { success: true } as any;
   }
 
-  @Post(':userId/:friendId/unblock')
-  @ApiOperation({ summary: '取消拉黑' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiParam({ name: 'friendId', description: '好友ID' })
-  @ApiResponse({ status: 200, description: '成功取消拉黑' })
-  async unblockFriend(@Param('userId') userId: string, @Param('friendId') friendId: string): Promise<boolean> {
-    return this.friendService.unblockFriend(userId, friendId);
+  @Post(':friendId/unblock')
+  @Audit({ action: AuditAction.UPDATE, entityType: 'friend' })
+  @ApiOperation({ summary: 'Unblock friend' })
+  @ApiSuccessResponse('Friend unblocked')
+  async unblockFriend(
+    @CurrentUser() user: UserEntity,
+    @Param('friendId') friendId: string,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    await this.friendService.unblockFriend(user.id, friendId);
+    return { success: true } as any;
   }
 
-  @Get(':userId/:friendId/blocked')
-  @ApiOperation({ summary: '检查是否被拉黑' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiParam({ name: 'friendId', description: '好友ID' })
-  @ApiResponse({ status: 200, description: '成功检查拉黑状态' })
-  async checkBlocked(@Param('userId') userId: string, @Param('friendId') friendId: string): Promise<boolean> {
-    return this.friendService.checkBlocked(userId, friendId);
+  @Get(':friendId/blocked')
+  @ApiOperation({ summary: 'Check if blocked' })
+  @ApiSuccessResponse('Block status checked')
+  async checkBlocked(
+    @CurrentUser() user: UserEntity,
+    @Param('friendId') friendId: string,
+  ): Promise<ApiResponseDto<{ isBlocked: boolean }>> {
+    const isBlocked = await this.friendService.checkBlocked(user.id, friendId);
+    return { isBlocked } as any;
   }
 }

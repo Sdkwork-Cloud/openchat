@@ -1,6 +1,6 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Like } from 'typeorm';
+import { Repository, In, Like, DataSource } from 'typeorm';
 import { ContactEntity } from './contact.entity';
 import {
   Contact,
@@ -10,19 +10,26 @@ import {
   ContactManager,
   ContactType,
 } from './contact.interface';
+import { BaseEntityService } from '../../common/base/entity.service';
+import { EventBusService } from '../../common/events/event-bus.service';
+import { CacheService } from '../../common/services/cache.service';
 
 @Injectable()
-export class ContactService implements ContactManager {
-  constructor(
-    @InjectRepository(ContactEntity)
-    private contactRepository: Repository<ContactEntity>,
-  ) {}
+export class ContactService extends BaseEntityService<ContactEntity> implements ContactManager {
+  protected readonly logger = new Logger(ContactService.name);
+  protected readonly entityName = 'Contact';
 
-  /**
-   * 创建联系人
-   */
+  constructor(
+    protected readonly dataSource: DataSource,
+    @InjectRepository(ContactEntity)
+    protected readonly repository: Repository<ContactEntity>,
+    eventBus: EventBusService,
+    cacheService: CacheService,
+  ) {
+    super(dataSource, repository, eventBus, cacheService);
+  }
+
   async createContact(request: CreateContactRequest): Promise<Contact> {
-    // 检查是否已存在相同联系人
     const existingContact = await this.getContactByTarget(
       request.userId,
       request.contactId,
@@ -33,7 +40,7 @@ export class ContactService implements ContactManager {
       throw new ConflictException('联系人已存在');
     }
 
-    const contact = this.contactRepository.create({
+    const contact = this.repository.create({
       userId: request.userId,
       contactId: request.contactId,
       type: request.type,
@@ -45,58 +52,28 @@ export class ContactService implements ContactManager {
       isFavorite: false,
     });
 
-    const savedContact = await this.contactRepository.save(contact);
+    const savedContact = await this.repository.save(contact);
     return this.mapToContact(savedContact);
   }
 
-  /**
-   * 获取联系人详情
-   */
   async getContactById(id: string): Promise<Contact | null> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
-
-    if (!contact) {
-      return null;
-    }
-
-    return this.mapToContact(contact);
+    const contact = await this.findOne(id);
+    return contact ? this.mapToContact(contact) : null;
   }
 
-  /**
-   * 获取用户的联系人列表
-   */
   async getContactsByUserId(params: ContactQueryParams): Promise<Contact[]> {
     const { userId, type, source, status, isFavorite, tag, keyword, limit = 50, offset = 0 } = params;
 
-    const where: any = { userId };
+    const where: any = { userId, isDeleted: false };
 
-    if (type) {
-      where.type = type;
-    }
+    if (type) where.type = type;
+    if (source) where.source = source;
+    if (status) where.status = status;
+    if (isFavorite !== undefined) where.isFavorite = isFavorite;
+    if (tag) where.tags = Like(`%${tag}%`);
+    if (keyword) where.name = Like(`%${keyword}%`);
 
-    if (source) {
-      where.source = source;
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (isFavorite !== undefined) {
-      where.isFavorite = isFavorite;
-    }
-
-    if (tag) {
-      where.tags = Like(`%${tag}%`);
-    }
-
-    if (keyword) {
-      where.name = Like(`%${keyword}%`);
-    }
-
-    const contacts = await this.contactRepository.find({
+    const contacts = await this.repository.find({
       where,
       order: {
         isFavorite: 'DESC',
@@ -110,179 +87,99 @@ export class ContactService implements ContactManager {
     return contacts.map((contact) => this.mapToContact(contact));
   }
 
-  /**
-   * 获取用户与特定目标的联系人
-   */
   async getContactByTarget(
     userId: string,
     contactId: string,
     type: ContactType,
   ): Promise<Contact | null> {
-    const contact = await this.contactRepository.findOne({
-      where: { userId, contactId, type },
+    const contact = await this.repository.findOne({
+      where: { userId, contactId, type, isDeleted: false },
     });
 
-    if (!contact) {
-      return null;
-    }
-
-    return this.mapToContact(contact);
+    return contact ? this.mapToContact(contact) : null;
   }
 
-  /**
-   * 更新联系人
-   */
   async updateContact(id: string, request: UpdateContactRequest): Promise<Contact | null> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
+    const contact = await this.findOne(id);
+    if (!contact) return null;
 
-    if (!contact) {
-      return null;
-    }
+    if (request.name !== undefined) contact.name = request.name;
+    if (request.remark !== undefined) contact.remark = request.remark;
+    if (request.tags !== undefined) contact.tags = request.tags;
+    if (request.isFavorite !== undefined) contact.isFavorite = request.isFavorite;
+    if (request.status !== undefined) contact.status = request.status;
 
-    if (request.name !== undefined) {
-      contact.name = request.name;
-    }
-
-    if (request.remark !== undefined) {
-      contact.remark = request.remark;
-    }
-
-    if (request.tags !== undefined) {
-      contact.tags = request.tags;
-    }
-
-    if (request.isFavorite !== undefined) {
-      contact.isFavorite = request.isFavorite;
-    }
-
-    if (request.status !== undefined) {
-      contact.status = request.status;
-    }
-
-    const updatedContact = await this.contactRepository.save(contact);
+    const updatedContact = await this.repository.save(contact);
     return this.mapToContact(updatedContact);
   }
 
-  /**
-   * 删除联系人
-   */
   async deleteContact(id: string): Promise<boolean> {
-    const result = await this.contactRepository.delete(id);
+    const result = await this.repository.update(id, { isDeleted: true });
     return (result.affected || 0) > 0;
   }
 
-  /**
-   * 批量删除联系人
-   */
   async batchDeleteContacts(ids: string[]): Promise<boolean> {
-    const result = await this.contactRepository.delete({
-      id: In(ids),
-    });
+    const result = await this.repository.update(
+      { id: In(ids) } as any,
+      { isDeleted: true },
+    );
     return (result.affected || 0) > 0;
   }
 
-  /**
-   * 设置/取消收藏
-   */
   async setFavorite(id: string, isFavorite: boolean): Promise<boolean> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
-
-    if (!contact) {
-      return false;
-    }
+    const contact = await this.findOne(id);
+    if (!contact) return false;
 
     contact.isFavorite = isFavorite;
-    await this.contactRepository.save(contact);
+    await this.repository.save(contact);
     return true;
   }
 
-  /**
-   * 设置备注
-   */
   async setRemark(id: string, remark: string): Promise<boolean> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
-
-    if (!contact) {
-      return false;
-    }
+    const contact = await this.findOne(id);
+    if (!contact) return false;
 
     contact.remark = remark;
-    await this.contactRepository.save(contact);
+    await this.repository.save(contact);
     return true;
   }
 
-  /**
-   * 添加标签
-   */
   async addTag(id: string, tag: string): Promise<boolean> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
+    const contact = await this.findOne(id);
+    if (!contact) return false;
 
-    if (!contact) {
-      return false;
-    }
-
-    if (!contact.tags) {
-      contact.tags = [];
-    }
-
+    if (!contact.tags) contact.tags = [];
     if (!contact.tags.includes(tag)) {
       contact.tags.push(tag);
-      await this.contactRepository.save(contact);
+      await this.repository.save(contact);
     }
 
     return true;
   }
 
-  /**
-   * 移除标签
-   */
   async removeTag(id: string, tag: string): Promise<boolean> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
+    const contact = await this.findOne(id);
+    if (!contact || !contact.tags) return false;
 
-    if (!contact || !contact.tags) {
-      return false;
-    }
-
-    contact.tags = contact.tags.filter((t) => t !== tag);
-    await this.contactRepository.save(contact);
+    contact.tags = contact.tags.filter((t: string) => t !== tag);
+    await this.repository.save(contact);
     return true;
   }
 
-  /**
-   * 更新最后联系时间
-   */
   async updateLastContactTime(id: string): Promise<boolean> {
-    const contact = await this.contactRepository.findOne({
-      where: { id },
-    });
-
-    if (!contact) {
-      return false;
-    }
+    const contact = await this.findOne(id);
+    if (!contact) return false;
 
     contact.lastContactTime = new Date();
-    await this.contactRepository.save(contact);
+    await this.repository.save(contact);
     return true;
   }
 
-  /**
-   * 搜索联系人
-   */
   async searchContacts(userId: string, keyword: string): Promise<Contact[]> {
-    const contacts = await this.contactRepository.find({
+    const contacts = await this.repository.find({
       where: [
-        { userId, name: Like(`%${keyword}%`) },
-        { userId, remark: Like(`%${keyword}%`) },
+        { userId, name: Like(`%${keyword}%`), isDeleted: false },
+        { userId, remark: Like(`%${keyword}%`), isDeleted: false },
       ],
       order: {
         isFavorite: 'DESC',
@@ -293,9 +190,6 @@ export class ContactService implements ContactManager {
     return contacts.map((contact) => this.mapToContact(contact));
   }
 
-  /**
-   * 获取联系人统计
-   */
   async getContactStats(userId: string): Promise<{
     total: number;
     userCount: number;
@@ -304,25 +198,16 @@ export class ContactService implements ContactManager {
     blockedCount: number;
   }> {
     const [total, userCount, groupCount, favoriteCount, blockedCount] = await Promise.all([
-      this.contactRepository.count({ where: { userId } }),
-      this.contactRepository.count({ where: { userId, type: 'user' } }),
-      this.contactRepository.count({ where: { userId, type: 'group' } }),
-      this.contactRepository.count({ where: { userId, isFavorite: true } }),
-      this.contactRepository.count({ where: { userId, status: 'blocked' } }),
+      this.repository.count({ where: { userId, isDeleted: false } }),
+      this.repository.count({ where: { userId, type: 'user', isDeleted: false } }),
+      this.repository.count({ where: { userId, type: 'group', isDeleted: false } }),
+      this.repository.count({ where: { userId, isFavorite: true, isDeleted: false } }),
+      this.repository.count({ where: { userId, status: 'blocked', isDeleted: false } }),
     ]);
 
-    return {
-      total,
-      userCount,
-      groupCount,
-      favoriteCount,
-      blockedCount,
-    };
+    return { total, userCount, groupCount, favoriteCount, blockedCount };
   }
 
-  /**
-   * 映射实体到接口
-   */
   private mapToContact(entity: ContactEntity): Contact {
     return {
       id: entity.id,

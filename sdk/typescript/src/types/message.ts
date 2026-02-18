@@ -1011,6 +1011,39 @@ export class ResourceBuilder {
   }
 
   /**
+   * 创建位置资源
+   */
+  static location(latitude: number, longitude: number, options?: Omit<LocationMediaResource, 'type' | 'latitude' | 'longitude'>): LocationMediaResource {
+    return {
+      type: MediaResourceType.LOCATION,
+      latitude,
+      longitude,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建用户名片资源
+   */
+  static userCard(userId: string, options?: Omit<UserCardContent, 'userId'>): UserCardContent {
+    return {
+      userId,
+      ...options,
+    };
+  }
+
+  /**
+   * 创建自定义资源
+   */
+  static custom(customType: string, data: Record<string, any>): CustomMediaResource {
+    return {
+      type: MediaResourceType.CUSTOM,
+      customType,
+      data,
+    };
+  }
+
+  /**
    * 创建多模态资源包装器
    */
   static asset(options: Omit<AssetMediaResource, 'type'>): AssetMediaResource {

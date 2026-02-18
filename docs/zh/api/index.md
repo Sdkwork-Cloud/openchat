@@ -8,7 +8,7 @@ OpenChat 提供完整的 RESTful API，支持即时通讯、用户管理、群�
 
 | 项目 | 说明 |
 |------|------|
-| 基础 URL | `http://your-server:3000/api/v1` |
+| 基础 URL | `http://your-server:3000/im/api/v1` |
 | 协议 | HTTP/HTTPS |
 | 数据格式 | JSON |
 | 字符编码 | UTF-8 |
@@ -18,24 +18,24 @@ OpenChat 提供完整的 RESTful API，支持即时通讯、用户管理、群�
 
 | 模块 | 路径前缀 | 说明 |
 |------|----------|------|
-| 认证授权 | `/api/v1/auth` | 登录、注册、Token 管理 |
-| 用户管理 | `/api/v1/users` | 用户信息、搜索、设置 |
-| 消息管理 | `/api/v1/messages` | 消息发送、查询、撤回 |
-| 消息搜索 | `/api/v1/message-search` | 消息全文搜索、高级搜索 |
-| 会话管理 | `/api/v1/conversations` | 会话列表、未读管理 |
-| 群组管理 | `/api/v1/groups` | 群组创建、成员管理 |
-| 好友管理 | `/api/v1/friends` | 好友申请、分组管理 |
-| 联系人管理 | `/api/v1/contacts` | 联系人管理、分组 |
-| 实时音视频 | `/api/v1/rtc` | 音视频通话、信令 |
-| AI 机器人 | `/api/v1/ai-bots` | AI 机器人管理、消息处理 |
-| AI Agent | `/api/v1/agents` | AI Agent 管理、工具调用 |
-| 机器人平台 | `/api/v1/bots` | 多平台机器人集成 |
-| 记忆管理 | `/api/v1/memory` | 对话记忆、知识库管理 |
-| IoT | `/iot` | IoT 设备管理、消息控制 |
-| 健康检查 | `/health` | 服务健康状态检查 |
-| 监控指标 | `/metrics` | Prometheus 监控指标 |
-| 第三方集成 | `/third-party` | 多平台消息集成 |
-| IM 集成 | `/api/v1/im` | WukongIM 相关接口 |
+| 认证授权 | `/im/api/v1/auth` | 登录、注册、Token 管理 |
+| 用户管理 | `/im/api/v1/users` | 用户信息、搜索、设置 |
+| 消息管理 | `/im/api/v1/messages` | 消息发送、查询、撤回 |
+| 消息搜索 | `/im/api/v1/message-search` | 消息全文搜索、高级搜索 |
+| 会话管理 | `/im/api/v1/conversations` | 会话列表、未读管理 |
+| 群组管理 | `/im/api/v1/groups` | 群组创建、成员管理 |
+| 好友管理 | `/im/api/v1/friends` | 好友申请、分组管理 |
+| 联系人管理 | `/im/api/v1/contacts` | 联系人管理、分组 |
+| 实时音视频 | `/im/api/v1/rtc` | 音视频通话、信令 |
+| AI 机器人 | `/im/api/v1/ai-bots` | AI 机器人管理、消息处理 |
+| AI Agent | `/im/api/v1/agents` | AI Agent 管理、工具调用 |
+| 机器人平台 | `/im/api/v1/bots` | 多平台机器人集成 |
+| 记忆管理 | `/im/api/v1/memory` | 对话记忆、知识库管理 |
+| IoT | `/im/api/v1/iot` | IoT 设备管理、消息控制 |
+| 健康检查 | `/im/api/v1/health` | 服务健康状态检查 |
+| 监控指标 | `/im/api/v1/metrics` | Prometheus 监控指标 |
+| 第三方集成 | `/im/api/v1/third-party` | 多平台消息集成 |
+| IM 集成 | `/im/api/v1/im` | WukongIM 相关接口 |
 
 ---
 
@@ -46,7 +46,7 @@ OpenChat 使用 JWT (JSON Web Token) 进行 API 认证。
 ### 获取 Token
 
 ```http
-POST /api/v1/auth/login
+POST /im/api/v1/auth/login
 Content-Type: application/json
 
 {
@@ -235,7 +235,7 @@ Authorization: Bearer <your-access-token>
 ### 1. 注册用户
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
+curl -X POST http://localhost:3000/im/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -247,7 +247,7 @@ curl -X POST http://localhost:3000/api/v1/auth/register \
 ### 2. 登录获取 Token
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
+curl -X POST http://localhost:3000/im/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -258,7 +258,7 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 ### 3. 发送消息
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/messages \
+curl -X POST http://localhost:3000/im/api/v1/messages \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -287,28 +287,25 @@ OpenChat 提供多语言 SDK，简化 API 调用：
 ### TypeScript SDK 示例
 
 ```typescript
-import { OpenChatClient } from '@openchat/sdk';
+import { OpenChatClient, DeviceFlag } from '@openchat/typescript-sdk';
 
 const client = new OpenChatClient({
-  serverUrl: 'http://localhost:3000'
+  server: { baseUrl: 'http://localhost:3000' },
+  im: { wsUrl: 'ws://localhost:5200', deviceFlag: DeviceFlag.WEB },
+  auth: { uid: 'user-uid', token: 'user-token' },
 });
 
-// 登录
-await client.auth.login({
-  username: 'testuser',
-  password: 'password123'
-});
+// 初始化
+await client.init();
 
 // 发送消息
-await client.message.send({
-  type: 'text',
-  content: { text: { text: 'Hello!' } },
-  fromUserId: 'your-user-id',
-  toUserId: 'receiver-id'
+await client.im.messages.sendText({
+  toUserId: 'receiver-uuid',
+  text: 'Hello!'
 });
 
 // 监听消息
-client.message.onMessage((message) => {
+client.on('message_received', (message) => {
   console.log('收到消息:', message);
 });
 ```

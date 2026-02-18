@@ -1,6 +1,6 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, DataSource, LessThan } from 'typeorm';
 import { ConversationEntity } from './conversation.entity';
 import {
   Conversation,
@@ -10,19 +10,26 @@ import {
   ConversationManager,
   ConversationType,
 } from './conversation.interface';
+import { BaseEntityService } from '../../common/base/entity.service';
+import { EventBusService } from '../../common/events/event-bus.service';
+import { CacheService } from '../../common/services/cache.service';
 
 @Injectable()
-export class ConversationService implements ConversationManager {
-  constructor(
-    @InjectRepository(ConversationEntity)
-    private conversationRepository: Repository<ConversationEntity>,
-  ) {}
+export class ConversationService extends BaseEntityService<ConversationEntity> implements ConversationManager {
+  protected readonly logger = new Logger(ConversationService.name);
+  protected readonly entityName = 'Conversation';
 
-  /**
-   * 创建会话
-   */
+  constructor(
+    protected readonly dataSource: DataSource,
+    @InjectRepository(ConversationEntity)
+    protected readonly repository: Repository<ConversationEntity>,
+    eventBus: EventBusService,
+    cacheService: CacheService,
+  ) {
+    super(dataSource, repository, eventBus, cacheService);
+  }
+
   async createConversation(request: CreateConversationRequest): Promise<Conversation> {
-    // 检查是否已存在相同会话
     const existingConversation = await this.getConversationByTarget(
       request.userId,
       request.targetId,
@@ -33,7 +40,7 @@ export class ConversationService implements ConversationManager {
       throw new ConflictException('会话已存在');
     }
 
-    const conversation = this.conversationRepository.create({
+    const conversation = this.repository.create({
       type: request.type,
       userId: request.userId,
       targetId: request.targetId,
@@ -42,42 +49,24 @@ export class ConversationService implements ConversationManager {
       isMuted: false,
     });
 
-    const savedConversation = await this.conversationRepository.save(conversation);
+    const savedConversation = await this.repository.save(conversation);
     return this.mapToConversation(savedConversation);
   }
 
-  /**
-   * 获取会话详情
-   */
   async getConversationById(id: string): Promise<Conversation | null> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id },
-    });
-
-    if (!conversation) {
-      return null;
-    }
-
-    return this.mapToConversation(conversation);
+    const conversation = await this.findOne(id);
+    return conversation ? this.mapToConversation(conversation) : null;
   }
 
-  /**
-   * 获取用户的会话列表
-   */
   async getConversationsByUserId(params: ConversationQueryParams): Promise<Conversation[]> {
     const { userId, type, isPinned, limit = 50, offset = 0 } = params;
 
-    const where: any = { userId };
+    const where: any = { userId, isDeleted: false };
 
-    if (type) {
-      where.type = type;
-    }
+    if (type) where.type = type;
+    if (isPinned !== undefined) where.isPinned = isPinned;
 
-    if (isPinned !== undefined) {
-      where.isPinned = isPinned;
-    }
-
-    const conversations = await this.conversationRepository.find({
+    const conversations = await this.repository.find({
       where,
       order: {
         isPinned: 'DESC',
@@ -91,166 +80,91 @@ export class ConversationService implements ConversationManager {
     return conversations.map((conversation) => this.mapToConversation(conversation));
   }
 
-  /**
-   * 获取用户与特定目标的会话
-   */
   async getConversationByTarget(
     userId: string,
     targetId: string,
     type: ConversationType,
   ): Promise<Conversation | null> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { userId, targetId, type },
+    const conversation = await this.repository.findOne({
+      where: { userId, targetId, type, isDeleted: false },
     });
 
-    if (!conversation) {
-      return null;
-    }
-
-    return this.mapToConversation(conversation);
+    return conversation ? this.mapToConversation(conversation) : null;
   }
 
-  /**
-   * 更新会话
-   */
   async updateConversation(
     id: string,
     request: UpdateConversationRequest,
   ): Promise<Conversation | null> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id },
-    });
+    const conversation = await this.findOne(id);
+    if (!conversation) return null;
 
-    if (!conversation) {
-      return null;
-    }
+    if (request.isPinned !== undefined) conversation.isPinned = request.isPinned;
+    if (request.isMuted !== undefined) conversation.isMuted = request.isMuted;
 
-    if (request.isPinned !== undefined) {
-      conversation.isPinned = request.isPinned;
-    }
-
-    if (request.isMuted !== undefined) {
-      conversation.isMuted = request.isMuted;
-    }
-
-    const updatedConversation = await this.conversationRepository.save(conversation);
+    const updatedConversation = await this.repository.save(conversation);
     return this.mapToConversation(updatedConversation);
   }
 
-  /**
-   * 删除会话
-   */
   async deleteConversation(id: string): Promise<boolean> {
-    const result = await this.conversationRepository.delete(id);
+    const result = await this.repository.update(id, { isDeleted: true });
     return (result.affected || 0) > 0;
   }
 
-  /**
-   * 更新会话最后消息
-   */
   async updateLastMessage(
     conversationId: string,
     messageId: string,
     content: string,
     messageTime: Date,
   ): Promise<boolean> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
+    const result = await this.repository.update(conversationId, {
+      lastMessageId: messageId,
+      lastMessageContent: content,
+      lastMessageTime: messageTime,
     });
 
-    if (!conversation) {
-      return false;
-    }
-
-    conversation.lastMessageId = messageId;
-    conversation.lastMessageContent = content;
-    conversation.lastMessageTime = messageTime;
-
-    await this.conversationRepository.save(conversation);
-    return true;
+    return (result.affected || 0) > 0;
   }
 
-  /**
-   * 增加未读消息数
-   */
   async incrementUnreadCount(conversationId: string): Promise<boolean> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-    });
+    const result = await this.repository
+      .createQueryBuilder()
+      .update(ConversationEntity)
+      .set({
+        unreadCount: () => 'unread_count + 1',
+      })
+      .where('id = :id', { id: conversationId })
+      .execute();
 
-    if (!conversation) {
-      return false;
-    }
-
-    conversation.unreadCount += 1;
-    await this.conversationRepository.save(conversation);
-    return true;
+    return (result.affected || 0) > 0;
   }
 
-  /**
-   * 清空未读消息数
-   */
   async clearUnreadCount(conversationId: string): Promise<boolean> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-    });
-
-    if (!conversation) {
-      return false;
-    }
-
-    conversation.unreadCount = 0;
-    await this.conversationRepository.save(conversation);
-    return true;
+    const result = await this.repository.update(conversationId, { unreadCount: 0 });
+    return (result.affected || 0) > 0;
   }
 
-  /**
-   * 置顶/取消置顶会话
-   */
   async pinConversation(id: string, isPinned: boolean): Promise<boolean> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id },
-    });
-
-    if (!conversation) {
-      return false;
-    }
-
-    conversation.isPinned = isPinned;
-    await this.conversationRepository.save(conversation);
-    return true;
+    const result = await this.repository.update(id, { isPinned });
+    return (result.affected || 0) > 0;
   }
 
-  /**
-   * 设置免打扰
-   */
   async muteConversation(id: string, isMuted: boolean): Promise<boolean> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id },
-    });
-
-    if (!conversation) {
-      return false;
-    }
-
-    conversation.isMuted = isMuted;
-    await this.conversationRepository.save(conversation);
-    return true;
+    const result = await this.repository.update(id, { isMuted });
+    return (result.affected || 0) > 0;
   }
 
   async getTotalUnreadCount(userId: string): Promise<number> {
-    const result = await this.conversationRepository
+    const result = await this.repository
       .createQueryBuilder('conversation')
       .select('SUM(conversation.unreadCount)', 'total')
       .where('conversation.userId = :userId', { userId })
+      .andWhere('conversation.isDeleted = :isDeleted', { isDeleted: false })
       .getRawOne();
 
     return parseInt(result?.total || '0', 10);
   }
 
-  /**
-   * 映射实体到接口
-   */
   private mapToConversation(entity: ConversationEntity): Conversation {
     return {
       id: entity.id,

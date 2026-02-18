@@ -66,6 +66,9 @@ export abstract class BaseEntity {
   @Column({ type: 'varchar', length: 36, unique: true, nullable: false })
   uuid: string;
 
+  @Column({ type: 'boolean', default: false })
+  isDeleted: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

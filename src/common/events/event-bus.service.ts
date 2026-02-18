@@ -78,6 +78,7 @@ export enum EventType {
   MESSAGE_SENT = 'message.sent',
   MESSAGE_DELIVERED = 'message.delivered',
   MESSAGE_READ = 'message.read',
+  CUSTOM_EVENT = 'custom.event',
 }
 
 /**

@@ -6,10 +6,12 @@
 // ==================== API服务 ====================
 export { ApiService } from './api-service';
 
+// ==================== Craw服务 ====================
+export { CrawService, createCrawService } from './craw-service';
+
 // ==================== IM服务 ====================
 export {
   IMServiceEvent,
-  ConnectionState,
 } from './im-service';
 
 export type {

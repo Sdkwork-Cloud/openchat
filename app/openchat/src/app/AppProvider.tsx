@@ -1,7 +1,9 @@
 
 import React, { ReactNode } from 'react';
-import { ChatStoreProvider } from '../services/store';
 import { ThemeProvider } from '../services/themeContext';
+import { ChatStoreProvider } from '../services/store';
+import { ErrorProvider } from '../core/error-handler';
+import { I18nProvider } from '../core/i18n';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -9,11 +11,15 @@ interface AppProviderProps {
 
 const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   return (
-    <ThemeProvider>
-      <ChatStoreProvider>
-        {children}
-      </ChatStoreProvider>
-    </ThemeProvider>
+    <I18nProvider defaultLocale="zh-CN">
+      <ThemeProvider>
+        <ErrorProvider>
+          <ChatStoreProvider>
+            {children}
+          </ChatStoreProvider>
+        </ErrorProvider>
+      </ThemeProvider>
+    </I18nProvider>
   );
 };
 

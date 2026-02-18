@@ -91,13 +91,6 @@ export class UserEntity extends BaseEntity {
   lastLoginIp?: string;
 
   @Column({
-    type: 'boolean',
-    default: false,
-    comment: '是否已删除（软删除）',
-  })
-  isDeleted?: boolean;
-
-  @Column({
     type: 'timestamp',
     nullable: true,
     comment: '删除时间',

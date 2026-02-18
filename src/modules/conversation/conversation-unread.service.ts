@@ -137,7 +137,7 @@ export class ConversationUnreadService {
       
       const missingIds = conversationIds.filter(id => !result.has(id));
       if (missingIds.length > 0) {
-        const conversations = await this.conversationService['conversationRepository']
+        const conversations = await this.conversationService['repository']
           .createQueryBuilder('conversation')
           .select(['conversation.id', 'conversation.unreadCount'])
           .where('conversation.id IN (:...ids)', { ids: missingIds })
@@ -174,12 +174,12 @@ export class ConversationUnreadService {
       if (conversation && conversation.unreadCount !== count) {
         // 这里需要修改ConversationService，添加更新未读数的方法
         // 暂时使用现有的方法，通过获取实体后更新
-        const entity = await this.conversationService['conversationRepository'].findOne({
+        const entity = await this.conversationService['repository'].findOne({
           where: { id: conversationId },
         });
         if (entity) {
           entity.unreadCount = count;
-          await this.conversationService['conversationRepository'].save(entity);
+          await this.conversationService['repository'].save(entity);
         }
       }
     } catch (error) {

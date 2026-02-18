@@ -456,6 +456,7 @@ function printStartupInfo(config: BootstrapConfig) {
   ║  Environment: ${nodeEnv.padEnd(38)} ║
   ║  Server:      http://${host}:${port.toString().padEnd(26)} ║
   ║  API Docs:    http://${host}:${port}/api/docs${' '.repeat(13)} ║
+  ║  API Prefix:  /im/api/v1${' '.repeat(23)} ║
   ║  WebSocket:   ws://${host}:${port}/chat-v2${' '.repeat(16)} ║
   ║                                                        ║
   ╚════════════════════════════════════════════════════════╝
@@ -509,8 +510,8 @@ export async function bootstrap() {
   setupSwagger(app, configService);
 
   // 8. 设置全局前缀
-  app.setGlobalPrefix('api', {
-    exclude: ['/health', '/ws', '/chat', '/chat-v2'],
+  app.setGlobalPrefix('im/api/v1', {
+    exclude: ['/health', '/ws', '/chat', '/chat-v2', '/metrics'],
   });
 
   // 9. 配置 WebSocket 适配器

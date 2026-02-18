@@ -13,6 +13,7 @@ import { ContactModule } from '../contact/contact.module';
 import { ConversationModule } from '../conversation/conversation.module';
 import { IMProviderModule } from '../im-provider/im-provider.module';
 import { RedisModule } from '../../common/redis/redis.module';
+import { CommonModule } from '../../common/common.module';
 import { ConversationEntity } from '../conversation/conversation.entity';
 
 @Module({
@@ -23,6 +24,7 @@ import { ConversationEntity } from '../conversation/conversation.entity';
     ConversationModule,
     IMProviderModule,
     RedisModule,
+    CommonModule,
   ],
   providers: [GroupService, GroupSyncService, GroupBlacklistService, GroupMessageBatchService],
   controllers: [GroupController],

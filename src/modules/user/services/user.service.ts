@@ -66,7 +66,7 @@ export class UserService {
    * 更新用户信息
    */
   async updateUser(id: string, userData: Partial<UserEntity>): Promise<UserEntity | null> {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository.findOne({ where: { id, isDeleted: false } });
     if (!user) {
       return null;
     }

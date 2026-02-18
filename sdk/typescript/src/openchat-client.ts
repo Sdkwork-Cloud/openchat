@@ -70,6 +70,8 @@ import { ApiService } from './services/api-service';
 import { WukongIMService } from './services/im-service-wukong';
 import { RTCManager } from './rtc/rtc-manager';
 import { RTCProviderType, RTCManagerConfig } from './rtc/types';
+import { Logger, LogLevel, createLogger } from './core/logger';
+import { PerformanceMonitor, createPerformanceMonitor } from './core/performance';
 
 // SDK配置默认值
 const DEFAULT_SERVER_CONFIG: Partial<ServerConfig> = {
@@ -100,6 +102,10 @@ export class OpenChatClient extends EventEmitter {
   private imService: WukongIMService;
   private rtcManager: RTCManager | null = null;
 
+  // 日志和性能监控
+  private logger: Logger;
+  private performance: PerformanceMonitor;
+
   // 状态
   private initialized: boolean = false;
   private currentUser: User | null = null;
@@ -112,7 +118,7 @@ export class OpenChatClient extends EventEmitter {
 
   constructor(config: OpenChatSDKConfig) {
     super();
-    // 合并默认配置
+    
     this.config = {
       ...DEFAULT_CONFIG,
       ...config,
@@ -130,18 +136,38 @@ export class OpenChatClient extends EventEmitter {
       },
     } as OpenChatSDKConfig;
 
-    // 初始化服务
+    this.logger = createLogger({
+      level: this.config.debug ? LogLevel.DEBUG : LogLevel.WARN,
+      prefix: '[OpenChat]',
+      timestamp: true,
+      colorize: true,
+    });
+
+    this.performance = createPerformanceMonitor({
+      enabled: true,
+      maxSamples: 1000,
+      logger: this.logger,
+    });
+
     this.apiService = new ApiService(this.config);
     this.imService = new WukongIMService();
 
-    // 初始化模块
     this.auth = new AuthModule(this);
     this.im = new IMModule(this);
     this.rtc = new RTCModule(this);
     this.api = new ApiServiceAccessor(this);
 
-    // 绑定IM事件
     this.bindIMEvents();
+    
+    this.logger.debug('OpenChatClient created');
+  }
+
+  getLogger(): Logger {
+    return this.logger;
+  }
+
+  getPerformance(): PerformanceMonitor {
+    return this.performance;
   }
 
   // ==================== 初始化与连接 ====================
@@ -152,15 +178,17 @@ export class OpenChatClient extends EventEmitter {
    */
   async init(): Promise<void> {
     if (this.initialized) {
-      console.warn('OpenChatClient already initialized');
+      this.logger.warn('OpenChatClient already initialized');
       return;
     }
 
+    const stopTimer = this.performance.startTimer('init');
+
     try {
-      // 获取当前用户信息
+      this.logger.info('Initializing OpenChatClient...');
+
       this.currentUser = await this.apiService.getCurrentUser();
 
-      // 连接IM服务器（内部封装，用户无感知）
       await this.imService.connect({
         uid: this.config.auth.uid,
         token: this.config.auth.token,
@@ -175,12 +203,18 @@ export class OpenChatClient extends EventEmitter {
       });
 
       this.initialized = true;
+      
+      const duration = stopTimer();
+      this.logger.info(`OpenChatClient initialized in ${duration.toFixed(2)}ms`);
+      
       this.emit(OpenChatEvent.CONNECTED, { uid: this.config.auth.uid });
 
     } catch (error) {
+      stopTimer();
       const openChatError = error instanceof OpenChatError 
         ? error 
         : new OpenChatError(ErrorCode.NETWORK_ERROR, 'Initialization failed', error);
+      this.logger.error('Initialization failed:', openChatError);
       this.emit(OpenChatEvent.ERROR, openChatError);
       throw openChatError;
     }
@@ -632,6 +666,125 @@ class MessagesModule {
    */
   async sendCard(params: any): Promise<Message> {
     return this.client.getIMService().sendCard(params);
+  }
+
+  /**
+   * 发送用户名片消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendUserCard({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.userCard('user-456', {
+   *     nickname: '张三',
+   *     avatar: 'https://example.com/avatar.jpg'
+   *   })
+   * });
+   * ```
+   */
+  async sendUserCard(params: any): Promise<Message> {
+    return this.client.getIMService().sendUserCard(params);
+  }
+
+  /**
+   * 发送音乐消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendMusic({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.music('https://example.com/music.mp3', 180, {
+   *     title: '春日序曲',
+   *     artist: 'AI Composer'
+   *   })
+   * });
+   * ```
+   */
+  async sendMusic(params: any): Promise<Message> {
+    return this.client.getIMService().sendMusic(params);
+  }
+
+  /**
+   * 发送文档消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendDocument({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.document('https://example.com/doc.pdf', {
+   *     title: 'API文档',
+   *     author: 'OpenChat团队'
+   *   })
+   * });
+   * ```
+   */
+  async sendDocument(params: any): Promise<Message> {
+    return this.client.getIMService().sendDocument(params);
+  }
+
+  /**
+   * 发送代码消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendCode({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.code({
+   *     language: CodeLanguage.TYPESCRIPT,
+   *     code: 'const hello = "world";'
+   *   })
+   * });
+   * ```
+   */
+  async sendCode(params: any): Promise<Message> {
+    return this.client.getIMService().sendCode(params);
+  }
+
+  /**
+   * 发送PPT消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendPPT({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.ppt({
+   *     url: 'https://example.com/presentation.pptx',
+   *     title: '产品演示',
+   *     slideCount: 25
+   *   })
+   * });
+   * ```
+   */
+  async sendPPT(params: any): Promise<Message> {
+    return this.client.getIMService().sendPPT(params);
+  }
+
+  /**
+   * 发送数字人消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendCharacter({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.character('2D_VIDEO', {
+   *     name: '小助手',
+   *     gender: 'female'
+   *   })
+   * });
+   * ```
+   */
+  async sendCharacter(params: any): Promise<Message> {
+    return this.client.getIMService().sendCharacter(params);
+  }
+
+  /**
+   * 发送3D模型消息
+   * @example
+   * ```typescript
+   * await client.im.messages.sendModel3D({
+   *   toUserId: 'user-123',
+   *   resource: ResourceBuilder.model3d(Model3DFormat.GLB, {
+   *     url: 'https://example.com/model.glb'
+   *   })
+   * });
+   * ```
+   */
+  async sendModel3D(params: any): Promise<Message> {
+    return this.client.getIMService().sendModel3D(params);
   }
 
   /**

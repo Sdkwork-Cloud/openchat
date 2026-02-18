@@ -7,6 +7,8 @@ import { FriendRequest } from './friend-request.entity';
 import { ContactModule } from '../contact/contact.module';
 import { ConversationModule } from '../conversation/conversation.module';
 import { UserModule } from '../user/user.module';
+import { CacheModule } from '../../common/cache/cache.module';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { UserModule } from '../user/user.module';
     ContactModule,
     ConversationModule,
     UserModule,
+    CacheModule,
+    CommonModule,
   ],
   providers: [FriendService],
   controllers: [FriendController],

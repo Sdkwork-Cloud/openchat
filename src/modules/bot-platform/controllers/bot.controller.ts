@@ -72,7 +72,7 @@ class SetWebhookDto {
  * 提供 Bot 管理 API
  */
 @ApiTags('bots')
-@Controller('v1/bots')
+@Controller('bots')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class BotController {

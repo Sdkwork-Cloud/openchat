@@ -10,8 +10,7 @@ hero:
     alt: OpenChat
   actions:
     - theme: brand
-      text: 快速开始
-      link: /zh/guide/quickstart
+      text: 快速开�?      link: /zh/guide/quickstart
     - theme: alt
       text: 项目概览
       link: /zh/guide/overview
@@ -21,22 +20,14 @@ hero:
 
 features:
   - icon: 🚀
-    title: 一键部署
-    details: Docker Compose 一键部署，集成悟空IM、PostgreSQL、Redis，5分钟搭建完整即时通讯服务
+    title: 一键部�?    details: Docker Compose 一键部署，集成悟空IM、PostgreSQL、Redis�?分钟搭建完整即时通讯服务
   - icon: 📱
     title: 多端支持
-    details: 提供 Web、PC、移动端 SDK，支持 React、React Native、小程序等多平台应用开发
-  - icon: 🔊
-    title: 实时音视频
-    details: 集成火山引擎、腾讯云RTC，支持高清音视频通话、屏幕共享、互动直播
-  - icon: 🤖
+    details: 提供 Web、PC、移动端 SDK，支�?React、React Native、小程序等多平台应用开�?  - icon: 🔊
+    title: 实时音视�?    details: 集成火山引擎、腾讯云RTC，支持高清音视频通话、屏幕共享、互动直�?  - icon: 🤖
     title: AI 助手
-    details: 内置 AI Bot 系统，支持 GPT 等大模型，提供智能客服、智能问答能力
-  - icon: 🔌
-    title: 第三方集成
-    details: 支持 Telegram、WhatsApp 等第三方平台消息同步，统一管理多平台消息
-  - icon: 🛡️
-    title: 安全可靠
+    details: 内置 AI Bot 系统，支�?GPT 等大模型，提供智能客服、智能问答能�?  - icon: 🔌
+    title: 第三方集�?    details: 支持 Telegram、WhatsApp 等第三方平台消息同步，统一管理多平台消�?  - icon: 🛡�?    title: 安全可靠
     details: JWT 认证、端到端加密、消息撤回、阅后即焚，全方位保障通讯安全
 ---
 
@@ -61,8 +52,7 @@ features:
 }
 </style>
 
-## 快速开始
-
+## 快速开�?
 ::: code-group
 
 ```bash [一键安装]
@@ -78,10 +68,9 @@ curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
-# 一键启动
-docker compose -f docker-compose.quick.yml up -d
+# 一键启�?docker compose -f docker-compose.quick.yml up -d
 
-# 或使用 npm 脚本
+# 或使�?npm 脚本
 pnpm run docker:quick
 ```
 
@@ -92,8 +81,7 @@ pnpm install
 # 配置环境
 cp .env.example .env
 
-# 启动开发服务
-pnpm run dev
+# 启动开发服�?pnpm run dev
 ```
 
 :::
@@ -113,25 +101,20 @@ pnpm run dev
 
 ```
 openchat-server/
-├── 📁 src/                 # 服务端源码
-│   ├── 📁 common/         # 公共模块
-│   ├── 📁 modules/        # 业务模块
-│   └── 📁 gateways/       # WebSocket 网关
+├── 📁 src/                 # 服务端源�?�?  ├── 📁 common/         # 公共模块
+�?  ├── 📁 modules/        # 业务模块
+�?  └── 📁 gateways/       # WebSocket 网关
 ├── 📁 sdk/                 # SDK 目录
-│   ├── typescript/        # TypeScript SDK
-│   ├── android/           # Android SDK
-│   ├── ios/               # iOS SDK
-│   ├── flutter/           # Flutter SDK
-│   ├── python/            # Python SDK
-│   └── nodejs/            # Node.js SDK
+�?  ├── typescript/        # TypeScript SDK
+�?  ├── android/           # Android SDK
+�?  ├── ios/               # iOS SDK
+�?  ├── flutter/           # Flutter SDK
+�?  ├── python/            # Python SDK
+�?  └── nodejs/            # Node.js SDK
 ├── 📁 app/                 # 应用目录
-│   ├── openchat/          # 主应用
-│   ├── openchat-admin/    # 管理后台
-│   ├── openchat-react-mobile/  # 移动端
-│   └── openchat-react-pc/ # PC 端
-├── 📁 docs/                # 文档
-├── 📁 database/            # 数据库脚本
-├── 📁 scripts/             # 部署脚本
+�?  ├── openchat/          # 主应�?�?  ├── openchat-admin/    # 管理后台
+�?  ├── openchat-react-mobile/  # 移动�?�?  └── openchat-react-pc/ # PC �?├── 📁 docs/                # 文档
+├── 📁 database/            # 数据库脚�?├── 📁 scripts/             # 部署脚本
 ├── 📁 k8s/                 # Kubernetes 配置
 └── 📁 xiaozhi-esp32/       # ESP32 IoT 固件
 ```
@@ -139,11 +122,9 @@ openchat-server/
 ## 运维工具
 
 ```bash
-# 安装前检查
-pnpm run precheck
+# 安装前检�?pnpm run precheck
 
-# 健康检查
-pnpm run health
+# 健康检�?pnpm run health
 
 # 完整诊断
 pnpm run health:full
@@ -154,15 +135,12 @@ pnpm run docker:logs
 # 服务管理
 pnpm run docker:up      # 启动服务
 pnpm run docker:down    # 停止服务
-pnpm run docker:ps      # 查看状态
-```
+pnpm run docker:ps      # 查看状�?```
 
-## 社区与支持
-
+## 社区与支�?
 - 💬 [GitHub Discussions](https://github.com/Sdkwork-Cloud/openchat/discussions)
 - 🐛 [Issue 报告](https://github.com/Sdkwork-Cloud/openchat/issues)
 - 📧 邮箱: contact@sdkwork.com
 
-## 许可证
-
+## 许可�?
 [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0)

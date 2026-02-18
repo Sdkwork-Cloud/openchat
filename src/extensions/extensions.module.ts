@@ -22,9 +22,10 @@ import { ExtensionHealthService } from './core/extension-health.service';
 import { DefaultUserCenterExtension } from './user-center/default-user-center.extension';
 import { RemoteUserCenterExtension } from './user-center/remote-user-center.extension';
 import { UserCenterProxy } from './user-center/user-center.proxy';
-import { RedisModule } from '@/common/redis/redis.module';
-import { UserEntity } from '@/modules/user/entities/user.entity';
-import { WukongIMModule } from '@/modules/wukongim/wukongim.module';
+import { RedisModule } from '../common/redis/redis.module';
+import { UserEntity } from '../modules/user/entities/user.entity';
+import { WukongIMModule } from '../modules/wukongim/wukongim.module';
+import { UserModule } from '../modules/user/user.module';
 
 export interface ExtensionsModuleOptions {
   /** 是否启用默认用户中心 */
@@ -86,6 +87,7 @@ export class ExtensionsModule {
         TypeOrmModule.forFeature([UserEntity]),
         RedisModule,
         WukongIMModule,
+        UserModule,
       );
     }
 
@@ -104,6 +106,8 @@ export class ExtensionsModule {
       ExtensionConfigValidator,
       ExtensionLifecycleManager,
       UserCenterProxy,
+      UserModule,
+      WukongIMModule,
       ...(enableHealthCheck ? [ExtensionHealthService] : []),
       ...(useDefaultUserCenter ? [DefaultUserCenterExtension] : []),
       ...(useRemoteUserCenter ? [RemoteUserCenterExtension] : []),

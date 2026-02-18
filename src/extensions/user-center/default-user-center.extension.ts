@@ -38,11 +38,11 @@ import {
   ExtensionPriority,
   ExtensionContext,
 } from '../core/extension.interface';
-import { UserEntity } from '@/modules/user/entities/user.entity';
+import { UserEntity } from '../../modules/user/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { RedisService } from '@/common/redis/redis.service';
-import { UserSyncService } from '@/modules/user/user-sync.service';
+import { RedisService } from '../../common/redis/redis.service';
+import { UserSyncService } from '../../modules/user/user-sync.service';
 
 /**
  * 默认用户中心插件配置

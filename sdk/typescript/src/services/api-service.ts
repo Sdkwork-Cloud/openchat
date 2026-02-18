@@ -323,7 +323,7 @@ export class ApiService {
   async getCurrentUser(): Promise<User> {
     const response = await this.request<User>({
       method: 'GET',
-      url: '/v1/users/me',
+      url: '/users/me',
     });
     return this.unwrapResponse(response);
   }
@@ -332,7 +332,7 @@ export class ApiService {
   async getUser(uid: string): Promise<User> {
     const response = await this.request<User>({
       method: 'GET',
-      url: `/v1/users/${uid}`,
+      url: `/users/${uid}`,
     });
     return this.unwrapResponse(response);
   }
@@ -341,7 +341,7 @@ export class ApiService {
   async getUsers(uids: string[]): Promise<User[]> {
     const response = await this.request<User[]>({
       method: 'POST',
-      url: '/v1/users/batch',
+      url: '/users/batch',
       data: { uids },
     });
     return this.unwrapResponse(response);
@@ -351,7 +351,7 @@ export class ApiService {
   async updateUser(uid: string, data: Partial<User>): Promise<User> {
     const response = await this.request<User>({
       method: 'PUT',
-      url: `/v1/users/${uid}`,
+      url: `/users/${uid}`,
       data,
     });
     return this.unwrapResponse(response);
@@ -361,7 +361,7 @@ export class ApiService {
   async searchUsers(keyword: string, limit: number = 20): Promise<User[]> {
     const response = await this.request<User[]>({
       method: 'GET',
-      url: '/v1/users',
+      url: '/users',
       params: { keyword, limit },
     });
     return this.unwrapResponse(response);
@@ -454,6 +454,33 @@ export class ApiService {
       method: 'POST',
       url: `/friends/${uid}/unblock`,
     });
+  }
+
+  // 获取好友请求列表
+  async getFriendRequests(userId: string): Promise<FriendRequest[]> {
+    const response = await this.request<FriendRequest[]>({
+      method: 'GET',
+      url: `/friends/requests/${userId}`,
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 检查是否为好友
+  async checkIsFriend(userId: string, friendId: string): Promise<boolean> {
+    const response = await this.request<{ isFriend: boolean }>({
+      method: 'GET',
+      url: `/friends/${userId}/${friendId}/check`,
+    });
+    return this.unwrapResponse(response).isFriend;
+  }
+
+  // 检查是否被拉黑
+  async checkIsBlocked(userId: string, friendId: string): Promise<boolean> {
+    const response = await this.request<{ blocked: boolean }>({
+      method: 'GET',
+      url: `/friends/${userId}/${friendId}/blocked`,
+    });
+    return this.unwrapResponse(response).blocked;
   }
 
   // ==================== 群组相关 ====================
@@ -550,9 +577,129 @@ export class ApiService {
   // 转让群组所有权
   async transferGroupOwner(groupId: string, uid: string): Promise<void> {
     await this.request({
-      method: 'PUT',
-      url: `/groups/${groupId}/owner`,
+      method: 'POST',
+      url: `/groups/${groupId}/transfer`,
       data: { uid },
+    });
+  }
+
+  // 群组邀请
+  async createGroupInvitation(groupId: string, uids: string[]): Promise<{ invitationId: string }> {
+    const response = await this.request<{ invitationId: string }>({
+      method: 'POST',
+      url: '/groups/invitation',
+      data: { groupId, uids },
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 接受群组邀请
+  async acceptGroupInvitation(invitationId: string): Promise<void> {
+    await this.request({
+      method: 'POST',
+      url: `/groups/invitation/${invitationId}/accept`,
+    });
+  }
+
+  // 拒绝群组邀请
+  async rejectGroupInvitation(invitationId: string): Promise<void> {
+    await this.request({
+      method: 'POST',
+      url: `/groups/invitation/${invitationId}/reject`,
+    });
+  }
+
+  // 删除群组邀请
+  async deleteGroupInvitation(invitationId: string): Promise<void> {
+    await this.request({
+      method: 'DELETE',
+      url: `/groups/invitation/${invitationId}`,
+    });
+  }
+
+  // 添加群黑名单
+  async addGroupBlacklist(groupId: string, uids: string[]): Promise<void> {
+    await this.request({
+      method: 'POST',
+      url: `/groups/${groupId}/blacklist`,
+      data: { uids },
+    });
+  }
+
+  // 移除群黑名单
+  async removeGroupBlacklist(groupId: string, uid: string): Promise<void> {
+    await this.request({
+      method: 'DELETE',
+      url: `/groups/${groupId}/blacklist/${uid}`,
+    });
+  }
+
+  // 获取群黑名单
+  async getGroupBlacklist(groupId: string): Promise<string[]> {
+    const response = await this.request<string[]>({
+      method: 'GET',
+      url: `/groups/${groupId}/blacklist`,
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 添加群白名单
+  async addGroupWhitelist(groupId: string, uids: string[]): Promise<void> {
+    await this.request({
+      method: 'POST',
+      url: `/groups/${groupId}/whitelist`,
+      data: { uids },
+    });
+  }
+
+  // 移除群白名单
+  async removeGroupWhitelist(groupId: string, uid: string): Promise<void> {
+    await this.request({
+      method: 'DELETE',
+      url: `/groups/${groupId}/whitelist/${uid}`,
+    });
+  }
+
+  // 获取群白名单
+  async getGroupWhitelist(groupId: string): Promise<string[]> {
+    const response = await this.request<string[]>({
+      method: 'GET',
+      url: `/groups/${groupId}/whitelist`,
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 踢出群成员
+  async kickGroupMember(groupId: string, uid: string): Promise<void> {
+    await this.request({
+      method: 'POST',
+      url: `/groups/${groupId}/kick/${uid}`,
+    });
+  }
+
+  // 更新群公告
+  async updateGroupAnnouncement(groupId: string, announcement: string): Promise<void> {
+    await this.request({
+      method: 'PUT',
+      url: `/groups/${groupId}/announcement`,
+      data: { announcement },
+    });
+  }
+
+  // 开启全员禁言
+  async muteGroupAll(groupId: string): Promise<void> {
+    await this.request({
+      method: 'PUT',
+      url: `/groups/${groupId}/mute-all`,
+    });
+  }
+
+  // 禁言群成员
+  async muteGroupMember(groupId: string, uid: string, duration: number): Promise<void> {
+    await this.request({
+      method: 'PUT',
+      url: `/groups/${groupId}/members/${uid}/mute`,
+      data: { duration },
     });
   }
 
@@ -1218,7 +1365,7 @@ export class ApiService {
   async createPlatformBot(data: CreateBotParams): Promise<{ bot: BotResponse; token: string }> {
     const response = await this.request<{ bot: BotResponse; token: string }>({
       method: 'POST',
-      url: '/v1/bots',
+      url: '/bots',
       data,
     });
     return this.unwrapResponse(response);
@@ -1228,7 +1375,7 @@ export class ApiService {
   async getPlatformBots(params?: BotListQuery): Promise<BotListResponse> {
     const response = await this.request<BotListResponse>({
       method: 'GET',
-      url: '/v1/bots',
+      url: '/bots',
       params,
     });
     return this.unwrapResponse(response);
@@ -1238,7 +1385,7 @@ export class ApiService {
   async getPlatformBot(id: string): Promise<BotResponse> {
     const response = await this.request<BotResponse>({
       method: 'GET',
-      url: `/v1/bots/${id}`,
+      url: `/bots/${id}`,
     });
     return this.unwrapResponse(response);
   }
@@ -1247,7 +1394,7 @@ export class ApiService {
   async updatePlatformBot(id: string, data: UpdateBotParams): Promise<BotResponse> {
     const response = await this.request<BotResponse>({
       method: 'PUT',
-      url: `/v1/bots/${id}`,
+      url: `/bots/${id}`,
       data,
     });
     return this.unwrapResponse(response);
@@ -1257,7 +1404,7 @@ export class ApiService {
   async regeneratePlatformBotToken(id: string): Promise<{ token: string }> {
     const response = await this.request<{ token: string }>({
       method: 'POST',
-      url: `/v1/bots/${id}/regenerate-token`,
+      url: `/bots/${id}/regenerate-token`,
     });
     return this.unwrapResponse(response);
   }
@@ -1266,7 +1413,7 @@ export class ApiService {
   async deletePlatformBot(id: string): Promise<void> {
     await this.request({
       method: 'DELETE',
-      url: `/v1/bots/${id}`,
+      url: `/bots/${id}`,
     });
   }
 
@@ -1274,7 +1421,7 @@ export class ApiService {
   async setPlatformBotWebhook(id: string, data: SetWebhookParams): Promise<BotResponse> {
     const response = await this.request<BotResponse>({
       method: 'POST',
-      url: `/v1/bots/${id}/webhook`,
+      url: `/bots/${id}/webhook`,
       data,
     });
     return this.unwrapResponse(response);
@@ -1284,7 +1431,7 @@ export class ApiService {
   async deletePlatformBotWebhook(id: string): Promise<void> {
     await this.request({
       method: 'DELETE',
-      url: `/v1/bots/${id}/webhook`,
+      url: `/bots/${id}/webhook`,
     });
   }
 
@@ -1707,7 +1854,7 @@ export class ApiService {
   async getMemories(agentId: string, params?: MemoryQueryParams): Promise<Memory[]> {
     const response = await this.request<Memory[]>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory`,
+      url: `/agents/${agentId}/memory`,
       params,
     });
     return this.unwrapResponse(response);
@@ -1717,7 +1864,7 @@ export class ApiService {
   async searchMemories(agentId: string, params: MemorySearchParams): Promise<SearchResult<Memory>[]> {
     const response = await this.request<SearchResult<Memory>[]>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/search`,
+      url: `/agents/${agentId}/memory/search`,
       params,
     });
     return this.unwrapResponse(response);
@@ -1727,7 +1874,7 @@ export class ApiService {
   async semanticSearchMemories(agentId: string, params: SemanticSearchParams): Promise<SearchResult<Memory>[]> {
     const response = await this.request<SearchResult<Memory>[]>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/semantic-search`,
+      url: `/agents/${agentId}/memory/semantic-search`,
       params,
     });
     return this.unwrapResponse(response);
@@ -1737,7 +1884,7 @@ export class ApiService {
   async getMemoryStats(agentId: string): Promise<MemoryStats> {
     const response = await this.request<MemoryStats>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/stats`,
+      url: `/agents/${agentId}/memory/stats`,
     });
     return this.unwrapResponse(response);
   }
@@ -1746,7 +1893,7 @@ export class ApiService {
   async storeMemory(agentId: string, params: StoreMemoryParams): Promise<Memory> {
     const response = await this.request<Memory>({
       method: 'POST',
-      url: `/v1/agents/${agentId}/memory`,
+      url: `/agents/${agentId}/memory`,
       data: params,
     });
     return this.unwrapResponse(response);
@@ -1756,7 +1903,7 @@ export class ApiService {
   async deleteMemory(agentId: string, memoryId: string): Promise<void> {
     await this.request({
       method: 'DELETE',
-      url: `/v1/agents/${agentId}/memory/${memoryId}`,
+      url: `/agents/${agentId}/memory/${memoryId}`,
     });
   }
 
@@ -1764,7 +1911,7 @@ export class ApiService {
   async consolidateMemories(agentId: string): Promise<void> {
     await this.request({
       method: 'POST',
-      url: `/v1/agents/${agentId}/memory/consolidate`,
+      url: `/agents/${agentId}/memory/consolidate`,
     });
   }
 
@@ -1774,7 +1921,7 @@ export class ApiService {
   async getSessionHistory(agentId: string, sessionId: string): Promise<SessionHistory> {
     const response = await this.request<SessionHistory>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/sessions/${sessionId}/history`,
+      url: `/agents/${agentId}/memory/sessions/${sessionId}/history`,
     });
     return this.unwrapResponse(response);
   }
@@ -1783,7 +1930,7 @@ export class ApiService {
   async summarizeSession(agentId: string, sessionId: string, params?: SummarizeSessionParams): Promise<SessionSummary> {
     const response = await this.request<SessionSummary>({
       method: 'POST',
-      url: `/v1/agents/${agentId}/memory/sessions/${sessionId}/summarize`,
+      url: `/agents/${agentId}/memory/sessions/${sessionId}/summarize`,
       data: params,
     });
     return this.unwrapResponse(response);
@@ -1793,7 +1940,7 @@ export class ApiService {
   async clearSessionMemory(agentId: string, sessionId: string): Promise<void> {
     await this.request({
       method: 'DELETE',
-      url: `/v1/agents/${agentId}/memory/sessions/${sessionId}`,
+      url: `/agents/${agentId}/memory/sessions/${sessionId}`,
     });
   }
 
@@ -1803,7 +1950,7 @@ export class ApiService {
   async getKnowledgeDocuments(agentId: string, params?: KnowledgeQueryParams): Promise<PaginatedResponse<KnowledgeDocument>> {
     const response = await this.request<PaginatedResponse<KnowledgeDocument>>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/knowledge`,
+      url: `/agents/${agentId}/memory/knowledge`,
       params,
     });
     return this.unwrapResponse(response);
@@ -1813,7 +1960,7 @@ export class ApiService {
   async addKnowledgeDocument(agentId: string, params: AddKnowledgeDocumentParams): Promise<KnowledgeDocument> {
     const response = await this.request<KnowledgeDocument>({
       method: 'POST',
-      url: `/v1/agents/${agentId}/memory/knowledge`,
+      url: `/agents/${agentId}/memory/knowledge`,
       data: params,
     });
     return this.unwrapResponse(response);
@@ -1823,7 +1970,7 @@ export class ApiService {
   async searchKnowledge(agentId: string, params: KnowledgeSearchParams): Promise<SearchResult<KnowledgeDocument>[]> {
     const response = await this.request<SearchResult<KnowledgeDocument>[]>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/knowledge/search`,
+      url: `/agents/${agentId}/memory/knowledge/search`,
       params,
     });
     return this.unwrapResponse(response);
@@ -1833,7 +1980,7 @@ export class ApiService {
   async getKnowledgeStats(agentId: string): Promise<KnowledgeStats> {
     const response = await this.request<KnowledgeStats>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/knowledge/stats`,
+      url: `/agents/${agentId}/memory/knowledge/stats`,
     });
     return this.unwrapResponse(response);
   }
@@ -1842,7 +1989,7 @@ export class ApiService {
   async getKnowledgeDocument(agentId: string, documentId: string): Promise<KnowledgeDocument> {
     const response = await this.request<KnowledgeDocument>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/knowledge/${documentId}`,
+      url: `/agents/${agentId}/memory/knowledge/${documentId}`,
     });
     return this.unwrapResponse(response);
   }
@@ -1851,7 +1998,7 @@ export class ApiService {
   async deleteKnowledgeDocument(agentId: string, documentId: string): Promise<void> {
     await this.request({
       method: 'DELETE',
-      url: `/v1/agents/${agentId}/memory/knowledge/${documentId}`,
+      url: `/agents/${agentId}/memory/knowledge/${documentId}`,
     });
   }
 
@@ -1859,7 +2006,7 @@ export class ApiService {
   async getDocumentChunks(agentId: string, documentId: string): Promise<DocumentChunk[]> {
     const response = await this.request<DocumentChunk[]>({
       method: 'GET',
-      url: `/v1/agents/${agentId}/memory/knowledge/${documentId}/chunks`,
+      url: `/agents/${agentId}/memory/knowledge/${documentId}/chunks`,
     });
     return this.unwrapResponse(response);
   }
@@ -1908,7 +2055,7 @@ export class ApiService {
     }
 
     const requestConfig: HttpRequestConfig = {
-      url: `${this.config.server.baseUrl}/api${url}`,
+      url: `${this.config.server.baseUrl}/im/api/v1${url}`,
       method,
       headers,
       data,

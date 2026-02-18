@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
 import { UserService } from './services/user.service';
 import { UserController } from './controllers/user.controller';
+import { UserSyncService } from './user-sync.service';
 
 /**
  * 用户模块
@@ -14,7 +15,7 @@ import { UserController } from './controllers/user.controller';
     TypeOrmModule.forFeature([UserEntity]),
   ],
   controllers: [UserController],
-  providers: [UserService],
-  exports: [UserService],
+  providers: [UserService, UserSyncService],
+  exports: [UserService, UserSyncService],
 })
 export class UserModule {}

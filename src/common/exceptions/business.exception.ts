@@ -13,6 +13,7 @@ export enum BusinessErrorCode {
   RESOURCE_EXISTS = 1005,
   RATE_LIMIT_EXCEEDED = 1006,
   SERVICE_UNAVAILABLE = 1007,
+  UNAUTHORIZED = 1008,
 
   // 用户相关错误 (2000-2099)
   USER_NOT_FOUND = 2000,
@@ -74,6 +75,7 @@ export const BusinessErrorMessages: Record<BusinessErrorCode, string> = {
   [BusinessErrorCode.RESOURCE_EXISTS]: '资源已存在',
   [BusinessErrorCode.RATE_LIMIT_EXCEEDED]: '请求过于频繁',
   [BusinessErrorCode.SERVICE_UNAVAILABLE]: '服务暂不可用',
+  [BusinessErrorCode.UNAUTHORIZED]: '未授权',
 
   [BusinessErrorCode.USER_NOT_FOUND]: '用户不存在',
   [BusinessErrorCode.USER_ALREADY_EXISTS]: '用户已存在',
@@ -128,6 +130,7 @@ export const ErrorCodeToHttpStatus: Record<BusinessErrorCode, HttpStatus> = {
   [BusinessErrorCode.RESOURCE_EXISTS]: HttpStatus.CONFLICT,
   [BusinessErrorCode.RATE_LIMIT_EXCEEDED]: HttpStatus.TOO_MANY_REQUESTS,
   [BusinessErrorCode.SERVICE_UNAVAILABLE]: HttpStatus.SERVICE_UNAVAILABLE,
+  [BusinessErrorCode.UNAUTHORIZED]: HttpStatus.UNAUTHORIZED,
 
   [BusinessErrorCode.USER_NOT_FOUND]: HttpStatus.NOT_FOUND,
   [BusinessErrorCode.USER_ALREADY_EXISTS]: HttpStatus.CONFLICT,
