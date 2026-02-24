@@ -1,0 +1,26 @@
+
+/* 
+  High Performance Rendering Optimizations 
+  Used to improve scroll performance in large lists
+*/
+
+/* 
+  content-visibility: auto;
+  Allows the browser to skip rendering calculations for off-screen content.
+  Requires contain-intrinsic-size to prevent scrollbar jumping.
+*/
+.virtual-item {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px; /* Estimated height of a message bubble */
+}
+
+/* Optimize painting for complex elements */
+.gpu-layer {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+/* Disable pointer events during scroll for 60fps */
+.scrolling-disable-hover {
+  pointer-events: none;
+}

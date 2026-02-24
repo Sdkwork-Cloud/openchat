@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
 
 export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -130,7 +130,7 @@ export class ErrorTrackingService implements OnModuleInit, OnModuleDestroy {
     this.updateGroup(record);
     this.buffer.push(record);
 
-    await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+    await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
       type: 'error.captured',
       errorId: record.id,
       fingerprint,

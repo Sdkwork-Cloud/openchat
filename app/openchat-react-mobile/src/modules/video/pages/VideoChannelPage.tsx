@@ -1,30 +1,65 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Navbar } from '../../../components/Navbar/Navbar'; 
+import { navigateBack } from '../../../router';
 import { Toast } from '../../../components/Toast';
 import { VideoService, Video } from '../services/VideoService';
+import { Icon } from '../../../components/Icon/Icon';
+import { useTranslation } from '../../../core/i18n/I18nContext';
+
+interface Heart {
+    id: number;
+    x: number;
+    y: number;
+    angle: number;
+    scale: number;
+}
 
 const VideoItem = ({ data, isActive }: { data: Video, isActive: boolean }) => {
+    const { t } = useTranslation();
     const [liked, setLiked] = useState(data.hasLiked);
     const [paused, setPaused] = useState(false);
-    const [showHeart, setShowHeart] = useState(false);
+    const [hearts, setHearts] = useState<Heart[]>([]);
     const lastClick = useRef(0);
+
+    // Reset paused state when becoming active/inactive
+    useEffect(() => {
+        if (!isActive) setPaused(false);
+    }, [isActive]);
 
     const handleClick = (e: React.MouseEvent) => {
         const now = Date.now();
         if (now - lastClick.current < 300) {
-            handleLike(true); // Double click always likes
+            // Double Click
+            handleLike(true, e.clientX, e.clientY);
         } else {
+            // Single Click
             setPaused(p => !p);
         }
         lastClick.current = now;
     };
 
-    const handleLike = (fromDoubleClick = false) => {
+    const handleLike = (fromDoubleClick = false, x = 0, y = 0) => {
         if (!liked || fromDoubleClick) {
             if (fromDoubleClick) {
-                setShowHeart(true);
-                setTimeout(() => setShowHeart(false), 800);
+                // Add multiple hearts for effect
+                const count = 3 + Math.floor(Math.random() * 3);
+                const newHearts: Heart[] = [];
+                for(let i=0; i<count; i++) {
+                    newHearts.push({
+                        id: Date.now() + i,
+                        x: x + (Math.random() * 60 - 30),
+                        y: y + (Math.random() * 60 - 30),
+                        angle: Math.random() * 40 - 20,
+                        scale: 0.8 + Math.random() * 0.6
+                    });
+                }
+                setHearts(prev => [...prev, ...newHearts]);
+                
+                // Cleanup hearts
+                setTimeout(() => {
+                    setHearts(prev => prev.filter(h => !newHearts.find(nH => nH.id === h.id)));
+                }, 1000);
             }
             if (!liked) {
                 setLiked(true);
@@ -69,7 +104,7 @@ const VideoItem = ({ data, isActive }: { data: Video, isActive: boolean }) => {
                 height: '100%', 
                 width: '100%', 
                 position: 'relative', 
-                scrollSnapAlign: 'start',
+                scrollSnapAlign: 'start', 
                 scrollSnapStop: 'always',
                 overflow: 'hidden'
             }}
@@ -77,16 +112,28 @@ const VideoItem = ({ data, isActive }: { data: Video, isActive: boolean }) => {
             {renderVisuals()}
 
             {paused && (
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.7 }}>
-                     <svg width="60" height="60" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.7, color: 'white' }}>
+                     <Icon name="arrow-right" size={60} />
                 </div>
             )}
 
-            {showHeart && (
-                <div className="pop-heart" style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                    <svg width="100" height="100" viewBox="0 0 24 24" fill="#fa5151" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            {/* Dynamic Hearts Layer */}
+            {hearts.map(heart => (
+                <div 
+                    key={heart.id}
+                    className="floating-heart"
+                    style={{ 
+                        position: 'absolute', 
+                        left: heart.x, 
+                        top: heart.y,
+                        transform: `rotate(${heart.angle}deg) scale(${heart.scale})`,
+                        pointerEvents: 'none',
+                        zIndex: 20
+                    }}
+                >
+                    <Icon name="heart-fill" size={80} color="#fa5151" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }} />
                 </div>
-            )}
+            ))}
 
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '200px', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', pointerEvents: 'none' }} />
 
@@ -101,7 +148,9 @@ const VideoItem = ({ data, isActive }: { data: Video, isActive: boolean }) => {
                     {data.title} <span style={{ opacity: 0.8 }}>#AI #Generative #Future</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white" style={{ marginRight: '6px' }}><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                    <div style={{ marginRight: '6px' }}>
+                        <Icon name="music" size={14} color="white" />
+                    </div>
                     <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', width: '150px' }}>
                         <div style={{ animation: isActive && !paused ? 'scrollText 5s linear infinite' : 'none', fontSize: '13px' }}>
                              Original Audio - AI Symphony Orchestra • Tech Blue 
@@ -117,32 +166,26 @@ const VideoItem = ({ data, isActive }: { data: Video, isActive: boolean }) => {
                         <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${data.author}`} style={{ width: '100%', height: '100%' }} />
                     </div>
                     <div style={{ position: 'absolute', bottom: '-8px', left: '50%', transform: 'translateX(-50%)', width: '20px', height: '20px', background: '#fa5151', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        <Icon name="plus" size={12} color="white" />
                     </div>
                 </div>
 
                 {/* Like */}
                 <div onClick={(e) => { e.stopPropagation(); handleLike(); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill={liked ? "#fa5151" : "white"} style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))', transition: 'transform 0.2s', transform: liked ? 'scale(1.1)' : 'scale(1)' }}>
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
+                    <Icon name={liked ? "heart-fill" : "heart"} size={36} color={liked ? "#fa5151" : "white"} style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))', transition: 'transform 0.2s', transform: liked ? 'scale(1.1)' : 'scale(1)' }} />
                     <span style={{ color: 'white', fontSize: '12px', marginTop: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{liked ? '10w+' : data.likes}</span>
                 </div>
 
                 {/* Comments */}
                 <div onClick={(e) => { e.stopPropagation(); Toast.info('评论功能开发中'); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                     <svg width="34" height="34" viewBox="0 0 24 24" fill="white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
-                        <path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18zM18 14H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-                     </svg>
+                     <Icon name="comment" size={34} color="white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                      <span style={{ color: 'white', fontSize: '12px', marginTop: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{data.comments}</span>
                 </div>
 
                 {/* Share */}
                 <div onClick={(e) => { e.stopPropagation(); Toast.info('已复制链接'); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                     <svg width="34" height="34" viewBox="0 0 24 24" fill="white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
-                        <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
-                     </svg>
-                     <span style={{ color: 'white', fontSize: '12px', marginTop: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>分享</span>
+                     <Icon name="share" size={34} color="white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                     <span style={{ color: 'white', fontSize: '12px', marginTop: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{t('video.share')}</span>
                 </div>
 
                 <div style={{ marginTop: '20px', width: '48px', height: '48px', borderRadius: '50%', background: '#222', border: '8px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: isActive && !paused ? 'spin 5s linear infinite' : 'none', position: 'relative' }}>
@@ -156,66 +199,24 @@ const VideoItem = ({ data, isActive }: { data: Video, isActive: boolean }) => {
                 </div>
             </div>
 
-            <div style={{ position: 'absolute', bottom: '0', left: 0, right: 0, height: '2px', background: 'rgba(255,255,255,0.2)' }}>
+            <div style={{ position: 'absolute', bottom: '0', left: 0, right: 0, height: '1.5px', background: 'rgba(255,255,255,0.2)' }}>
                 <div style={{ 
                     height: '100%', 
                     background: 'white', 
                     width: isActive && !paused ? '100%' : '0%', 
-                    transition: isActive && !paused ? 'width 10s linear' : 'none' 
+                    transition: isActive && !paused ? 'width 15s linear' : 'none' 
                 }} />
             </div>
-        </div>
-    );
-};
-
-export const VideoChannelPage: React.FC = () => {
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [videos, setVideos] = useState<Video[]>([]);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const load = async () => {
-            const res = await VideoService.getRecommendedVideos();
-            if (res.success && res.data) {
-                setVideos(res.data.content);
-            }
-        };
-        load();
-    }, []);
-
-    const handleScroll = () => {
-        if (containerRef.current) {
-            const index = Math.round(containerRef.current.scrollTop / containerRef.current.clientHeight);
-            if (index !== activeIndex) {
-                setActiveIndex(index);
-            }
-        }
-    };
-
-    return (
-        <div style={{ height: '100%', background: '#000', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 }}>
-                <Navbar title="" variant="transparent" />
-            </div>
-            
-            <div 
-                ref={containerRef}
-                onScroll={handleScroll}
-                style={{ 
-                    height: '100%', 
-                    overflowY: 'scroll', 
-                    scrollSnapType: 'y mandatory',
-                    scrollBehavior: 'smooth',
-                    scrollbarWidth: 'none'
-                }}
-            >
-                {videos.map((video, index) => (
-                    <div key={video.id} style={{ height: '100%', width: '100%', scrollSnapAlign: 'start' }}>
-                        <VideoItem data={video} isActive={index === activeIndex} />
-                    </div>
-                ))}
-            </div>
             <style>{`
+                .floating-heart {
+                    animation: floatUp 0.8s ease-out forwards;
+                }
+                @keyframes floatUp {
+                    0% { transform: scale(0) translateY(0); opacity: 0; }
+                    20% { transform: scale(1.2) translateY(-20px); opacity: 1; }
+                    100% { transform: scale(1.5) translateY(-100px); opacity: 0; }
+                }
+                /* Existing animations ... */
                 .neural-gradient {
                     position: absolute; inset: 0;
                     background: radial-gradient(circle at 50% 50%, #2b0aff, #000);
@@ -243,9 +244,6 @@ export const VideoChannelPage: React.FC = () => {
                     animation: aurora 8s ease-in-out infinite alternate;
                     opacity: 0.5;
                 }
-                .pop-heart {
-                    animation: popUp 0.8s ease-out forwards;
-                }
                 .music-note {
                     position: absolute;
                     font-size: 16px;
@@ -257,11 +255,81 @@ export const VideoChannelPage: React.FC = () => {
                 @keyframes float { 0% { transform: translateY(0); } 100% { transform: translateY(-100px); } }
                 @keyframes rain { 0% { background-position: 0% 0%; } 100% { background-position: 0% 200%; } }
                 @keyframes aurora { 0% { transform: rotate(0deg); } 100% { transform: rotate(30deg); } }
-                @keyframes popUp { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 100% { transform: translate(-50%, -150%) scale(1.5); opacity: 0; } }
                 @keyframes scrollText { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
                 @keyframes noteFloat { 0% { transform: translate(0, 0) rotate(0deg); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(20px, -40px) rotate(20deg); opacity: 0; } }
             `}</style>
+        </div>
+    );
+};
+
+export const VideoChannelPage: React.FC = () => {
+    const [videos, setVideos] = useState<Video[]>([]);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    useEffect(() => {
+        const load = async () => {
+            const res = await VideoService.getRecommendedVideos();
+            if (res.success && res.data) {
+                setVideos(res.data.content);
+            }
+        };
+        load();
+    }, []);
+
+    // Smart Intersection Observer for Active State
+    useEffect(() => {
+        const options = {
+            root: containerRef.current,
+            threshold: 0.6, // Trigger when 60% visible
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    const index = Number(entry.target.getAttribute('data-index'));
+                    if (!isNaN(index)) {
+                        setActiveIndex(index);
+                    }
+                }
+            });
+        }, options);
+
+        itemRefs.current.forEach((el) => {
+            if (el) observer.observe(el);
+        });
+
+        return () => observer.disconnect();
+    }, [videos]);
+
+    return (
+        <div style={{ height: '100%', background: 'black', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+                <Navbar title="" variant="transparent" onBack={() => navigateBack('/discover')} />
+            </div>
+            
+            <div 
+                ref={containerRef}
+                style={{ 
+                    height: '100%', 
+                    overflowY: 'scroll', 
+                    scrollSnapType: 'y mandatory',
+                    scrollbarWidth: 'none'
+                }}
+            >
+                {videos.map((video, index) => (
+                    <div 
+                        key={video.id} 
+                        data-index={index}
+                        ref={(el) => itemRefs.current[index] = el}
+                        style={{ height: '100%', width: '100%', scrollSnapAlign: 'start' }}
+                    >
+                        <VideoItem data={video} isActive={index === activeIndex} />
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

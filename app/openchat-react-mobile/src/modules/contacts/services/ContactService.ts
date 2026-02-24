@@ -49,12 +49,33 @@ class ContactServiceImpl extends AbstractStorageService<Contact> {
     return { success: false, message: 'Contact not found' };
   }
 
+  async addContact(contact: Partial<Contact>): Promise<Result<Contact>> {
+      // Check for duplicates
+      const list = await this.loadData();
+      const exists = list.some(c => c.name === contact.name);
+      if (exists) return { success: false, message: 'Contact already exists' };
+
+      const newContact = {
+          ...contact,
+          id: contact.id || crypto.randomUUID(),
+          wxid: contact.wxid || `wx_${Date.now()}`,
+          region: contact.region || 'Unknown',
+          createTime: Date.now(),
+          updateTime: Date.now()
+      } as Contact;
+
+      return await this.save(newContact);
+  }
+
   /**
    * Optimized Grouping Algorithm
    * Returns contacts grouped by first letter (A-Z, #)
    */
   async getGroupedContacts(): Promise<Result<{ groups: Record<string, Contact[]>, sortedKeys: string[] }>> {
-    const { data } = await this.findAll({ size: 10000, sortField: 'name', sortOrder: 'asc' });
+    const { data } = await this.findAll({ 
+        pageRequest: { page: 1, size: 10000 },
+        sort: { field: 'name', order: 'asc' }
+    });
     const contacts = data?.content || [];
 
     const groups: Record<string, Contact[]> = {};

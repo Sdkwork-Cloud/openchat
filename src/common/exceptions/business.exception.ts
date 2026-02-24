@@ -46,6 +46,7 @@ export enum BusinessErrorCode {
   NOT_GROUP_ADMIN = 5003,
   GROUP_FULL = 5004,
   ALREADY_IN_GROUP = 5005,
+  RESOURCE_CONFLICT = 5006,
 
   // IM 服务错误 (6000-6099)
   IM_SERVICE_ERROR = 6000,
@@ -61,6 +62,18 @@ export enum BusinessErrorCode {
   AI_SERVICE_ERROR = 8000,
   AI_RESPONSE_TIMEOUT = 8001,
   AI_RATE_LIMIT = 8002,
+
+  // 配置错误
+  INVALID_CONFIGURATION = 9000,
+
+  // 文件错误
+  FILE_TOO_LARGE = 9001,
+  INVALID_FILE_TYPE = 9002,
+
+  // 验证错误
+  VALIDATION_ERROR = 9003,
+  INVALID_FORMAT = 9004,
+  INVALID_JSON = 9005,
 }
 
 /**
@@ -104,6 +117,7 @@ export const BusinessErrorMessages: Record<BusinessErrorCode, string> = {
   [BusinessErrorCode.NOT_GROUP_ADMIN]: '不是群组管理员',
   [BusinessErrorCode.GROUP_FULL]: '群组已满',
   [BusinessErrorCode.ALREADY_IN_GROUP]: '已经在群组中',
+  [BusinessErrorCode.RESOURCE_CONFLICT]: '资源冲突',
 
   [BusinessErrorCode.IM_SERVICE_ERROR]: '即时通讯服务错误',
   [BusinessErrorCode.IM_CONNECTION_FAILED]: '即时通讯连接失败',
@@ -116,6 +130,13 @@ export const BusinessErrorMessages: Record<BusinessErrorCode, string> = {
   [BusinessErrorCode.AI_SERVICE_ERROR]: 'AI 服务错误',
   [BusinessErrorCode.AI_RESPONSE_TIMEOUT]: 'AI 响应超时',
   [BusinessErrorCode.AI_RATE_LIMIT]: 'AI 请求过于频繁',
+
+  [BusinessErrorCode.INVALID_CONFIGURATION]: '配置无效',
+  [BusinessErrorCode.FILE_TOO_LARGE]: '文件过大',
+  [BusinessErrorCode.INVALID_FILE_TYPE]: '文件类型无效',
+  [BusinessErrorCode.VALIDATION_ERROR]: '验证失败',
+  [BusinessErrorCode.INVALID_FORMAT]: '格式无效',
+  [BusinessErrorCode.INVALID_JSON]: 'JSON 格式无效',
 };
 
 /**
@@ -159,6 +180,7 @@ export const ErrorCodeToHttpStatus: Record<BusinessErrorCode, HttpStatus> = {
   [BusinessErrorCode.NOT_GROUP_ADMIN]: HttpStatus.FORBIDDEN,
   [BusinessErrorCode.GROUP_FULL]: HttpStatus.BAD_REQUEST,
   [BusinessErrorCode.ALREADY_IN_GROUP]: HttpStatus.CONFLICT,
+  [BusinessErrorCode.RESOURCE_CONFLICT]: HttpStatus.CONFLICT,
 
   [BusinessErrorCode.IM_SERVICE_ERROR]: HttpStatus.BAD_GATEWAY,
   [BusinessErrorCode.IM_CONNECTION_FAILED]: HttpStatus.BAD_GATEWAY,
@@ -171,7 +193,32 @@ export const ErrorCodeToHttpStatus: Record<BusinessErrorCode, HttpStatus> = {
   [BusinessErrorCode.AI_SERVICE_ERROR]: HttpStatus.BAD_GATEWAY,
   [BusinessErrorCode.AI_RESPONSE_TIMEOUT]: HttpStatus.GATEWAY_TIMEOUT,
   [BusinessErrorCode.AI_RATE_LIMIT]: HttpStatus.TOO_MANY_REQUESTS,
+
+  [BusinessErrorCode.INVALID_CONFIGURATION]: HttpStatus.BAD_REQUEST,
+  [BusinessErrorCode.FILE_TOO_LARGE]: HttpStatus.PAYLOAD_TOO_LARGE,
+  [BusinessErrorCode.INVALID_FILE_TYPE]: HttpStatus.BAD_REQUEST,
+  [BusinessErrorCode.VALIDATION_ERROR]: HttpStatus.BAD_REQUEST,
+  [BusinessErrorCode.INVALID_FORMAT]: HttpStatus.BAD_REQUEST,
+  [BusinessErrorCode.INVALID_JSON]: HttpStatus.BAD_REQUEST,
 };
+
+/**
+ * 业务异常选项
+ */
+export interface BusinessExceptionOptions {
+  customMessage?: string;
+  details?: Record<string, any>;
+}
+
+/**
+ * 错误详情接口
+ */
+export interface ErrorDetail {
+  field?: string;
+  message: string;
+  value?: any;
+  type?: string;
+}
 
 /**
  * 业务异常类
@@ -179,25 +226,80 @@ export const ErrorCodeToHttpStatus: Record<BusinessErrorCode, HttpStatus> = {
 export class BusinessException extends HttpException {
   public readonly code: BusinessErrorCode;
   public readonly details?: Record<string, any>;
+  public readonly errorDetails?: ErrorDetail[];
 
   constructor(
     code: BusinessErrorCode,
-    message?: string,
+    messageOrOptions?: string | BusinessExceptionOptions,
     details?: Record<string, any>,
   ) {
     const defaultMessage = BusinessErrorMessages[code] || '未知错误';
     const httpStatus = ErrorCodeToHttpStatus[code] || HttpStatus.INTERNAL_SERVER_ERROR;
 
+    let message = defaultMessage;
+    let optsDetails = details;
+
+    if (typeof messageOrOptions === 'string') {
+      message = messageOrOptions;
+    } else if (messageOrOptions) {
+      if (messageOrOptions.customMessage) {
+        message = messageOrOptions.customMessage;
+      }
+      if (messageOrOptions.details) {
+        optsDetails = messageOrOptions.details;
+      }
+    }
+
     super(
       {
         code,
-        message: message || defaultMessage,
-        details,
+        message,
+        details: optsDetails,
       },
       httpStatus,
     );
 
     this.code = code;
-    this.details = details;
+    this.details = optsDetails;
+  }
+
+  static validation(errors: ErrorDetail[], message?: string): BusinessException {
+    return new BusinessException(
+      BusinessErrorCode.VALIDATION_ERROR,
+      message || '验证失败',
+      { errors },
+    );
+  }
+}
+
+/**
+ * 创建业务异常的快捷函数
+ */
+export function createError(
+  code: BusinessErrorCode,
+  message?: string,
+  details?: Record<string, any>,
+): BusinessException {
+  return new BusinessException(code, message, details);
+}
+
+/**
+ * 验证错误构建器
+ */
+export class ValidationErrorBuilder {
+  private errors: ErrorDetail[] = [];
+
+  addField(field: string, message: string, value?: any, type?: string): this {
+    this.errors.push({ field, message, value, type });
+    return this;
+  }
+
+  addRequired(field: string): this {
+    this.errors.push({ field, message: `${field} is required`, type: 'required' });
+    return this;
+  }
+
+  build(): BusinessException {
+    return BusinessException.validation(this.errors);
   }
 }

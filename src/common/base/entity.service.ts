@@ -1,9 +1,6 @@
 import {
   Injectable,
   Logger,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   DataSource,
@@ -19,10 +16,10 @@ import {
 } from 'typeorm';
 import { BaseEntity } from '../base.entity';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
-import { EventBusService, EventType, EventPriority } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../events/event-bus.service';
 import { CacheService } from '../services/cache.service';
-import { PaginationDto, CursorPaginationDto } from '../dto/pagination.dto';
-import { ApiResponseDto, PagedResponseDto, CursorResponseDto } from '../dto/response.dto';
+import { PaginationDto, CursorPaginationDto, CursorResponseDto } from '../dto/pagination.dto';
+import { PagedResponseDto } from '../dto/response.dto';
 
 export interface FindAllOptions<T> {
   where?: FindOptionsWhere<T> | FindOptionsWhere<T>[];
@@ -222,7 +219,7 @@ export abstract class BaseEntityService<T extends BaseEntity & ObjectLiteral> {
       take: pagination.limit,
     });
 
-    return PagedResponseDto.create(list, total, pagination.page, pagination.pageSize);
+    return PagedResponseDto.create(list, { page: pagination.page, pageSize: pagination.pageSize, total });
   }
 
   async findWithCursor(
@@ -439,7 +436,7 @@ export abstract class BaseEntityService<T extends BaseEntity & ObjectLiteral> {
 
   protected emitEvent(type: string, payload: any): void {
     if (this.options.enableEvents && this.eventBus) {
-      this.eventBus.publish(type as EventType, payload, {
+      this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, { ...payload, type }, {
         priority: EventPriority.MEDIUM,
         source: this.entityName,
       });

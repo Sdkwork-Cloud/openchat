@@ -1,27 +1,18 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { Redis } from 'ioredis';
 import { VerificationCodeType, VERIFICATION_CODE_CONFIG } from '../../common/constants';
+import { REDIS_CLIENT } from '../../common/redis/redis.module';
 
 @Injectable()
 export class VerificationCodeService {
   private readonly logger = new Logger(VerificationCodeService.name);
-  private readonly redis: Redis;
 
-  constructor(private configService: ConfigService) {
-    // 初始化Redis连接
-    this.redis = new Redis({
-      host: this.configService.get<string>('REDIS_HOST') || 'localhost',
-      port: this.configService.get<number>('REDIS_PORT') || 6379,
-      password: this.configService.get<string>('REDIS_PASSWORD') || undefined,
-      db: this.configService.get<number>('REDIS_DB') || 0,
-    });
-
-    this.redis.on('error', (error) => {
-      this.logger.error('Redis connection error:', error);
-    });
-  }
+  constructor(
+    private configService: ConfigService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   /**
    * 生成验证码
@@ -41,14 +32,10 @@ export class VerificationCodeService {
    */
   async sendCode(target: string, code: string, type: VerificationCodeType): Promise<boolean> {
     try {
-      // 这里应该根据目标类型选择发送方式
-      // 由于是演示，暂时只打印日志
       if (target.includes('@')) {
         this.logger.log(`发送邮箱验证码 ${code} 到 ${target}，类型: ${type}`);
-        // 实际项目中应该调用邮件服务发送验证码
       } else {
         this.logger.log(`发送短信验证码 ${code} 到 ${target}，类型: ${type}`);
-        // 实际项目中应该调用短信服务发送验证码
       }
       return true;
     } catch (error) {
@@ -86,7 +73,6 @@ export class VerificationCodeService {
       throw new BadRequestException('验证码错误');
     }
 
-    // 验证成功后删除验证码
     await this.redis.del(key);
     return true;
   }
@@ -98,48 +84,63 @@ export class VerificationCodeService {
    * @param type 验证码类型
    */
   async sendAndStoreCode(
-    email?: string,
-    phone?: string,
-    type: VerificationCodeType = VerificationCodeType.REGISTER
-  ): Promise<boolean> {
+    email: string | undefined,
+    phone: string | undefined,
+    type: VerificationCodeType,
+  ): Promise<{ code: string; target: string }> {
     const target = email || phone;
     if (!target) {
-      throw new BadRequestException('邮箱或手机号不能为空');
+      throw new BadRequestException('请提供邮箱或手机号');
     }
 
-    // 生成验证码
     const code = this.generateCode();
-
-    // 发送验证码
-    const sent = await this.sendCode(target, code, type);
-    if (!sent) {
-      throw new BadRequestException('发送验证码失败');
-    }
-
-    // 存储验证码
     await this.storeCode(target, code, type);
+    await this.sendCode(target, code, type);
 
-    return true;
+    return { code, target };
   }
 
   /**
-   * 验证验证码
+   * 根据目标验证验证码
    * @param email 邮箱
    * @param phone 手机号
    * @param code 验证码
    * @param type 验证码类型
    */
   async verifyCodeByTarget(
-    email?: string,
-    phone?: string,
-    code?: string,
-    type: VerificationCodeType = VerificationCodeType.REGISTER
+    email: string | undefined,
+    phone: string | undefined,
+    code: string,
+    type: VerificationCodeType,
   ): Promise<boolean> {
     const target = email || phone;
-    if (!target || !code) {
-      throw new BadRequestException('邮箱或手机号和验证码不能为空');
+    if (!target) {
+      throw new BadRequestException('请提供邮箱或手机号');
     }
 
-    return await this.verifyCode(target, code, type);
+    return this.verifyCode(target, code, type);
+  }
+
+  /**
+   * 检查发送频率限制
+   * @param target 目标
+   * @param type 类型
+   */
+  async checkRateLimit(target: string, type: VerificationCodeType): Promise<boolean> {
+    const key = `verification:rate:${type}:${target}`;
+    const count = await this.redis.get(key);
+
+    if (count && parseInt(count, 10) >= 5) {
+      throw new BadRequestException('发送频率过高，请稍后再试');
+    }
+
+    const ttl = await this.redis.ttl(key);
+    if (ttl < 0) {
+      await this.redis.set(key, '1', 'EX', VERIFICATION_CODE_CONFIG.SEND_INTERVAL_SECONDS);
+    } else {
+      await this.redis.incr(key);
+    }
+
+    return true;
   }
 }

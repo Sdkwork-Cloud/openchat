@@ -242,7 +242,7 @@ export class AgentRuntimeService implements OnModuleInit {
       });
 
       let fullContent = '';
-      let toolCalls: ToolCall[] = [];
+      const toolCalls: ToolCall[] = [];
       const responseId = uuidv4();
 
       for await (const chunk of stream) {

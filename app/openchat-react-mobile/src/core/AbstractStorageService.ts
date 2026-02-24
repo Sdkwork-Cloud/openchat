@@ -1,83 +1,85 @@
-
 import { Platform } from '../platform';
-import { IBaseService, Result, Page, QueryParams, BaseEntity } from './types';
+import { IBaseService, Result, Page, QueryParams, BaseEntity, FilterCriterion } from './types';
+import { AppEvents, EVENTS } from './events';
 
-/**
- * Abstract Base Service (The "Strategy Context")
- * 
- * Implements the "Invariant" parts of the business logic:
- * - Pagination algorithms
- * - Sorting algorithms
- * - Basic CRUD flow
- * 
- * Delegates the "Variant" parts (Persistence) to Platform.storage
- */
 export abstract class AbstractStorageService<T extends BaseEntity> implements IBaseService<T> {
   protected abstract readonly STORAGE_KEY: string;
   
-  // Cache to reduce IO operations (Memory Layer)
   protected cache: T[] | null = null;
+  private writeLock: Promise<void> = Promise.resolve();
+  private initialized = false;
 
-  /**
-   * Loads data from the platform storage strategy (LocalStorage, SQLite, FS)
-   */
+  protected async onInitialize?(): Promise<void>;
+
+  private async ensureInitialized() {
+      if (this.initialized) return;
+      this.initialized = true; 
+      
+      if (this.onInitialize) {
+          try {
+            await this.onInitialize();
+          } catch (e) {
+            console.error(`[${this.STORAGE_KEY}] onInitialize failed`, e);
+          }
+      }
+  }
+
   protected async loadData(): Promise<T[]> {
     if (this.cache) return this.cache;
-    
+
     try {
-      const raw = await Platform.storage.get(this.STORAGE_KEY);
-      if (!raw) {
+      const storage = Platform.storage;
+      if (!storage) throw new Error("Storage not ready");
+
+      const data = await storage.get(this.STORAGE_KEY);
+      if (!data) {
         this.cache = [];
       } else {
-        this.cache = JSON.parse(raw) as T[];
+        this.cache = (typeof data === 'string' ? JSON.parse(data) : data) as T[];
       }
+      await this.ensureInitialized();
     } catch (e) {
-      console.warn(`[${this.STORAGE_KEY}] Data corruption or empty, resetting.`, e);
-      this.cache = [];
+      this.cache = this.cache || [];
     }
+    
     return this.cache || [];
   }
 
-  /**
-   * Persists data using the platform storage strategy
-   */
   protected async commit(): Promise<void> {
     if (this.cache) {
-      await Platform.storage.set(this.STORAGE_KEY, JSON.stringify(this.cache));
+      await Platform.storage.set(this.STORAGE_KEY, this.cache);
     }
   }
 
-  // --- CRUD Implementation ---
+  private async withWriteLock<R>(task: () => Promise<R>): Promise<R> {
+      const currentLock = this.writeLock;
+      let releaseLock: () => void;
+      const nextLock = new Promise<void>(resolve => { releaseLock = resolve; });
+      this.writeLock = nextLock;
 
-  async save(entity: Partial<T>): Promise<Result<T>> {
-    const list = await this.loadData();
-    const now = Date.now();
-    
-    let target: T;
-    const existingIndex = entity.id ? list.findIndex(item => item.id === entity.id) : -1;
+      await currentLock.catch(() => {}); 
 
-    if (existingIndex > -1) {
-      // Update
-      target = { ...list[existingIndex], ...entity, updateTime: now };
-      list[existingIndex] = target;
-    } else {
-      // Create
-      // Ensure ID exists
-      const newId = entity.id || crypto.randomUUID();
-      target = { ...entity, id: newId, createTime: now, updateTime: now } as T;
-      list.push(target);
-    }
-
-    await this.commit();
-    return { success: true, data: target };
+      try {
+          await this.loadData(); 
+          const result = await task();
+          await this.commit();
+          return result;
+      } finally {
+          releaseLock!();
+      }
   }
 
-  async saveAll(entities: T[]): Promise<Result<boolean>> {
-    this.cache = entities;
-    await this.commit();
-    return { success: true, data: true };
+  public subscribe(callback: (event: any) => void): () => void {
+      const handler = (payload: any) => {
+          // 只响应非静默操作触发的事件
+          if (payload.key === this.STORAGE_KEY && !payload.silent) {
+              callback(payload);
+          }
+      };
+      return AppEvents.on(EVENTS.DATA_CHANGE, handler);
   }
 
+  // fix: Added findById implementation to satisfy IBaseService
   async findById(id: string): Promise<Result<T>> {
     const list = await this.loadData();
     const item = list.find(i => i.id === id);
@@ -85,81 +87,122 @@ export abstract class AbstractStorageService<T extends BaseEntity> implements IB
     return { success: false, message: 'Not found' };
   }
 
-  async deleteById(id: string): Promise<Result<boolean>> {
-    const list = await this.loadData();
-    const initialLen = list.length;
-    this.cache = list.filter(item => item.id !== id);
-    
-    if (this.cache.length !== initialLen) {
-      await this.commit();
-      return { success: true, data: true };
+  async save(entity: Partial<T>, options: { silent?: boolean } = {}): Promise<Result<T>> {
+    const result = await this.withWriteLock(async () => {
+        const list = this.cache!; 
+        const now = Date.now();
+        let target: T;
+        const id = entity.id || crypto.randomUUID();
+        const index = list.findIndex(item => item.id === id);
+
+        if (index > -1) {
+            target = { ...list[index], ...entity, updateTime: now };
+            list[index] = target;
+        } else {
+            target = { ...entity, id, createTime: now, updateTime: now } as T;
+            list.push(target);
+        }
+        return { success: true, data: target };
+    });
+
+    if (result.success) {
+        AppEvents.emit(EVENTS.DATA_CHANGE, { 
+            key: this.STORAGE_KEY, 
+            action: 'save', 
+            id: result.data?.id,
+            silent: options.silent 
+        });
     }
-    return { success: false, message: 'Not found' };
+    return result;
   }
 
-  /**
-   * Powerful generic query method with Filtering, Sorting, and Pagination.
-   * This brings SpringBoot-like JPA capabilities to the frontend.
-   */
+  // fix: Added saveAll implementation to satisfy IBaseService
+  async saveAll(entities: T[]): Promise<Result<boolean>> {
+    const result = await this.withWriteLock(async () => {
+        const list = this.cache!;
+        const now = Date.now();
+        
+        for (const entity of entities) {
+            const id = entity.id || crypto.randomUUID();
+            const index = list.findIndex(item => item.id === id);
+            if (index > -1) {
+                list[index] = { ...list[index], ...entity, updateTime: now };
+            } else {
+                list.push({ ...entity, id, createTime: now, updateTime: now } as T);
+            }
+        }
+        return { success: true, data: true };
+    });
+
+    if (result.success) {
+        AppEvents.emit(EVENTS.DATA_CHANGE, { 
+            key: this.STORAGE_KEY, 
+            action: 'save'
+        });
+    }
+    return result;
+  }
+
+  async deleteById(id: string): Promise<Result<boolean>> {
+    const result = await this.withWriteLock(async () => {
+        const list = this.cache!;
+        const initialLen = list.length;
+        this.cache = list.filter(item => item.id !== id);
+        return this.cache.length !== initialLen ? { success: true, data: true } : { success: false, message: 'Not found' };
+    });
+    if (result.success) {
+        AppEvents.emit(EVENTS.DATA_CHANGE, { key: this.STORAGE_KEY, action: 'delete', id });
+    }
+    return result;
+  }
+
   async findAll(params?: QueryParams): Promise<Result<Page<T>>> {
     let list = [...await this.loadData()];
-
-    // 1. Filtering
-    if (params?.filters) {
-      list = list.filter(item => {
-        return Object.entries(params.filters!).every(([key, value]) => {
-          // @ts-ignore
-          return item[key] === value;
-        });
-      });
+    if (params?.filters?.length) {
+      list = list.filter(item => params.filters!.every(c => this.evaluateCriterion(item, c)));
     }
-
-    // 2. Keyword Search (Generic text search)
     if (params?.keywords) {
       const lowerKey = params.keywords.toLowerCase();
       list = list.filter(item => JSON.stringify(item).toLowerCase().includes(lowerKey));
     }
-
-    // 3. Sorting
-    if (params?.sortField) {
+    if (params?.sort) {
+      const { field, order } = params.sort;
       list.sort((a, b) => {
-        // @ts-ignore
-        const valA = a[params.sortField!];
-        // @ts-ignore
-        const valB = b[params.sortField!];
-        
-        if (valA < valB) return params.sortOrder === 'asc' ? -1 : 1;
-        if (valA > valB) return params.sortOrder === 'asc' ? 1 : -1;
-        return 0;
+        const valA = (a as any)[field];
+        const valB = (b as any)[field];
+        return valA < valB ? (order === 'asc' ? -1 : 1) : (order === 'asc' ? 1 : -1);
       });
     } else {
-        // Default sort: Create Time DESC
         list.sort((a, b) => b.createTime - a.createTime);
     }
-
-    // 4. Pagination
-    const page = params?.page || 1;
-    const size = params?.size || 1000; // Default to "all" if not specified
+    const page = params?.pageRequest?.page || 1;
+    const size = params?.pageRequest?.size || 1000;
     const total = list.length;
-    const totalPages = Math.ceil(total / size);
-    
     const startIndex = (page - 1) * size;
-    const pagedContent = list.slice(startIndex, startIndex + size);
-
     return {
       success: true,
-      data: {
-        content: pagedContent,
-        total,
-        page,
-        size,
-        totalPages
-      }
+      data: { content: list.slice(startIndex, startIndex + size), total, page, size, totalPages: Math.ceil(total / size) }
     };
   }
 
+  // fix: Added count implementation to satisfy IBaseService
   async count(params?: QueryParams): Promise<number> {
-      const res = await this.findAll(params);
-      return res.data?.total || 0;
+    const res = await this.findAll(params);
+    return res.data?.total || 0;
+  }
+
+  private evaluateCriterion(item: T, criterion: FilterCriterion): boolean {
+      const itemValue = (item as any)[criterion.field];
+      const targetValue = criterion.value;
+      switch (criterion.operator) {
+          case 'eq': return itemValue === targetValue;
+          case 'neq': return itemValue !== targetValue;
+          case 'gt': return itemValue > targetValue;
+          case 'lt': return itemValue < targetValue;
+          case 'contains': return String(itemValue).toLowerCase().includes(String(targetValue).toLowerCase());
+          case 'in': return Array.isArray(targetValue) && targetValue.includes(itemValue);
+          case 'array-contains': return Array.isArray(itemValue) && itemValue.includes(targetValue);
+          default: return true;
+      }
   }
 }

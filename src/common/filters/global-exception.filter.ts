@@ -33,6 +33,32 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    // 检查是否是启动期间的数据库连接错误
+    if (exception instanceof Error) {
+      const errorMsg = exception.message || '';
+      const errorCode = (exception as any).code || '';
+      
+      if (errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT' || errorCode === 'ECONNREFUSED' ||
+          errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ECONNREFUSED')) {
+        this.logger.error('');
+        this.logger.error('═══════════════════════════════════════════════════════════');
+        this.logger.error('✗ 数据库连接失败');
+        this.logger.error(`  错误码: ${errorCode || 'N/A'}`);
+        this.logger.error(`  错误信息: ${errorMsg}`);
+        this.logger.error('  请检查:');
+        this.logger.error('  1. 数据库服务是否已启动');
+        this.logger.error('  2. 网络连接是否正常');
+        this.logger.error('  3. 数据库配置是否正确 (.env 文件)');
+        this.logger.error('═══════════════════════════════════════════════════════════');
+        this.logger.error('');
+        
+        // 如果是启动期间，直接退出
+        if (!host || host.getType() !== 'http') {
+          process.exit(1);
+        }
+      }
+    }
+
     // 检查上下文类型
     if (host.getType() === 'http') {
       // HTTP 上下文

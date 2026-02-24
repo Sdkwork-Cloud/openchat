@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children?: ReactNode;
@@ -9,14 +9,14 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+export class ErrorBoundary extends Component<Props, State> {
+  // Explicitly declare props to avoid TS error "Property 'props' does not exist on type 'ErrorBoundary'"
+  public readonly props!: Readonly<Props>;
+
+  public state: State = {
+    hasError: false,
+    error: null
+  };
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -25,6 +25,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
+
+  private handleHardReset = () => {
+      if (window.confirm('这将清空所有本地缓存数据并恢复初始状态，确定吗？')) {
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.reload();
+      }
+  };
 
   public render() {
     if (this.state.hasError) {
@@ -37,29 +45,51 @@ export class ErrorBoundary extends React.Component<Props, State> {
           justifyContent: 'center',
           background: 'var(--bg-body)',
           color: 'var(--text-primary)',
-          padding: '20px',
+          padding: '40px',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>😵</div>
-          <h2 style={{ fontSize: '18px', marginBottom: '8px' }}>应用遇到了一点小问题</h2>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '300px' }}>
-             {this.state.error?.message || '未知错误'}
+          <div style={{ fontSize: '64px', marginBottom: '24px' }}>😵</div>
+          <h2 style={{ fontSize: '20px', marginBottom: '12px', fontWeight: 600 }}>应用遇到严重错误</h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '40px', maxWidth: '280px', lineHeight: '1.6' }}>
+             错误信息: {this.state.error?.message || '未知异常'}
+             <br/>
+             <span style={{ fontSize: '12px', opacity: 0.7 }}>可能是数据版本不兼容或网络问题导致</span>
           </p>
-          <button 
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '10px 24px',
-              background: 'var(--primary-color)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            重新加载
-          </button>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '240px' }}>
+              <button 
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: '14px',
+                  background: 'var(--primary-color)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(41, 121, 255, 0.3)'
+                }}
+              >
+                尝试重新加载
+              </button>
+
+              <button 
+                onClick={this.handleHardReset}
+                style={{
+                  padding: '14px',
+                  background: 'var(--bg-card)',
+                  color: '#fa5151',
+                  border: '1px solid rgba(250, 81, 81, 0.2)',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                修复数据并重启
+              </button>
+          </div>
         </div>
       );
     }

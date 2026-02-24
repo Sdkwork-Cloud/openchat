@@ -2,29 +2,26 @@
 import React from 'react';
 import { navigate } from '../../../router';
 import { Navbar } from '../../../components/Navbar/Navbar';
+import { Icon } from '../../../components/Icon/Icon';
 
 interface ChatNavbarProps {
   title: string;
   onBack: () => void;
-  sessionId: string; // Added sessionId prop
+  sessionId: string;
+  variant?: 'default' | 'transparent';
 }
 
-const Icons = {
-  more: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>,
-};
-
-export const ChatNavbar: React.FC<ChatNavbarProps> = ({ title, onBack, sessionId }) => {
+export const ChatNavbar: React.FC<ChatNavbarProps> = ({ title, onBack, sessionId, variant = 'default' }) => {
   const handleMenuClick = () => {
-     // Navigate to the specific details page for this session
      navigate('/chat/details', { id: sessionId });
   };
 
   const RightElement = (
       <div 
         onClick={handleMenuClick}
-        style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', opacity: 0.9, cursor: 'pointer', color: 'var(--text-primary)' }}
+        style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', opacity: 0.9, cursor: 'pointer', color: 'inherit' }}
       >
-        {Icons.more}
+        <Icon name="more" size={24} />
       </div>
   );
 
@@ -34,6 +31,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({ title, onBack, sessionId
         onBack={onBack} 
         rightElement={RightElement}
         backFallback="/"
+        variant={variant}
     />
   );
 };

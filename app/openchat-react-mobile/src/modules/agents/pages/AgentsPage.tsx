@@ -1,239 +1,180 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { navigate } from '../../../router';
 import { useChatStore } from '../../../services/store';
-import { AgentService } from '../services/AgentService';
-import { Agent } from '../../../types/core';
+import { AgentService, CustomAgent } from '../services/AgentService';
+import { Skeleton } from '../../../components/Skeleton/Skeleton';
+import { useLiveQuery } from '../../../core/hooks';
+import { Page } from '../../../components/Page/Page';
+import { Icon } from '../../../components/Icon/Icon';
+import { Haptic } from '../../../utils/haptic';
 
-// Enhanced Categories with IDs
 const categories = [
-    { id: 'all', label: '全部' },
-    { id: 'prod', label: '生产力' },
-    { id: 'img', label: '图像创意' },
-    { id: 'study', label: '语言学习' },
-    { id: 'fun', label: '生活娱乐' }
+    { id: 'all', label: '全部', icon: 'sparkles' },
+    { id: 'prod', label: '生产力', icon: 'briefcase' },
+    { id: 'img', label: '图像', icon: 'palette' },
+    { id: 'study', label: '学习', icon: 'book' },
+    { id: 'fun', label: '生活', icon: 'coffee' }
 ];
 
-const AgentListItem: React.FC<{ agent: Agent; onClick: () => void }> = ({ agent, onClick }) => {
-    const [isPressed, setIsPressed] = useState(false);
-
+// --- 内部组件：精美智能体卡片 ---
+const AgentPremiumCard: React.FC<{ agent: CustomAgent; onClick: () => void }> = ({ agent, onClick }) => {
     return (
         <div 
             onClick={onClick}
-            onTouchStart={() => setIsPressed(true)}
-            onTouchEnd={() => setIsPressed(false)}
-            onMouseDown={() => setIsPressed(true)}
-            onMouseUp={() => setIsPressed(false)}
-            onMouseLeave={() => setIsPressed(false)}
-            style={{ 
-                display: 'flex', 
-                padding: '16px', 
-                background: isPressed ? 'var(--bg-cell-active)' : 'var(--bg-card)', 
+            style={{
+                background: 'var(--bg-card)',
+                borderRadius: '16px',
+                padding: '18px',
+                marginBottom: '12px',
+                display: 'flex',
                 alignItems: 'center',
-                borderBottom: '0.5px solid var(--border-color)',
-                transition: 'background 0.1s',
-                cursor: 'pointer'
+                gap: '16px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                border: '0.5px solid var(--border-color)',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
+            onTouchStart={(e) => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.background = 'var(--bg-cell-active)'; }}
+            onTouchEnd={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'var(--bg-card)'; }}
         >
-            {/* Avatar */}
             <div style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: '10px', 
-                background: 'var(--bg-cell-top)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                fontSize: '28px', 
-                marginRight: '16px',
-                flexShrink: 0,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+                width: '56px', height: '56px', borderRadius: '14px', 
+                background: 'var(--bg-body)', display: 'flex', alignItems: 'center', 
+                justifyContent: 'center', fontSize: '30px', flexShrink: 0,
+                position: 'relative', zIndex: 1,
+                border: '1px solid var(--border-color)'
             }}>
                 {agent.avatar}
             </div>
 
-            {/* Content Info */}
-            <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
-                <div style={{ 
-                    fontSize: '17px', 
-                    fontWeight: 600, 
-                    color: 'var(--text-primary)', 
-                    marginBottom: '4px',
-                    display: 'flex',
-                    alignItems: 'center'
-                }}>
-                    {agent.name}
-                    {agent.id === 'omni_core' && (
-                        <span style={{ 
-                            marginLeft: '6px', 
-                            fontSize: '10px', 
-                            background: 'var(--primary-color)', 
-                            color: 'white', 
-                            padding: '2px 4px', 
-                            borderRadius: '4px',
-                            fontWeight: 500 
-                        }}>OFFICIAL</span>
+            <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>{agent.name}</span>
+                    {agent.isSystem && (
+                        <div style={{ background: 'var(--primary-gradient)', color: 'white', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>Pro</div>
                     )}
                 </div>
-                <div style={{ 
-                    fontSize: '13px', 
-                    color: 'var(--text-secondary)', 
-                    lineHeight: '1.5',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {agent.description}
                 </div>
             </div>
 
-            {/* Action Button */}
-            <div style={{ 
-                width: '32px', 
-                height: '32px', 
-                borderRadius: '50%', 
-                background: 'rgba(41, 121, 255, 0.1)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                color: 'var(--primary-color)'
-            }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+            <div style={{ color: 'var(--text-placeholder)', opacity: 0.5 }}>
+                <Icon name="arrow-right" size={18} strokeWidth={3} />
             </div>
         </div>
     );
 };
 
+// --- 骨架屏组件 ---
+const AgentsSkeleton = () => (
+    <div style={{ padding: '0px', width: '100%' }}>
+        {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} style={{ padding: '18px', background: 'var(--bg-card)', borderRadius: '16px', marginBottom: '12px', display: 'flex', gap: '16px', border: '0.5px solid var(--border-color)' }}>
+                <Skeleton width={56} height={56} style={{ borderRadius: '14px' }} />
+                <div style={{ flex: 1 }}>
+                    <Skeleton width="40%" height={20} style={{ marginBottom: '8px' }} />
+                    <Skeleton width="100%" height={14} style={{ marginBottom: '6px' }} />
+                    <Skeleton width="80%" height={14} />
+                </div>
+            </div>
+        ))}
+    </div>
+);
+
 export const AgentsPage: React.FC = () => {
-  const { createSession } = useChatStore();
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [agentsList, setAgentsList] = useState<Agent[]>([]);
+    const { createSession } = useChatStore();
+    const [activeCategory, setActiveCategory] = useState('all');
 
-  useEffect(() => {
-      const load = async () => {
-          const res = await AgentService.getAgentsByCategory(activeCategory);
-          if (res.success && res.data) {
-              setAgentsList(res.data);
-          }
-      };
-      load();
-  }, [activeCategory]);
+    const { data: agentsList, viewStatus, refresh } = useLiveQuery(
+        AgentService,
+        () => AgentService.getAgentsByCategory(activeCategory),
+        { deps: [activeCategory] }
+    );
 
-  const handleAgentClick = (agentId: string) => {
-    const sessionId = createSession(agentId);
-    navigate('/chat', { id: sessionId });
-    if (navigator.vibrate) navigator.vibrate(10);
-  };
+    const handleAgentClick = async (agentId: string) => {
+        Haptic.light();
+        const sessionId = await createSession(agentId);
+        navigate('/chat', { id: sessionId });
+    };
 
-  return (
-    <div style={{ minHeight: '100%', background: 'var(--bg-body)', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <div style={{ 
-        height: '44px', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: 'var(--navbar-bg)',
-        fontWeight: 600,
-        fontSize: '17px',
-        color: 'var(--text-primary)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        borderBottom: '0.5px solid var(--border-color)',
-        backdropFilter: 'blur(10px)',
-        paddingTop: 'env(safe-area-inset-top)'
-      }}>
-        <span>智能体广场</span>
-        <div 
-            onClick={() => navigate('/search')}
-            style={{ position: 'absolute', right: '16px', bottom: 0, height: '44px', display: 'flex', alignItems: 'center', color: 'var(--text-primary)', cursor: 'pointer' }}
+    return (
+        <Page
+            title="发现智能体"
+            rightElement={<div onClick={() => navigate('/search')} style={{ padding: '0 8px' }}><Icon name="search" size={24} /></div>}
+            noPadding
+            background="var(--bg-body)"
         >
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-        </div>
-      </div>
+            {/* 分类滚动条 */}
+            <div style={{ 
+                position: 'sticky', top: 0, zIndex: 10, 
+                background: 'rgba(var(--navbar-bg-rgb), 0.8)', 
+                backdropFilter: 'blur(20px)',
+                borderBottom: '0.5px solid var(--border-color)',
+                padding: '10px 0'
+            }}>
+                <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+                    {categories.map(cat => {
+                        const isActive = activeCategory === cat.id;
+                        return (
+                            <div 
+                                key={cat.id}
+                                onClick={() => { setActiveCategory(cat.id); Haptic.selection(); }}
+                                style={{
+                                    padding: '6px 14px', borderRadius: '10px', whiteSpace: 'nowrap',
+                                    background: isActive ? 'var(--primary-color)' : 'var(--bg-card)',
+                                    color: isActive ? 'white' : 'var(--text-secondary)',
+                                    fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                                    transition: 'all 0.3s', border: '0.5px solid var(--border-color)',
+                                    boxShadow: isActive ? '0 4px 12px rgba(41, 121, 255, 0.2)' : 'none'
+                                }}
+                            >
+                                {cat.label}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
 
-      {/* Interactive Categories */}
-      <div style={{ 
-        display: 'flex', 
-        padding: '12px 16px', 
-        gap: '24px', 
-        overflowX: 'auto',
-        fontSize: '15px',
-        color: 'var(--text-secondary)',
-        borderBottom: '0.5px solid rgba(0,0,0,0.05)',
-        background: 'var(--navbar-bg)',
-        scrollbarWidth: 'none',
-        flexShrink: 0
-      }}>
-        {categories.map(cat => {
-            const isActive = activeCategory === cat.id;
-            return (
-                <span 
-                    key={cat.id} 
-                    onClick={() => setActiveCategory(cat.id)}
+            {/* 列表主体 */}
+            <div style={{ padding: '16px', width: '100%', boxSizing: 'border-box' }}>
+                <div 
+                    onClick={() => navigate('/creation')}
                     style={{ 
-                        color: isActive ? 'var(--primary-color)' : 'var(--text-secondary)', 
-                        fontWeight: isActive ? 600 : 400, 
-                        position: 'relative',
-                        whiteSpace: 'nowrap',
-                        cursor: 'pointer',
-                        transition: 'color 0.2s',
-                        paddingBottom: '6px'
+                        height: '110px', background: 'var(--primary-gradient)', borderRadius: '18px', 
+                        padding: '24px', color: 'white', marginBottom: '24px', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                        boxShadow: '0 8px 24px rgba(41, 121, 255, 0.25)', position: 'relative', overflow: 'hidden'
                     }}
                 >
-                    {cat.label}
-                    {isActive && (
-                        <span style={{ 
-                            position: 'absolute', 
-                            bottom: '0', 
-                            left: '50%', 
-                            transform: 'translateX(-50%)', 
-                            width: '20px', 
-                            height: '3px', 
-                            background: 'var(--primary-color)', 
-                            borderRadius: '2px',
-                            transition: 'all 0.2s'
-                        }}></span>
-                    )}
-                </span>
-            );
-        })}
-      </div>
+                    <div style={{ position: 'absolute', right: '-15px', bottom: '-20px', fontSize: '90px', opacity: 0.15 }}>🧠</div>
+                    <div style={{ fontSize: '19px', fontWeight: 800, marginBottom: '6px' }}>构建你的专属 AI</div>
+                    <div style={{ fontSize: '13px', opacity: 0.9 }}>无需代码，点击这里开启创作之旅 →</div>
+                </div>
 
-      {/* Agents List (Rows) */}
-      <div style={{ flex: 1, paddingBottom: '20px' }}>
-        {activeCategory !== 'all' && (
-            <div style={{ padding: '12px 16px 8px 16px', fontWeight: 600, fontSize: '14px', color: 'var(--text-secondary)' }}>
-                {categories.find(c => c.id === activeCategory)?.label}
+                {viewStatus === 'loading' ? (
+                    <AgentsSkeleton />
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                        {agentsList?.map((agent) => (
+                            <AgentPremiumCard 
+                                key={agent.id} 
+                                agent={agent} 
+                                onClick={() => handleAgentClick(agent.id)} 
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {viewStatus === 'success' && agentsList?.length === 0 && (
+                    <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-placeholder)' }}>
+                        <div style={{ fontSize: '40px', marginBottom: '16px' }}>📡</div>
+                        <div>当前分类暂无智能体</div>
+                    </div>
+                )}
             </div>
-        )}
-        
-        {agentsList.length > 0 ? (
-            <div style={{ 
-                background: 'var(--bg-card)', 
-                borderTop: activeCategory === 'all' ? 'none' : '0.5px solid var(--border-color)', 
-                borderBottom: '0.5px solid var(--border-color)' 
-            }}>
-                {agentsList.map(agent => (
-                    <AgentListItem 
-                        key={agent.id} 
-                        agent={agent} 
-                        onClick={() => handleAgentClick(agent.id)} 
-                    />
-                ))}
-            </div>
-        ) : (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
-                <div style={{ fontSize: '40px', marginBottom: '10px', opacity: 0.5 }}>🍃</div>
-                <div style={{ fontSize: '14px' }}>该分类下暂无智能体</div>
-            </div>
-        )}
-      </div>
-    </div>
-  );
+        </Page>
+    );
 };

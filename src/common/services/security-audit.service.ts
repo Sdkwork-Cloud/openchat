@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
 
 export type SecurityEventType =
@@ -122,7 +122,7 @@ export class SecurityAuditService implements OnModuleInit {
     this.events.set(eventId, event);
     await this.persistEvent(event);
 
-    await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+    await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
       type: 'security.event',
       eventType: type,
       severity,

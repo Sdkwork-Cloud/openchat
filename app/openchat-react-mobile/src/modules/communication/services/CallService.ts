@@ -24,9 +24,8 @@ class CallServiceImpl extends AbstractStorageService<CallRecord> {
 
     async getHistory(): Promise<Result<CallRecord[]>> {
         const { data } = await this.findAll({ 
-            sortField: 'createTime', 
-            sortOrder: 'desc',
-            size: 50 
+            sort: { field: 'createTime', order: 'desc' },
+            pageRequest: { page: 1, size: 50 }
         });
         return { success: true, data: data?.content || [] };
     }

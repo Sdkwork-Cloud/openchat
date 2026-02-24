@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { RetryService } from './retry.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
 import { createHash } from 'crypto';
@@ -159,8 +159,8 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     let successful = 0;
     let failed = 0;
     let pending = 0;
-    let totalResponseTime = 0;
-    let responseCount = 0;
+    const totalResponseTime = 0;
+    const responseCount = 0;
 
     for (const delivery of this.deliveries.values()) {
       switch (delivery.status) {
@@ -305,7 +305,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
           headers: Object.fromEntries(response.headers.entries()),
         };
 
-        await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+        await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
           type: 'webhook.delivered',
           deliveryId: delivery.id,
           endpointId: endpoint.id,
@@ -322,7 +322,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
       if (delivery.attempts >= delivery.maxAttempts) {
         delivery.status = 'failed';
 
-        await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+        await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
           type: 'webhook.failed',
           deliveryId: delivery.id,
           endpointId: endpoint.id,

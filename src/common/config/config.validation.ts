@@ -20,9 +20,11 @@ export class ConfigValidationService implements OnModuleInit {
       warnings.push('DB_PASSWORD is not set, using default');
     }
 
-    const dbPoolMax = this.configService.get('DB_POOL_MAX', 20);
-    const dbPoolMin = this.configService.get('DB_POOL_MIN', 5);
-    if (dbPoolMin > dbPoolMax) {
+    const dbPoolMax = parseInt(this.configService.get('DB_POOL_MAX', '20'), 10);
+    const dbPoolMin = parseInt(this.configService.get('DB_POOL_MIN', '5'), 10);
+    if (isNaN(dbPoolMax) || isNaN(dbPoolMin)) {
+      errors.push('DB_POOL_MAX and DB_POOL_MIN must be valid numbers');
+    } else if (dbPoolMin > dbPoolMax) {
       errors.push('DB_POOL_MIN cannot be greater than DB_POOL_MAX');
     }
     if (dbPoolMax > 100) {

@@ -307,7 +307,7 @@ export class FileHandlerService implements OnModuleInit {
       throw new Error(validation.errors.join(', '));
     }
 
-    let filename = options?.generateName !== false
+    const filename = options?.generateName !== false
       ? this.generateFilename(file.originalname, options?.preserveExtension !== false)
       : file.originalname;
 

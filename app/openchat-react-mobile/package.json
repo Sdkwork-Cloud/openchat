@@ -2,23 +2,38 @@
   "name": "app",
   "private": true,
   "version": "0.0.0",
-  "license": "AGPL-3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "react-dom": "^19.2.4",
-    "react": "^19.2.4",
+    "react-dom": "^18.2.0",
+    "react": "^18.2.0",
     "@google/genai": "latest",
-    "@capacitor/cli": "^8.0.2"
+    "@capacitor/cli": "^6.0.0",
+    "@tiptap/core": "^2.10.3",
+    "@tiptap/extension-bubble-menu": "^2.10.3",
+    "@tiptap/extension-character-count": "^2.10.3",
+    "@tiptap/extension-floating-menu": "^2.10.3",
+    "@tiptap/extension-gapcursor": "^2.10.3",
+    "@tiptap/extension-highlight": "^2.10.3",
+    "@tiptap/extension-image": "^2.10.3",
+    "@tiptap/extension-link": "^2.10.3",
+    "@tiptap/extension-placeholder": "^2.10.3",
+    "@tiptap/extension-task-item": "^2.10.3",
+    "@tiptap/extension-task-list": "^2.10.3",
+    "@tiptap/extension-typography": "^2.10.3",
+    "@tiptap/extension-underline": "^2.10.3",
+    "@tiptap/react": "^2.10.3",
+    "@tiptap/starter-kit": "^2.10.3"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/node": "^20.11.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12"
   }
 }

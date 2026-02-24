@@ -6,7 +6,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeviceConnection } from '../xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 
@@ -126,10 +126,11 @@ export class XiaoZhiSecurityService implements OnModuleInit {
 
       // 发布认证成功事件
       this.eventBusService.publish(
-        EventType.DEVICE_AUTHENTICATED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           timestamp: Date.now(),
+          type: 'device_authenticated'
         },
         {
           priority: EventPriority.HIGH,

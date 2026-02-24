@@ -5,7 +5,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { DeviceConnection, DeviceState, ConnectionState } from '../xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import { XiaoZhiFirmwareService } from './xiaozhi-firmware.service';
 
 @Injectable()
@@ -50,12 +50,13 @@ export class XiaoZhiMessageService {
     } catch (error) {
       this.logger.error(`Failed to handle JSON message for device ${deviceId}, type: ${messageType}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: messageType,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'message_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -80,10 +81,11 @@ export class XiaoZhiMessageService {
     }
 
     // 发布事件
-    this.eventBusService.publish(EventType.DEVICE_MESSAGE_RECEIVED, {
+    this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
       deviceId,
       messageType: 'hello',
-      payload: message
+      payload: message,
+      type: 'device_message_received'
     });
 
     // 更新状态
@@ -106,17 +108,19 @@ export class XiaoZhiMessageService {
     } else if (message.state === 'detect') {
       // 唤醒词检测
       this.logger.log(`Wake word detected from device ${deviceId}: ${message.text}`);
-      this.eventBusService.publish(EventType.SYSTEM_INFO, {
+      this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
         deviceId,
-        message: `Wake word detected: ${message.text}`
+        message: `Wake word detected: ${message.text}`,
+        type: 'wake_word_detected'
       });
     }
 
     // 发布事件
-    this.eventBusService.publish(EventType.DEVICE_MESSAGE_RECEIVED, {
+    this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
       deviceId,
       messageType: 'listen',
-      payload: message
+      payload: message,
+      type: 'device_message_received'
     });
   }
 
@@ -131,10 +135,11 @@ export class XiaoZhiMessageService {
     connection.connectionState = ConnectionState.CHANNEL_OPENED;
 
     // 发布事件
-    this.eventBusService.publish(EventType.DEVICE_MESSAGE_RECEIVED, {
+    this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
       deviceId,
       messageType: 'abort',
-      payload: message
+      payload: message,
+      type: 'device_message_received'
     });
   }
 
@@ -146,11 +151,12 @@ export class XiaoZhiMessageService {
     
     // 发布事件
     this.eventBusService.publish(
-      EventType.DEVICE_MESSAGE_RECEIVED,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         messageType: 'mcp',
-        payload: message
+        payload: message,
+        type: 'device_message_received'
       },
       {
         priority: EventPriority.MEDIUM,
@@ -282,10 +288,11 @@ export class XiaoZhiMessageService {
   private async handleRestartDevice(deviceId: string, connection: DeviceConnection, params: any): Promise<any> {
     // 发布设备重启事件
     this.eventBusService.publish(
-      EventType.DEVICE_RESTARTING,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         reason: params.reason || 'User requested',
+        type: 'device_restarting'
       },
       {
         priority: EventPriority.HIGH,
@@ -302,10 +309,11 @@ export class XiaoZhiMessageService {
   private async handleFactoryReset(deviceId: string, connection: DeviceConnection, params: any): Promise<any> {
     // 发布设备恢复出厂设置事件
     this.eventBusService.publish(
-      EventType.DEVICE_FACTORY_RESET,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         reason: params.reason || 'User requested',
+        type: 'device_factory_reset'
       },
       {
         priority: EventPriority.HIGH,
@@ -427,9 +435,10 @@ export class XiaoZhiMessageService {
     this.logger.log(`Goodbye message from device ${deviceId}:`, message);
     
     // 发布事件
-    this.eventBusService.publish(EventType.DEVICE_DISCONNECTED, {
+    this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
       deviceId,
-      message: 'Device sent goodbye message'
+      message: 'Device sent goodbye message',
+      type: 'device_disconnected'
     });
   }
 
@@ -443,10 +452,11 @@ export class XiaoZhiMessageService {
     connection.lastActivity = Date.now();
     
     // 发布心跳事件
-    this.eventBusService.publish(EventType.DEVICE_HEARTBEAT_RECEIVED, {
+    this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
       deviceId,
       timestamp: message.timestamp || Date.now(),
-      sessionId: message.session_id || connection.sessionId
+      sessionId: message.session_id || connection.sessionId,
+      type: 'device_heartbeat_received'
     });
 
     // 发送心跳响应
@@ -480,19 +490,21 @@ export class XiaoZhiMessageService {
       }
 
       // 发布事件
-      this.eventBusService.publish(EventType.DEVICE_MESSAGE_SENT, {
+      this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
         deviceId,
         messageType: message.type,
-        payload: message
+        payload: message,
+        type: 'device_message_sent'
       });
 
       this.logger.log(`Message sent to device: ${deviceId}, type: ${message.type}`);
     } catch (error) {
       this.logger.error(`Failed to send message to device ${deviceId}:`, error);
-      this.eventBusService.publish(EventType.SYSTEM_ERROR, {
+      this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
         deviceId,
         error: error.message,
-        messageType: message.type
+        messageType: message.type,
+        type: 'system_error'
       });
     }
   }

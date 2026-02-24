@@ -23,9 +23,8 @@ class ScanServiceImpl extends AbstractStorageService<ScanRecord> {
 
     async getHistory(): Promise<Result<ScanRecord[]>> {
         const { data } = await this.findAll({
-            sortField: 'createTime',
-            sortOrder: 'desc',
-            size: 50
+            sort: { field: 'createTime', order: 'desc' },
+            pageRequest: { page: 1, size: 50 }
         });
         return { success: true, data: data?.content || [] };
     }

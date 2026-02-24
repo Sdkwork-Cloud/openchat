@@ -56,25 +56,20 @@ export class JWTAuthStrategy implements AuthStrategy {
         };
       }
 
-      // 验证 Token
       const payload = await this.jwtService.verifyAsync<JWTPayload>(token, {
         secret: this.configService.get('JWT_SECRET'),
       });
 
-      // 检查 Token 类型
-      if (payload.type !== 'user') {
-        return {
-          success: false,
-          error: 'Invalid token type'
-        };
-      }
-
       return {
         success: true,
-        userId: payload.sub,
-        scopes: payload.scopes || ['user:basic'],
+        userId: payload.sub || payload.userId,
+        scopes: payload.permissions || ['user:basic'],
         metadata: {
-          type: payload.type,
+          username: payload.username,
+          roles: payload.roles,
+          permissions: payload.permissions,
+          tenantId: payload.tenantId,
+          organizationId: payload.organizationId,
           issuedAt: payload.iat,
           expiresAt: payload.exp,
         }

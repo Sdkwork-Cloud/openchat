@@ -1,385 +1,523 @@
+/**
+ * 增强型 WebSocket 网关基类
+ * 
+ * 提供通用的 WebSocket 连接管理、消息处理、心跳检测等功能
+ * 支持连接认证、速率限制、消息确认、自动重连等高级功能
+ * 
+ * @framework
+ */
+
 import {
   WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
-  MessageBody,
-  ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets';
+import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { Logger, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
-export interface BaseClientInfo {
-  id: string;
-  socketId: string;
-  serverId: string;
+/**
+ * 连接信息
+ */
+export interface ConnectionInfo {
+  /** 客户端 ID */
+  clientId: string;
+  /** 用户 ID */
+  userId?: string;
+  /** 连接时间 */
   connectedAt: number;
+  /** 最后活跃时间 */
+  lastActiveAt: number;
+  /** 房间列表 */
+  rooms: Set<string>;
+  /** 元数据 */
   metadata?: Record<string, any>;
+  /** 消息计数 */
+  messageCount: number;
+  /** 是否认证 */
+  authenticated: boolean;
 }
 
-export interface AckConfig {
-  timeout: number;
-  maxRetries: number;
-  checkInterval: number;
-}
-
-export interface PendingAck {
+/**
+ * 消息确认
+ */
+export interface MessageAcknowledgment {
+  /** 消息 ID */
   messageId: string;
-  fromUserId: string;
-  toUserId: string;
+  /** 状态 */
+  status: 'success' | 'error' | 'pending';
+  /** 时间戳 */
   timestamp: number;
-  retryCount: number;
-  payload?: any;
+  /** 错误信息 */
+  error?: string;
+  /** 数据 */
+  data?: any;
 }
 
-export interface GatewayOptions {
+/**
+ * WebSocket 消息
+ */
+export interface WebSocketMessage<T = any> {
+  /** 消息 ID */
+  messageId: string;
+  /** 消息类型 */
+  type: string;
+  /** 消息数据 */
+  data: T;
+  /** 时间戳 */
+  timestamp: number;
+  /** 发送者 ID */
+  senderId?: string;
+  /** 接收者 ID */
+  receiverId?: string;
+  /** 需要确认 */
+  requireAck?: boolean;
+}
+
+/**
+ * WebSocket 配置选项
+ */
+export interface WebSocketGatewayOptions {
+  /** 网关路径 */
+  path?: string;
+  /** 端口 */
+  port?: number;
+  /** 命名空间 */
   namespace?: string;
-  corsOrigins?: string[];
-  pingTimeout?: number;
-  pingInterval?: number;
-  maxHttpBufferSize?: number;
-  transports?: ('websocket' | 'polling')[];
-  ackConfig?: Partial<AckConfig>;
+  /** CORS 配置 */
+  cors?: any;
+  /** 是否启用心跳 */
+  enableHeartbeat?: boolean;
+  /** 心跳间隔（毫秒） */
+  heartbeatInterval?: number;
+  /** 连接超时（毫秒） */
+  connectionTimeout?: number;
+  /** 最大消息大小（字节） */
+  maxMessageSize?: number;
+  /** 消息速率限制（条/秒） */
+  messageRateLimit?: number;
+  /** 最大重连尝试 */
+  maxReconnectAttempts?: number;
+  /** 重连延迟（毫秒） */
+  reconnectDelay?: number;
 }
 
-export interface ConnectionStats {
-  totalConnections: number;
-  uniqueUsers: number;
-  serverId: string;
-  uptime: number;
-}
-
-const DEFAULT_ACK_CONFIG: AckConfig = {
-  timeout: 30000,
-  maxRetries: 3,
-  checkInterval: 5000,
-};
-
-@Injectable()
-export abstract class BaseWebSocketGateway<T extends BaseClientInfo = BaseClientInfo>
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
+/**
+ * 增强型 WebSocket 网关基类
+ */
+@WebSocketGateway()
+export abstract class BaseWebSocketGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  protected server: Server;
 
-  protected logger: Logger;
-  readonly serverId: string;
-  readonly ackConfig: AckConfig;
-
-  readonly localClients = new Map<string, T>();
-  readonly userSockets = new Map<string, Set<string>>();
-  readonly pendingAcks = new Map<string, PendingAck>();
-  readonly connectionTimeouts = new Map<string, NodeJS.Timeout>();
-
+  protected readonly logger = new Logger(this.constructor.name);
+  protected readonly connections = new Map<string, ConnectionInfo>();
+  protected readonly pendingAcks = new Map<string, NodeJS.Timeout>();
+  protected readonly options: Required<WebSocketGatewayOptions>;
   private heartbeatInterval?: NodeJS.Timeout;
-  private cleanupInterval?: NodeJS.Timeout;
-  private ackCheckInterval?: NodeJS.Timeout;
-  private startTime: number;
 
-  constructor(protected readonly configService: ConfigService) {
-    this.serverId = `${process.env.POD_NAME || 'server'}-${process.pid}-${uuidv4().slice(0, 8)}`;
-    this.ackConfig = { ...DEFAULT_ACK_CONFIG };
-    this.logger = new Logger(this.constructor.name);
-    this.startTime = Date.now();
-  }
-
-  async afterInit(server: Server) {
-    this.logger.log(`WebSocket gateway initialized with serverId: ${this.serverId}`);
-
-    await this.onGatewayInit(server);
-
-    this.startHeartbeat();
-    this.startCleanupTask();
-    this.startAckCheckTask();
-  }
-
-  async handleConnection(client: Socket) {
-    const ip = client.handshake.address;
-    this.logger.log(`Client connected: ${client.id} from ${ip}`);
-
-    const connectionLimit = this.configService.get<number>('WS_CONNECTION_LIMIT', 10);
-    const connectionCount = await this.incrementConnectionCount(ip);
-
-    if (connectionCount > connectionLimit) {
-      this.logger.warn(`Connection limit exceeded for IP: ${ip}`);
-      await this.decrementConnectionCount(ip);
-      client.disconnect(true);
-      return;
-    }
-
-    const authTimeout = this.configService.get<number>('WS_AUTH_TIMEOUT', 30000);
-    const timeout = setTimeout(() => {
-      if (!this.localClients.has(client.id)) {
-        this.logger.warn(`Connection timeout for unregistered client: ${client.id}`);
-        this.connectionTimeouts.delete(client.id);
-        client.disconnect(true);
-      }
-    }, authTimeout);
-    this.connectionTimeouts.set(client.id, timeout);
-
-    await this.onClientConnect(client, ip);
-  }
-
-  async handleDisconnect(client: Socket) {
-    const timeout = this.connectionTimeouts.get(client.id);
-    if (timeout) {
-      clearTimeout(timeout);
-      this.connectionTimeouts.delete(client.id);
-    }
-
-    const clientInfo = this.localClients.get(client.id);
-
-    if (clientInfo) {
-      await this.unregisterClient(client, clientInfo);
-      await this.onClientDisconnect(client, clientInfo);
-    }
-
-    const ip = client.handshake.address;
-    await this.decrementConnectionCount(ip);
-
-    this.logger.log(`Client disconnected: ${client.id}`);
-  }
-
-  onModuleDestroy() {
-    this.logger.log('Cleaning up WebSocket gateway resources...');
-
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
-
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-
-    if (this.ackCheckInterval) {
-      clearInterval(this.ackCheckInterval);
-    }
-
-    this.localClients.clear();
-    this.userSockets.clear();
-    this.pendingAcks.clear();
-    this.connectionTimeouts.clear();
-
-    this.logger.log('WebSocket gateway resources cleaned up');
-  }
-
-  @SubscribeMessage('register')
-  async handleRegister(
-    @MessageBody() data: { id: string; metadata?: Record<string, any> },
-    @ConnectedSocket() client: Socket,
+  constructor(
+    protected readonly configService: ConfigService,
+    protected readonly eventEmitter: EventEmitter2,
   ) {
-    const { id, metadata } = data;
-
-    if (!id) {
-      return { success: false, error: 'Id is required' };
-    }
-
-    const clientInfo = this.createClientInfo(client, id, metadata);
-    await this.registerClient(client, clientInfo);
-
-    await client.join(`user:${id}`);
-
-    this.logger.log(`Client ${id} registered with socket ${client.id}`);
-
-    return {
-      success: true,
-      message: 'Registered successfully',
-      serverId: this.serverId,
+    this.options = {
+      path: this.configService.get<string>('WS_PATH', '/socket.io'),
+      port: this.configService.get<number>('WS_PORT', 0),
+      namespace: this.configService.get<string>('WS_NAMESPACE', '/'),
+      cors: this.configService.get('WS_CORS', { origin: '*' }),
+      enableHeartbeat: this.configService.get<boolean>('WS_ENABLE_HEARTBEAT', true),
+      heartbeatInterval: this.configService.get<number>('WS_HEARTBEAT_INTERVAL', 30000),
+      connectionTimeout: this.configService.get<number>('WS_CONNECTION_TIMEOUT', 60000),
+      maxMessageSize: this.configService.get<number>('WS_MAX_MESSAGE_SIZE', 65536),
+      messageRateLimit: this.configService.get<number>('WS_MESSAGE_RATE_LIMIT', 100),
+      maxReconnectAttempts: this.configService.get<number>('WS_MAX_RECONNECT_ATTEMPTS', 5),
+      reconnectDelay: this.configService.get<number>('WS_RECONNECT_DELAY', 1000),
     };
   }
 
-  @SubscribeMessage('heartbeat')
-  async handleHeartbeat(@ConnectedSocket() client: Socket) {
-    const clientInfo = this.localClients.get(client.id);
-    if (clientInfo) {
-      await this.updateClientHeartbeat(clientInfo);
-      return { success: true, timestamp: Date.now() };
+  /**
+   * 网关初始化后
+   */
+  afterInit(server: Server) {
+    this.logger.log('WebSocket Gateway initialized');
+    
+    if (this.options.enableHeartbeat) {
+      this.startHeartbeat();
     }
-    return { success: false, error: 'Not registered' };
   }
 
-  protected createClientInfo(client: Socket, id: string, metadata?: Record<string, any>): T {
-    return {
-      id,
-      socketId: client.id,
-      serverId: this.serverId,
+  /**
+   * 客户端连接时
+   */
+  async handleConnection(client: Socket) {
+    const connectionInfo: ConnectionInfo = {
+      clientId: client.id,
       connectedAt: Date.now(),
-      metadata,
-    } as T;
+      lastActiveAt: Date.now(),
+      rooms: new Set(),
+      messageCount: 0,
+      authenticated: false,
+    };
+
+    this.connections.set(client.id, connectionInfo);
+    this.logger.debug(`Client connected: ${client.id}`);
+    
+    this.eventEmitter.emit('ws.connected', {
+      clientId: client.id,
+      timestamp: Date.now(),
+    });
+
+    // 发送连接成功消息
+    client.emit('connected', {
+      clientId: client.id,
+      timestamp: Date.now(),
+    });
   }
 
-  protected async registerClient(client: Socket, clientInfo: T): Promise<void> {
-    this.localClients.set(client.id, clientInfo);
-
-    if (!this.userSockets.has(clientInfo.id)) {
-      this.userSockets.set(clientInfo.id, new Set());
+  /**
+   * 客户端断开连接时
+   */
+  async handleDisconnect(client: Socket) {
+    const connectionInfo = this.connections.get(client.id);
+    
+    if (connectionInfo) {
+      this.logger.debug(`Client disconnected: ${client.id}, connected for ${Date.now() - connectionInfo.connectedAt}ms`);
+      
+      // 清理所有房间
+      for (const room of connectionInfo.rooms) {
+        client.leave(room);
+      }
+      
+      this.connections.delete(client.id);
+      
+      this.eventEmitter.emit('ws.disconnected', {
+        clientId: client.id,
+        userId: connectionInfo.userId,
+        timestamp: Date.now(),
+      });
     }
-    this.userSockets.get(clientInfo.id)!.add(client.id);
+
+    // 清理待确认的消息
+    for (const [messageId, timeout] of this.pendingAcks.entries()) {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      this.pendingAcks.delete(messageId);
+    }
   }
 
-  protected async unregisterClient(client: Socket, clientInfo: T): Promise<void> {
-    this.localClients.delete(client.id);
+  /**
+   * 处理心跳
+   */
+  @SubscribeMessage('ping')
+  handlePing(@ConnectedSocket() client: Socket): { event: string; data: { timestamp: number } } {
+    const connectionInfo = this.connections.get(client.id);
+    if (connectionInfo) {
+      connectionInfo.lastActiveAt = Date.now();
+    }
 
-    const userSockets = this.userSockets.get(clientInfo.id);
-    if (userSockets) {
-      userSockets.delete(client.id);
-      if (userSockets.size === 0) {
-        this.userSockets.delete(clientInfo.id);
+    return {
+      event: 'pong',
+      data: { timestamp: Date.now() },
+    };
+  }
+
+  /**
+   * 发送消息到客户端
+   */
+  protected async sendMessage<T>(
+    clientId: string,
+    event: string,
+    data: T,
+    options?: { requireAck?: boolean; timeout?: number },
+  ): Promise<MessageAcknowledgment | null> {
+    const client = this.server.sockets.sockets.get(clientId);
+    
+    if (!client) {
+      this.logger.warn(`Client not found: ${clientId}`);
+      return null;
+    }
+
+    const messageId = this.generateMessageId();
+    const message: WebSocketMessage<T> = {
+      messageId,
+      type: event,
+      data,
+      timestamp: Date.now(),
+      requireAck: options?.requireAck,
+    };
+
+    return new Promise((resolve) => {
+      if (options?.requireAck) {
+        const timeout = setTimeout(() => {
+          this.pendingAcks.delete(messageId);
+          resolve({
+            messageId,
+            status: 'error',
+            timestamp: Date.now(),
+            error: 'Acknowledgment timeout',
+          });
+        }, options.timeout || 5000);
+
+        this.pendingAcks.set(messageId, timeout);
+
+        client.emitWithAck(event, message).then(
+          (ackData) => {
+            if (timeout) clearTimeout(timeout);
+            this.pendingAcks.delete(messageId);
+            resolve({
+              messageId,
+              status: 'success',
+              timestamp: Date.now(),
+              data: ackData,
+            });
+          },
+          (error) => {
+            if (timeout) clearTimeout(timeout);
+            this.pendingAcks.delete(messageId);
+            resolve({
+              messageId,
+              status: 'error',
+              timestamp: Date.now(),
+              error: error.message,
+            });
+          },
+        );
+      } else {
+        client.emit(event, message);
+        resolve({
+          messageId,
+          status: 'success',
+          timestamp: Date.now(),
+        });
+      }
+    });
+  }
+
+  /**
+   * 广播消息到房间
+   */
+  protected async broadcastToRoom<T>(
+    room: string,
+    event: string,
+    data: T,
+    options?: { excludeClientId?: string },
+  ): Promise<void> {
+    const message: WebSocketMessage<T> = {
+      messageId: this.generateMessageId(),
+      type: event,
+      data,
+      timestamp: Date.now(),
+    };
+
+    if (options?.excludeClientId) {
+      this.server.to(room).except(options.excludeClientId).emit(event, message);
+    } else {
+      this.server.to(room).emit(event, message);
+    }
+  }
+
+  /**
+   * 广播消息到所有客户端
+   */
+  protected async broadcastAll<T>(
+    event: string,
+    data: T,
+    options?: { excludeClientId?: string },
+  ): Promise<void> {
+    const message: WebSocketMessage<T> = {
+      messageId: this.generateMessageId(),
+      type: event,
+      data,
+      timestamp: Date.now(),
+    };
+
+    if (options?.excludeClientId) {
+      this.server.except(options.excludeClientId).emit(event, message);
+    } else {
+      this.server.emit(event, message);
+    }
+  }
+
+  /**
+   * 加入房间
+   */
+  protected async joinRoom(client: Socket, room: string): Promise<void> {
+    await client.join(room);
+    
+    const connectionInfo = this.connections.get(client.id);
+    if (connectionInfo) {
+      connectionInfo.rooms.add(room);
+    }
+
+    this.logger.debug(`Client ${client.id} joined room ${room}`);
+    
+    this.eventEmitter.emit('ws.room.joined', {
+      clientId: client.id,
+      room,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * 离开房间
+   */
+  protected async leaveRoom(client: Socket, room: string): Promise<void> {
+    await client.leave(room);
+    
+    const connectionInfo = this.connections.get(client.id);
+    if (connectionInfo) {
+      connectionInfo.rooms.delete(room);
+    }
+
+    this.logger.debug(`Client ${client.id} left room ${room}`);
+    
+    this.eventEmitter.emit('ws.room.left', {
+      clientId: client.id,
+      room,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * 获取房间中的客户端数量
+   */
+  protected async getRoomClientCount(room: string): Promise<number> {
+    const roomClients = await this.server.in(room).allSockets();
+    return roomClients.size;
+  }
+
+  /**
+   * 获取连接信息
+   */
+  protected getConnectionInfo(clientId: string): ConnectionInfo | undefined {
+    return this.connections.get(clientId);
+  }
+
+  /**
+   * 获取所有连接数
+   */
+  protected getConnectionCount(): number {
+    return this.connections.size;
+  }
+
+  /**
+   * 获取在线用户数
+   */
+  protected getOnlineUserCount(): number {
+    let count = 0;
+    for (const conn of this.connections.values()) {
+      if (conn.authenticated && conn.userId) {
+        count++;
       }
     }
+    return count;
   }
 
-  protected async onGatewayInit(server: Server): Promise<void> {}
-
-  protected async onClientConnect(client: Socket, ip: string): Promise<void> {}
-
-  protected async onClientDisconnect(client: Socket, clientInfo: T): Promise<void> {}
-
-  protected async updateClientHeartbeat(clientInfo: T): Promise<void> {}
-
-  protected async incrementConnectionCount(ip: string): Promise<number> {
-    return 1;
+  /**
+   * 标记连接为已认证
+   */
+  protected markAuthenticated(clientId: string, userId: string): void {
+    const connectionInfo = this.connections.get(clientId);
+    if (connectionInfo) {
+      connectionInfo.authenticated = true;
+      connectionInfo.userId = userId;
+      connectionInfo.metadata = { ...connectionInfo.metadata, userId };
+    }
   }
 
-  protected async decrementConnectionCount(ip: string): Promise<void> {}
+  /**
+   * 检查速率限制
+   */
+  protected checkRateLimit(clientId: string): boolean {
+    const connectionInfo = this.connections.get(clientId);
+    if (!connectionInfo) return false;
 
-  protected startHeartbeat(): void {
-    const interval = this.configService.get<number>('WS_HEARTBEAT_INTERVAL', 10000);
-    this.heartbeatInterval = setInterval(async () => {
-      await this.sendHeartbeat();
-    }, interval);
-  }
-
-  protected async sendHeartbeat(): Promise<void> {}
-
-  protected startCleanupTask(): void {
-    const interval = this.configService.get<number>('WS_CLEANUP_INTERVAL', 60000);
-    this.cleanupInterval = setInterval(async () => {
-      await this.cleanupStaleConnections();
-    }, interval);
-  }
-
-  protected async cleanupStaleConnections(): Promise<void> {}
-
-  protected startAckCheckTask(): void {
-    this.ackCheckInterval = setInterval(() => {
-      this.checkPendingAcks();
-    }, this.ackConfig.checkInterval);
-  }
-
-  protected checkPendingAcks(): void {
     const now = Date.now();
+    const oneSecondAgo = now - 1000;
+    
+    // 简化实现：实际应该使用滑动窗口
+    connectionInfo.messageCount++;
+    
+    return connectionInfo.messageCount <= this.options.messageRateLimit;
+  }
 
-    for (const [messageId, ackInfo] of this.pendingAcks.entries()) {
-      const elapsed = now - ackInfo.timestamp;
+  /**
+   * 启动心跳
+   */
+  private startHeartbeat(): void {
+    this.heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      const timeoutCount = this.options.connectionTimeout;
 
-      if (elapsed > this.ackConfig.timeout) {
-        if (ackInfo.retryCount < this.ackConfig.maxRetries) {
-          this.retryMessage(ackInfo);
-          ackInfo.retryCount++;
-          ackInfo.timestamp = now;
-        } else {
-          this.logger.warn(`Message ${messageId} failed after ${this.ackConfig.maxRetries} retries`);
-          this.handleAckFailure(ackInfo);
-          this.pendingAcks.delete(messageId);
+      for (const [clientId, connectionInfo] of this.connections.entries()) {
+        const inactiveTime = now - connectionInfo.lastActiveAt;
+        
+        if (inactiveTime > timeoutCount) {
+          this.logger.warn(`Connection timeout for client: ${clientId}`);
+          const client = this.server.sockets.sockets.get(clientId);
+          if (client) {
+            client.disconnect(true);
+          }
         }
       }
-    }
+    }, this.options.heartbeatInterval);
   }
 
-  protected retryMessage(ackInfo: PendingAck): void {
-    this.logger.debug(`Retrying message ${ackInfo.messageId}, attempt ${ackInfo.retryCount + 1}`);
-    this.server.to(`user:${ackInfo.toUserId}`).emit('messageRetry', {
-      messageId: ackInfo.messageId,
-      attempt: ackInfo.retryCount + 1,
-      timestamp: Date.now(),
-    });
+  /**
+   * 生成消息 ID
+   */
+  private generateMessageId(): string {
+    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
+}
 
-  protected handleAckFailure(ackInfo: PendingAck): void {
-    this.server.to(`user:${ackInfo.fromUserId}`).emit('messageFailed', {
-      messageId: ackInfo.messageId,
-      error: 'Message delivery failed',
-      timestamp: Date.now(),
-    });
-  }
-
-  addPendingAck(messageId: string, fromUserId: string, toUserId: string, payload?: any): void {
-    this.pendingAcks.set(messageId, {
-      messageId,
-      fromUserId,
-      toUserId,
-      timestamp: Date.now(),
-      retryCount: 0,
-      payload,
-    });
-  }
-
-  removePendingAck(messageId: string): PendingAck | undefined {
-    const ack = this.pendingAcks.get(messageId);
-    this.pendingAcks.delete(messageId);
-    return ack;
-  }
-
-  async notifyUser(userId: string, event: string, data: any): Promise<void> {
-    this.server.to(`user:${userId}`).emit(event, {
-      ...data,
-      timestamp: Date.now(),
-    });
-  }
-
-  async notifyUsers(userIds: string[], event: string, data: any): Promise<void> {
-    const rooms = userIds.map((id) => `user:${id}`);
-    this.server.to(rooms).emit(event, {
-      ...data,
-      timestamp: Date.now(),
-    });
-  }
-
-  async notifyRoom(roomId: string, event: string, data: any): Promise<void> {
-    this.server.to(`room:${roomId}`).emit(event, {
-      ...data,
-      timestamp: Date.now(),
-    });
-  }
-
-  async notifyGroup(groupId: string, event: string, data: any): Promise<void> {
-    this.server.to(`group:${groupId}`).emit(event, {
-      ...data,
-      timestamp: Date.now(),
-    });
-  }
-
-  async broadcast(event: string, data: any): Promise<void> {
-    this.server.emit(event, {
-      ...data,
-      timestamp: Date.now(),
-    });
-  }
-
-  isUserOnline(userId: string): boolean {
-    return this.userSockets.has(userId);
-  }
-
-  getUserSockets(userId: string): string[] {
-    const sockets = this.userSockets.get(userId);
-    return sockets ? Array.from(sockets) : [];
-  }
-
-  getOnlineUserCount(): number {
-    return this.userSockets.size;
-  }
-
-  getConnectionStats(): ConnectionStats {
-    return {
-      totalConnections: this.localClients.size,
-      uniqueUsers: this.userSockets.size,
-      serverId: this.serverId,
-      uptime: Date.now() - this.startTime,
+/**
+ * WebSocket 消息装饰器
+ */
+export function OnWebSocketMessage(event: string, options?: { requireAuth?: boolean; rateLimit?: number }) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    const originalHandler = descriptor.value;
+    
+    descriptor.value = async function (client: Socket, message: WebSocketMessage) {
+      const connectionInfo = (this as any).connections?.get(client.id);
+      
+      // 检查认证
+      if (options?.requireAuth && (!connectionInfo || !connectionInfo.authenticated)) {
+        client.emit('error', {
+          messageId: message.messageId,
+          error: 'Authentication required',
+        });
+        return;
+      }
+      
+      // 检查速率限制
+      if (options?.rateLimit) {
+        const rateLimit = options.rateLimit;
+        if (!connectionInfo || connectionInfo.messageCount > rateLimit) {
+          client.emit('error', {
+            messageId: message.messageId,
+            error: 'Rate limit exceeded',
+          });
+          return;
+        }
+      }
+      
+      return originalHandler.call(this, client, message);
     };
-  }
+    
+    return SubscribeMessage(event)(target, propertyKey, descriptor);
+  };
 }

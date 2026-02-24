@@ -74,3 +74,29 @@ export class SearchDto extends PaginationDto {
   @IsOptional()
   sortOrder?: 'asc' | 'desc' = 'desc';
 }
+
+/**
+ * 游标响应 DTO
+ */
+export class CursorResponseDto<T = any> {
+  @ApiProperty({ description: '是否成功', example: true })
+  success: boolean;
+
+  @ApiProperty({ description: '状态码', example: 200 })
+  code: number;
+
+  @ApiProperty({ description: '数据列表' })
+  data: T[];
+
+  @ApiPropertyOptional({ description: '下一页游标' })
+  cursor?: string;
+
+  static create<T>(data: T[], cursor?: string): CursorResponseDto<T> {
+    return {
+      success: true,
+      code: 200,
+      data,
+      cursor,
+    };
+  }
+}

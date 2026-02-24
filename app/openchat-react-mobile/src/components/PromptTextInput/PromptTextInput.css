@@ -1,0 +1,47 @@
+
+.prompt-text-input {
+    /* Ensure container handles layout correctly */
+    display: flex;
+    flex-direction: column;
+    cursor: text;
+}
+
+.prompt-text-input .ProseMirror {
+    outline: none !important;
+    /* Remove padding here, rely on container padding passed via props */
+    padding: 0; 
+    color: var(--text-primary);
+    font-size: 16px;
+    line-height: 1.5; /* approx 24px */
+    font-family: inherit;
+    caret-color: var(--primary-color); /* Theme-aware cursor */
+    min-height: 24px; /* Ensure minimum height matches one line of text */
+}
+
+/* Reset default paragraph margins and ensure consistent height */
+.prompt-text-input .ProseMirror p {
+    margin: 0;
+    /* Ensure empty lines maintain layout stability */
+    min-height: 24px; 
+}
+
+/* Placeholder Styling - Precision Alignment */
+.prompt-text-input .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--text-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    /* Prevent layout shifts */
+    font-style: normal; 
+}
+
+/* Hide scrollbar for cleaner UI */
+.prompt-text-input .ProseMirror::-webkit-scrollbar {
+    display: none;
+}
+
+/* Fix for potential focus outline in some browsers */
+.prompt-text-input .ProseMirror-focused {
+    outline: none !important;
+}

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource, Repository, EntityTarget, FindOptionsWhere, DeepPartial, ObjectLiteral } from 'typeorm';
+import { DataSource, Repository, FindOptionsWhere, DeepPartial, ObjectLiteral } from 'typeorm';
 
 export interface TransactionCallback<T> {
   (queryRunner: any): Promise<T>;

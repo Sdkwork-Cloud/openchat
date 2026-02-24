@@ -14,10 +14,10 @@ import { XiaoZhiAudioService } from './services/xiaozhi-audio.service';
 import { XiaoZhiStateService } from './services/xiaozhi-state.service';
 import { XiaoZhiCapabilityService } from './services/xiaozhi-capability.service';
 import { XiaoZhiSecurityService } from './services/xiaozhi-security.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../common/events/event-bus.service';
 import { XiaoZhiPluginService } from './services/xiaozhi-plugin.service';
 import { XiaoZhiConfigService } from './services/xiaozhi-config.service';
 import { DeviceState, ConnectionState, TransportType, DeviceConnection, XiaoZhiProtocolVersion, BinaryProtocolVersion } from './xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -217,12 +217,13 @@ export class XiaoZhiService {
    */
   private publishDeviceConnectedEvent(deviceId: string, transport: TransportType, sessionId: string, deviceName?: string): void {
     this.eventBusService.publish(
-      EventType.DEVICE_CONNECTED,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         transport,
         sessionId,
         deviceName: deviceName || `Device-${deviceId.substring(0, 8)}`,
+        type: 'device_connected'
       },
       {
         priority: EventPriority.MEDIUM,
@@ -311,11 +312,12 @@ export class XiaoZhiService {
       
       // 发布设备断开事件
       this.eventBusService.publish(
-        EventType.DEVICE_DISCONNECTED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           transport: connection.transport,
           reason: 'Connection closed',
+          type: 'device_disconnected'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -360,19 +362,20 @@ export class XiaoZhiService {
         
         // 发布消息接收事件
         const event = {
-          type: EventType.DEVICE_MESSAGE_RECEIVED,
+          type: EventTypeConstants.CUSTOM_EVENT,
           data: {
             deviceId,
             messageType: message.type,
             payload: message,
             transport: 'websocket',
+            type: 'device_message_received'
           },
           priority: EventPriority.MEDIUM,
           source: 'XiaoZhiService',
         };
         
         this.eventBusService.publish(
-          EventType.DEVICE_MESSAGE_RECEIVED,
+          EventTypeConstants.CUSTOM_EVENT,
           event.data,
           {
             priority: event.priority,
@@ -401,12 +404,13 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to handle WebSocket message for device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           transport: 'websocket',
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -440,20 +444,21 @@ export class XiaoZhiService {
       
       // 发布消息接收事件
       const event = {
-        type: EventType.DEVICE_MESSAGE_RECEIVED,
+        type: EventTypeConstants.CUSTOM_EVENT,
         data: {
           deviceId,
           messageType: jsonMessage.type,
           payload: jsonMessage,
           transport: 'mqtt',
           topic,
+          type: 'device_message_received'
         },
         priority: EventPriority.MEDIUM,
         source: 'XiaoZhiService',
       };
       
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_RECEIVED,
+        EventTypeConstants.CUSTOM_EVENT,
         event.data,
         {
           priority: event.priority,
@@ -477,13 +482,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to handle MQTT message for device ${deviceId}, topic: ${topic}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           transport: 'mqtt',
           topic,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -556,13 +562,14 @@ export class XiaoZhiService {
       
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'stt',
           payload: sttMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -574,13 +581,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send STT result to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'stt',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -608,23 +616,24 @@ export class XiaoZhiService {
       };
 
       this.messageService.sendMessage(deviceId, connection, ttsMessage);
-      
+
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'tts',
           payload: ttsMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
           source: 'XiaoZhiService',
         }
       );
-      
+
       this.logger.log(`Sent TTS start to device ${deviceId} via ${connection.transport}`);
 
       // 更新设备状态
@@ -632,13 +641,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send TTS start to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'tts',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -669,20 +679,21 @@ export class XiaoZhiService {
       
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'tts',
           payload: ttsMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
           source: 'XiaoZhiService',
         }
       );
-      
+
       this.logger.log(`Sent TTS stop to device ${deviceId} via ${connection.transport}`);
 
       // 更新设备状态
@@ -690,13 +701,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send TTS stop to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'tts',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -728,13 +740,14 @@ export class XiaoZhiService {
       
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'tts',
           payload: ttsMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -746,13 +759,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send TTS sentence start to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'tts',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -784,13 +798,14 @@ export class XiaoZhiService {
       
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'llm',
           payload: llmMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -802,13 +817,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send LLM emotion to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'llm',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -839,13 +855,14 @@ export class XiaoZhiService {
       
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'system',
           payload: systemMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -857,13 +874,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send system command to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'system',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -905,13 +923,14 @@ export class XiaoZhiService {
       
       // 发布消息发送事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: 'mcp',
           payload: mcpMessage,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -923,13 +942,14 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send MCP command to device ${deviceId}, method: ${method}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: 'mcp',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -955,13 +975,14 @@ export class XiaoZhiService {
       
       // 发布音频数据发送事件
       this.eventBusService.publish(
-        EventType.AUDIO_DATA_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           sessionId: connection.sessionId,
           size: audioData.length,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'audio_data_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -971,13 +992,13 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send audio data to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
-          type: 'audio',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -1087,12 +1108,13 @@ export class XiaoZhiService {
     } catch (error) {
       this.logger.error(`Failed to send message to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: payload.type,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -1129,12 +1151,13 @@ export class XiaoZhiService {
 
       // 发布消息处理完成事件
       this.eventBusService.publish(
-        EventType.DEVICE_MESSAGE_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           messageType: messageType,
           transport: connection.transport,
           timestamp: Date.now(),
+          type: 'device_message_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -1145,13 +1168,14 @@ export class XiaoZhiService {
       const messageType = payload.type || 'unknown';
       this.logger.error(`Failed to process message for device ${deviceId}, type: ${messageType}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
           messageType: messageType,
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
+          type: 'system_error'
         },
         {
           priority: EventPriority.HIGH,

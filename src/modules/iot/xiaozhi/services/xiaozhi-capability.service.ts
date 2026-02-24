@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import { DeviceConnection } from '../xiaozhi.types';
 
 /**
@@ -115,35 +115,48 @@ export class XiaoZhiCapabilityService {
    */
   private initializeEventListeners(): void {
     // 监听设备连接事件
-    this.eventBusService.subscribe(EventType.DEVICE_CONNECTED, {
-      priority: EventPriority.MEDIUM,
-    }).subscribe(event => {
-      this.handleDeviceConnected(event.payload.deviceId);
-    });
+    this.eventBusService.on(
+      EventTypeConstants.CUSTOM_EVENT,
+      (event: any) => {
+        if (event.payload.type === 'device_connected') {
+          this.handleDeviceConnected(event.payload.deviceId);
+        }
+      },
+      { priority: EventPriority.MEDIUM }
+    );
 
     // 监听设备断开事件
-    this.eventBusService.subscribe(EventType.DEVICE_DISCONNECTED, {
-      priority: EventPriority.MEDIUM,
-    }).subscribe(event => {
-      this.handleDeviceDisconnected(event.payload.deviceId);
-    });
-
-    // 监听设备消息事件
-    this.eventBusService.subscribe(EventType.DEVICE_MESSAGE_RECEIVED, {
-      priority: EventPriority.MEDIUM,
-      filter: (event) => {
-        return event.payload.messageType === 'hello';
+    this.eventBusService.on(
+      EventTypeConstants.CUSTOM_EVENT,
+      (event: any) => {
+        if (event.payload.type === 'device_disconnected') {
+          this.handleDeviceDisconnected(event.payload.deviceId);
+        }
       },
-    }).subscribe((event: any) => {
-      this.handleDeviceHelloMessage(event.payload.deviceId, event.payload.payload);
-    });
+      { priority: EventPriority.MEDIUM }
+    );
+
+    // 监听设备消息事件（hello 消息）
+    this.eventBusService.on(
+      EventTypeConstants.CUSTOM_EVENT,
+      (event: any) => {
+        if (event.payload.messageType === 'hello') {
+          this.handleDeviceHelloMessage(event.payload.deviceId, event.payload.payload);
+        }
+      },
+      { priority: EventPriority.MEDIUM }
+    );
 
     // 监听MCP工具发现事件
-    this.eventBusService.subscribe(EventType.MCP_TOOLS_DISCOVERED, {
-      priority: EventPriority.MEDIUM,
-    }).subscribe((event: any) => {
-      this.handleMcpToolsDiscovered(event.payload.deviceId, event.payload.tools);
-    });
+    this.eventBusService.on(
+      EventTypeConstants.CUSTOM_EVENT,
+      (event: any) => {
+        if (event.payload.type === 'mcp_tools_discovered') {
+          this.handleMcpToolsDiscovered(event.payload.deviceId, event.payload.tools);
+        }
+      },
+      { priority: EventPriority.MEDIUM }
+    );
   }
 
   /**
@@ -214,11 +227,12 @@ export class XiaoZhiCapabilityService {
       
       // 发布设备能力发现事件
       this.eventBusService.publish(
-        EventType.DEVICE_CAPABILITIES_DISCOVERED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           capabilities,
           message: helloMessage,
+          type: 'device_capabilities_discovered'
         },
         {
           priority: EventPriority.MEDIUM,

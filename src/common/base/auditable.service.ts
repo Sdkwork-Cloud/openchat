@@ -3,7 +3,6 @@ import {
   Logger,
   SetMetadata,
   applyDecorators,
-  UseInterceptors,
 } from '@nestjs/common';
 import { BaseEntity } from '../base.entity';
 

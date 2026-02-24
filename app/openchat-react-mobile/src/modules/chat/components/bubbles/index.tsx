@@ -1,6 +1,13 @@
 
 import React, { useState } from 'react';
 import { Toast } from '../../../../components/Toast';
+import { RedPacketModal } from '../../../wallet/components/RedPacketModal';
+import { ImageViewer } from '../../../../components/ImageViewer/ImageViewer';
+import { SmartImage } from '../../../../components/SmartImage/SmartImage'; // New import
+
+export * from './ProductBubble';
+export * from './ProductSwiper';
+export * from './ProductItemCard';
 
 // --- Voice Bubble ---
 export const VoiceBubble: React.FC<{ duration: string; isUser: boolean }> = ({ duration, isUser }) => {
@@ -39,43 +46,23 @@ export const VoiceBubble: React.FC<{ duration: string; isUser: boolean }> = ({ d
     );
 };
 
-// --- Image Bubble ---
-export const ImageBubble: React.FC<{ isUser: boolean }> = ({ isUser }) => {
-    const [loaded, setLoaded] = useState(false);
+// --- Image Bubble (Refactored) ---
+export const ImageBubble: React.FC<{ isUser: boolean; content?: string }> = ({ isUser, content }) => {
+    const isRealImage = content && (content.startsWith('http') || content.startsWith('data:image'));
+    const imgUrl = isRealImage 
+        ? content 
+        : `https://picsum.photos/400/300?random=${Math.floor(Math.random() * 100)}`;
+
     return (
-        <div 
-            onClick={(e) => { e.stopPropagation(); Toast.info('查看大图'); }}
-            style={{ 
-                borderRadius: '8px', 
-                overflow: 'hidden', 
-                cursor: 'pointer', 
-                maxWidth: '100%',
-                position: 'relative',
-                background: '#e0e0e0',
-                minWidth: '120px',
-                minHeight: '160px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-            }}
-        >
-            <img 
-                src={`https://picsum.photos/400/300?random=${Math.random()}`} 
-                alt="Sent Image" 
-                onLoad={() => setLoaded(true)}
-                style={{ 
-                    display: 'block', 
-                    maxWidth: '240px', 
-                    height: 'auto',
-                    opacity: loaded ? 1 : 0,
-                    transition: 'opacity 0.4s ease-in'
-                }} 
+        <div style={{ maxWidth: '240px', minWidth: '60px' }}>
+            <SmartImage 
+                src={imgUrl} 
+                radius={8}
+                preview={true} // Enable click to preview
+                // Do not force aspect ratio, let the image determine size (or max dims)
+                style={{ maxHeight: '320px', width: 'auto', maxWidth: '100%' }}
+                containerStyle={{ display: 'inline-block' }}
             />
-            {!loaded && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.5)', borderTopColor: 'rgba(0,0,0,0.4)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                </div>
-            )}
         </div>
     );
 };
@@ -88,26 +75,65 @@ export const LocationBubble: React.FC<{ label: string }> = ({ label }) => (
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>上海市 · 浦东新区</div>
         </div>
         <div style={{ height: '90px', background: '#f2f2f2', position: 'relative' }}>
-            <div style={{ width: '100%', height: '100%', opacity: 0.7, background: 'url(https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/World_map_blank_without_borders.svg/2000px-World_map_blank_without_borders.svg.png) center/cover' }}></div>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -80%)' }}>
+            <SmartImage src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/World_map_blank_without_borders.svg/2000px-World_map_blank_without_borders.svg.png" style={{ width: '100%', height: '100%', opacity: 0.7 }} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -80%)', zIndex: 1 }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="#fa5151" stroke="white" strokeWidth="1.5" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
             </div>
         </div>
     </div>
 );
 
-// --- Red Packet Bubble ---
-export const RedPacketBubble: React.FC<{ text: string }> = ({ text }) => (
-    <div 
-        onClick={(e) => { e.stopPropagation(); Toast.success('领取成功'); }}
-        style={{ width: '230px', background: 'linear-gradient(135deg, #fa9d3b 0%, #f76b1c 100%)', borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(250, 157, 59, 0.2)' }}
-    >
-        <div style={{ padding: '16px 14px', display: 'flex', alignItems: 'center' }}>
-            <div style={{ width: '38px', height: '38px', background: '#fcd692', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', color: '#fa9d3b', fontSize: '22px' }}>🧧</div>
-            <div style={{ color: 'white', fontSize: '15px', fontWeight: 500, lineHeight: 1.2 }}>{text || '恭喜发财，大吉大利'}</div>
+// --- Red Packet Bubble (Enhanced) ---
+export const RedPacketBubble: React.FC<{ text: string }> = ({ text }) => {
+    const [showModal, setShowModal] = useState(false);
+
+    return (
+        <>
+            <div 
+                onClick={(e) => { e.stopPropagation(); setShowModal(true); }}
+                style={{ width: '230px', background: 'linear-gradient(135deg, #fa9d3b 0%, #f76b1c 100%)', borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(250, 157, 59, 0.2)' }}
+            >
+                <div style={{ padding: '16px 14px', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ width: '38px', height: '38px', background: '#fcd692', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', color: '#fa9d3b', fontSize: '22px' }}>🧧</div>
+                    <div style={{ color: 'white', fontSize: '15px', fontWeight: 500, lineHeight: 1.2 }}>{text || '恭喜发财，大吉大利'}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.95)', padding: '6px 14px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    OpenChat Red Packet
+                </div>
+            </div>
+            
+            <RedPacketModal 
+                visible={showModal} 
+                onClose={() => setShowModal(false)}
+                message={text}
+            />
+        </>
+    );
+};
+
+// --- File Bubble ---
+export const FileBubble: React.FC<{ name: string; size: string; type?: string }> = ({ name, size, type }) => {
+    return (
+        <div 
+            onClick={(e) => { e.stopPropagation(); Toast.info('正在打开文件...'); }}
+            style={{ 
+                width: '240px', background: 'var(--bg-card)', borderRadius: '12px', overflow: 'hidden', 
+                cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                padding: '12px 16px', display: 'flex', alignItems: 'flex-start'
+            }}
+        >
+            <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
+                <div style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '6px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{size}</div>
+            </div>
+            <div style={{ 
+                width: '48px', height: '48px', flexShrink: 0, 
+                background: '#fa5151', borderRadius: '8px', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase'
+            }}>
+                {type && type.length <= 4 ? type : 'FILE'}
+            </div>
         </div>
-        <div style={{ background: 'rgba(255,255,255,0.95)', padding: '6px 14px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-            WeChat Red Packet
-        </div>
-    </div>
-);
+    );
+};

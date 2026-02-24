@@ -440,7 +440,8 @@ export class UserCacheService implements OnModuleDestroy {
     this.cleanupIntervalRef = setInterval(() => {
       const now = Date.now();
       let expiredCount = 0;
-      let sizeBefore = this.localCache.size;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const sizeBefore = this.localCache.size;
 
       for (const [key, value] of this.localCache.entries()) {
         if (value.expireAt < now) {

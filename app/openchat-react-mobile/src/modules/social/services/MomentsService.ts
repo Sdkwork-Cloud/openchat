@@ -1,6 +1,7 @@
 
 import { AbstractStorageService } from '../../../core/AbstractStorageService';
 import { BaseEntity, Result, Page } from '../../../core/types';
+import { smartRecommendShuffle } from '../../../utils/algorithms';
 
 export interface Comment {
   user: string;
@@ -64,25 +65,56 @@ class MomentsServiceImpl extends AbstractStorageService<Moment> {
       }
   }
 
-  // Override findAll to inject displayTime
+  // Override findAll to inject displayTime and use Smart Algorithm
   async getFeed(page: number = 1, size: number = 10): Promise<Result<Page<Moment>>> {
-      // Use base generic findAll with standard params
+      // 1. Fetch raw candidates (usually more than page size for shuffle)
       const result = await this.findAll({ 
-          page, 
-          size, 
-          sortField: 'createTime', 
-          sortOrder: 'desc' 
+          pageRequest: { page: 1, size: 100 } // Get more to shuffle
       });
 
       if (result.data) {
-          // Transform data for UI (View Model adaption)
-          result.data.content = result.data.content.map(m => ({
+          const rawList = result.data.content;
+          
+          // 2. Smart Shuffle Algorithm
+          // Score = Recency (high weight) + Popularity (logarithmic)
+          const sorted = smartRecommendShuffle(rawList, (item) => {
+              const ageHours = (Date.now() - item.createTime) / (1000 * 60 * 60);
+              const recencyScore = Math.max(0, 100 - ageHours); // Newer is better
+              const popularityScore = Math.log10(item.likes + 1) * 5;
+              return recencyScore + popularityScore;
+          }, 0.1); // Low randomness for moments to keep chronological feel mostly
+
+          // 3. Manual Pagination
+          const total = sorted.length;
+          const totalPages = Math.ceil(total / size);
+          const startIndex = (page - 1) * size;
+          const pagedContent = sorted.slice(startIndex, startIndex + size);
+
+          // 4. Format
+          result.data.content = pagedContent.map(m => ({
               ...m,
               displayTime: this.formatTime(m.createTime)
           }));
+          
+          result.data.total = total;
+          result.data.totalPages = totalPages;
       }
       
       return result;
+  }
+
+  async publish(content: string, images: string[] = []): Promise<Result<Moment>> {
+      return await this.save({
+          author: 'AI User',
+          avatar: 'Felix', // Seed for Dicebear
+          content,
+          images,
+          comments: [],
+          likes: 0,
+          hasLiked: false,
+          createTime: Date.now(),
+          updateTime: Date.now()
+      });
   }
 
   async likeMoment(id: string): Promise<Result<void>> {

@@ -1,10 +1,30 @@
 
+:root {
+  --font-size-base: 16px; /* Dynamic base font size */
+  
+  /* --- Z-INDEX ARCHITECTURE --- */
+  /* Level 1: Content */
+  --z-normal: 1;
+  --z-sticky: 100;   /* Navbar, Tabbar */
+  
+  /* Level 2: Floating */
+  --z-drawer: 800;   /* Sidebars, Bottom Sheets that are part of flow */
+  --z-mask: 900;     /* Backdrops */
+  
+  /* Level 3: Overlays */
+  --z-popup: 1000;   /* Dialogs, ActionSheets */
+  --z-toast: 2000;   /* Toasts, Notifications */
+  --z-island: 3000;  /* Dynamic Island, Top Alerts */
+  --z-max: 9999;     /* Critical Overlays (Splash) */
+}
+
 * {
   box-sizing: border-box;
+  /* Disable highlight on touch globally for native feel */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* GLOBAL SCROLLBAR REMOVAL */
-/* For Webkit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
   display: none;
   width: 0;
@@ -12,14 +32,82 @@
   background: transparent;
 }
 
-/* For Firefox */
 * {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* Ensure smooth scrolling globally */
-html, body {
-  overscroll-behavior-y: none; /* Prevent bounce effect on body */
+/* Industry Leading Text Rendering */
+html {
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Prevent body scroll */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Prevent body scroll */
+  
+  /* CRITICAL: Disables the "rubber band" effect on the body level */
+  overscroll-behavior-y: none;
+  position: fixed; /* Lock body in place */
+  
+  /* Prevent selection by default (Enable on specific inputs/text) */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Enable scrolling only on specific containers */
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Allow text selection in chat bubbles and inputs */
+input, textarea, [contenteditable], .selectable-text {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Custom Selection Color */
+::selection {
+  background: rgba(41, 121, 255, 0.3);
+  color: inherit;
+}
+
+/* --- Premium Typography Utilities --- */
+
+/* For prices, stats, counts, dates */
+.font-num {
+  font-family: "DIN Alternate", "Roboto", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glassmorphism Utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .glass-panel,
+[data-theme="wechat-dark"] .glass-panel,
+[data-theme="midnight-blue"] .glass-panel {
+  background: rgba(30, 30, 30, 0.7);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
 }

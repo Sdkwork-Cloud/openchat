@@ -6,12 +6,18 @@ export interface BaseEntity {
   updateTime: number;
 }
 
-// --- API/Service Response Standard ---
+// --- Standard Response Wrapper ---
 export interface Result<T> {
   success: boolean;
   data?: T;
   message?: string;
   code?: number;
+}
+
+// --- Pagination Standard ---
+export interface PageRequest {
+  page: number;
+  size: number;
 }
 
 export interface Page<T> {
@@ -22,25 +28,41 @@ export interface Page<T> {
   totalPages: number;
 }
 
-// --- Query Standard ---
+// --- Advanced Criteria API (Spring Data Style) ---
 export type SortOrder = 'asc' | 'desc';
 
-export interface QueryParams {
-  page?: number;
-  size?: number;
-  sortField?: string;
-  sortOrder?: SortOrder;
-  keywords?: string;
-  // Generic filter allows flexible querying: { type: 'video', status: 'published' }
-  filters?: Record<string, any>;
+export interface Sort {
+  field: string;
+  order: SortOrder;
 }
 
-// --- Service Interface Definition (SpringBoot Style) ---
+// Extended operators for sophisticated filtering
+export type FilterOperator = 'eq' | 'neq' | 'contains' | 'gt' | 'lt' | 'in' | 'array-contains';
+
+export interface FilterCriterion {
+  field: string;
+  operator: FilterOperator;
+  value: any;
+}
+
+export interface QueryParams {
+  pageRequest?: PageRequest;
+  sort?: Sort;
+  filters?: FilterCriterion[]; 
+  keywords?: string; // Global fuzzy search
+}
+
+// --- Service Interface Definition ---
 export interface IBaseService<T extends BaseEntity> {
   save(entity: Partial<T>): Promise<Result<T>>;
   saveAll(entities: T[]): Promise<Result<boolean>>;
   findById(id: string): Promise<Result<T>>;
   deleteById(id: string): Promise<Result<boolean>>;
+  
+  // High-performance query interface
   findAll(params?: QueryParams): Promise<Result<Page<T>>>;
   count(params?: QueryParams): Promise<number>;
+
+  // Reactive capabilities
+  subscribe(callback: (event: any) => void): () => void;
 }

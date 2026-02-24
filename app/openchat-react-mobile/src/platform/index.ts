@@ -1,6 +1,4 @@
 
-import { WebPlatform } from '../platform-impl/web';
-
 export enum PlatformType {
   WEB = 'WEB',
   TAURI = 'TAURI',
@@ -16,8 +14,8 @@ export interface IDevice {
 }
 
 export interface IStorage {
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<void>;
+  get(key: string): Promise<any | null>;
+  set(key: string, value: any): Promise<void>;
   remove(key: string): Promise<void>;
   clear(): Promise<void>;
 }
@@ -28,7 +26,7 @@ export interface IClipboard {
 }
 
 export interface ICamera {
-  takePhoto(): Promise<string>; // returns base64 or url
+  takePhoto(): Promise<string>; 
   scanQRCode(): Promise<string>;
 }
 
@@ -41,26 +39,34 @@ export interface IPlatform {
   camera: ICamera;
 }
 
-// Platform Factory / Strategy Context
-class PlatformManager {
-  private static instance: IPlatform;
+// Platform Strategy Context
+export class PlatformManager {
+  private static instance: IPlatform | null = null;
+
+  static setInstance(platform: IPlatform) {
+      this.instance = platform;
+  }
 
   static getInstance(): IPlatform {
     if (!this.instance) {
-      // Runtime Environment Detection
-      // In a real build, strictly use build flags to tree-shake unused platforms
-      const isTauri = Boolean((window as any).__TAURI__);
-      
-      if (isTauri) {
-         // this.instance = new TauriPlatform(); // Future implementation
-         console.log("Tauri detected, but using Web fallback for demo");
-         this.instance = new WebPlatform();
-      } else {
-         this.instance = new WebPlatform();
-      }
+       // Return a dummy/noop implementation during the split second of boot-up 
+       // to prevent "undefined" crashes, though the Proxy/Getter pattern below is the primary fix.
+       console.warn("[Platform] Instance requested before registration.");
     }
-    return this.instance;
+    return this.instance!;
   }
 }
 
-export const Platform = PlatformManager.getInstance();
+/**
+ * Industry-Leading Late-Binding Proxy
+ * This ensures that 'Platform' can be imported anywhere, but it only 
+ * resolves to the singleton instance when a property is accessed.
+ */
+export const Platform: IPlatform = {
+    get type() { return PlatformManager.getInstance().type; },
+    get device() { return PlatformManager.getInstance().device; },
+    get storage() { return PlatformManager.getInstance().storage; },
+    get clipboard() { return PlatformManager.getInstance().clipboard; },
+    get camera() { return PlatformManager.getInstance().camera; },
+    initialize() { return PlatformManager.getInstance().initialize(); }
+} as IPlatform;

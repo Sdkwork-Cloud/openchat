@@ -251,8 +251,8 @@ export class RTCController {
 
   @Get('video-records')
   @ApiOperation({ summary: '获取所有视频记录（分页）' })
-  @ApiQuery({ name: 'limit', description: '每页数量', required: false, default: 50 })
-  @ApiQuery({ name: 'offset', description: '偏移量', required: false, default: 0 })
+  @ApiQuery({ name: 'limit', description: '每页数量', required: false, example: 50 })
+  @ApiQuery({ name: 'offset', description: '偏移量', required: false, example: 0 })
   @ApiResponse({ status: 200, description: '成功获取所有视频记录', type: [RTCVideoRecord] })
   async getVideoRecords(
     @Query('limit') limit: number = 50,

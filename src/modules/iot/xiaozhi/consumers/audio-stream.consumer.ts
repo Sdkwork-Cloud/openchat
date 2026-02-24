@@ -11,7 +11,7 @@
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import { XiaoZhiMessageService } from '../services/xiaozhi-message.service';
 import { XiaoZhiAudioService } from '../services/xiaozhi-audio.service';
 import { XiaoZhiStateService } from '../services/xiaozhi-state.service';
@@ -92,12 +92,13 @@ export class AudioStreamConsumer implements OnModuleInit {
    * 订阅音频事件
    */
   private subscribeToAudioEvents(): void {
-    this.eventBus.subscribe(
-      EventType.AUDIO_DATA_RECEIVED,
+    this.eventBus.on(
+      EventTypeConstants.AUDIO_DATA_RECEIVED,
+      async (event: any) => {
+        await this.handleAudioData(event.payload);
+      },
       { priority: EventPriority.HIGH }
-    ).subscribe(async (event) => {
-      await this.handleAudioData(event.payload);
-    });
+    );
 
     this.logger.log('Subscribed to AUDIO_DATA_RECEIVED events');
   }

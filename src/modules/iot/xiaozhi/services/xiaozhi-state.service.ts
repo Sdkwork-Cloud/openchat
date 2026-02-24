@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { DeviceConnection, DeviceState, ConnectionState, TransportType, XiaoZhiProtocolVersion, BinaryProtocolVersion } from '../xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 
 /**
@@ -128,11 +128,12 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
 
     // 发布心跳超时事件
     this.eventBusService.publish(
-      EventType.DEVICE_HEARTBEAT_TIMEOUT,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         lastActivity: connection.lastActivity,
         transport: connection.transport,
+        type: 'device_heartbeat_timeout'
       },
       {
         priority: EventPriority.HIGH,
@@ -172,12 +173,13 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
 
     // 发布重连尝试事件
     this.eventBusService.publish(
-      EventType.DEVICE_RECONNECT_ATTEMPT,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         attempt: attempts + 1,
         maxAttempts: this.heartbeatConfig.maxRetries,
         transport: connection.transport,
+        type: 'device_reconnect_attempt'
       },
       {
         priority: EventPriority.MEDIUM,
@@ -204,11 +206,12 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
 
       // 发布连接添加事件
       this.eventBusService.publish(
-        EventType.DEVICE_CONNECTION_ADDED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           transport: connection.transport,
           sessionId: connection.sessionId,
+          type: 'device_connection_added'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -261,10 +264,11 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
 
         // 发布连接移除事件
         this.eventBusService.publish(
-          EventType.DEVICE_CONNECTION_REMOVED,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
             transport: connection?.transport,
+            type: 'device_connection_removed'
           },
           {
             priority: EventPriority.MEDIUM,
@@ -330,12 +334,13 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
         
         // 发布状态更新事件
         this.eventBusService.publish(
-          EventType.DEVICE_STATE_CHANGED,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
             oldState,
             newState: state,
-            sessionId: connection.sessionId
+            sessionId: connection.sessionId,
+            type: 'device_state_changed'
           },
           {
             priority: EventPriority.MEDIUM,
@@ -365,12 +370,13 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
         
         // 发布状态更新事件
         this.eventBusService.publish(
-          EventType.CONNECTION_STATE_CHANGED,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
             oldState,
             newState: state,
-            transport: connection.transport
+            transport: connection.transport,
+            type: 'connection_state_changed'
           },
           {
             priority: EventPriority.MEDIUM,
@@ -434,11 +440,12 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
 
       // 发布心跳响应事件
       this.eventBusService.publish(
-        EventType.DEVICE_HEARTBEAT_RECEIVED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           timestamp: Date.now(),
           transport: connection?.transport,
+          type: 'device_heartbeat_received'
         },
         {
           priority: EventPriority.LOW,
@@ -484,10 +491,11 @@ export class XiaoZhiStateService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`Removing inactive connection for device ${deviceId}`);
         this.removeConnection(deviceId);
         this.eventBusService.publish(
-          EventType.DEVICE_DISCONNECTED,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
             reason: 'Connection inactive',
+            type: 'device_disconnected'
           },
           {
             priority: EventPriority.MEDIUM,

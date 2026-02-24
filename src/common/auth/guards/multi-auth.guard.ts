@@ -79,7 +79,7 @@ export class MultiAuthGuard implements CanActivate {
    * 将认证信息附加到请求对象
    */
   private attachAuthInfo(request: Request, authResult: AuthResult): void {
-    (request as any).auth = {
+    (request as Request & { auth?: Record<string, unknown> }).auth = {
       userId: authResult.userId,
       botId: authResult.botId,
       scopes: authResult.scopes || [],
@@ -88,14 +88,14 @@ export class MultiAuthGuard implements CanActivate {
 
     // 为了向后兼容，同时设置 user 属性
     if (authResult.userId) {
-      (request as any).user = {
+      (request as Request & { user?: Record<string, unknown> }).user = {
         userId: authResult.userId,
         ...authResult.metadata,
       };
     }
 
     if (authResult.botId) {
-      (request as any).bot = {
+      (request as Request & { bot?: Record<string, unknown> }).bot = {
         botId: authResult.botId,
         ...authResult.metadata,
       };

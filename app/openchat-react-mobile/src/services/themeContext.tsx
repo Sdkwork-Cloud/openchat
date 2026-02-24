@@ -7,12 +7,15 @@ export type ThemeType = 'light' | 'dark' | 'wechat-dark' | 'midnight-blue';
 interface ThemeContextType {
   theme: ThemeType;
   setTheme: (theme: ThemeType) => void;
+  fontSize: number;
+  setFontSize: (size: number) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeType>('wechat-dark');
+  const [fontSize, setFontSizeState] = useState<number>(16);
 
   // Initialize from SettingsService
   useEffect(() => {
@@ -20,22 +23,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const { data } = await SettingsService.getConfig();
         if (data) {
             setThemeState(data.theme);
+            if (data.fontSize) setFontSizeState(data.fontSize);
         }
     };
     init();
   }, []);
 
   useEffect(() => {
-    // 2. Apply theme to HTML root
+    // Apply theme to HTML root
     document.documentElement.setAttribute('data-theme', theme);
-    
-    // Persist changes
+    // Persist theme
     SettingsService.updateConfig({ theme });
     
-    // 3. Update Meta Theme Color for mobile status bars
+    // Update Meta Theme Color
     const metaThemeColor = document.querySelector("meta[name=theme-color]");
     if (metaThemeColor) {
-        // Simple logic to map theme to status bar color
         const colorMap: Record<ThemeType, string> = {
             'light': '#ededed',
             'dark': '#000000',
@@ -44,15 +46,20 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         metaThemeColor.setAttribute('content', colorMap[theme] || '#ffffff');
     }
-
   }, [theme]);
 
-  const setTheme = (newTheme: ThemeType) => {
-    setThemeState(newTheme);
-  };
+  useEffect(() => {
+      // Apply Font Size CSS Variable
+      document.documentElement.style.setProperty('--font-size-base', `${fontSize}px`);
+      // Persist font size
+      SettingsService.updateConfig({ fontSize });
+  }, [fontSize]);
+
+  const setTheme = (newTheme: ThemeType) => setThemeState(newTheme);
+  const setFontSize = (newSize: number) => setFontSizeState(newSize);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, fontSize, setFontSize }}>
       {children}
     </ThemeContext.Provider>
   );

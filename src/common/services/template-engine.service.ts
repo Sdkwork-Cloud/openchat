@@ -113,7 +113,7 @@ export class TemplateEngineService implements OnModuleInit, OnModuleDestroy {
   ): RenderResult {
     const startTime = Date.now();
 
-    let template: Template | undefined = this.templates.get(templateNameOrContent);
+    const template: Template | undefined = this.templates.get(templateNameOrContent);
     let content: string;
     let engine: TemplateEngine;
 

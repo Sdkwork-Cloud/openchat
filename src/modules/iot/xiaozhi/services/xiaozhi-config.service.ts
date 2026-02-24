@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -256,10 +256,11 @@ export class XiaoZhiConfigService implements OnModuleInit, OnModuleDestroy {
           
           // 发布配置变化事件
           this.eventBusService.publish(
-            EventType.CONFIG_CHANGED,
+            EventTypeConstants.CUSTOM_EVENT,
             {
               timestamp: Date.now(),
               changes: config,
+              type: 'config_changed'
             },
             {
               priority: EventPriority.MEDIUM,
@@ -327,11 +328,12 @@ export class XiaoZhiConfigService implements OnModuleInit, OnModuleDestroy {
     
     // 发布配置更新事件
     this.eventBusService.publish(
-      EventType.CONFIG_UPDATED,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         key,
         value,
         timestamp: Date.now(),
+        type: 'config_updated'
       },
       {
         priority: EventPriority.MEDIUM,
@@ -362,10 +364,11 @@ export class XiaoZhiConfigService implements OnModuleInit, OnModuleDestroy {
     
     // 发布配置删除事件
     this.eventBusService.publish(
-      EventType.CONFIG_DELETED,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         key,
         timestamp: Date.now(),
+        type: 'config_deleted'
       },
       {
         priority: EventPriority.MEDIUM,
@@ -406,8 +409,11 @@ export class XiaoZhiConfigService implements OnModuleInit, OnModuleDestroy {
 
     // 发布服务注册事件
     this.eventBusService.publish(
-      EventType.SERVICE_REGISTERED,
-      serviceInfo,
+      EventTypeConstants.CUSTOM_EVENT,
+      {
+        ...serviceInfo,
+        type: 'service_registered'
+      },
       {
         priority: EventPriority.MEDIUM,
         source: 'XiaoZhiConfigService',
@@ -432,8 +438,8 @@ export class XiaoZhiConfigService implements OnModuleInit, OnModuleDestroy {
 
     // 发布服务注销事件
     this.eventBusService.publish(
-      EventType.SERVICE_UNREGISTERED,
-      { serviceId },
+      EventTypeConstants.CUSTOM_EVENT,
+      { serviceId, type: 'service_unregistered' },
       {
         priority: EventPriority.MEDIUM,
         source: 'XiaoZhiConfigService',
@@ -460,8 +466,8 @@ export class XiaoZhiConfigService implements OnModuleInit, OnModuleDestroy {
 
     // 发布服务状态更新事件
     this.eventBusService.publish(
-      EventType.SERVICE_STATUS_UPDATED,
-      { serviceId, status },
+      EventTypeConstants.CUSTOM_EVENT,
+      { serviceId, status, type: 'service_status_updated' },
       {
         priority: EventPriority.MEDIUM,
         source: 'XiaoZhiConfigService',

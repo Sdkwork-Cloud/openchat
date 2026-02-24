@@ -105,3 +105,70 @@ export const smartRecommendShuffle = <T>(
     // 3. Extract items
     return scoredItems.map(i => i.item);
 };
+
+/**
+ * Intelligent Address Parser
+ * Extracts Name, Phone, and Detail Address from unstructured text.
+ */
+export const smartParseAddress = (text: string) => {
+    // 1. Extract Phone (11 digits starting with 1)
+    const phoneRegex = /1[3-9]\d{9}/;
+    const phoneMatch = text.match(phoneRegex);
+    const phone = phoneMatch ? phoneMatch[0] : '';
+    
+    // Remove phone from text to process remaining
+    let remaining = text.replace(phone, '').trim();
+    
+    // Clean up common prefixes
+    remaining = remaining.replace(/收货人[:：]?|姓名[:：]?|地址[:：]?|电话[:：]?/g, ' ').trim();
+    
+    // 2. Extract Name (Heuristic: Short segment, usually at start or end)
+    let name = '';
+    // Split by common delimiters
+    const parts = remaining.split(/[\s,，;；]+/);
+    
+    // Find the part that looks most like a name (2-4 chars, no digits)
+    const nameIndex = parts.findIndex(p => p.length >= 2 && p.length <= 4 && !/\d/.test(p));
+    
+    if (nameIndex !== -1) {
+        name = parts[nameIndex];
+        parts.splice(nameIndex, 1); // Remove name from parts
+    } else {
+        // Fallback: Take the first part if short
+        if (parts.length > 0 && parts[0].length < 5) {
+            name = parts[0];
+            parts.shift();
+        }
+    }
+    
+    // 3. The rest is likely the address
+    const detail = parts.join(' ').replace(/\s+/g, ' ').trim();
+    
+    return { name, phone, detail };
+};
+
+/**
+ * --- Advanced AI Algorithms ---
+ */
+
+/**
+ * Computes Cosine Similarity between two vectors.
+ * A fundamental algorithm for modern recommendation systems (Vector Space Model).
+ * Returns -1 to 1 (1 means identical direction).
+ */
+export const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
+    const dotProduct = vecA.reduce((sum, a, i) => sum + a * (vecB[i] || 0), 0);
+    const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+    const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+    
+    if (magA === 0 || magB === 0) return 0;
+    return dotProduct / (magA * magB);
+};
+
+/**
+ * Converts a set of tags into a One-Hot encoded vector based on a vocabulary.
+ * Used to vectorize items for content-based filtering.
+ */
+export const vectorizeTags = (itemTags: string[], vocabulary: string[]): number[] => {
+    return vocabulary.map(term => itemTags.includes(term) ? 1 : 0);
+};

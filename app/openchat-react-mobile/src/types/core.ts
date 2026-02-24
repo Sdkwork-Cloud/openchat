@@ -19,9 +19,8 @@ export interface Agent {
   tags?: string[];
 }
 
-// Deprecated in favor of src/modules/chat/services/ChatService definitions
-// But kept here as aliases to prevent breaking imports in pages that haven't been fully migrated
-import { Message as ServiceMessage, ChatSession as ServiceSession } from '../modules/chat/services/ChatService';
+// Fixed: Import from types file to prevent circular dependency with ChatService
+import { Message as ServiceMessage, ChatSession as ServiceSession } from '../modules/chat/types';
 
 export type Message = ServiceMessage;
 export type ChatSession = ServiceSession;

@@ -2,7 +2,6 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
@@ -84,21 +83,21 @@ export class PermissionsGuard implements CanActivate {
     if (!user) {
       throw new BusinessException(
         BusinessErrorCode.UNAUTHORIZED,
-        'User not authenticated',
+        { customMessage: 'User not authenticated' },
       );
     }
 
     if (requiredRoles && !this.hasAnyRole(user, requiredRoles)) {
       throw new BusinessException(
         BusinessErrorCode.PERMISSION_DENIED,
-        'Insufficient role privileges',
+        { customMessage: 'Insufficient role privileges' },
       );
     }
 
     if (requiredPermissions && !this.hasAllPermissions(user, requiredPermissions)) {
       throw new BusinessException(
         BusinessErrorCode.PERMISSION_DENIED,
-        'Insufficient permissions',
+        { customMessage: 'Insufficient permissions' },
       );
     }
 

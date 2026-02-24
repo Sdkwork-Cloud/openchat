@@ -1,6 +1,7 @@
 
 import { AbstractStorageService } from '../../../core/AbstractStorageService';
 import { BaseEntity, Result } from '../../../core/types';
+import { Platform } from '../../../platform';
 
 export interface UserStatus {
     icon: string;
@@ -14,73 +15,89 @@ export interface UserProfile extends BaseEntity {
     avatar: string;
     region: string;
     status: UserStatus;
+    gender: 'male' | 'female';
+    signature: string;
 }
 
-/**
- * Singleton Service Pattern implementation using AbstractStorageService.
- * We treat the profile as a collection of 1 item for simplicity in reusing the base class,
- * or we could just use a separate key. Here we stick to the BaseService pattern.
- */
 class UserServiceImpl extends AbstractStorageService<UserProfile> {
-    protected STORAGE_KEY = 'sys_user_profile_v1';
-    private readonly PROFILE_ID = 'u_current_user';
+    protected STORAGE_KEY = 'sys_user_profile_v3';
+    // Cache current user ID in memory for session duration
+    private currentUserId: string | null = null;
 
     constructor() {
         super();
-        this.initProfile();
     }
 
-    private async initProfile() {
-        const list = await this.loadData();
-        if (list.length === 0) {
-            const now = Date.now();
-            const defaultProfile: UserProfile = {
-                id: this.PROFILE_ID,
-                createTime: now,
-                updateTime: now,
-                name: 'AI User',
-                wxid: 'ai_88888888',
-                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-                region: 'China Shanghai',
-                status: {
-                    icon: '✨',
-                    text: 'Feeling lucky',
-                    isActive: true
-                }
-            };
-            await this.save(defaultProfile);
-        }
+    /**
+     * Set the active user context (Called by AuthProvider)
+     */
+    public setCurrentUserId(id: string) {
+        this.currentUserId = id;
     }
 
+    /**
+     * Create a new profile for a registered user
+     */
+    async createProfile(userId: string, username: string): Promise<Result<UserProfile>> {
+        const now = Date.now();
+        // Generate a random avatar seed
+        const seed = Math.random().toString(36).substring(7);
+        
+        const newProfile: UserProfile = {
+            id: userId,
+            createTime: now,
+            updateTime: now,
+            name: `User_${username.slice(-4)}`,
+            wxid: `wx_${username}`,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`,
+            region: 'China',
+            gender: 'male',
+            signature: 'Hello OpenChat!',
+            status: { icon: '✨', text: 'Active', isActive: true }
+        };
+        
+        return await this.save(newProfile);
+    }
+
+    /**
+     * Get profile by specific ID
+     */
+    async getProfileById(id: string): Promise<Result<UserProfile>> {
+        const res = await this.findById(id);
+        if (res.success && res.data) return res;
+        
+        // Fallback for mock users/contacts if needed, but return failure for auth users
+        return { success: false, message: 'Profile not found' };
+    }
+
+    /**
+     * Get CURRENT logged in profile
+     */
     async getProfile(): Promise<Result<UserProfile>> {
-        // Always fetch the specific ID
-        const result = await this.findById(this.PROFILE_ID);
-        if (result.success && result.data) {
-            return result;
-        }
-        // Fallback (shouldn't happen after init)
-        await this.initProfile();
-        return this.findById(this.PROFILE_ID);
-    }
-
-    async updateStatus(text: string, icon: string = '✨'): Promise<Result<void>> {
-        const { data: profile } = await this.getProfile();
-        if (profile) {
-            profile.status = { text, icon, isActive: true };
-            await this.save(profile);
-            return { success: true };
-        }
-        return { success: false, message: 'Profile not initialized' };
+        if (!this.currentUserId) return { success: false, message: 'No active session' };
+        return this.getProfileById(this.currentUserId);
     }
 
     async updateInfo(updates: Partial<UserProfile>): Promise<Result<void>> {
-        const { data: profile } = await this.getProfile();
+        if (!this.currentUserId) return { success: false, message: 'No active session' };
+        
+        const { data: profile } = await this.getProfileById(this.currentUserId);
         if (profile) {
             Object.assign(profile, updates);
             await this.save(profile);
             return { success: true };
         }
         return { success: false };
+    }
+
+    async uploadAvatar(file: File): Promise<Result<string>> {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve({ success: true, data: reader.result as string });
+            reader.onerror = (error) => reject(error);
+        });
     }
 }
 

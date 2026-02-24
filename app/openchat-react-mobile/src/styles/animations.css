@@ -1,24 +1,4 @@
 
-/* iOS-style Page Transitions */
-.page-enter {
-  opacity: 0;
-  transform: translateX(20px);
-}
-.page-enter-active {
-  opacity: 1;
-  transform: translateX(0);
-  transition: opacity 300ms, transform 300ms cubic-bezier(0.165, 0.84, 0.44, 1);
-}
-.page-exit {
-  opacity: 1;
-  transform: translateX(0);
-}
-.page-exit-active {
-  opacity: 0;
-  transform: translateX(-20px);
-  transition: opacity 200ms, transform 200ms cubic-bezier(0.165, 0.84, 0.44, 1);
-}
-
 /* Global Smoothness */
 html {
     -webkit-tap-highlight-color: transparent;
@@ -29,3 +9,125 @@ button:active {
     transform: scale(0.98);
     transition: transform 0.1s;
 }
+
+/* --- Native-Like Page Transitions --- */
+
+/* Forward: New Page slides in from Right */
+.page-forward-enter-active {
+  animation: slideInRight 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 100;
+  box-shadow: -10px 0 25px rgba(0,0,0,0.15); /* Shadow on entering page */
+}
+
+/* Forward: Old Page slides slightly Left (Parallax) and dims */
+.page-forward-exit-active {
+  animation: slideOutLeftParallax 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 1;
+}
+
+/* Back: Old Page (on Left) slides back in (Parallax) and brightens */
+.page-back-enter-active {
+  animation: slideInLeftParallax 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 1;
+}
+
+/* Back: Current Page slides out to Right */
+.page-back-exit-active {
+  animation: slideOutRight 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 100;
+  box-shadow: -10px 0 25px rgba(0,0,0,0.15);
+}
+
+/* Keyframes */
+
+@keyframes slideInRight { 
+    from { transform: translate3d(100%, 0, 0); } 
+    to { transform: translate3d(0, 0, 0); } 
+}
+
+@keyframes slideOutRight { 
+    from { transform: translate3d(0, 0, 0); } 
+    to { transform: translate3d(100%, 0, 0); } 
+}
+
+/* Parallax Effect: Move 30% distance + Dimming */
+@keyframes slideOutLeftParallax { 
+    from { transform: translate3d(0, 0, 0); filter: brightness(1); } 
+    to { transform: translate3d(-30%, 0, 0); filter: brightness(0.85); } 
+}
+
+@keyframes slideInLeftParallax { 
+    from { transform: translate3d(-30%, 0, 0); filter: brightness(0.85); } 
+    to { transform: translate3d(0, 0, 0); filter: brightness(1); } 
+}
+
+/* --- Skeleton Shimmer --- */
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton-shimmer::after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%); animation: shimmer 1.5s infinite;
+}
+
+/* --- Common Animations --- */
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes popIn { 
+    0% { opacity: 0; transform: scale(0.9) translateY(10px); } 
+    100% { opacity: 1; transform: scale(1) translateY(0); } 
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* Panel Slide Up with Spring */
+@keyframes slideUpPanel { 
+    from { transform: translateY(100%); } 
+    to { transform: translateY(0); } 
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+/* --- Media Specific --- */
+.playing-disk { animation: spin 6s linear infinite; }
+.paused-disk { animation: spin 6s linear infinite paused; }
+
+.equalizer-bar {
+    width: 4px; background: var(--primary-color); border-radius: 2px;
+    animation: equalize 1s infinite ease-in-out;
+}
+@keyframes equalize {
+    0% { height: 10%; } 50% { height: 100%; } 100% { height: 10%; }
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 2px; height: 1.2em;
+  background-color: var(--primary-color);
+  margin-left: 2px; vertical-align: text-bottom;
+  animation: cursor-blink-anim 1s step-end infinite;
+}
+@keyframes cursor-blink-anim { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Flash Highlight */
+.flash-highlight {
+  animation: flash-anim 2s ease-out forwards;
+}
+@keyframes flash-anim {
+  0% { background-color: rgba(41, 121, 255, 0.3); }
+  100% { background-color: transparent; }
+}
+
+/* Parabolic Fly */
+.fly-ball {
+    position: fixed; z-index: 9999; border-radius: 50%; pointer-events: none;
+    animation: flyX 0.6s linear forwards;
+}
+.fly-ball-inner {
+    width: 100%; height: 100%; border-radius: 50%;
+    background-size: cover; background-position: center;
+    animation: flyY 0.6s cubic-bezier(0.5, -0.5, 1, 1) forwards;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+@keyframes flyX { from { left: var(--start-x); } to { left: var(--end-x); } }
+@keyframes flyY { from { top: var(--start-y); transform: scale(1); } to { top: var(--end-y); transform: scale(0.1); opacity: 0.5; } }
+.cart-bump { animation: bump 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes bump { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }

@@ -244,6 +244,7 @@ export function RestController<T>(config: ControllerConfig): ClassDecorator {
 
 export function success<T>(data: T, message?: string): ApiResponseDto<T> {
   return {
+    success: true,
     code: 0,
     message: message || 'success',
     data,
@@ -290,6 +291,7 @@ export function created<T>(
   message?: string,
 ): ApiResponseDto<T> {
   return {
+    success: true,
     code: 0,
     message: message || 'Created successfully',
     data,
@@ -299,6 +301,7 @@ export function created<T>(
 
 export function noContent(message?: string): ApiResponseDto<null> {
   return {
+    success: true,
     code: 0,
     message: message || 'No content',
     data: null,
@@ -311,6 +314,7 @@ export function accepted<T>(
   message?: string,
 ): ApiResponseDto<T> {
   return {
+    success: true,
     code: 0,
     message: message || 'Request accepted',
     data,

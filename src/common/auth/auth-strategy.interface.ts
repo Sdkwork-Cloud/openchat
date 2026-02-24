@@ -13,7 +13,7 @@ export interface AuthResult {
   userId?: string;
   botId?: string;
   scopes?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   error?: string;
 }
 
@@ -57,13 +57,17 @@ export interface TokenExtractor {
  * JWT 载荷
  */
 export interface JWTPayload {
-  sub: string;                   // 用户/ Bot ID
-  type: 'user' | 'bot' | 'app';
-  scopes?: string[];
+  sub: string;
   iat: number;
   exp: number;
   iss?: string;
-  aud?: string;
+  jti?: string;
+  userId: string;
+  username?: string;
+  roles?: string[];
+  permissions?: string[];
+  tenantId?: string;
+  organizationId?: string;
 }
 
 /**

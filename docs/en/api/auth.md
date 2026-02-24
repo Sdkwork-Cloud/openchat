@@ -33,8 +33,46 @@ OpenChat uses JWT (JSON Web Token) for authentication, supporting access tokens 
 
 | Token Type | Validity | Purpose |
 |------------|----------|---------|
-| Access Token | 7 days | API request authentication |
-| Refresh Token | 30 days | Refresh Access Token |
+| Access Token | 1 hour | API request authentication |
+| Refresh Token | 7 days | Refresh Access Token |
+
+---
+
+## JWT Payload Structure
+
+The Access Token payload structure is as follows:
+
+```json
+{
+  "sub": "user-uuid",
+  "iat": 1708123456,
+  "exp": 1708127056,
+  "iss": "openchat",
+  "jti": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "user-uuid",
+  "username": "johndoe",
+  "roles": ["user", "admin"],
+  "permissions": ["message:send", "message:read", "*"],
+  "tenantId": null,
+  "organizationId": null
+}
+```
+
+**Field Description:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| sub | string | User ID (standard JWT field) |
+| iat | number | Issued at timestamp |
+| exp | number | Expiration timestamp |
+| iss | string | Issuer (default: openchat) |
+| jti | string | JWT unique identifier |
+| userId | string | User ID |
+| username | string | Username |
+| roles | string[] | Role list |
+| permissions | string[] | Permission list |
+| tenantId | string | Tenant ID (multi-tenant support) |
+| organizationId | string | Organization ID (multi-tenant support) |
 
 ---
 
@@ -113,7 +151,7 @@ Content-Type: application/json
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "expiresIn": 604800,
+    "expiresIn": 3600,
     "tokenType": "Bearer",
     "user": {
       "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -162,7 +200,7 @@ Content-Type: application/json
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "expiresIn": 604800,
+    "expiresIn": 3600,
     "tokenType": "Bearer"
   },
   "message": "Token refreshed successfully"

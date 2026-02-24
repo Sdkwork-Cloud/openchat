@@ -1,40 +1,17 @@
 
 import { AbstractStorageService } from '../../../core/AbstractStorageService';
-import { BaseEntity, Result, Page } from '../../../core/types';
+import { Result } from '../../../core/types';
 import { AGENT_REGISTRY, DEFAULT_AGENT_ID, getAgent } from '../../../services/agentRegistry';
-import { Platform } from '../../../platform';
-
-// --- Domain Models ---
-export interface Message extends BaseEntity {
-  sessionId: string; // Foreign Key Concept
-  role: 'user' | 'model';
-  content: string;
-  isStreaming?: boolean;
-}
-
-export interface ChatSession extends BaseEntity {
-  agentId: string;
-  lastMessageContent: string;
-  lastMessageTime: number;
-  unreadCount: number;
-  isPinned: boolean;
-  // Note: We don't store full messages array in session to keep it lightweight. 
-  // We join them at runtime or load on demand.
-  // BUT for this specific simplified app architecture, we will keep embedding them 
-  // for performance (No need for complex join queries in LocalStorage).
-  messages: Message[]; 
-}
+import { Message, ChatSession } from '../types';
 
 class ChatServiceImpl extends AbstractStorageService<ChatSession> {
-  protected STORAGE_KEY = 'sys_chat_sessions_v2';
+  protected STORAGE_KEY = 'sys_chat_sessions_v4';
 
-  constructor() {
-      super();
-      this.initDefaultSession();
-  }
-
-  private async initDefaultSession() {
-      const list = await this.loadData();
+  protected async onInitialize() {
+      // Logic inside onInitialize should not call loadData() to avoid re-triggering ensureInitialized.
+      // this.cache is guaranteed to be available (at least as an empty array) when this hook is called.
+      const list = this.cache || [];
+      
       if (list.length === 0) {
           const agent = AGENT_REGISTRY[DEFAULT_AGENT_ID];
           const now = Date.now();
@@ -44,11 +21,12 @@ class ChatServiceImpl extends AbstractStorageService<ChatSession> {
               role: 'model',
               content: agent.initialMessage,
               createTime: now,
-              updateTime: now
+              updateTime: now,
+              status: 'sent'
           };
-
           const defaultSession: ChatSession = {
               id: 'session_default',
+              type: 'agent',
               agentId: DEFAULT_AGENT_ID,
               lastMessageContent: agent.initialMessage,
               lastMessageTime: now,
@@ -56,41 +34,39 @@ class ChatServiceImpl extends AbstractStorageService<ChatSession> {
               isPinned: true,
               messages: [initialMsg],
               createTime: now,
-              updateTime: now
+              updateTime: now,
+              sessionConfig: { showAvatar: false } 
           };
           
-          await this.save(defaultSession);
+          list.push(defaultSession);
+          this.cache = list;
+          // Commit ensures the seed is persisted to storage
+          await this.commit();
       }
   }
 
-  /**
-   * Optimized List Query:
-   * Pinned sessions first, then by lastUpdated desc
-   */
   async getSessionList(): Promise<Result<ChatSession[]>> {
-      const list = await this.loadData();
-      
-      const sorted = list.sort((a, b) => {
+      const { data } = await this.findAll({
+          sort: { field: 'lastMessageTime', order: 'desc' }
+      });
+      const sorted = (data?.content || []).sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          return b.lastMessageTime - a.lastMessageTime;
+          return 0;
       });
-
       return { success: true, data: sorted };
   }
 
   async createSession(agentId: string): Promise<Result<ChatSession>> {
       const list = await this.loadData();
-      
-      // Singleton rule: One session per agent for this app design
-      const existing = list.find(s => s.agentId === agentId);
+      const existing = list.find(s => s.type === 'agent' && s.agentId === agentId);
       if (existing) return { success: true, data: existing };
 
       const agent = getAgent(agentId);
       const now = Date.now();
-      
       const newSession: ChatSession = {
           id: crypto.randomUUID(),
+          type: 'agent',
           agentId: agent.id,
           lastMessageContent: agent.initialMessage,
           lastMessageTime: now,
@@ -100,77 +76,39 @@ class ChatServiceImpl extends AbstractStorageService<ChatSession> {
           updateTime: now,
           messages: [{
               id: crypto.randomUUID(),
-              sessionId: '', // Will be set momentarily
+              sessionId: '', 
               role: 'model',
               content: agent.initialMessage,
               createTime: now,
-              updateTime: now
+              updateTime: now,
+              status: 'sent'
           }]
       };
-      
-      // Fix FK references
       newSession.messages[0].sessionId = newSession.id;
-
       return await this.save(newSession);
   }
 
-  async addMessage(sessionId: string, messageData: Partial<Message>): Promise<Result<void>> {
+  async addMessage(sessionId: string, messageData: Partial<Message>): Promise<Result<ChatSession>> {
       const { data: session } = await this.findById(sessionId);
       if (!session) return { success: false, message: 'Session not found' };
 
       const now = Date.now();
       const newMessage: Message = {
           id: messageData.id || crypto.randomUUID(),
-          sessionId: sessionId,
+          sessionId,
           role: messageData.role || 'user',
           content: messageData.content || '',
-          isStreaming: messageData.isStreaming || false,
           createTime: now,
-          updateTime: now
+          updateTime: now,
+          status: messageData.status || 'sent',
+          ...messageData
       };
-
+      if (!session.messages) session.messages = [];
       session.messages.push(newMessage);
       session.lastMessageContent = newMessage.content;
       session.lastMessageTime = now;
-      session.unreadCount = 0; // Reset on interaction
       session.updateTime = now;
-
-      await this.save(session);
-      return { success: true };
-  }
-
-  async updateMessage(sessionId: string, messageId: string, content: string, isStreaming: boolean): Promise<Result<void>> {
-      // Optimization: Don't do full persistence for every chunk stream.
-      // We update the memory cache directly for performance, persist only on finish.
-      
-      if (!this.cache) await this.loadData();
-      
-      const session = this.cache!.find(s => s.id === sessionId);
-      if (!session) return { success: false };
-
-      const msg = session.messages.find(m => m.id === messageId);
-      if (msg) {
-          msg.content = content;
-          msg.isStreaming = isStreaming;
-          msg.updateTime = Date.now();
-          
-          session.lastMessageContent = content; // Update preview
-          
-          if (!isStreaming) {
-              await this.commit(); // Only persist to storage when streaming stops
-          }
-      }
-      return { success: true };
-  }
-
-  async togglePin(sessionId: string): Promise<Result<void>> {
-      const { data: session } = await this.findById(sessionId);
-      if (session) {
-          session.isPinned = !session.isPinned;
-          await this.save(session);
-          return { success: true };
-      }
-      return { success: false };
+      return await this.save(session);
   }
 
   async clearHistory(sessionId: string): Promise<Result<void>> {
@@ -184,9 +122,142 @@ class ChatServiceImpl extends AbstractStorageService<ChatSession> {
       return { success: false };
   }
 
-  async clearAll(): Promise<void> {
+  async togglePin(sessionId: string): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          session.isPinned = !session.isPinned;
+          await this.save(session);
+          return { success: true };
+      }
+      return { success: false };
+  }
+
+  async deleteMessages(sessionId: string, messageIds: string[]): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          session.messages = session.messages.filter(m => !messageIds.includes(m.id));
+          session.lastMessageContent = session.messages.length > 0 ? session.messages[session.messages.length - 1].content : '';
+          await this.save(session);
+          return { success: true };
+      }
+      return { success: false, message: 'Session not found' };
+  }
+
+  async updateMessage(sessionId: string, messageId: string, updates: Partial<Message>): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          const index = session.messages.findIndex(m => m.id === messageId);
+          if (index > -1) {
+              session.messages[index] = { ...session.messages[index], ...updates };
+              if (index === session.messages.length - 1 && updates.content) session.lastMessageContent = updates.content;
+              await this.save(session);
+              return { success: true };
+          }
+      }
+      return { success: false };
+  }
+
+  async recallMessage(sessionId: string, messageId: string): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          const index = session.messages.findIndex(m => m.id === messageId);
+          if (index > -1) {
+              session.messages[index] = { ...session.messages[index], role: 'system', content: '你撤回了一条消息', status: 'sent' } as Message;
+              if (index === session.messages.length - 1) session.lastMessageContent = '你撤回了一条消息';
+              await this.save(session);
+              return { success: true };
+          }
+      }
+      return { success: false };
+  }
+
+  async updateSessionConfig(sessionId: string, config: { showAvatar?: boolean, backgroundImage?: string }): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          session.sessionConfig = { ...session.sessionConfig, ...config } as any;
+          await this.save(session);
+          return { success: true };
+      }
+      return { success: false };
+  }
+
+    async markAsRead(sessionId: string): Promise<Result<void>> {
+        return this.setUnreadCount(sessionId, 0);
+    }
+
+    async setUnreadCount(sessionId: string, count: number): Promise<Result<void>> {
+        const { data: session } = await this.findById(sessionId);
+        if (session) {
+            session.unreadCount = count;
+            await this.save(session);
+            return { success: true };
+        }
+        return { success: false };
+    }
+
+  async toggleMute(sessionId: string): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          session.isMuted = !session.isMuted;
+          await this.save(session);
+          return { success: true };
+      }
+      return { success: false };
+  }
+
+  async clearAll(): Promise<Result<void>> {
       this.cache = [];
-      await Platform.storage.remove(this.STORAGE_KEY);
+      await this.commit();
+      return { success: true };
+  }
+
+  async addMembers(sessionId: string, memberIds: string[]): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          session.memberIds = [...(session.memberIds || []), ...memberIds];
+          await this.save(session);
+          return { success: true };
+      }
+      return { success: false };
+  }
+
+  async updateGroupInfo(sessionId: string, info: { groupName?: string, groupAnnouncement?: string }): Promise<Result<void>> {
+      const { data: session } = await this.findById(sessionId);
+      if (session) {
+          if (info.groupName) session.groupName = info.groupName;
+          if (info.groupAnnouncement) session.groupAnnouncement = info.groupAnnouncement;
+          await this.save(session);
+          return { success: true };
+      }
+      return { success: false };
+  }
+
+  async createGroupSession(groupName: string, memberIds: string[]): Promise<Result<ChatSession>> {
+      const now = Date.now();
+      const newSession: ChatSession = {
+          id: crypto.randomUUID(),
+          type: 'group',
+          agentId: DEFAULT_AGENT_ID,
+          groupName,
+          memberIds,
+          lastMessageContent: '你创建了群聊',
+          lastMessageTime: now,
+          unreadCount: 0,
+          isPinned: false,
+          createTime: now,
+          updateTime: now,
+          messages: [{
+              id: crypto.randomUUID(),
+              sessionId: '', 
+              role: 'system',
+              content: '你创建了群聊',
+              createTime: now,
+              updateTime: now,
+              status: 'sent'
+          }]
+      };
+      newSession.messages[0].sessionId = newSession.id;
+      return await this.save(newSession);
   }
 }
 

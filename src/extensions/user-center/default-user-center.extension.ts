@@ -43,6 +43,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RedisService } from '../../common/redis/redis.service';
 import { UserSyncService } from '../../modules/user/user-sync.service';
+import { PermissionService } from '../../common/services/permission.service';
+import { randomUUID } from 'crypto';
 
 /**
  * 默认用户中心插件配置
@@ -104,6 +106,7 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
     private readonly userSyncService: UserSyncService,
+    private readonly permissionService: PermissionService,
   ) {
     this.pluginConfig = {
       jwtSecret: this.configService.get<string>('JWT_SECRET', 'openchat-secret-key'),
@@ -183,7 +186,7 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         };
       }
 
-      const { accessToken, refreshToken, expiresIn } = await this.generateTokens(user.id);
+      const { accessToken, refreshToken, expiresIn } = await this.generateTokens(user);
 
       if (request.ip) {
         user.lastLoginIp = request.ip;
@@ -266,7 +269,7 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
 
       await this.userSyncService.syncUserOnRegister(user);
 
-      const { accessToken, refreshToken, expiresIn } = await this.generateTokens(user.id);
+      const { accessToken, refreshToken, expiresIn } = await this.generateTokens(user);
 
       this.context?.emit(UserCenterEvent.USER_REGISTER, { userId: user.id });
 
@@ -296,16 +299,10 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         secret: this.pluginConfig.jwtSecret,
       });
 
-      if (payload.type !== 'refresh') {
-        return {
-          success: false,
-          error: '无效的刷新令牌',
-          errorCode: UserCenterErrorCode.INVALID_REFRESH_TOKEN,
-        };
-      }
+      const userId = payload.sub || payload.userId;
 
       const user = await this.userRepository.findOne({
-        where: { id: payload.sub, isDeleted: false },
+        where: { id: userId, isDeleted: false },
       });
 
       if (!user) {
@@ -316,7 +313,7 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         };
       }
 
-      const tokens = await this.generateTokens(user.id);
+      const tokens = await this.generateTokens(user);
 
       this.context?.emit(UserCenterEvent.TOKEN_REFRESH, { userId: user.id });
 
@@ -340,11 +337,8 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         secret: this.pluginConfig.jwtSecret,
       });
 
-      if (payload.type !== 'access') {
-        return null;
-      }
-
-      const user = await this.getUserById(payload.sub);
+      const userId = payload.sub || payload.userId;
+      const user = await this.getUserById(userId);
       return user;
     } catch {
       return null;
@@ -569,14 +563,29 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
     };
   }
 
-  private async generateTokens(userId: string): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+  private async generateTokens(user: UserEntity): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+    const roles = await this.permissionService.getUserRoles(user.id);
+    const permissions = await this.permissionService.getUserPermissions(user.id);
+
     const accessToken = this.jwtService.sign(
-      { sub: userId, type: 'access' },
+      {
+        sub: user.id,
+        userId: user.id,
+        username: user.username,
+        roles,
+        permissions,
+        jti: randomUUID(),
+      },
       { secret: this.pluginConfig.jwtSecret, expiresIn: this.pluginConfig.accessTokenExpiresIn },
     );
 
     const refreshToken = this.jwtService.sign(
-      { sub: userId, type: 'refresh' },
+      {
+        sub: user.id,
+        userId: user.id,
+        username: user.username,
+        jti: randomUUID(),
+      },
       { secret: this.pluginConfig.jwtSecret, expiresIn: this.pluginConfig.refreshTokenExpiresIn },
     );
 

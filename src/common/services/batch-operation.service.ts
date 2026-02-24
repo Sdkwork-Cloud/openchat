@@ -1,318 +1,499 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager, QueryRunner } from 'typeorm';
+/**
+ * 批量操作服务
+ * 提供高效的批量数据处理能力
+ *
+ * @framework
+ */
 
-export interface BatchOperationOptions {
-  batchSize: number;
-  concurrency: number;
-  timeout: number;
-  retryAttempts: number;
-  retryDelay: number;
-  continueOnError: boolean;
-  transactional: boolean;
+import { Injectable, Logger } from '@nestjs/common';
+
+/**
+ * 批量操作选项
+ */
+export interface BatchOptions {
+  /** 批次大小 */
+  batchSize?: number;
+  /** 并发数 */
+  concurrency?: number;
+  /** 遇到错误是否停止 */
+  stopOnError?: boolean;
+  /** 重试次数 */
+  retries?: number;
+  /** 重试延迟（毫秒） */
+  retryDelay?: number;
+  /** 进度回调 */
+  onProgress?: (processed: number, total: number) => void;
+  /** 错误回调 */
+  onError?: (error: Error, item: any, index: number) => void | Promise<void>;
 }
 
-export interface BatchOperationResult<T, R> {
-  success: boolean;
-  total: number;
-  processed: number;
-  succeeded: number;
-  failed: number;
-  results: Array<{
-    item: T;
-    success: boolean;
-    result?: R;
-    error?: string;
+/**
+ * 批量操作结果
+ */
+export interface BatchResult<T> {
+  /** 成功的项目 */
+  success: T[];
+  /** 失败的项目 */
+  failed: Array<{
+    item: any;
+    index: number;
+    error: Error;
   }>;
-  errors: Array<{
-    item: T;
-    error: string;
-  }>;
+  /** 处理的总数 */
+  totalProcessed: number;
+  /** 成功数量 */
+  successCount: number;
+  /** 失败数量 */
+  failedCount: number;
+  /** 处理时间（毫秒） */
   duration: number;
+  /** 平均处理时间（毫秒/项） */
+  avgProcessingTime: number;
 }
 
-export interface BatchProcessor<T, R> {
-  process(item: T, manager?: EntityManager): Promise<R>;
-  validate?(item: T): Promise<boolean>;
-  beforeBatch?(items: T[]): Promise<void>;
-  afterBatch?(items: T[], results: BatchOperationResult<T, R>): Promise<void>;
+/**
+ * 批量操作统计
+ */
+export interface BatchStats {
+  /** 总处理数 */
+  totalProcessed: number;
+  /** 总成功数 */
+  totalSuccess: number;
+  /** 总失败数 */
+  totalFailed: number;
+  /** 平均批次大小 */
+  avgBatchSize: number;
+  /** 平均处理时间 */
+  avgProcessingTime: number;
 }
 
-const DEFAULT_OPTIONS: BatchOperationOptions = {
-  batchSize: 100,
-  concurrency: 5,
-  timeout: 30000,
-  retryAttempts: 3,
-  retryDelay: 1000,
-  continueOnError: true,
-  transactional: false,
-};
-
+/**
+ * 批量操作服务
+ */
 @Injectable()
-export class BatchOperationService implements OnModuleInit, OnModuleDestroy {
+export class BatchOperationService {
   private readonly logger = new Logger(BatchOperationService.name);
-  private readonly activeOperations = new Map<string, AbortController>();
+  private readonly stats: BatchStats = {
+    totalProcessed: 0,
+    totalSuccess: 0,
+    totalFailed: 0,
+    avgBatchSize: 0,
+    avgProcessingTime: 0,
+  };
+  private readonly processingTimes: number[] = [];
 
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly dataSource: DataSource,
-  ) {}
-
-  onModuleInit() {
-    this.logger.log('BatchOperationService initialized');
-  }
-
-  onModuleDestroy() {
-    for (const [id, controller] of this.activeOperations) {
-      controller.abort();
-      this.logger.debug(`Aborted operation: ${id}`);
-    }
-  }
-
-  async execute<T, R>(
+  /**
+   * 批量处理（简单版本）
+   */
+  async processBatch<T, R>(
     items: T[],
-    processor: BatchProcessor<T, R>,
-    options?: Partial<BatchOperationOptions>,
-    operationId?: string,
-  ): Promise<BatchOperationResult<T, R>> {
-    const opts = { ...DEFAULT_OPTIONS, ...options };
-    const id = operationId || this.generateOperationId();
+    processor: (item: T, index: number) => Promise<R>,
+    options: BatchOptions = {},
+  ): Promise<BatchResult<R>> {
+    const {
+      batchSize = 20,
+      concurrency = 1,
+      stopOnError = false,
+      retries = 0,
+      retryDelay = 1000,
+      onProgress,
+      onError,
+    } = options;
+
     const startTime = Date.now();
+    const success: R[] = [];
+    const failed: Array<{ item: T; index: number; error: Error }> = [];
 
-    const abortController = new AbortController();
-    this.activeOperations.set(id, abortController);
+    // 分割成批次
+    const batches: T[][] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      batches.push(items.slice(i, i + batchSize));
+    }
 
-    const result: BatchOperationResult<T, R> = {
-      success: true,
-      total: items.length,
-      processed: 0,
-      succeeded: 0,
-      failed: 0,
-      results: [],
-      errors: [],
-      duration: 0,
-    };
+    let processedCount = 0;
 
-    try {
-      if (processor.beforeBatch) {
-        await processor.beforeBatch(items);
-      }
+    // 处理批次
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      const batchStartIndex = batchIndex * batchSize;
 
-      const batches = this.chunkArray(items, opts.batchSize);
+      // 并发处理批次中的项目
+      const promises = batch.map(async (item, itemIndex) => {
+        const globalIndex = batchStartIndex + itemIndex;
 
-      for (const batch of batches) {
-        if (abortController.signal.aborted) {
-          this.logger.warn(`Operation ${id} was aborted`);
-          break;
-        }
+        try {
+          const result = await this.processWithRetry(
+            item,
+            globalIndex,
+            processor,
+            retries,
+            retryDelay,
+          );
+          success.push(result);
+        } catch (error) {
+          const err = error as Error;
 
-        const batchResults = await this.processBatch(batch, processor, opts);
-        
-        for (const batchResult of batchResults) {
-          result.results.push(batchResult);
-          result.processed++;
+          // 错误回调
+          if (onError) {
+            await onError(err, item, globalIndex);
+          }
 
-          if (batchResult.success) {
-            result.succeeded++;
-          } else {
-            result.failed++;
-            result.errors.push({
-              item: batchResult.item,
-              error: batchResult.error || 'Unknown error',
-            });
+          // 记录失败
+          failed.push({
+            item,
+            index: globalIndex,
+            error: err,
+          });
+
+          // 遇到错误是否停止
+          if (stopOnError) {
+            throw err;
           }
         }
+      });
+
+      // 等待批次完成
+      await Promise.all(promises);
+
+      // 更新进度
+      processedCount += batch.length;
+      if (onProgress) {
+        onProgress(processedCount, items.length);
       }
+    }
 
-      if (processor.afterBatch) {
-        await processor.afterBatch(items, result);
+    const duration = Date.now() - startTime;
+    const result: BatchResult<R> = {
+      success,
+      failed,
+      totalProcessed: processedCount,
+      successCount: success.length,
+      failedCount: failed.length,
+      duration,
+      avgProcessingTime: duration / processedCount,
+    };
+
+    // 更新统计
+    this.updateStats(result);
+
+    return result;
+  }
+
+  /**
+   * 批量处理（高并发版本）
+   */
+  async processBatchConcurrent<T, R>(
+    items: T[],
+    processor: (item: T, index: number) => Promise<R>,
+    options: BatchOptions & { maxConcurrency?: number } = {},
+  ): Promise<BatchResult<R>> {
+    const {
+      maxConcurrency = 10,
+      batchSize = 20,
+      retries = 0,
+      retryDelay = 1000,
+      onProgress,
+      onError,
+    } = options;
+
+    const startTime = Date.now();
+    const success: R[] = [];
+    const failed: Array<{ item: T; index: number; error: Error }> = [];
+    const results = new Array<R | null>(items.length);
+
+    let processedCount = 0;
+    let activeCount = 0;
+    let nextIndex = 0;
+
+    return new Promise((resolve, reject) => {
+      const processNext = async () => {
+        while (activeCount < maxConcurrency && nextIndex < items.length) {
+          const currentIndex = nextIndex++;
+          const item = items[currentIndex];
+          activeCount++;
+
+          this.processWithRetry(item, currentIndex, processor, retries, retryDelay)
+            .then(result => {
+              results[currentIndex] = result;
+              success.push(result);
+            })
+            .catch(error => {
+              const err = error as Error;
+
+              if (onError) {
+                onError(err, item, currentIndex);
+              }
+
+              failed.push({ item, index: currentIndex, error: err });
+            })
+            .finally(() => {
+              activeCount--;
+              processedCount++;
+
+              if (onProgress) {
+                onProgress(processedCount, items.length);
+              }
+
+              if (processedCount === items.length) {
+                const duration = Date.now() - startTime;
+                const validResults = results.filter((r): r is R => r !== null);
+
+                const result: BatchResult<R> = {
+                  success: validResults,
+                  failed,
+                  totalProcessed: processedCount,
+                  successCount: success.length,
+                  failedCount: failed.length,
+                  duration,
+                  avgProcessingTime: duration / processedCount,
+                };
+
+                this.updateStats(result);
+                resolve(result);
+              } else {
+                processNext();
+              }
+            });
+        }
+      };
+
+      processNext();
+    });
+  }
+
+  /**
+   * 批量创建
+   */
+  async bulkCreate<T, R>(
+    items: T[],
+    creator: (items: T[]) => Promise<R[]>,
+    options: { batchSize?: number } = {},
+  ): Promise<BatchResult<R>> {
+    const { batchSize = 100 } = options;
+    const startTime = Date.now();
+    const success: R[] = [];
+    const failed: Array<{ item: T; index: number; error: Error }> = [];
+
+    try {
+      // 分批创建
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const results = await creator(batch);
+        success.push(...results);
       }
+    } catch (error) {
+      // 如果批量失败，尝试单个处理
+      this.logger.warn('Bulk operation failed, falling back to individual processing');
 
-      result.success = result.failed === 0;
-      result.duration = Date.now() - startTime;
-
-      this.logger.log(
-        `Batch operation ${id} completed: ${result.succeeded}/${result.total} succeeded in ${result.duration}ms`,
-      );
-
-      return result;
-    } catch (error: any) {
-      this.logger.error(`Batch operation ${id} failed:`, error);
-      result.success = false;
-      result.duration = Date.now() - startTime;
-      return result;
-    } finally {
-      this.activeOperations.delete(id);
+      for (let i = 0; i < items.length; i++) {
+        try {
+          const results = await creator([items[i]]);
+          success.push(...results);
+        } catch (err) {
+          failed.push({
+            item: items[i],
+            index: i,
+            error: err as Error,
+          });
+        }
+      }
     }
+
+    const duration = Date.now() - startTime;
+
+    return {
+      success,
+      failed,
+      totalProcessed: items.length,
+      successCount: success.length,
+      failedCount: failed.length,
+      duration,
+      avgProcessingTime: duration / items.length,
+    };
   }
 
-  async executeTransactional<T, R>(
+  /**
+   * 批量更新
+   */
+  async bulkUpdate<T, R>(
+    items: Array<{ id: string | number; data: T }>,
+    updater: (id: string | number, data: T) => Promise<R>,
+    options: BatchOptions = {},
+  ): Promise<BatchResult<R>> {
+    return this.processBatch(
+      items,
+      async (item) => updater(item.id, item.data),
+      options,
+    );
+  }
+
+  /**
+   * 批量删除
+   */
+  async bulkDelete(
+    ids: Array<string | number>,
+    deleter: (id: string | number) => Promise<void>,
+    options: BatchOptions = {},
+  ): Promise<BatchResult<void>> {
+    return this.processBatch(
+      ids,
+      async (id) => deleter(id),
+      options,
+    );
+  }
+
+  /**
+   * 分块处理大数组
+   */
+  async processChunks<T, R>(
     items: T[],
-    processor: BatchProcessor<T, R>,
-    options?: Partial<BatchOperationOptions>,
-  ): Promise<BatchOperationResult<T, R>> {
-    const opts = { ...DEFAULT_OPTIONS, ...options, transactional: true };
-    return this.execute(items, processor, opts);
-  }
+    processor: (chunk: T[], startIndex: number) => Promise<R[]>,
+    options: { chunkSize?: number } = {},
+  ): Promise<R[]> {
+    const { chunkSize = 100 } = options;
+    const results: R[] = [];
 
-  async executeParallel<T, R>(
-    items: T[],
-    processor: BatchProcessor<T, R>,
-    options?: Partial<BatchOperationOptions>,
-  ): Promise<BatchOperationResult<T, R>> {
-    const opts = { ...DEFAULT_OPTIONS, ...options, concurrency: 10 };
-    return this.execute(items, processor, opts);
-  }
-
-  abort(operationId: string): boolean {
-    const controller = this.activeOperations.get(operationId);
-    if (controller) {
-      controller.abort();
-      return true;
-    }
-    return false;
-  }
-
-  getActiveOperations(): string[] {
-    return Array.from(this.activeOperations.keys());
-  }
-
-  private async processBatch<T, R>(
-    batch: T[],
-    processor: BatchProcessor<T, R>,
-    options: BatchOperationOptions,
-  ): Promise<Array<{ item: T; success: boolean; result?: R; error?: string }>> {
-    const results: Array<{ item: T; success: boolean; result?: R; error?: string }> = [];
-
-    if (options.transactional) {
-      return this.processBatchTransactional(batch, processor, options);
-    }
-
-    const chunks = this.chunkArray(batch, options.concurrency);
-
-    for (const chunk of chunks) {
-      const chunkResults = await Promise.all(
-        chunk.map((item) => this.processItem(item, processor, options)),
-      );
+    for (let i = 0; i < items.length; i += chunkSize) {
+      const chunk = items.slice(i, i + chunkSize);
+      const chunkResults = await processor(chunk, i);
       results.push(...chunkResults);
     }
 
     return results;
   }
 
-  private async processBatchTransactional<T, R>(
-    batch: T[],
-    processor: BatchProcessor<T, R>,
-    options: BatchOperationOptions,
-  ): Promise<Array<{ item: T; success: boolean; result?: R; error?: string }>> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  /**
+   * 流式处理
+   */
+  async processStream<T, R>(
+    items: AsyncIterable<T> | Iterable<T>,
+    processor: (item: T, index: number) => Promise<R>,
+    options: { concurrency?: number; onProgress?: (processed: number) => void } = {},
+  ): Promise<R[]> {
+    const { concurrency = 1, onProgress } = options;
+    const results: R[] = [];
+    let index = 0;
 
-    const results: Array<{ item: T; success: boolean; result?: R; error?: string }> = [];
-
-    try {
-      for (const item of batch) {
-        const result = await this.processItem(item, processor, options, queryRunner.manager);
+    // 处理同步可迭代
+    if (!(Symbol.asyncIterator in items)) {
+      for (const item of items as Iterable<T>) {
+        const result = await processor(item, index++);
         results.push(result);
 
-        if (!result.success && !options.continueOnError) {
-          throw new Error(`Processing failed: ${result.error}`);
+        if (onProgress) {
+          onProgress(index);
         }
       }
-
-      await queryRunner.commitTransaction();
-    } catch (error: any) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error('Transaction rolled back:', error);
-
-      for (const result of results) {
-        if (result.success) {
-          result.success = false;
-          result.error = 'Transaction rolled back';
-        }
-      }
-    } finally {
-      await queryRunner.release();
+      return results;
     }
 
-    return results;
-  }
+    // 处理异步可迭代
+    const activePromises: Promise<void>[] = [];
 
-  private async processItem<T, R>(
-    item: T,
-    processor: BatchProcessor<T, R>,
-    options: BatchOperationOptions,
-    manager?: EntityManager,
-  ): Promise<{ item: T; success: boolean; result?: R; error?: string }> {
-    let lastError: Error | undefined;
+    for await (const item of items as AsyncIterable<T>) {
+      const currentIndex = index++;
 
-    for (let attempt = 0; attempt <= options.retryAttempts; attempt++) {
-      try {
-        if (processor.validate) {
-          const valid = await processor.validate(item);
-          if (!valid) {
-            return {
-              item,
-              success: false,
-              error: 'Validation failed',
-            };
+      const promise = processor(item, currentIndex)
+        .then(result => {
+          results[currentIndex] = result;
+          if (onProgress) {
+            onProgress(currentIndex + 1);
           }
-        }
+        })
+        .catch(error => {
+          this.logger.error(`Error processing item ${currentIndex}:`, error);
+          throw error;
+        });
 
-        const result = await processor.process(item, manager);
+      activePromises.push(promise);
 
-        return {
-          item,
-          success: true,
-          result,
-        };
-      } catch (error: any) {
-        lastError = error;
-
-        if (attempt < options.retryAttempts) {
-          await this.sleep(options.retryDelay * Math.pow(2, attempt));
-          this.logger.debug(`Retrying item (attempt ${attempt + 1}): ${error.message}`);
+      if (activePromises.length >= concurrency) {
+        await Promise.race(activePromises);
+        const completedIndex = activePromises.findIndex(p =>
+          p === Promise.race(activePromises),
+        );
+        if (completedIndex !== -1) {
+          activePromises.splice(completedIndex, 1);
         }
       }
     }
 
-    return {
-      item,
-      success: false,
-      error: lastError?.message || 'Unknown error',
-    };
+    await Promise.all(activePromises);
+    return results.filter(r => r !== undefined);
   }
 
-  private chunkArray<T>(array: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += size) {
-      chunks.push(array.slice(i, i + size));
+  /**
+   * 获取统计信息
+   */
+  getStats(): BatchStats {
+    return { ...this.stats };
+  }
+
+  /**
+   * 重置统计
+   */
+  resetStats(): void {
+    Object.assign(this.stats, {
+      totalProcessed: 0,
+      totalSuccess: 0,
+      totalFailed: 0,
+      avgBatchSize: 0,
+      avgProcessingTime: 0,
+    });
+    this.processingTimes.length = 0;
+  }
+
+  /**
+   * 带重试的处理
+   */
+  private async processWithRetry<T, R>(
+    item: T,
+    index: number,
+    processor: (item: T, index: number) => Promise<R>,
+    retries: number,
+    retryDelay: number,
+  ): Promise<R> {
+    let lastError: Error;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await processor(item, index);
+      } catch (error) {
+        lastError = error as Error;
+
+        if (attempt < retries) {
+          this.logger.warn(
+            `Retry ${attempt + 1}/${retries} for item at index ${index}: ${lastError.message}`,
+          );
+          await this.sleep(retryDelay * Math.pow(2, attempt));
+        }
+      }
     }
-    return chunks;
+
+    throw lastError!;
   }
 
+  /**
+   * 更新统计
+   */
+  private updateStats(result: BatchResult<any>): void {
+    this.stats.totalProcessed += result.totalProcessed;
+    this.stats.totalSuccess += result.successCount;
+    this.stats.totalFailed += result.failedCount;
+
+    this.processingTimes.push(result.avgProcessingTime);
+    if (this.processingTimes.length > 100) {
+      this.processingTimes.shift();
+    }
+
+    const total = this.processingTimes.reduce((a, b) => a + b, 0);
+    this.stats.avgProcessingTime = total / this.processingTimes.length;
+  }
+
+  /**
+   * 休眠
+   */
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
-
-  private generateOperationId(): string {
-    return `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-}
-
-export function createBatchProcessor<T, R>(
-  processFn: (item: T, manager?: EntityManager) => Promise<R>,
-  options?: {
-    validate?: (item: T) => Promise<boolean>;
-    beforeBatch?: (items: T[]) => Promise<void>;
-    afterBatch?: (items: T[], results: BatchOperationResult<T, R>) => Promise<void>;
-  },
-): BatchProcessor<T, R> {
-  return {
-    process: processFn,
-    validate: options?.validate,
-    beforeBatch: options?.beforeBatch,
-    afterBatch: options?.afterBatch,
-  };
 }

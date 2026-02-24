@@ -1,5 +1,4 @@
 import {
-  Controller,
   Get,
   Post,
   Put,
@@ -7,106 +6,116 @@ import {
   Body,
   Param,
   Query,
-  ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { CrudService } from '../base/crud.service';
+import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { BaseEntity } from '../base.entity';
-import { PaginationDto, IdParamDto, UuidParamDto } from '../dto/pagination.dto';
-import { ApiResponseDto, PagedResponseDto } from '../dto/response.dto';
-import {
-  ApiSuccessResponse,
-  ApiPagedResponse,
-  ApiBadRequestResponse,
-  ApiNotFoundResponse,
-} from '../decorators/response.decorator';
-import { ObjectLiteral } from 'typeorm';
+import { BaseEntityService } from '../base/entity.service';
+import { PaginationDto } from '../dto/pagination.dto';
+import { PagedResponseDto } from '../dto/response.dto';
 
 export interface CrudControllerOptions {
-  name: string;
-  path: string;
-  tag?: string;
-  bearerAuth?: boolean;
+  entityName: string;
+  entityNamePlural?: string;
+  defaultLimit?: number;
+  maxLimit?: number;
+  enableCache?: boolean;
 }
 
-export function createCrudController<T extends BaseEntity & ObjectLiteral>(
-  service: new (...args: any[]) => CrudService<T>,
-  createDto: new (...args: any[]) => any,
-  updateDto: new (...args: any[]) => any,
+export function createCrudController<T extends BaseEntity>(
+  serviceToken: symbol | string,
   options: CrudControllerOptions,
 ): any {
-  const { name, path, tag, bearerAuth = true } = options;
-  const tagName = tag || name;
+  const { entityName, entityNamePlural = `${entityName}s` } = options;
 
-  @ApiTags(tagName)
-  @Controller(path)
-  class CrudControllerBase {
-    constructor(protected readonly crudService: CrudService<T>) {}
-
-    @Post()
-    @ApiOperation({ summary: `Create ${name}` })
-    @ApiSuccessResponse(`Created successfully`, { type: createDto })
-    @ApiBadRequestResponse('Invalid input data')
-    async create(@Body() dto: InstanceType<typeof createDto>): Promise<T> {
-      return this.crudService.create(dto);
-    }
+  @ApiTags(entityNamePlural)
+  class BaseCrudController {
+    protected readonly service: BaseEntityService<T>;
 
     @Get()
-    @ApiOperation({ summary: `Get all ${name} list` })
-    @ApiPagedResponse(`Success`, createDto)
+    @ApiOperation({ summary: `Get all ${entityNamePlural}` })
+    @ApiResponse({ status: 200, description: `List of ${entityNamePlural}` })
     async findAll(@Query() pagination: PaginationDto): Promise<PagedResponseDto<T>> {
-      return this.crudService.findWithPagination(pagination);
+      return this.service.findWithPagination(pagination);
     }
 
     @Get(':id')
-    @ApiOperation({ summary: `Get ${name} by ID` })
-    @ApiSuccessResponse(`Success`, { type: createDto })
-    @ApiNotFoundResponse(`${name} not found`)
-    async findOne(@Param() params: IdParamDto): Promise<T> {
-      return this.crudService.findOneOrFail(params.id);
+    @ApiOperation({ summary: `Get ${entityName} by ID` })
+    @ApiResponse({ status: 200, description: `The ${entityName}` })
+    @ApiResponse({ status: 404, description: `${entityName} not found` })
+    async findOne(@Param('id') id: string): Promise<any> {
+      const entity = await this.service.findOneOrFail(id);
+      return { success: true, code: 200, data: entity };
+    }
+
+    @Post()
+    @ApiOperation({ summary: `Create ${entityName}` })
+    @ApiResponse({ status: 201, description: `The ${entityName} has been created` })
+    async create(@Body() createDto: any): Promise<any> {
+      const entity = await this.service.create(createDto);
+      return { success: true, code: 201, data: entity, message: `${entityName} created successfully` };
     }
 
     @Put(':id')
-    @ApiOperation({ summary: `Update ${name}` })
-    @ApiSuccessResponse(`Updated successfully`, { type: updateDto })
-    @ApiNotFoundResponse(`${name} not found`)
+    @ApiOperation({ summary: `Update ${entityName}` })
+    @ApiResponse({ status: 200, description: `The ${entityName} has been updated` })
+    @ApiResponse({ status: 404, description: `${entityName} not found` })
     async update(
-      @Param() params: IdParamDto,
-      @Body() dto: InstanceType<typeof updateDto>,
-    ): Promise<T> {
-      return this.crudService.update(params.id, dto);
+      @Param('id') id: string,
+      @Body() updateDto: any,
+    ): Promise<any> {
+      const entity = await this.service.update(id, updateDto);
+      return { success: true, code: 200, data: entity, message: `${entityName} updated successfully` };
     }
 
     @Delete(':id')
-    @ApiOperation({ summary: `Delete ${name}` })
-    @ApiSuccessResponse(`Deleted successfully`)
-    @ApiNotFoundResponse(`${name} not found`)
-    async remove(@Param() params: IdParamDto): Promise<{ success: boolean }> {
-      await this.crudService.remove(params.id);
-      return { success: true };
+    @ApiOperation({ summary: `Delete ${entityName}` })
+    @ApiResponse({ status: 200, description: `The ${entityName} has been deleted` })
+    @ApiResponse({ status: 404, description: `${entityName} not found` })
+    async remove(@Param('id') id: string): Promise<any> {
+      await this.service.remove(id);
+      return { success: true, code: 200, data: null, message: `${entityName} deleted successfully` };
     }
   }
 
-  if (bearerAuth) {
-    ApiBearerAuth()(CrudControllerBase);
-  }
-
-  return CrudControllerBase;
+  return BaseCrudController;
 }
 
-export abstract class BaseController<T extends BaseEntity & ObjectLiteral> {
-  constructor(protected readonly crudService: CrudService<T>) {}
+export abstract class BaseController<T extends BaseEntity> {
+  protected abstract readonly service: BaseEntityService<T>;
+  protected abstract readonly entityName: string;
 
-  protected success<R>(data: R, message: string = 'success'): ApiResponseDto<R> {
-    return ApiResponseDto.success(data, message);
+  protected success<R>(data: R, message?: string): any {
+    return { success: true, code: 200, data, message };
   }
 
-  protected paged<R>(
+  protected error(message: string, code: number = 500): any {
+    return { success: false, code, message };
+  }
+
+  protected paginated<R>(
     list: R[],
     total: number,
     page: number,
     pageSize: number,
-  ): PagedResponseDto<R> {
-    return PagedResponseDto.create(list, total, page, pageSize);
+  ): any {
+    return PagedResponseDto.create(list, { page, pageSize, total });
+  }
+
+  protected async getEntityOrThrow(id: string): Promise<T> {
+    return this.service.findOneOrFail(id);
+  }
+
+  protected async existsEntity(where: any): Promise<boolean> {
+    return this.service.exists(where);
+  }
+}
+
+export abstract class OwnedEntityController<T extends BaseEntity & { ownerId: string }> extends BaseController<T> {
+  protected async checkOwnership(id: string, userId: string): Promise<T> {
+    const entity = await this.getEntityOrThrow(id);
+    if (entity.ownerId !== userId) {
+      throw new Error(`You don't have permission to access this ${this.entityName}`);
+    }
+    return entity;
   }
 }

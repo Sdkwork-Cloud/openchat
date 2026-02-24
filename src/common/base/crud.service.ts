@@ -1,9 +1,6 @@
 import {
   Injectable,
   Logger,
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   DataSource,
@@ -19,8 +16,9 @@ import {
 } from 'typeorm';
 import { BaseEntity } from '../base.entity';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
-import { PaginationDto, CursorPaginationDto } from '../dto/pagination.dto';
-import { ApiResponseDto, PagedResponseDto, CursorResponseDto } from '../dto/response.dto';
+import { PaginationQueryDto } from '../dto/base.dto';
+import { PaginationDto, CursorPaginationDto, CursorResponseDto } from '../dto/pagination.dto';
+import { PagedResponseDto } from '../dto/response.dto';
 
 export interface FindAllOptions<T> {
   where?: FindOptionsWhere<T> | FindOptionsWhere<T>[];
@@ -220,7 +218,7 @@ export abstract class CrudService<T extends BaseEntity & ObjectLiteral> implemen
       take: pagination.limit,
     });
 
-    return PagedResponseDto.create(list, total, pagination.page, pagination.pageSize);
+    return PagedResponseDto.create(list, { page: pagination.page, pageSize: pagination.pageSize, total });
   }
 
   async findWithCursor(

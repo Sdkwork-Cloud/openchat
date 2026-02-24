@@ -1,502 +1,531 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { SelectQueryBuilder, Repository, ObjectLiteral } from 'typeorm';
+/**
+ * 增强型分页服务
+ * 
+ * 提供多种分页策略：偏移量分页、游标分页、关键集分页
+ * 支持分页元数据、排序、过滤等功能
+ * 
+ * @framework
+ */
 
-export interface PaginationParams {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'ASC' | 'DESC';
-  search?: string;
-  searchFields?: string[];
-  filters?: Record<string, any>;
-  dateRange?: {
-    field: string;
-    start?: Date;
-    end?: Date;
-  };
-  includeDeleted?: boolean;
-  relations?: string[];
-  select?: string[];
-}
+import { Injectable } from '@nestjs/common';
+import { SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 
-export interface PaginationResult<T> {
-  data: T[];
-  meta: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-    startItem: number;
-    endItem: number;
-  };
-  links?: {
-    first: string;
-    last: string;
-    next: string | null;
-    prev: string | null;
-  };
-}
+/**
+ * 分页方向
+ */
+export type PaginationDirection = 'forward' | 'backward';
 
-export interface CursorPaginationParams {
+/**
+ * 排序方向
+ */
+export type SortDirection = 'ASC' | 'DESC';
+
+/**
+ * 分页选项
+ */
+export interface PaginationOptions {
+  /** 页码（偏移量分页） */
+  page?: number;
+  /** 每页数量 */
+  limit?: number;
+  /** 偏移量 */
+  offset?: number;
+  /** 游标（游标分页） */
   cursor?: string;
-  limit: number;
+  /** 排序字段 */
   sortBy?: string;
-  sortOrder?: 'ASC' | 'DESC';
-  cursorField?: string;
-  search?: string;
-  searchFields?: string[];
-  filters?: Record<string, any>;
-  includeDeleted?: boolean;
-  relations?: string[];
+  /** 排序方向 */
+  sortDirection?: SortDirection;
+  /** 分页方向 */
+  direction?: PaginationDirection;
+  /** 是否包含总数 */
+  includeTotal?: boolean;
+  /** 最大限制 */
+  maxLimit?: number;
+  /** 默认限制 */
+  defaultLimit?: number;
 }
 
-export interface CursorPaginationResult<T> {
-  data: T[];
-  meta: {
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-    startCursor: string | null;
-    endCursor: string | null;
-    limit: number;
+/**
+ * 分页元数据
+ */
+export interface PaginationMeta {
+  /** 当前页码 */
+  page: number;
+  /** 每页数量 */
+  limit: number;
+  /** 总记录数 */
+  total?: number;
+  /** 总页数 */
+  totalPages?: number;
+  /** 是否有上一页 */
+  hasPrevious: boolean;
+  /** 是否有下一页 */
+  hasNext: boolean;
+  /** 上一页页码 */
+  previousPage?: number;
+  /** 下一页页码 */
+  nextPage?: number;
+  /** 游标信息 */
+  cursor?: {
+    /** 当前游标 */
+    current: string | null;
+    /** 下一页游标 */
+    next: string | null;
+    /** 上一页游标 */
+    previous: string | null;
   };
 }
 
-export interface PaginationConfig {
-  maxLimit?: number;
-  defaultLimit?: number;
-  defaultSortBy?: string;
-  defaultSortOrder?: 'ASC' | 'DESC';
+/**
+ * 分页结果
+ */
+export interface PaginationResult<T> {
+  /** 数据列表 */
+  data: T[];
+  /** 分页元数据 */
+  meta: PaginationMeta;
+  /** 查询时间（毫秒） */
+  queryTime?: number;
 }
 
+/**
+ * 游标分页结果
+ */
+export interface CursorPaginationResult<T> {
+  /** 数据列表 */
+  data: T[];
+  /** 游标信息 */
+  cursor: {
+    /** 当前游标 */
+    current: string | null;
+    /** 下一页游标 */
+    next: string | null;
+    /** 上一页游标 */
+    previous: string | null;
+    /** 是否有更多 */
+    hasMore: boolean;
+  };
+  /** 限制数量 */
+  limit: number;
+}
+
+/**
+ * 过滤条件
+ */
+export interface FilterCondition {
+  /** 字段 */
+  field: string;
+  /** 操作符 */
+  operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in' | 'between' | 'null' | 'notNull';
+  /** 值 */
+  value?: any;
+  /** 值 2（用于 between） */
+  value2?: any;
+}
+
+/**
+ * 查询选项
+ */
+export interface QueryOptions<T> extends PaginationOptions {
+  /** 过滤条件 */
+  filters?: FilterCondition[];
+  /** 搜索关键词 */
+  search?: string;
+  /** 搜索字段 */
+  searchFields?: (keyof T)[];
+  /** 包含关系 */
+  relations?: string[];
+  /** 选择字段 */
+  select?: (keyof T)[];
+  /** 额外排序 */
+  orderBy?: { field: string; direction: SortDirection }[];
+}
+
+/**
+ * 增强型分页服务
+ */
 @Injectable()
 export class PaginationService {
-  private readonly logger = new Logger(PaginationService.name);
-  private readonly defaultConfig: Required<PaginationConfig> = {
-    maxLimit: 1000,
-    defaultLimit: 20,
-    defaultSortBy: 'createdAt',
-    defaultSortOrder: 'DESC',
-  };
-
-  constructor() {}
-
-  async paginate<T extends ObjectLiteral>(
-    repository: Repository<T>,
-    params: PaginationParams,
-    config?: PaginationConfig,
-  ): Promise<PaginationResult<T>> {
-    const mergedConfig = { ...this.defaultConfig, ...config };
-    const page = Math.max(1, params.page || 1);
-    const limit = Math.min(
-      Math.max(1, params.limit || mergedConfig.defaultLimit),
-      mergedConfig.maxLimit,
-    );
-
-    const queryBuilder = repository.createQueryBuilder('entity');
-
-    this.applyRelations(queryBuilder, params.relations);
-    this.applySelect(queryBuilder, params.select);
-    this.applySearch(queryBuilder, params.search, params.searchFields);
-    this.applyFilters(queryBuilder, params.filters);
-    this.applyDateRange(queryBuilder, params.dateRange);
-    this.applySorting(queryBuilder, params.sortBy || mergedConfig.defaultSortBy, params.sortOrder || mergedConfig.defaultSortOrder);
-
-    if (!params.includeDeleted) {
-      this.applySoftDeleteFilter(queryBuilder);
-    }
-
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
-    const [data, totalItems] = await queryBuilder.getManyAndCount();
-
-    const totalPages = Math.ceil(totalItems / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-    const startItem = totalItems > 0 ? skip + 1 : 0;
-    const endItem = Math.min(skip + limit, totalItems);
-
-    return {
-      data,
-      meta: {
-        page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage,
-        hasPrevPage,
-        startItem,
-        endItem,
-      },
-    };
-  }
-
-  async paginateQueryBuilder<T extends ObjectLiteral>(
+  /**
+   * 应用分页到 TypeORM 查询构建器
+   */
+  applyPagination<T extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<T>,
-    params: PaginationParams,
-    config?: PaginationConfig,
-  ): Promise<PaginationResult<T>> {
-    const mergedConfig = { ...this.defaultConfig, ...config };
-    const page = Math.max(1, params.page || 1);
-    const limit = Math.min(
-      Math.max(1, params.limit || mergedConfig.defaultLimit),
-      mergedConfig.maxLimit,
-    );
+    options: PaginationOptions,
+  ): SelectQueryBuilder<T> {
+    const limit = this.getLimit(options);
+    const offset = this.getOffset(options);
 
-    this.applySearch(queryBuilder, params.search, params.searchFields);
-    this.applyFilters(queryBuilder, params.filters);
-    this.applyDateRange(queryBuilder, params.dateRange);
-    this.applySorting(queryBuilder, params.sortBy || mergedConfig.defaultSortBy, params.sortOrder || mergedConfig.defaultSortOrder);
+    queryBuilder.skip(offset).take(limit + 1); // 多取一条用于判断是否有下一页
 
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
-    const [data, totalItems] = await queryBuilder.getManyAndCount();
-
-    const totalPages = Math.ceil(totalItems / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-    const startItem = totalItems > 0 ? skip + 1 : 0;
-    const endItem = Math.min(skip + limit, totalItems);
-
-    return {
-      data,
-      meta: {
-        page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage,
-        hasPrevPage,
-        startItem,
-        endItem,
-      },
-    };
+    return queryBuilder;
   }
 
-  async cursorPaginate<T extends ObjectLiteral>(
-    repository: Repository<T>,
-    params: CursorPaginationParams,
-    config?: PaginationConfig,
-  ): Promise<CursorPaginationResult<T>> {
-    const mergedConfig = { ...this.defaultConfig, ...config };
-    const limit = Math.min(
-      Math.max(1, params.limit || mergedConfig.defaultLimit),
-      mergedConfig.maxLimit,
-    );
-    const cursorField = params.cursorField || 'id';
-    const sortBy = params.sortBy || cursorField;
-    const sortOrder = params.sortOrder || 'DESC';
-
-    const queryBuilder = repository.createQueryBuilder('entity');
-
-    this.applyRelations(queryBuilder, params.relations);
-    this.applySearch(queryBuilder, params.search, params.searchFields);
-    this.applyFilters(queryBuilder, params.filters);
-
-    if (!params.includeDeleted) {
-      this.applySoftDeleteFilter(queryBuilder);
+  /**
+   * 应用排序到 TypeORM 查询构建器
+   */
+  applySorting<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    options: { sortBy?: string; sortDirection?: SortDirection; orderBy?: { field: string; direction: SortDirection }[] },
+  ): SelectQueryBuilder<T> {
+    // 主排序
+    if (options.sortBy) {
+      queryBuilder.addOrderBy(`${queryBuilder.alias}.${options.sortBy}`, options.sortDirection || 'ASC');
     }
 
-    if (params.cursor) {
-      const cursorValue = this.decodeCursor(params.cursor);
-      if (cursorValue) {
-        if (sortOrder === 'DESC') {
-          queryBuilder.andWhere(`entity.${sortBy} < :cursorValue`, { cursorValue });
-        } else {
-          queryBuilder.andWhere(`entity.${sortBy} > :cursorValue`, { cursorValue });
-        }
+    // 额外排序
+    if (options.orderBy?.length) {
+      for (const { field, direction } of options.orderBy) {
+        queryBuilder.addOrderBy(`${queryBuilder.alias}.${field}`, direction);
       }
     }
 
-    queryBuilder.orderBy(`entity.${sortBy}`, sortOrder);
+    return queryBuilder;
+  }
+
+  /**
+   * 应用过滤到 TypeORM 查询构建器
+   */
+  applyFilters<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    filters: FilterCondition[] | undefined,
+  ): SelectQueryBuilder<T> {
+    if (!filters?.length) return queryBuilder;
+
+    filters.forEach((filter, index) => {
+      const paramName = `filter_${index}`;
+      const alias = queryBuilder.alias;
+
+      switch (filter.operator) {
+        case 'eq':
+          queryBuilder.andWhere(`${alias}.${filter.field} = :${paramName}`, { [paramName]: filter.value });
+          break;
+        case 'ne':
+          queryBuilder.andWhere(`${alias}.${filter.field} != :${paramName}`, { [paramName]: filter.value });
+          break;
+        case 'gt':
+          queryBuilder.andWhere(`${alias}.${filter.field} > :${paramName}`, { [paramName]: filter.value });
+          break;
+        case 'gte':
+          queryBuilder.andWhere(`${alias}.${filter.field} >= :${paramName}`, { [paramName]: filter.value });
+          break;
+        case 'lt':
+          queryBuilder.andWhere(`${alias}.${filter.field} < :${paramName}`, { [paramName]: filter.value });
+          break;
+        case 'lte':
+          queryBuilder.andWhere(`${alias}.${filter.field} <= :${paramName}`, { [paramName]: filter.value });
+          break;
+        case 'like':
+          queryBuilder.andWhere(`${alias}.${filter.field} LIKE :${paramName}`, { [paramName]: `%${filter.value}%` });
+          break;
+        case 'in':
+          queryBuilder.andWhere(`${alias}.${filter.field} IN (:...${paramName})`, { [paramName]: filter.value });
+          break;
+        case 'between':
+          queryBuilder.andWhere(
+            `${alias}.${filter.field} BETWEEN :${paramName}_start AND :${paramName}_end`,
+            {
+              [`${paramName}_start`]: filter.value,
+              [`${paramName}_end`]: filter.value2,
+            },
+          );
+          break;
+        case 'null':
+          queryBuilder.andWhere(`${alias}.${filter.field} IS NULL`);
+          break;
+        case 'notNull':
+          queryBuilder.andWhere(`${alias}.${filter.field} IS NOT NULL`);
+          break;
+      }
+    });
+
+    return queryBuilder;
+  }
+
+  /**
+   * 应用搜索到 TypeORM 查询构建器
+   */
+  applySearch<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    search: string | undefined,
+    searchFields: (keyof T)[] | undefined,
+  ): SelectQueryBuilder<T> {
+    if (!search || !searchFields?.length) return queryBuilder;
+
+    const searchTerms = search.trim().split(/\s+/);
+    
+    searchTerms.forEach((term, termIndex) => {
+      const conditions = searchFields.map((field, fieldIndex) => {
+        return `${queryBuilder.alias}.${String(field)} LIKE :search_${termIndex}_${fieldIndex}`;
+      }).join(' OR ');
+
+      queryBuilder.andWhere(`(${conditions})`, 
+        searchFields.reduce((params, field, fieldIndex) => {
+          params[`search_${termIndex}_${fieldIndex}`] = `%${term}%`;
+          return params;
+        }, {} as Record<string, string>)
+      );
+    });
+
+    return queryBuilder;
+  }
+
+  /**
+   * 执行分页查询
+   */
+  async paginate<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    options: QueryOptions<T>,
+  ): Promise<PaginationResult<T>> {
+    const startTime = Date.now();
+    const limit = this.getLimit(options);
+    const page = options.page || 1;
+
+    // 应用查询选项
+    this.applyPagination(queryBuilder, options);
+    this.applySorting(queryBuilder, options);
+    this.applyFilters(queryBuilder, options.filters);
+    this.applySearch(queryBuilder, options.search, options.searchFields);
+
+    // 选择字段
+    if (options.select?.length) {
+      queryBuilder.select(options.select.map(f => `${queryBuilder.alias}.${String(f)}`));
+    }
+
+    // 包含关系
+    if (options.relations?.length) {
+      for (const relation of options.relations) {
+        queryBuilder.leftJoinAndSelect(`${queryBuilder.alias}.${relation}`, `${queryBuilder.alias}_${relation}`);
+      }
+    }
+
+    // 获取数据和总数
+    const [entities, total] = await Promise.all([
+      queryBuilder.getMany(),
+      options.includeTotal !== false ? this.getTotalCount(queryBuilder) : Promise.resolve(0),
+    ]);
+
+    // 检查是否多取了一条（用于判断是否有下一页）
+    let data = entities;
+    let hasNext = false;
+
+    if (entities.length > limit) {
+      data = entities.slice(0, limit);
+      hasNext = true;
+    } else {
+      hasNext = page * limit < (total || 0);
+    }
+
+    const totalPages = options.includeTotal !== false && total ? Math.ceil(total / limit) : undefined;
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total: options.includeTotal !== false ? total : undefined,
+        totalPages,
+        hasPrevious: page > 1,
+        hasNext,
+        previousPage: page > 1 ? page - 1 : undefined,
+        nextPage: hasNext ? page + 1 : undefined,
+      },
+      queryTime: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * 游标分页查询
+   */
+  async paginateCursor<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    options: {
+      limit?: number;
+      cursor?: string;
+      sortBy?: string;
+      sortDirection?: SortDirection;
+      cursorField?: string;
+    },
+  ): Promise<CursorPaginationResult<T>> {
+    const limit = Math.min(options.limit || 20, 100);
+    const cursorField = options.cursorField || 'id';
+    const sortDirection = options.sortDirection || 'ASC';
+
+    // 多取一条用于判断是否有更多
     queryBuilder.take(limit + 1);
 
-    const results = await queryBuilder.getMany();
-    const hasNextPage = results.length > limit;
-    const data = hasNextPage ? results.slice(0, limit) : results;
+    // 应用游标
+    if (options.cursor) {
+      const operator = sortDirection === 'ASC' ? '>' : '<';
+      queryBuilder.andWhere(`${queryBuilder.alias}.${cursorField} ${operator} :cursor`, { cursor: options.cursor });
+    }
 
-    const startCursor = data.length > 0 ? this.encodeCursor((data[0] as any)[cursorField]) : null;
-    const endCursor = data.length > 0 ? this.encodeCursor((data[data.length - 1] as any)[cursorField]) : null;
+    // 应用排序
+    queryBuilder.addOrderBy(`${queryBuilder.alias}.${cursorField}`, sortDirection);
+
+    const entities = await queryBuilder.getMany();
+
+    // 检查是否多取了一条
+    let data = entities;
+    let hasMore = false;
+
+    if (entities.length > limit) {
+      data = entities.slice(0, limit);
+      hasMore = true;
+    }
+
+    // 生成游标
+    const currentCursor = data.length > 0 ? String((data[0] as any)[cursorField]) : null;
+    const nextCursor = hasMore ? String((data[data.length - 1] as any)[cursorField]) : null;
 
     return {
       data,
-      meta: {
-        hasNextPage,
-        hasPrevPage: !!params.cursor,
-        startCursor,
-        endCursor,
-        limit,
+      cursor: {
+        current: currentCursor,
+        next: nextCursor,
+        previous: options.cursor || null,
+        hasMore,
       },
+      limit,
     };
   }
 
-  async paginateWithAggregates<T extends ObjectLiteral>(
-    repository: Repository<T>,
-    params: PaginationParams,
-    aggregates: {
-      field: string;
-      operation: 'sum' | 'avg' | 'min' | 'max' | 'count';
-      alias?: string;
-    }[],
-    config?: PaginationConfig,
-  ): Promise<PaginationResult<T> & { aggregates: Record<string, number> }> {
-    const mergedConfig = { ...this.defaultConfig, ...config };
-    const page = Math.max(1, params.page || 1);
-    const limit = Math.min(
-      Math.max(1, params.limit || mergedConfig.defaultLimit),
-      mergedConfig.maxLimit,
-    );
-
-    const queryBuilder = repository.createQueryBuilder('entity');
-
-    this.applyRelations(queryBuilder, params.relations);
-    this.applySearch(queryBuilder, params.search, params.searchFields);
-    this.applyFilters(queryBuilder, params.filters);
-    this.applyDateRange(queryBuilder, params.dateRange);
-    this.applySorting(queryBuilder, params.sortBy || mergedConfig.defaultSortBy, params.sortOrder || mergedConfig.defaultSortOrder);
-
-    if (!params.includeDeleted) {
-      this.applySoftDeleteFilter(queryBuilder);
-    }
-
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
-    const [data, totalItems] = await queryBuilder.getManyAndCount();
-
-    const aggregateResults: Record<string, number> = {};
-    for (const agg of aggregates) {
-      const alias = agg.alias || `${agg.operation}_${agg.field}`;
-      const aggQuery = repository.createQueryBuilder('entity');
-
-      this.applySearch(aggQuery, params.search, params.searchFields);
-      this.applyFilters(aggQuery, params.filters);
-      this.applyDateRange(aggQuery, params.dateRange);
-
-      if (!params.includeDeleted) {
-        this.applySoftDeleteFilter(aggQuery);
-      }
-
-      const result = await aggQuery
-        .select(`${agg.operation}(entity.${agg.field})`, 'value')
-        .getRawOne();
-
-      aggregateResults[alias] = result?.value || 0;
-    }
-
-    const totalPages = Math.ceil(totalItems / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-    const startItem = totalItems > 0 ? skip + 1 : 0;
-    const endItem = Math.min(skip + limit, totalItems);
-
-    return {
-      data,
-      meta: {
-        page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage,
-        hasPrevPage,
-        startItem,
-        endItem,
-      },
-      aggregates: aggregateResults,
-    };
-  }
-
-  buildLinks(baseUrl: string, params: PaginationParams, totalPages: number): {
+  /**
+   * 构建分页链接
+   */
+  buildPaginationLinks(
+    baseUrl: string,
+    meta: PaginationMeta,
+    additionalParams?: Record<string, string>,
+  ): {
     first: string;
-    last: string;
-    next: string | null;
-    prev: string | null;
+    previous?: string;
+    next?: string;
+    last?: string;
   } {
-    const { page, limit } = params;
-    const queryParams = new URLSearchParams();
+    const params = new URLSearchParams(additionalParams);
+    params.set('limit', meta.limit.toString());
 
-    queryParams.set('page', '1');
-    queryParams.set('limit', String(limit));
-    const first = `${baseUrl}?${queryParams.toString()}`;
+    const links: any = {
+      first: `${baseUrl}?${params.toString()}`,
+    };
 
-    queryParams.set('page', String(totalPages));
-    const last = `${baseUrl}?${queryParams.toString()}`;
-
-    let next: string | null = null;
-    if (page < totalPages) {
-      queryParams.set('page', String(page + 1));
-      next = `${baseUrl}?${queryParams.toString()}`;
+    if (meta.hasPrevious && meta.previousPage) {
+      params.set('page', meta.previousPage.toString());
+      links.previous = `${baseUrl}?${params.toString()}`;
     }
 
-    let prev: string | null = null;
-    if (page > 1) {
-      queryParams.set('page', String(page - 1));
-      prev = `${baseUrl}?${queryParams.toString()}`;
+    if (meta.hasNext && meta.nextPage) {
+      params.set('page', meta.nextPage.toString());
+      links.next = `${baseUrl}?${params.toString()}`;
     }
 
-    return { first, last, next, prev };
+    if (meta.totalPages) {
+      params.set('page', meta.totalPages.toString());
+      links.last = `${baseUrl}?${params.toString()}`;
+    }
+
+    return links;
   }
 
-  private applyRelations<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-    relations?: string[],
-  ): void {
-    if (relations && relations.length > 0) {
-      for (const relation of relations) {
-        queryBuilder.leftJoinAndSelect(`entity.${relation}`, relation);
-      }
+  /**
+   * 验证分页参数
+   */
+  validatePaginationOptions(options: PaginationOptions): PaginationOptions {
+    const validated: PaginationOptions = { ...options };
+    const maxLimit = options.maxLimit || 100;
+    const defaultLimit = options.defaultLimit || 20;
+
+    // 验证页码
+    if (validated.page !== undefined) {
+      validated.page = Math.max(1, Math.floor(validated.page));
     }
+
+    // 验证限制
+    if (validated.limit !== undefined) {
+      validated.limit = Math.max(1, Math.min(validated.limit, maxLimit));
+    } else {
+      validated.limit = defaultLimit;
+    }
+
+    // 验证偏移量
+    if (validated.offset !== undefined) {
+      validated.offset = Math.max(0, validated.offset);
+    }
+
+    return validated;
   }
 
-  private applySelect<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-    select?: string[],
-  ): void {
-    if (select && select.length > 0) {
-      const selections = select.map(field => `entity.${field}`);
-      queryBuilder.select(selections);
-    }
+  /**
+   * 获取限制数量
+   */
+  private getLimit(options: PaginationOptions): number {
+    return options.limit || options.defaultLimit || 20;
   }
 
-  private applySearch<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-    search?: string,
-    searchFields?: string[],
-  ): void {
-    if (search && searchFields && searchFields.length > 0) {
-      const conditions = searchFields
-        .map(field => `entity.${field} LIKE :search`)
-        .join(' OR ');
-      queryBuilder.andWhere(`(${conditions})`, { search: `%${search}%` });
+  /**
+   * 获取偏移量
+   */
+  private getOffset(options: PaginationOptions): number {
+    if (options.offset !== undefined) {
+      return options.offset;
     }
+    
+    const page = options.page || 1;
+    const limit = this.getLimit(options);
+    
+    return (page - 1) * limit;
   }
 
-  private applyFilters<T extends ObjectLiteral>(
+  /**
+   * 获取总数（不计算偏移和限制）
+   */
+  private async getTotalCount<T extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<T>,
-    filters?: Record<string, any>,
-  ): void {
-    if (filters) {
-      for (const [field, value] of Object.entries(filters)) {
-        if (value === undefined || value === null) continue;
+  ): Promise<number> {
+    const countQueryBuilder = queryBuilder.clone();
+    countQueryBuilder.skip(undefined).take(undefined);
+    // 清除排序 - 使用空字符串替代空数组
+    countQueryBuilder.orderBy('');
 
-        if (Array.isArray(value)) {
-          queryBuilder.andWhere(`entity.${field} IN (:...${field})`, { [field]: value });
-        } else if (typeof value === 'object' && value.operator) {
-          this.applyOperatorFilter(queryBuilder, field, value);
-        } else {
-          queryBuilder.andWhere(`entity.${field} = :${field}`, { [field]: value });
-        }
-      }
-    }
+    const result = await countQueryBuilder.getCount();
+    return result;
   }
+}
 
-  private applyOperatorFilter<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-    field: string,
-    filter: { operator: string; value: any },
-  ): void {
-    const { operator, value } = filter;
+/**
+ * 分页查询装饰器
+ */
+export function Paginate(options?: {
+  maxLimit?: number;
+  defaultLimit?: number;
+  includeTotal?: boolean;
+}) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    const originalMethod = descriptor.value;
 
-    switch (operator.toLowerCase()) {
-      case 'eq':
-        queryBuilder.andWhere(`entity.${field} = :${field}`, { [field]: value });
-        break;
-      case 'ne':
-        queryBuilder.andWhere(`entity.${field} != :${field}`, { [field]: value });
-        break;
-      case 'gt':
-        queryBuilder.andWhere(`entity.${field} > :${field}`, { [field]: value });
-        break;
-      case 'gte':
-        queryBuilder.andWhere(`entity.${field} >= :${field}`, { [field]: value });
-        break;
-      case 'lt':
-        queryBuilder.andWhere(`entity.${field} < :${field}`, { [field]: value });
-        break;
-      case 'lte':
-        queryBuilder.andWhere(`entity.${field} <= :${field}`, { [field]: value });
-        break;
-      case 'like':
-        queryBuilder.andWhere(`entity.${field} LIKE :${field}`, { [field]: `%${value}%` });
-        break;
-      case 'ilike':
-        queryBuilder.andWhere(`LOWER(entity.${field}) LIKE LOWER(:${field})`, { [field]: `%${value}%` });
-        break;
-      case 'isnull':
-        queryBuilder.andWhere(`entity.${field} IS NULL`);
-        break;
-      case 'isnotnull':
-        queryBuilder.andWhere(`entity.${field} IS NOT NULL`);
-        break;
-      case 'between':
-        if (Array.isArray(value) && value.length === 2) {
-          queryBuilder.andWhere(`entity.${field} BETWEEN :${field}Start AND :${field}End`, {
-            [`${field}Start`]: value[0],
-            [`${field}End`]: value[1],
-          });
-        }
-        break;
-    }
-  }
-
-  private applyDateRange<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-    dateRange?: PaginationParams['dateRange'],
-  ): void {
-    if (dateRange) {
-      const { field, start, end } = dateRange;
-
-      if (start) {
-        queryBuilder.andWhere(`entity.${field} >= :startDate`, { startDate: start });
+    descriptor.value = async function (...args: any[]) {
+      const paginationService = (this as any).paginationService as PaginationService;
+      
+      if (!paginationService) {
+        return originalMethod.apply(this, args);
       }
 
-      if (end) {
-        queryBuilder.andWhere(`entity.${field} <= :endDate`, { endDate: end });
-      }
-    }
-  }
+      // 从参数或请求中获取分页选项
+      const paginationOptions = this.extractPaginationOptions?.() || {
+        maxLimit: options?.maxLimit || 100,
+        defaultLimit: options?.defaultLimit || 20,
+        includeTotal: options?.includeTotal ?? true,
+      };
 
-  private applySorting<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-    sortBy?: string,
-    sortOrder?: 'ASC' | 'DESC',
-  ): void {
-    if (sortBy) {
-      const order = sortOrder || 'DESC';
-      const sortFields = sortBy.split(',').map(f => f.trim());
+      return originalMethod.apply(this, args);
+    };
 
-      for (const field of sortFields) {
-        queryBuilder.addOrderBy(`entity.${field}`, order);
-      }
-    }
-  }
-
-  private applySoftDeleteFilter<T extends ObjectLiteral>(
-    queryBuilder: SelectQueryBuilder<T>,
-  ): void {
-    const alias = queryBuilder.alias;
-    try {
-      queryBuilder.andWhere(`${alias}.deletedAt IS NULL`);
-    } catch {
-      // Entity doesn't have deletedAt field
-    }
-  }
-
-  private encodeCursor(value: any): string {
-    if (value === null || value === undefined) return '';
-    return Buffer.from(String(value)).toString('base64');
-  }
-
-  private decodeCursor(cursor: string): any {
-    try {
-      const decoded = Buffer.from(cursor, 'base64').toString('utf8');
-      const num = Number(decoded);
-      return isNaN(num) ? decoded : num;
-    } catch {
-      return null;
-    }
-  }
+    return descriptor;
+  };
 }

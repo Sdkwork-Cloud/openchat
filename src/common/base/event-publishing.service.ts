@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource, Repository, FindOptionsWhere, DeepPartial, ObjectLiteral } from 'typeorm';
+import { ObjectLiteral } from 'typeorm';
 import { BaseEntity } from '../base.entity';
-import { EventBusService, EventType, EventPriority } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../events/event-bus.service';
 
 export interface DomainEvent {
   type: string;
@@ -44,11 +44,12 @@ export abstract class EventPublishingService<T extends BaseEntity & ObjectLitera
     };
 
     this.eventBus.publish(
-      eventType as EventType,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         ...event.payload,
         aggregateId: event.aggregateId,
         aggregateType: event.aggregateType,
+        type: eventType,
       },
       {
         priority: options?.priority || EventPriority.MEDIUM,

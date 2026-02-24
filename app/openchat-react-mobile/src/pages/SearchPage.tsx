@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { navigate } from '../router';
 import { useChatStore } from '../services/store';
@@ -58,8 +57,8 @@ export const SearchPage: React.FC = () => {
     return { agents: matchedAgents, chats: matchedChats };
   }, [query, sessions]);
 
-  const handleAgentClick = (agentId: string) => {
-      const sessionId = createSession(agentId);
+  const handleAgentClick = async (agentId: string) => {
+      const sessionId = await createSession(agentId);
       navigate('/chat', { id: sessionId });
   };
 
@@ -193,7 +192,7 @@ export const SearchPage: React.FC = () => {
                                             <span style={{ color: 'var(--text-primary)', fontSize: '16px' }}>
                                                 <HighlightText text={agent.name} highlight={query} />
                                             </span>
-                                            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{new Date(session.lastUpdated).toLocaleDateString()}</span>
+                                            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{new Date(session.lastMessageTime).toLocaleDateString()}</span>
                                         </div>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             <HighlightText text={matchMsg.content} highlight={query} />

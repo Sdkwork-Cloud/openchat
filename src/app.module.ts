@@ -1,4 +1,4 @@
-import { Module, Logger } from '@nestjs/common';
+import { Module, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './modules/user/user.module';
@@ -48,113 +48,158 @@ import { AgentModule } from './modules/agent/agent.module';
 import { Agent, AgentSession, AgentMessage } from './modules/agent/agent.entity';
 import { WukongIMModule } from './modules/wukongim/wukongim.module';
 import { CrawModule } from './modules/craw/craw.module';
+import { DataSource } from 'typeorm';
+
+const logger = new Logger('Database');
 
 @Module({
   imports: [
-    // 全局配置模块
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '.env.development'],
     }),
 
-    // Redis 模块（全局）
     RedisModule,
 
-    // 限流模块（全局）
     ThrottlerModule,
 
-    // 消息队列模块（可选，通过 QUEUE_ENABLED 控制）
     QueueModule.register(),
 
-    // 健康检查模块
     HealthModule,
 
-    // 配置验证模块
     AppConfigModule,
 
-    // 认证模块（全局）
     AuthModule,
 
-    // 缓存模块（全局）
     CacheModule,
 
-    // 性能监控模块（全局）
     MetricsModule,
 
-    // 事件总线模块（全局）
     EventBusModule,
 
-    // 扩展插件模块（全局）
     ExtensionsModule.forRoot({
       useDefaultUserCenter: true,
       useRemoteUserCenter: false,
     }),
 
-    // 数据库模块（优化连接池配置）
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        // 使用环境变量中的数据库配置
-        const dbConfig = {
-          host: configService.get('DB_HOST', 'localhost'),
-          port: configService.get('DB_PORT', 5432),
-          username: configService.get('DB_USER', 'openchat'),
-          password: configService.get('DB_PASSWORD', 'openchat_password'),
-          database: configService.get('DB_NAME', 'openchat')
-        };
-        
-        const logger = new Logger('AppModule');
-        logger.log('Database configuration: ' + JSON.stringify(dbConfig));
-        
+        const host = configService.get('DB_HOST', 'localhost');
+        const port = parseInt(configService.get('DB_PORT', '5432'), 10);
+        const username = configService.get('DB_USER', 'openchat');
+        const password = configService.get('DB_PASSWORD', 'openchat_password');
+        const database = configService.get('DB_NAME', 'openchat');
+
+        logger.log('');
+        logger.log('═══════════════════════════════════════════════════════════');
+        logger.log('                    数据库连接配置                            ');
+        logger.log('═══════════════════════════════════════════════════════════');
+        logger.log(`  主机:     ${host}`);
+        logger.log(`  端口:     ${port}`);
+        logger.log(`  用户:     ${username}`);
+        logger.log(`  数据库:   ${database}`);
+        logger.log(`  连接池:   最小 ${configService.get('DB_POOL_MIN', 5)} / 最大 ${configService.get('DB_POOL_MAX', 20)}`);
+        logger.log('═══════════════════════════════════════════════════════════');
+        logger.log('');
+
         return {
           type: 'postgres',
-          host: dbConfig.host,
-          port: dbConfig.port,
-          username: dbConfig.username,
-          password: dbConfig.password,
-          database: dbConfig.database,
+          host,
+          port,
+          username,
+          password,
+          database,
           entities: [
-        UserEntity,
-        Friend,
-        FriendRequest,
-        Message,
-        Group,
-        GroupMember,
-        GroupInvitation,
-        RTCRoom,
-        RTCToken,
-        RTCChannelEntity,
-        RTCVideoRecord,
-        ThirdPartyMessage,
-        ThirdPartyContact,
-        AIBotEntity,
-        BotMessageEntity,
-        ConversationEntity,
-        ContactEntity,
-        BotEntity,
-        BotCommandEntity,
-        DeviceEntity,
-        DeviceMessageEntity,
-        Agent,
-        AgentSession,
-        AgentMessage,
-        ],
-        synchronize: configService.get('NODE_ENV') !== 'production', // 生产环境禁用同步
-        logging: configService.get('DB_LOGGING', 'false') === 'true',
-        // 连接池优化配置
-        extra: {
-          // 连接池大小
-          max: configService.get('DB_POOL_MAX', 20),
-          min: configService.get('DB_POOL_MIN', 5),
-          // 连接空闲超时（毫秒）
-          idleTimeoutMillis: configService.get('DB_IDLE_TIMEOUT', 30000),
-          // 连接获取超时（毫秒）
-          connectionTimeoutMillis: configService.get('DB_CONNECTION_TIMEOUT', 5000),
-          // 连接最大生命周期（毫秒）
-          maxLifetime: configService.get('DB_MAX_LIFETIME', 300000), // 5分钟
-        },
-      };
-      }
+            UserEntity,
+            Friend,
+            FriendRequest,
+            Message,
+            Group,
+            GroupMember,
+            GroupInvitation,
+            RTCRoom,
+            RTCToken,
+            RTCChannelEntity,
+            RTCVideoRecord,
+            ThirdPartyMessage,
+            ThirdPartyContact,
+            AIBotEntity,
+            BotMessageEntity,
+            ConversationEntity,
+            ContactEntity,
+            BotEntity,
+            BotCommandEntity,
+            DeviceEntity,
+            DeviceMessageEntity,
+            Agent,
+            AgentSession,
+            AgentMessage,
+          ],
+          synchronize: configService.get('NODE_ENV') !== 'production',
+          logging: configService.get('DB_LOGGING', 'false') === 'true',
+          poolSize: parseInt(configService.get('DB_POOL_MAX', '20'), 10),
+          extra: {
+            max: parseInt(configService.get('DB_POOL_MAX', '20'), 10),
+            min: parseInt(configService.get('DB_POOL_MIN', '5'), 10),
+            idleTimeoutMillis: parseInt(configService.get('DB_IDLE_TIMEOUT', '30000'), 10),
+            connectionTimeoutMillis: parseInt(configService.get('DB_CONNECTION_TIMEOUT', '10000'), 10),
+          },
+          retryAttempts: 5,
+          retryDelay: 3000,
+          autoLoadEntities: false,
+          keepConnectionAlive: true,
+          poolErrorHandler: (err: any) => {
+            logger.error(`数据库连接池错误: ${err.message}`);
+          },
+        };
+      },
+      dataSourceFactory: async (options: any) => {
+        if (!options) {
+          throw new Error('Database options are required');
+        }
+        
+        const dataSource = new DataSource(options);
+        
+        const maxRetries = 5;
+        const retryDelay = 3000;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            logger.log(`正在连接数据库... (尝试 ${attempt}/${maxRetries})`);
+            await dataSource.initialize();
+            logger.log('✓ 数据库连接成功!');
+            return dataSource;
+          } catch (error: any) {
+            const errorMsg = error.message || 'Unknown error';
+            const errorCode = error.code || '';
+            
+            if (errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT' || errorCode === 'ECONNREFUSED') {
+              logger.error(`✗ 数据库连接失败 (尝试 ${attempt}/${maxRetries}): [${errorCode}] ${errorMsg}`);
+            } else {
+              logger.error(`✗ 数据库连接失败 (尝试 ${attempt}/${maxRetries}): ${errorMsg}`);
+            }
+            
+            if (attempt < maxRetries) {
+              logger.log(`  ${retryDelay / 1000} 秒后重试...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+            } else {
+              logger.error('');
+              logger.error('═══════════════════════════════════════════════════════════');
+              logger.error('✗ 数据库连接重试次数已用尽');
+              logger.error('  请检查:');
+              logger.error('  1. 数据库服务是否已启动');
+              logger.error('  2. 网络连接是否正常');
+              logger.error('  3. 数据库配置是否正确');
+              logger.error('═══════════════════════════════════════════════════════════');
+              logger.error('');
+              throw error;
+            }
+          }
+        }
+        
+        return dataSource;
+      },
     }),
     GatewayModule,
     UserModule,
@@ -174,4 +219,12 @@ import { CrawModule } from './modules/craw/craw.module';
     CrawModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit, OnModuleDestroy {
+  onModuleInit() {
+    logger.log('AppModule 初始化完成');
+  }
+
+  onModuleDestroy() {
+    logger.log('AppModule 销毁中...');
+  }
+}

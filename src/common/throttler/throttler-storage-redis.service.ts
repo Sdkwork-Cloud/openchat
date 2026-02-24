@@ -1,7 +1,23 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { ThrottlerStorage } from '@nestjs/throttler';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../redis/redis.module';
+
+/**
+ * 限流存储记录接口
+ */
+export interface ThrottlerStorageRecord {
+  totalHits: number;
+  timeToExpire: number;
+  isBlocked: boolean;
+  timeToBlockExpire: number;
+}
+
+/**
+ * Redis 限流存储接口
+ */
+export interface ThrottlerStorage {
+  increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottlerStorageRecord>;
+}
 
 /**
  * 滑动窗口限流存储实现
@@ -17,53 +33,66 @@ export class ThrottlerStorageRedisService implements ThrottlerStorage {
   /**
    * 增加请求计数（滑动窗口算法）
    */
-  async increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<any> {
-    const fullKey = `${this.KEY_PREFIX}${key}`;
+  async increment(
+    key: string,
+    ttl: number,
+    limit: number,
+    blockDuration: number,
+    throttlerName: string,
+  ): Promise<ThrottlerStorageRecord> {
+    const fullKey = `${this.KEY_PREFIX}${throttlerName}:${key}`;
     const now = Date.now();
     const windowStart = now - ttl;
 
-    // 使用 Redis Lua 脚本实现原子操作
     const luaScript = `
       local key = KEYS[1]
       local now = tonumber(ARGV[1])
       local windowStart = tonumber(ARGV[2])
       local ttl = tonumber(ARGV[3])
+      local limit = tonumber(ARGV[4])
+      local blockDuration = tonumber(ARGV[5])
       
-      -- 移除窗口外的旧记录
       redis.call('ZREMRANGEBYSCORE', key, 0, windowStart)
-      
-      -- 添加当前请求时间戳
       redis.call('ZADD', key, now, now)
-      
-      -- 设置过期时间
       redis.call('EXPIRE', key, math.ceil(ttl / 1000))
       
-      -- 返回当前窗口内的请求数
-      return redis.call('ZCARD', key)
+      local count = redis.call('ZCARD', key)
+      local isBlocked = 0
+      local timeToBlockExpire = 0
+      
+      if count > limit then
+        isBlocked = 1
+        timeToBlockExpire = now + blockDuration
+      end
+      
+      return {count, ttl, isBlocked, timeToBlockExpire}
     `;
 
     try {
-      const count = await this.redis.eval(
+      const result = await this.redis.eval(
         luaScript,
         1,
         fullKey,
         now,
         windowStart,
         ttl,
-      ) as number;
+        limit,
+        blockDuration,
+      ) as [number, number, number, number];
 
       return {
-        totalHits: count,
-        timeToExpire: ttl,
-        limit,
+        totalHits: result[0],
+        timeToExpire: result[1],
+        isBlocked: result[2] === 1,
+        timeToBlockExpire: result[3],
       };
     } catch (error) {
       this.logger.error(`Failed to increment throttle count for key ${key}`, error);
-      // 降级：允许请求通过
       return {
         totalHits: 0,
         timeToExpire: ttl,
-        limit,
+        isBlocked: false,
+        timeToBlockExpire: 0,
       };
     }
   }
@@ -71,16 +100,13 @@ export class ThrottlerStorageRedisService implements ThrottlerStorage {
   /**
    * 获取当前请求次数
    */
-  async getCount(key: string, ttl: number): Promise<number> {
-    const fullKey = `${this.KEY_PREFIX}${key}`;
+  async getCount(key: string, ttl: number, throttlerName: string = 'default'): Promise<number> {
+    const fullKey = `${this.KEY_PREFIX}${throttlerName}:${key}`;
     const now = Date.now();
     const windowStart = now - ttl;
 
     try {
-      // 清理过期记录
       await this.redis.zremrangebyscore(fullKey, 0, windowStart);
-
-      // 获取当前窗口内的记录数
       const count = await this.redis.zcard(fullKey);
       return count;
     } catch (error) {
@@ -92,8 +118,8 @@ export class ThrottlerStorageRedisService implements ThrottlerStorage {
   /**
    * 清除限流记录
    */
-  async clear(key: string): Promise<void> {
-    const fullKey = `${this.KEY_PREFIX}${key}`;
+  async clear(key: string, throttlerName: string = 'default'): Promise<void> {
+    const fullKey = `${this.KEY_PREFIX}${throttlerName}:${key}`;
     await this.redis.del(fullKey);
   }
 
@@ -104,8 +130,9 @@ export class ThrottlerStorageRedisService implements ThrottlerStorage {
     key: string,
     limit: number,
     windowMs: number,
+    throttlerName: string = 'default',
   ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-    const fullKey = `${this.KEY_PREFIX}${key}`;
+    const fullKey = `${this.KEY_PREFIX}${throttlerName}:${key}`;
     const now = Date.now();
     const windowStart = now - windowMs;
 
@@ -116,20 +143,15 @@ export class ThrottlerStorageRedisService implements ThrottlerStorage {
       local limit = tonumber(ARGV[3])
       local ttl = tonumber(ARGV[4])
       
-      -- 移除窗口外的旧记录
       redis.call('ZREMRANGEBYSCORE', key, 0, windowStart)
-      
-      -- 获取当前计数
       local current = redis.call('ZCARD', key)
       
-      -- 检查是否超过限制
       if current >= limit then
         local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
         local resetTime = tonumber(oldest[2]) + ttl
         return {0, limit - current, resetTime}
       end
       
-      -- 添加当前请求
       redis.call('ZADD', key, now, now)
       redis.call('EXPIRE', key, math.ceil(ttl / 1000))
       
@@ -154,7 +176,6 @@ export class ThrottlerStorageRedisService implements ThrottlerStorage {
       };
     } catch (error) {
       this.logger.error(`Rate limit check failed for key ${key}`, error);
-      // 降级：允许请求
       return { allowed: true, remaining: 1, resetTime: now + windowMs };
     }
   }

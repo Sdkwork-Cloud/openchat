@@ -44,7 +44,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     if (fromUserId === toUserId) {
       throw new BusinessException(
         BusinessErrorCode.INVALID_PARAMETER,
-        'Cannot send friend request to yourself',
+        { customMessage: 'Cannot send friend request to yourself' },
       );
     }
 
@@ -52,7 +52,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     if (isBlocked) {
       throw new BusinessException(
         BusinessErrorCode.PERMISSION_DENIED,
-        'You have been blocked by this user',
+        { customMessage: 'You have been blocked by this user' },
       );
     }
 
@@ -67,7 +67,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
       if (existingFriendship) {
         throw new BusinessException(
           BusinessErrorCode.ALREADY_FRIENDS,
-          'Friendship already exists',
+          { customMessage: 'Friendship already exists' },
         );
       }
 
@@ -78,7 +78,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
       if (existingRequest) {
         throw new BusinessException(
           BusinessErrorCode.FRIEND_REQUEST_PENDING,
-          'Friend request already sent',
+          { customMessage: 'Friend request already sent' },
         );
       }
 
@@ -111,14 +111,14 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
       if (!request || request.status !== 'pending') {
         throw new BusinessException(
           BusinessErrorCode.RESOURCE_NOT_FOUND,
-          'Friend request not found or already processed',
+          { customMessage: 'Friend request not found or already processed' },
         );
       }
 
       if (currentUserId && request.toUserId !== currentUserId) {
         throw new BusinessException(
           BusinessErrorCode.PERMISSION_DENIED,
-          'You do not have permission to accept this request',
+          { customMessage: 'You do not have permission to accept this request' },
         );
       }
 
@@ -164,7 +164,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     if (!request || request.status !== 'pending') {
       throw new BusinessException(
         BusinessErrorCode.RESOURCE_NOT_FOUND,
-        'Friend request not found or already processed',
+        { customMessage: 'Friend request not found or already processed' },
       );
     }
 
@@ -181,7 +181,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     if (!request || request.status !== 'pending') {
       throw new BusinessException(
         BusinessErrorCode.RESOURCE_NOT_FOUND,
-        'Friend request not found or already processed',
+        { customMessage: 'Friend request not found or already processed' },
       );
     }
 

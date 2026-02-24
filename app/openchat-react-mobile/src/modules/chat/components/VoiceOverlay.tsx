@@ -8,6 +8,7 @@ interface VoiceOverlayProps {
 
 export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ isRecording, cancelVoice }) => {
     if (!isRecording) return null;
+    
     return (
         <div style={{
             position: 'fixed', top: '0', left: '0', right: '0', bottom: '0',
@@ -43,27 +44,29 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ isRecording, cancelV
                      {cancelVoice ? '松开取消' : '手指上滑取消'}
                  </div>
 
-                 {/* Waveform Animation */}
+                 {/* Advanced Waveform Animation */}
                  {!cancelVoice && (
                      <div style={{ 
-                         position: 'absolute', bottom: '24px', 
-                         display: 'flex', gap: '4px', height: '24px', alignItems: 'center' 
+                         position: 'absolute', bottom: '28px', 
+                         display: 'flex', gap: '6px', height: '30px', alignItems: 'center' 
                      }}>
-                         {[1,2,3,4,5,6,7].map(i => (
+                         {[1,2,3,4,5].map(i => (
                              <div key={i} style={{ 
-                                 width: '3px', 
+                                 width: '4px', 
                                  background: '#07c160', 
                                  borderRadius: '2px', 
-                                 animation: `wave 0.6s ease-in-out infinite ${i*0.08}s` 
+                                 animation: `audioWave 0.8s ease-in-out infinite`,
+                                 animationDelay: `${i * 0.15}s`
                              }} />
                          ))}
                      </div>
                  )}
             </div>
              <style>{`
-                @keyframes wave { 
-                    0%, 100% { height: 4px; opacity: 0.5; } 
-                    50% { height: 20px; opacity: 1; } 
+                @keyframes audioWave { 
+                    0% { height: 4px; opacity: 0.5; } 
+                    50% { height: 24px; opacity: 1; }
+                    100% { height: 4px; opacity: 0.5; } 
                 }
              `}</style>
         </div>

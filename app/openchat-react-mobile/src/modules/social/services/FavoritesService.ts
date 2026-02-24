@@ -1,6 +1,6 @@
 
 import { AbstractStorageService } from '../../../core/AbstractStorageService';
-import { BaseEntity, Result, Page } from '../../../core/types';
+import { BaseEntity, Result, Page, FilterCriterion } from '../../../core/types';
 
 export type FavoriteType = 'link' | 'file' | 'doc' | 'chat' | 'text' | 'image' | 'video';
 
@@ -42,45 +42,32 @@ class FavoritesServiceImpl extends AbstractStorageService<FavoriteItem> {
     }
 
     /**
-     * Advanced Filter Query
+     * Advanced Filter Query using Criteria API
      */
     async getFavorites(category: string, keyword?: string): Promise<Result<Page<FavoriteItem>>> {
-        let list = await this.loadData();
+        const filters: FilterCriterion[] = [];
 
-        // 1. Category Filter
+        // 1. Category Filter Strategy
         if (category !== 'all') {
             if (category === 'image') {
-                list = list.filter(i => i.type === 'image' || i.type === 'video');
+                // Special composite case: image OR video. 
+                // Since our basic Criteria API is mostly AND based, we handle this composite logic 
+                // by manually filtering OR cases *or* we could enhance Criteria API later.
+                // For now, let's trust the 'image' type strictly or use a broader filter if needed.
+                // To support standard strict mode:
+                filters.push({ field: 'type', operator: 'in', value: ['image', 'video'] });
             } else if (category === 'note') {
-                list = list.filter(i => i.type === 'text' || i.type === 'doc');
+                filters.push({ field: 'type', operator: 'in', value: ['text', 'doc'] });
             } else {
-                list = list.filter(i => i.type === category);
+                filters.push({ field: 'type', operator: 'eq', value: category });
             }
         }
 
-        // 2. Keyword Search
-        if (keyword && keyword.trim()) {
-            const k = keyword.toLowerCase();
-            list = list.filter(i => 
-                i.title.toLowerCase().includes(k) || 
-                i.content?.toLowerCase().includes(k) ||
-                i.source.toLowerCase().includes(k)
-            );
-        }
-
-        // 3. Sort by Create Time Desc
-        list.sort((a, b) => b.createTime - a.createTime);
-
-        return {
-            success: true,
-            data: {
-                content: list,
-                total: list.length,
-                page: 1,
-                size: list.length,
-                totalPages: 1
-            }
-        };
+        return await this.findAll({
+            filters,
+            keywords: keyword, // Uses the standardized full-text search in base class
+            sort: { field: 'createTime', order: 'desc' }
+        });
     }
 
     async addFavorite(item: Partial<FavoriteItem>): Promise<Result<FavoriteItem>> {

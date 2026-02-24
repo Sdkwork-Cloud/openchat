@@ -1,13 +1,14 @@
 
 :root {
-  /* --- BASE: Light Theme (Tech Blue Updated) --- */
-  --primary-color: #2979FF; /* Tech Blue */
+  /* --- BASE: Light Theme --- */
+  --primary-color: #2979FF; 
   --primary-gradient: linear-gradient(135deg, #2979FF 0%, #0050E6 100%);
-  --secondary-accent: #651FFF;
   
-  --bg-body: #ededed; /* Unchanged */
-  --bg-card: #ffffff; /* Unchanged */
-  --navbar-bg: #f7f7f7; /* Unchanged */
+  --bg-body: #ededed;
+  --bg-card: #ffffff;
+  --bg-card-rgb: 255, 255, 255; /* New */
+  --navbar-bg: #f7f7f7;
+  --navbar-bg-rgb: 247, 247, 247;
   
   --bg-cell-top: #f7f7f7;
   --bg-cell-active: #d9d9d9;
@@ -21,24 +22,24 @@
   --danger: #fa5151;
   --warning: #ffc300;
   
-  /* Chat Bubbles (Updated to Blue) */
-  --bubble-me: #2979FF; /* Tech Blue Bubble */
-  --bubble-me-text: #ffffff; /* White text for better contrast on blue */
+  --bubble-me: #2979FF;
+  --bubble-me-text: #ffffff;
   --bubble-other: #ffffff;
 
-  /* Discovery Page Accents (Light Mode) */
   --accent-gold: #f59e0b;
   --accent-blue: #2979FF;
 }
 
-/* --- THEME: WeChat Dark (Updated to Blue Primary) --- */
+/* --- THEME: WeChat Dark --- */
 [data-theme="wechat-dark"] {
-  --primary-color: #2979FF; /* Tech Blue */
+  --primary-color: #2979FF;
   --primary-gradient: linear-gradient(135deg, #2979FF 0%, #1565C0 100%);
   
-  --bg-body: #111111; /* Unchanged */
-  --bg-card: #191919; /* Unchanged */
-  --navbar-bg: #191919; /* Unchanged */
+  --bg-body: #111111;
+  --bg-card: #191919;
+  --bg-card-rgb: 25, 25, 25; /* New */
+  --navbar-bg: #191919;
+  --navbar-bg-rgb: 25, 25, 25;
   
   --bg-cell-top: #222222;
   --bg-cell-active: #2a2a2a;
@@ -48,23 +49,24 @@
   
   --border-color: #2c2c2c;
   
-  --bubble-me: #2979FF; /* Tech Blue Bubble */
+  --bubble-me: #2979FF;
   --bubble-me-text: #ffffff;
   --bubble-other: #2c2c2c;
 
-  /* Discovery Page Accents */
   --accent-gold: #fbbf24;
   --accent-blue: #60a5fa;
 }
 
-/* --- THEME: Standard Dark (Blue) --- */
+/* --- THEME: Standard Dark --- */
 [data-theme="dark"] {
   --primary-color: #2979FF;
   --primary-gradient: linear-gradient(135deg, #2979FF 0%, #00B0FF 100%);
   
   --bg-body: #000000;
   --bg-card: #1c1c1e;
+  --bg-card-rgb: 28, 28, 30; /* New */
   --navbar-bg: #1c1c1e;
+  --navbar-bg-rgb: 28, 28, 30;
   
   --bg-cell-top: #2c2c2e;
   --bg-cell-active: #3a3a3c;
@@ -89,7 +91,9 @@
   
   --bg-body: #0d1117;
   --bg-card: #161b22;
+  --bg-card-rgb: 22, 27, 34; /* New */
   --navbar-bg: #010409;
+  --navbar-bg-rgb: 1, 4, 9;
   
   --bg-cell-top: #21262d;
   --bg-cell-active: #30363d;
@@ -105,14 +109,4 @@
 
   --accent-gold: #d29922;
   --accent-blue: #58a6ff;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg-body);
-  color: var(--text-primary);
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }

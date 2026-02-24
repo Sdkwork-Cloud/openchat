@@ -15,6 +15,8 @@ import {
   VerificationCodeType,
 } from '../../common/constants';
 import { TokenBlacklistService } from '../../common/auth/token-blacklist.service';
+import { PermissionService } from '../../common/services/permission.service';
+import { randomUUID } from 'crypto';
 
 // 认证响应类型
 export class AuthResponse {
@@ -41,6 +43,7 @@ export class AuthService {
   private readonly jwtSecret: string;
   private readonly jwtExpiresIn: string;
   private readonly refreshTokenExpiresIn: string;
+  private readonly jwtIssuer: string;
 
   constructor(
     private localUserManager: LocalUserManagerService,
@@ -49,13 +52,13 @@ export class AuthService {
     private configService: ConfigService,
     private verificationCodeService: VerificationCodeService,
     private tokenBlacklistService: TokenBlacklistService,
+    private permissionService: PermissionService,
   ) {
-    // 从配置中读取 JWT 配置，确保有默认值
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') || JWT_CONFIG.DEFAULT_SECRET;
     this.jwtExpiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || JWT_CONFIG.DEFAULT_EXPIRES_IN;
     this.refreshTokenExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || JWT_CONFIG.DEFAULT_REFRESH_EXPIRES_IN;
+    this.jwtIssuer = this.configService.get<string>('JWT_ISSUER') || 'openchat';
 
-    // 生产环境检查
     if (process.env.NODE_ENV === 'production' && this.jwtSecret === JWT_CONFIG.DEFAULT_SECRET) {
       this.logger.warn('WARNING: Using default JWT secret in production! Please set JWT_SECRET environment variable.');
     }
@@ -76,8 +79,8 @@ export class AuthService {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    const token = this.generateToken(user.id);
-    const refreshToken = this.generateRefreshToken(user.id);
+    const token = await this.generateToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
 
     this.userSyncService.syncUserOnLogin(user.id).catch(error => {
       this.logger.error('Failed to sync user login to IM:', error);
@@ -103,7 +106,6 @@ export class AuthService {
    */
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
     try {
-      // 1. 检查refreshToken是否在黑名单中
       const isBlacklisted = await this.tokenBlacklistService.isBlacklisted(refreshToken);
       if (isBlacklisted) {
         this.logger.warn(`Refresh token is blacklisted`);
@@ -114,22 +116,17 @@ export class AuthService {
         secret: this.jwtSecret,
       });
 
-      if (payload.type !== 'refresh') {
-        throw new UnauthorizedException('无效的刷新令牌类型');
-      }
-
-      const userId = payload.sub;
+      const userId = payload.sub || payload.userId;
 
       const user = await this.localUserManager.getUserById(userId);
       if (!user) {
         throw new UnauthorizedException('用户不存在');
       }
 
-      // 2. 将旧的refreshToken加入黑名单
       await this.tokenBlacklistService.addToBlacklist(refreshToken, 'refresh_token_used');
 
-      const newToken = this.generateToken(userId);
-      const newRefreshToken = this.generateRefreshToken(userId);
+      const newToken = await this.generateToken(user);
+      const newRefreshToken = await this.generateRefreshToken(user);
 
       const { password, ...userWithoutPassword } = user;
 
@@ -138,7 +135,7 @@ export class AuthService {
         token: newToken,
         refreshToken: newRefreshToken,
         expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
-        };
+      };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -167,22 +164,41 @@ export class AuthService {
   /**
    * 生成JWT访问令牌
    */
-  private generateToken(userId: string): string {
-    const payload = { sub: userId, type: 'access' };
+  private async generateToken(user: UserEntity): Promise<string> {
+    const roles = await this.permissionService.getUserRoles(user.id);
+    const permissions = await this.permissionService.getUserPermissions(user.id);
+    
+    const payload = {
+      sub: user.id,
+      userId: user.id,
+      username: user.username,
+      roles,
+      permissions,
+      jti: randomUUID(),
+    };
+    
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
       expiresIn: this.jwtExpiresIn as any,
+      issuer: this.jwtIssuer,
     });
   }
 
   /**
    * 生成JWT刷新令牌
    */
-  private generateRefreshToken(userId: string): string {
-    const payload = { sub: userId, type: 'refresh' };
+  private async generateRefreshToken(user: UserEntity): Promise<string> {
+    const payload = {
+      sub: user.id,
+      userId: user.id,
+      username: user.username,
+      jti: randomUUID(),
+    };
+    
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
       expiresIn: this.refreshTokenExpiresIn as any,
+      issuer: this.jwtIssuer,
     });
   }
 
@@ -409,16 +425,13 @@ export class AuthService {
       isDeleted: false,
     } as any);
 
-    // 同步用户到IM系统（异步执行，不阻塞注册流程）
     this.userSyncService.syncUserOnRegister(user).catch(error => {
       this.logger.error('Failed to sync user to IM on register:', error);
     });
 
-    // 生成JWT令牌
-    const token = this.generateToken(user.id);
-    const refreshToken = this.generateRefreshToken(user.id);
+    const token = await this.generateToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
 
-    // 移除密码字段后返回
     const { password: _, ...userWithoutPassword } = user as UserEntity;
 
     return {
@@ -467,11 +480,8 @@ export class AuthService {
       };
     }
 
-    // 生成密码重置令牌
-    const resetToken = this.generateToken(user.id);
+    const resetToken = await this.generateToken(user);
 
-    // 这里应该发送邮件或短信，包含重置链接
-    // 由于是演示，暂时只返回成功消息
     let message = '';
     if (email) {
       message = '密码重置链接已发送到您的邮箱';

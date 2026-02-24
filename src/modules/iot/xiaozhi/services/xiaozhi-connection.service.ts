@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import * as WebSocket from 'ws';
 import * as mqtt from 'mqtt';
 import { TransportType, DeviceState, ConnectionState, DeviceConnection } from '../xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 
 /**
@@ -133,11 +133,12 @@ export class XiaoZhiConnectionService implements OnModuleInit, OnModuleDestroy {
       
       // 发布设备连接事件
       this.eventBusService.publish(
-        EventType.DEVICE_CONNECTED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           transport: TransportType.WEBSOCKET,
-          sessionId: connection.sessionId
+          sessionId: connection.sessionId,
+          type: 'device_connected'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -150,11 +151,12 @@ export class XiaoZhiConnectionService implements OnModuleInit, OnModuleDestroy {
     websocket.on('error', (error) => {
       this.logger.error(`WebSocket error for device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
-          transport: TransportType.WEBSOCKET
+          transport: TransportType.WEBSOCKET,
+          type: 'websocket_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -168,10 +170,11 @@ export class XiaoZhiConnectionService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`WebSocket closed for device: ${deviceId}`);
       this.removeFromConnectionPool(deviceId);
       this.eventBusService.publish(
-        EventType.DEVICE_DISCONNECTED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          transport: TransportType.WEBSOCKET
+          transport: TransportType.WEBSOCKET,
+          type: 'device_disconnected'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -222,11 +225,12 @@ export class XiaoZhiConnectionService implements OnModuleInit, OnModuleDestroy {
       if (err) {
         this.logger.error(`Failed to subscribe to topic for device ${deviceId}:`, err);
         this.eventBusService.publish(
-          EventType.SYSTEM_ERROR,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
             error: err.message,
-            transport: TransportType.MQTT
+            transport: TransportType.MQTT,
+            type: 'mqtt_subscribe_error'
           },
           {
             priority: EventPriority.HIGH,
@@ -242,11 +246,12 @@ export class XiaoZhiConnectionService implements OnModuleInit, OnModuleDestroy {
     client.on('error', (error: any) => {
       this.logger.error(`MQTT error for device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
-          transport: TransportType.MQTT
+          transport: TransportType.MQTT,
+          type: 'mqtt_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -260,10 +265,11 @@ export class XiaoZhiConnectionService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`MQTT closed for device: ${deviceId}`);
       this.removeFromConnectionPool(deviceId);
       this.eventBusService.publish(
-        EventType.DEVICE_DISCONNECTED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          transport: TransportType.MQTT
+          transport: TransportType.MQTT,
+          type: 'device_disconnected'
         },
         {
           priority: EventPriority.MEDIUM,

@@ -286,6 +286,27 @@ export class RedisService implements OnModuleDestroy {
     await this.redis.del(prefixedKey);
   }
 
+  /**
+   * 订阅频道
+   */
+  async subscribe(channel: string, callback?: (message: string, channel?: string) => void): Promise<void> {
+    if (callback) {
+      this.redis.on('message', callback);
+    }
+    await this.redis.subscribe(channel);
+  }
+
+  /**
+   * 取消订阅
+   */
+  async unsubscribe(channel?: string): Promise<void> {
+    if (channel) {
+      await this.redis.unsubscribe(channel);
+    } else {
+      await this.redis.unsubscribe();
+    }
+  }
+
   onModuleDestroy() {
     this.redis.disconnect();
   }

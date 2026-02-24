@@ -2,6 +2,8 @@
 import React, { ReactNode } from 'react';
 import { ChatStoreProvider } from '../services/store';
 import { ThemeProvider } from '../services/themeContext';
+import { AuthProvider } from '../modules/auth/AuthContext';
+import { I18nProvider } from '../core/i18n/I18nContext';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -9,11 +11,15 @@ interface AppProviderProps {
 
 const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   return (
-    <ThemeProvider>
-      <ChatStoreProvider>
-        {children}
-      </ChatStoreProvider>
-    </ThemeProvider>
+    <I18nProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ChatStoreProvider>
+            {children}
+          </ChatStoreProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </I18nProvider>
   );
 };
 

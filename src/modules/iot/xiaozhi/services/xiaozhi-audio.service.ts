@@ -13,7 +13,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeviceConnection, BinaryProtocolVersion } from '../xiaozhi.types';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import { XiaozhiOpusService } from './xiaozhi-opus.service';
 import { XiaozhiAudioProcessingService, AudioProcessingConfig as XiaozhiAudioProcessingConfig } from './xiaozhi-audio-processing.service';
 import * as crypto from 'crypto';
@@ -161,11 +161,11 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Failed to handle binary audio for device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
-          type: 'audio'
+          type: 'audio_error'
         },
         {
           priority: EventPriority.HIGH,
@@ -249,11 +249,12 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
       
       // 发布音频流开始事件
       this.eventBusService.publish(
-        EventType.AUDIO_STREAM_STARTED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           sessionId: connection.sessionId,
           sampleRate: connection.audioParams.sample_rate,
+          type: 'audio_stream_started'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -298,7 +299,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
 
       // 3. 发布音频数据事件（供 STT 服务消费）
       this.eventBusService.publish(
-        EventType.AUDIO_DATA_RECEIVED,
+        EventTypeConstants.AUDIO_DATA_RECEIVED,
         {
           deviceId,
           sessionId: connection.sessionId,
@@ -377,12 +378,13 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   ): void {
     // 发布语音活动结束事件
     this.eventBusService.publish(
-      EventType.VOICE_ACTIVITY_ENDED,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         sessionId: connection.sessionId,
         timestamp: now,
         silenceDuration: streamState.silenceDuration,
+        type: 'voice_activity_ended'
       },
       {
         priority: EventPriority.MEDIUM,
@@ -441,7 +443,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
 
       // 5. 发布事件
       this.eventBusService.publish(
-        EventType.AUDIO_DATA_SENT,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           sessionId: connection.sessionId,
@@ -451,6 +453,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
           sent,
           transport: connection.transport,
           processingTime: Date.now() - startTime,
+          type: 'audio_data_sent'
         },
         {
           priority: EventPriority.MEDIUM,
@@ -470,11 +473,11 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Failed to send audio data to device ${deviceId}:`, error);
       this.eventBusService.publish(
-        EventType.SYSTEM_ERROR,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           error: error.message,
-          type: 'audio_send',
+          type: 'audio_send_error',
           transport: connection.transport,
         },
         {
@@ -653,11 +656,11 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
       udpSocket.on('error', (error) => {
         this.logger.error(`UDP socket error for device ${deviceId}:`, error);
         this.eventBusService.publish(
-          EventType.SYSTEM_ERROR,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
             error: error.message,
-            type: 'udp'
+            type: 'udp_error'
           },
           {
             priority: EventPriority.HIGH,
@@ -692,11 +695,12 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
       // 刷新缓存 - 直接发布事件，让其他服务处理
       if (streamState.cacheSize > 0) {
         this.eventBusService.publish(
-          EventType.AUDIO_CACHE_FLUSH_REQUEST,
+          EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId: streamState.deviceId,
             sessionId: streamState.sessionId,
-            cacheSize: streamState.cacheSize
+            cacheSize: streamState.cacheSize,
+            type: 'audio_cache_flush_request'
           },
           {
             priority: EventPriority.MEDIUM,
@@ -722,7 +726,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
 
     // 发布音频数据事件
     this.eventBusService.publish(
-      EventType.AUDIO_DATA_RECEIVED,
+      EventTypeConstants.AUDIO_DATA_RECEIVED,
       {
         deviceId: streamState.deviceId,
         sessionId: streamState.sessionId,
@@ -762,13 +766,14 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
 
       // 发布音频流停止事件
       this.eventBusService.publish(
-        EventType.AUDIO_STREAM_STOPPED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId: streamState.deviceId,
           sessionId: streamState.sessionId,
           totalPackets: streamState.packetCount,
           totalBytes: streamState.byteCount,
           duration: Date.now() - streamState.lastActivity,
+          type: 'audio_stream_stopped'
         },
         {
           priority: EventPriority.MEDIUM,

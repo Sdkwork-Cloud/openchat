@@ -23,6 +23,7 @@ import { DefaultUserCenterExtension } from './user-center/default-user-center.ex
 import { RemoteUserCenterExtension } from './user-center/remote-user-center.extension';
 import { UserCenterProxy } from './user-center/user-center.proxy';
 import { RedisModule } from '../common/redis/redis.module';
+import { CommonModule } from '../common/common.module';
 import { UserEntity } from '../modules/user/entities/user.entity';
 import { WukongIMModule } from '../modules/wukongim/wukongim.module';
 import { UserModule } from '../modules/user/user.module';
@@ -85,6 +86,7 @@ export class ExtensionsModule {
       userCenterProviders.push(DefaultUserCenterExtension);
       imports.push(
         TypeOrmModule.forFeature([UserEntity]),
+        CommonModule,
         RedisModule,
         WukongIMModule,
         UserModule,

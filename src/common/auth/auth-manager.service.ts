@@ -25,7 +25,7 @@ export interface AuthConfig {
   /**
    * 策略特定配置
    */
-  strategyConfig?: Record<string, any>;
+  strategyConfig?: Record<string, unknown>;
 }
 
 /**
@@ -49,7 +49,7 @@ export class AuthManagerService implements OnModuleInit {
       enabledStrategies: this.configService.get<string[]>('AUTH_ENABLED_STRATEGIES', ['jwt', 'bot-token', 'api-key']),
       defaultStrategy: this.configService.get<string>('AUTH_DEFAULT_STRATEGY', 'jwt'),
       allowAnonymous: this.configService.get<boolean>('AUTH_ALLOW_ANONYMOUS', false),
-      strategyConfig: this.configService.get<Record<string, any>>('AUTH_STRATEGY_CONFIG', {}),
+      strategyConfig: this.configService.get<Record<string, unknown>>('AUTH_STRATEGY_CONFIG', {}),
     };
 
     this.logger.log(`AuthManager initialized with strategies: ${this.config.enabledStrategies.join(', ')}`);
@@ -210,14 +210,14 @@ export class AuthManagerService implements OnModuleInit {
   /**
    * 获取策略配置
    */
-  getStrategyConfig<T = any>(strategyName: string): T | undefined {
-    return this.config.strategyConfig?.[strategyName];
+  getStrategyConfig<T = unknown>(strategyName: string): T | undefined {
+    return this.config.strategyConfig?.[strategyName] as T | undefined;
   }
 
   /**
    * 更新策略配置
    */
-  setStrategyConfig(strategyName: string, config: any): void {
+  setStrategyConfig(strategyName: string, config: unknown): void {
     if (!this.config.strategyConfig) {
       this.config.strategyConfig = {};
     }

@@ -4,8 +4,11 @@ import { Navbar } from '../../../components/Navbar/Navbar';
 import { navigateBack } from '../../../router';
 import { Toast } from '../../../components/Toast';
 import { ScanService } from '../services/ScanService';
+import { Icon } from '../../../components/Icon/Icon';
+import { useTranslation } from '../../../core/i18n/I18nContext';
 
 export const ScanPage: React.FC = () => {
+    const { t } = useTranslation();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [hasCamera, setHasCamera] = useState(false);
     const [flashlight, setFlashlight] = useState(false);
@@ -59,7 +62,7 @@ export const ScanPage: React.FC = () => {
             {/* Top Bar */}
             <div style={{ position: 'absolute', top: 0, width: '100%', zIndex: 30 }}>
                 <Navbar 
-                    title="扫一扫" 
+                    title={t('scan.title')} 
                     variant="transparent" 
                     onBack={() => navigateBack()}
                 />
@@ -121,7 +124,7 @@ export const ScanPage: React.FC = () => {
                 </div> 
                 
                 <div style={{ marginTop: '30px', color: 'rgba(255,255,255,0.8)', fontSize: '13px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                    将二维码/条码放入框内，即可自动扫描
+                    {t('scan.tip')}
                 </div>
             </div>
 
@@ -134,9 +137,9 @@ export const ScanPage: React.FC = () => {
             }}>
                 <div onClick={() => Toast.info('打开相册')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', opacity: 0.9 }}>
                     <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <Icon name="picture" size={24} color="white" />
                     </div>
-                    <span style={{ color: 'white', fontSize: '12px' }}>相册</span>
+                    <span style={{ color: 'white', fontSize: '12px' }}>{t('scan.album')}</span>
                 </div>
 
                 {/* Shutter / Scan Button (Visual only since auto-scan is implied) */}
@@ -148,9 +151,9 @@ export const ScanPage: React.FC = () => {
 
                 <div onClick={toggleFlashlight} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', opacity: 0.9 }}>
                     <div style={{ width: '48px', height: '48px', background: flashlight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={flashlight ? '#000' : 'white'} strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <Icon name={flashlight ? 'flashlight-off' : 'flashlight'} size={24} color={flashlight ? 'black' : 'white'} />
                     </div>
-                    <span style={{ color: 'white', fontSize: '12px' }}>{flashlight ? '已开启' : '手电筒'}</span>
+                    <span style={{ color: 'white', fontSize: '12px' }}>{flashlight ? t('scan.flashlight_on') : t('scan.flashlight')}</span>
                 </div>
             </div>
 

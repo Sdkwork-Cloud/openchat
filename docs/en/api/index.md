@@ -67,8 +67,8 @@ Authorization: Bearer <your-access-token>
 
 | Token Type | Validity | Purpose |
 |------------|----------|---------|
-| Access Token | 7 days | API request authentication |
-| Refresh Token | 30 days | Refresh Access Token |
+| Access Token | 1 hour | API request authentication |
+| Refresh Token | 7 days | Refresh Access Token |
 
 ---
 

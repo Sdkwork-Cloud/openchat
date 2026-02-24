@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
 
 export type ResourceType = 
@@ -86,7 +86,7 @@ export class ResourceQuotaService implements OnModuleInit, OnModuleDestroy {
     const usage = await this.getUsage(userId, resourceType);
 
     if (usage.used + amount > usage.limit) {
-      await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+      await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
         type: 'quota.exceeded',
         userId,
         resourceType,
@@ -127,7 +127,7 @@ export class ResourceQuotaService implements OnModuleInit, OnModuleDestroy {
     const usage = await this.getUsage(userId, resourceType);
 
     if (usage.percentage >= 80) {
-      await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+      await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
         type: 'quota.warning',
         userId,
         resourceType,

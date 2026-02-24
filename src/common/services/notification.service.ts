@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { QueueService, NotificationJobData } from '../queue/queue.service';
 
 export interface NotificationChannel {
@@ -106,7 +106,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
     const success = results.some(r => r.success);
 
     if (success) {
-      await this.eventBus.publish(EventType.MESSAGE_SENT, {
+      await this.eventBus.publish(EventTypeConstants.MESSAGE_SENT, {
         notificationId,
         userId,
         payload,
@@ -148,7 +148,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
   ): Promise<NotificationResult> {
     const notificationId = this.generateNotificationId();
 
-    await this.eventBus.publish(EventType.MESSAGE_SENT, {
+    await this.eventBus.publish(EventTypeConstants.MESSAGE_SENT, {
       notificationId,
       topic,
       payload,
@@ -251,7 +251,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async sendViaWebSocket(userId: string, payload: NotificationPayload): Promise<boolean> {
-    await this.eventBus.publish(EventType.MESSAGE_SENT, {
+    await this.eventBus.publish(EventTypeConstants.MESSAGE_SENT, {
       type: 'websocket',
       userId,
       payload,
@@ -260,7 +260,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async sendInApp(userId: string, payload: NotificationPayload): Promise<boolean> {
-    await this.eventBus.publish(EventType.MESSAGE_SENT, {
+    await this.eventBus.publish(EventTypeConstants.MESSAGE_SENT, {
       type: 'in_app',
       userId,
       payload,

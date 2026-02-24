@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
 
 export interface Session {
@@ -114,7 +114,7 @@ export class SessionManagementService implements OnModuleInit, OnModuleDestroy {
 
     await this.persistSession(session);
 
-    await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+    await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
       type: 'session.created',
       sessionId,
       userId,
@@ -204,7 +204,7 @@ export class SessionManagementService implements OnModuleInit, OnModuleDestroy {
 
     await this.redisService.del(buildCacheKey('session', sessionId));
 
-    await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+    await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
       type: 'session.terminated',
       sessionId,
       userId: session.userId,

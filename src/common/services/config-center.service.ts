@@ -1,497 +1,645 @@
+/**
+ * 配置中心服务
+ * 
+ * 提供统一的配置管理，支持多来源配置、配置热更新、配置验证、命名空间隔离等功能
+ * 支持从环境变量、配置文件、远程配置中心等多种来源加载配置
+ * 
+ * @framework
+ */
+
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { readFileSync, watch, FSWatcher } from 'fs';
+import { join } from 'path';
 
-export type ConfigSourceType = 'file' | 'env' | 'database' | 'remote' | 'memory';
-export type ConfigChangeType = 'created' | 'updated' | 'deleted';
+/**
+ * 配置来源类型
+ */
+export type ConfigSourceType = 'env' | 'file' | 'remote' | 'default' | 'override';
 
-export interface ConfigEntry {
+/**
+ * 配置变更类型
+ */
+export type ConfigChangeType = 'set' | 'delete' | 'refresh' | 'reload';
+
+/**
+ * 配置条目
+ */
+export interface ConfigEntry<T = any> {
+  /** 配置键 */
   key: string;
-  value: any;
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  /** 配置值 */
+  value: T;
+  /** 默认值 */
+  defaultValue?: T;
+  /** 来源类型 */
   source: ConfigSourceType;
-  version: number;
-  createdAt: number;
+  /** 最后更新时间 */
   updatedAt: number;
-  metadata?: Record<string, any>;
-  encrypted?: boolean;
-  sensitive?: boolean;
+  /** 描述 */
   description?: string;
-  tags?: string[];
+  /** 是否加密 */
+  encrypted?: boolean;
+  /** 验证模式 */
+  validation?: RegExp | ((value: any) => boolean);
 }
 
+/**
+ * 配置变更事件
+ */
 export interface ConfigChange {
+  /** 配置键 */
   key: string;
-  type: ConfigChangeType;
-  oldValue?: any;
-  newValue?: any;
+  /** 旧值 */
+  oldValue: any;
+  /** 新值 */
+  newValue: any;
+  /** 变更类型 */
+  changeType: ConfigChangeType;
+  /** 时间戳 */
   timestamp: number;
-  source: string;
+  /** 来源 */
+  source: ConfigSourceType;
 }
 
-export interface ConfigWatcher {
-  id: string;
-  keyPattern: string;
-  callback: (change: ConfigChange) => void;
-  options?: {
-    immediate?: boolean;
-    includeDeleted?: boolean;
-  };
-}
-
+/**
+ * 配置命名空间
+ */
 export interface ConfigNamespace {
+  /** 命名空间名称 */
   name: string;
+  /** 配置前缀 */
+  prefix: string;
+  /** 配置条目 */
   entries: Map<string, ConfigEntry>;
-  watchers: Map<string, ConfigWatcher>;
+  /** 描述 */
+  description?: string;
 }
 
+/**
+ * 配置中心选项
+ */
 export interface ConfigCenterOptions {
-  enableWatchers?: boolean;
-  enableHistory?: boolean;
-  historySize?: number;
-  encryptSensitive?: boolean;
-  sensitiveKeys?: string[];
+  /** 配置文件路径 */
+  configPaths?: string[];
+  /** 是否启用文件监听 */
+  enableFileWatch?: boolean;
+  /** 是否启用远程配置 */
+  enableRemote?: boolean;
+  /** 远程配置 URL */
+  remoteUrl?: string;
+  /** 远程配置拉取间隔（秒） */
+  remotePullInterval?: number;
+  /** 是否启用缓存 */
+  enableCache?: boolean;
+  /** 缓存 TTL（秒） */
+  cacheTTL?: number;
+  /** 是否加密敏感配置 */
+  enableEncryption?: boolean;
+  /** 配置验证模式 */
+  validationSchema?: Record<string, any>;
 }
 
+/**
+ * 配置统计信息
+ */
 export interface ConfigStats {
-  totalNamespaces: number;
+  /** 配置条目总数 */
   totalEntries: number;
-  entriesBySource: Record<ConfigSourceType, number>;
-  entriesByType: Record<string, number>;
-  sensitiveEntries: number;
-  watcherCount: number;
-  historySize: number;
+  /** 命名空间数量 */
+  namespaceCount: number;
+  /** 变更次数 */
+  changeCount: number;
+  /** 最后变更时间 */
+  lastChangeTime: number;
+  /** 来源统计 */
+  sourceStats: Record<ConfigSourceType, number>;
 }
 
+/**
+ * 配置中心服务
+ */
 @Injectable()
 export class ConfigCenterService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ConfigCenterService.name);
+  
+  private readonly entries = new Map<string, ConfigEntry>();
   private readonly namespaces = new Map<string, ConfigNamespace>();
-  private readonly history: ConfigChange[] = [];
+  private readonly changeHistory: ConfigChange[] = [];
   private readonly options: Required<ConfigCenterOptions>;
-  private watcherIdCounter = 0;
+  
+  private fileWatcher?: FSWatcher;
+  private remotePullInterval?: NodeJS.Timeout;
+  private changeCount = 0;
+  private lastChangeTime = 0;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {
     this.options = {
-      enableWatchers: true,
-      enableHistory: true,
-      historySize: 1000,
-      encryptSensitive: false,
-      sensitiveKeys: ['password', 'secret', 'key', 'token', 'credential'],
+      configPaths: this.configService.get<string[]>('CONFIG_PATHS', ['config/default.json', 'config/production.json']),
+      enableFileWatch: this.configService.get<boolean>('CONFIG_ENABLE_FILE_WATCH', true),
+      enableRemote: this.configService.get<boolean>('CONFIG_ENABLE_REMOTE', false),
+      remoteUrl: this.configService.get<string>('CONFIG_REMOTE_URL', ''),
+      remotePullInterval: this.configService.get<number>('CONFIG_REMOTE_PULL_INTERVAL', 300),
+      enableCache: this.configService.get<boolean>('CONFIG_ENABLE_CACHE', true),
+      cacheTTL: this.configService.get<number>('CONFIG_CACHE_TTL', 300),
+      enableEncryption: this.configService.get<boolean>('CONFIG_ENABLE_ENCRYPTION', false),
+      validationSchema: this.configService.get('CONFIG_VALIDATION_SCHEMA', {}),
     };
   }
 
   onModuleInit() {
-    this.createNamespace('default');
+    this.loadDefaultConfig();
     this.loadFromEnv();
+    this.loadFromFiles();
+    this.setupFileWatcher();
+    this.setupRemotePull();
     this.logger.log('ConfigCenterService initialized');
   }
 
   onModuleDestroy() {
-    this.namespaces.clear();
-    this.history.length = 0;
+    this.fileWatcher?.close();
+    if (this.remotePullInterval) {
+      clearInterval(this.remotePullInterval);
+    }
   }
 
-  createNamespace(name: string): void {
-    if (this.namespaces.has(name)) {
-      throw new Error(`Namespace '${name}' already exists`);
+  /**
+   * 获取配置值
+   */
+  get<T = any>(key: string, defaultValue?: T): T {
+    // 先检查缓存
+    const entry = this.entries.get(key);
+    if (entry && this.isEntryValid(entry)) {
+      return entry.value as T;
     }
 
-    this.namespaces.set(name, {
-      name,
-      entries: new Map(),
-      watchers: new Map(),
-    });
+    // 从 ConfigService 获取
+    const value = this.configService.get<T>(key, defaultValue as any) as T;
 
-    this.logger.debug(`Namespace '${name}' created`);
-  }
-
-  deleteNamespace(name: string): boolean {
-    if (name === 'default') {
-      throw new Error('Cannot delete default namespace');
+    // 更新缓存
+    if (value !== undefined) {
+      this.setEntry(key, value, 'env');
     }
 
-    return this.namespaces.delete(name);
+    return value as T;
   }
 
-  getNamespace(name: string): ConfigNamespace | undefined {
-    return this.namespaces.get(name);
-  }
-
-  listNamespaces(): string[] {
-    return Array.from(this.namespaces.keys());
-  }
-
-  set(
-    key: string,
-    value: any,
-    options?: {
-      namespace?: string;
-      source?: ConfigSourceType;
-      type?: ConfigEntry['type'];
-      description?: string;
-      tags?: string[];
-      metadata?: Record<string, any>;
-      sensitive?: boolean;
-    },
-  ): ConfigEntry {
-    const namespaceName = options?.namespace || 'default';
-    const namespace = this.namespaces.get(namespaceName);
-    if (!namespace) {
-      throw new Error(`Namespace '${namespaceName}' not found`);
+  /**
+   * 获取命名空间配置
+   */
+  getNamespace<T = any>(namespace: string): Record<string, T> {
+    const ns = this.namespaces.get(namespace);
+    if (!ns) {
+      return this.configService.get<Record<string, T>>(namespace, {} as any) as Record<string, T>;
     }
 
-    const existing = namespace.entries.get(key);
-    const now = Date.now();
-    const isSensitive = options?.sensitive || this.isSensitiveKey(key);
-
-    const entry: ConfigEntry = {
-      key,
-      value,
-      type: options?.type || this.detectType(value),
-      source: options?.source || 'memory',
-      version: existing ? existing.version + 1 : 1,
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
-      description: options?.description || existing?.description,
-      tags: options?.tags || existing?.tags,
-      metadata: options?.metadata || existing?.metadata,
-      sensitive: isSensitive,
-      encrypted: isSensitive && this.options.encryptSensitive,
-    };
-
-    namespace.entries.set(key, entry);
-
-    const change: ConfigChange = {
-      key,
-      type: existing ? 'updated' : 'created',
-      oldValue: existing?.value,
-      newValue: value,
-      timestamp: now,
-      source: namespaceName,
-    };
-
-    this.recordChange(change);
-    this.notifyWatchers(namespace, change);
-
-    return entry;
+    const result: Record<string, T> = {};
+    for (const [key, entry] of ns.entries.entries()) {
+      result[key] = entry.value as T;
+    }
+    return result;
   }
 
-  get<T = any>(key: string, defaultValue?: T, namespace?: string): T {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return defaultValue as T;
+  /**
+   * 设置配置值
+   */
+  set<T>(key: string, value: T, options?: { source?: ConfigSourceType; description?: string }): boolean {
+    const oldValue = this.get(key);
+    
+    // 验证
+    const entry = this.entries.get(key);
+    if (entry?.validation && !this.validateValue(value, entry.validation)) {
+      this.logger.warn(`Config validation failed for key: ${key}`);
+      return false;
+    }
 
-    const entry = ns.entries.get(key);
-    if (!entry) return defaultValue as T;
-
-    return entry.value as T;
-  }
-
-  has(key: string, namespace?: string): boolean {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return false;
-
-    return ns.entries.has(key);
-  }
-
-  delete(key: string, namespace?: string): boolean {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return false;
-
-    const entry = ns.entries.get(key);
-    if (!entry) return false;
-
-    ns.entries.delete(key);
-
-    const change: ConfigChange = {
-      key,
-      type: 'deleted',
-      oldValue: entry.value,
-      timestamp: Date.now(),
-      source: namespace || 'default',
-    };
-
-    this.recordChange(change);
-    this.notifyWatchers(ns, change);
-
+    this.setEntry(key, value, options?.source || 'override', options?.description);
+    this.recordChange(key, oldValue, value, 'set', options?.source || 'override');
+    
     return true;
   }
 
-  getAll(namespace?: string): Record<string, any> {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return {};
-
-    const result: Record<string, any> = {};
-    for (const [key, entry] of ns.entries) {
-      result[key] = entry.value;
+  /**
+   * 删除配置
+   */
+  delete(key: string): boolean {
+    const oldValue = this.get(key);
+    const deleted = this.entries.delete(key);
+    
+    if (deleted) {
+      this.recordChange(key, oldValue, undefined, 'delete', 'override');
     }
-
-    return result;
+    
+    return deleted;
   }
 
-  getByPrefix(prefix: string, namespace?: string): Record<string, any> {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return {};
-
-    const result: Record<string, any> = {};
-    for (const [key, entry] of ns.entries) {
-      if (key.startsWith(prefix)) {
-        result[key] = entry.value;
-      }
-    }
-
-    return result;
-  }
-
-  getByTags(tags: string[], namespace?: string): ConfigEntry[] {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return [];
-
-    const result: ConfigEntry[] = [];
-    for (const entry of ns.entries.values()) {
-      if (entry.tags && tags.some(tag => entry.tags!.includes(tag))) {
-        result.push(entry);
-      }
-    }
-
-    return result;
-  }
-
-  watch(
-    keyPattern: string,
-    callback: (change: ConfigChange) => void,
-    options?: {
-      namespace?: string;
-      immediate?: boolean;
-      includeDeleted?: boolean;
-    },
-  ): string {
-    if (!this.options.enableWatchers) {
-      throw new Error('Watchers are disabled');
-    }
-
-    const namespaceName = options?.namespace || 'default';
-    const namespace = this.namespaces.get(namespaceName);
-    if (!namespace) {
-      throw new Error(`Namespace '${namespaceName}' not found`);
-    }
-
-    const watcherId = `watcher_${++this.watcherIdCounter}`;
-
-    const watcher: ConfigWatcher = {
-      id: watcherId,
-      keyPattern,
-      callback,
-      options: {
-        immediate: options?.immediate,
-        includeDeleted: options?.includeDeleted,
-      },
-    };
-
-    namespace.watchers.set(watcherId, watcher);
-
-    if (options?.immediate) {
-      for (const [key, entry] of namespace.entries) {
-        if (this.matchesPattern(key, keyPattern)) {
-          callback({
-            key,
-            type: 'created',
-            newValue: entry.value,
-            timestamp: Date.now(),
-            source: namespaceName,
-          });
+  /**
+   * 刷新配置
+   */
+  async refresh(key?: string): Promise<void> {
+    if (key) {
+      // 刷新单个配置
+      const entry = this.entries.get(key);
+      if (entry) {
+        const oldValue = entry.value;
+        const newValue = this.configService.get(key);
+        
+        if (newValue !== undefined && newValue !== oldValue) {
+          this.setEntry(key, newValue, entry.source);
+          this.recordChange(key, oldValue, newValue, 'refresh', entry.source);
         }
       }
+    } else {
+      // 刷新所有配置
+      this.loadFromEnv();
+      this.loadFromFiles();
+      
+      this.eventEmitter.emit('config.refreshed', {
+        timestamp: Date.now(),
+        source: 'manual',
+      });
+    }
+  }
+
+  /**
+   * 注册命名空间
+   */
+  registerNamespace(name: string, prefix: string, description?: string): ConfigNamespace {
+    const namespace: ConfigNamespace = {
+      name,
+      prefix,
+      entries: new Map(),
+      description,
+    };
+
+    this.namespaces.set(name, namespace);
+    this.logger.debug(`Registered config namespace: ${name} (prefix: ${prefix})`);
+
+    // 加载命名空间配置
+    this.loadNamespace(namespace);
+
+    return namespace;
+  }
+
+  /**
+   * 获取配置键列表
+   */
+  getKeys(pattern?: string): string[] {
+    const keys = Array.from(this.entries.keys());
+    
+    if (!pattern) {
+      return keys;
     }
 
-    return watcherId;
+    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+    return keys.filter(key => regex.test(key));
   }
 
-  unwatch(watcherId: string, namespace?: string): boolean {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return false;
-
-    return ns.watchers.delete(watcherId);
+  /**
+   * 获取配置条目
+   */
+  getEntry(key: string): ConfigEntry | undefined {
+    return this.entries.get(key);
   }
 
-  getHistory(key?: string, namespace?: string): ConfigChange[] {
-    let history = [...this.history];
+  /**
+   * 获取所有条目
+   */
+  getAllEntries(): Map<string, ConfigEntry> {
+    return new Map(this.entries);
+  }
 
-    if (namespace) {
-      history = history.filter(c => c.source === namespace);
+  /**
+   * 获取变更历史
+   */
+  getChangeHistory(limit: number = 100): ConfigChange[] {
+    return this.changeHistory.slice(-limit);
+  }
+
+  /**
+   * 获取统计信息
+   */
+  getStats(): ConfigStats {
+    const sourceStats: Record<ConfigSourceType, number> = {
+      env: 0,
+      file: 0,
+      remote: 0,
+      default: 0,
+      override: 0,
+    };
+
+    for (const entry of this.entries.values()) {
+      sourceStats[entry.source]++;
     }
 
-    if (key) {
-      history = history.filter(c => c.key === key);
-    }
-
-    return history;
+    return {
+      totalEntries: this.entries.size,
+      namespaceCount: this.namespaces.size,
+      changeCount: this.changeCount,
+      lastChangeTime: this.lastChangeTime,
+      sourceStats,
+    };
   }
 
-  rollback(key: string, version: number, namespace?: string): boolean {
-    const history = this.getHistory(key, namespace);
-    const targetChange = history.find(c => c.type === 'updated' || c.type === 'created');
+  /**
+   * 导出配置
+   */
+  exportConfig(options?: { format?: 'json' | 'env' | 'yaml'; excludeSource?: ConfigSourceType[] }): string {
+    const excludeSource = options?.excludeSource || ['default'];
+    const entries: Record<string, any> = {};
 
-    if (!targetChange) return false;
-
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return false;
-
-    const entry = ns.entries.get(key);
-    if (!entry || entry.version < version) return false;
-
-    const versionChanges = history.filter(c =>
-      c.key === key &&
-      (c.type === 'updated' || c.type === 'created')
-    ).reverse();
-
-    const targetVersion = versionChanges.find((_, index) => index === version - 1);
-    if (!targetVersion) return false;
-
-    this.set(key, targetVersion.newValue, { namespace });
-    return true;
-  }
-
-  export(namespace?: string): string {
-    const ns = this.namespaces.get(namespace || 'default');
-    if (!ns) return '{}';
-
-    const data: Record<string, any> = {};
-    for (const [key, entry] of ns.entries) {
-      data[key] = {
-        value: entry.value,
-        type: entry.type,
-        description: entry.description,
-        tags: entry.tags,
-        sensitive: entry.sensitive,
-      };
-    }
-
-    return JSON.stringify(data, null, 2);
-  }
-
-  import(jsonData: string, namespace?: string, merge?: boolean): number {
-    const data = JSON.parse(jsonData);
-    const ns = namespace || 'default';
-
-    if (!merge) {
-      const existingNs = this.namespaces.get(ns);
-      if (existingNs) {
-        existingNs.entries.clear();
+    for (const [key, entry] of this.entries.entries()) {
+      if (!excludeSource.includes(entry.source)) {
+        entries[key] = entry.value;
       }
     }
 
+    switch (options?.format) {
+      case 'env':
+        return Object.entries(entries)
+          .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+          .join('\n');
+      case 'json':
+      default:
+        return JSON.stringify(entries, null, 2);
+    }
+  }
+
+  /**
+   * 导入配置
+   */
+  importConfig(config: Record<string, any>, source: ConfigSourceType = 'override'): number {
     let count = 0;
-    for (const [key, config] of Object.entries(data)) {
-      const configData = config as any;
-      this.set(key, configData.value, {
-        namespace: ns,
-        type: configData.type,
-        description: configData.description,
-        tags: configData.tags,
-        sensitive: configData.sensitive,
-      });
-      count++;
+
+    for (const [key, value] of Object.entries(config)) {
+      if (this.set(key, value, { source })) {
+        count++;
+      }
     }
 
     return count;
   }
 
-  getStats(): ConfigStats {
-    let totalEntries = 0;
-    let sensitiveEntries = 0;
-    const entriesBySource: Record<ConfigSourceType, number> = {
-      file: 0,
-      env: 0,
-      database: 0,
-      remote: 0,
-      memory: 0,
-    };
-    const entriesByType: Record<string, number> = {};
-    let watcherCount = 0;
+  /**
+   * 验证配置
+   */
+  validateConfig(): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
 
-    for (const ns of this.namespaces.values()) {
-      for (const entry of ns.entries.values()) {
-        totalEntries++;
-        entriesBySource[entry.source]++;
-        entriesByType[entry.type] = (entriesByType[entry.type] || 0) + 1;
-        if (entry.sensitive) sensitiveEntries++;
+    for (const [key, entry] of this.entries.entries()) {
+      if (entry.validation && !this.validateValue(entry.value, entry.validation)) {
+        errors.push(`Validation failed for key: ${key}`);
       }
-      watcherCount += ns.watchers.size;
     }
 
     return {
-      totalNamespaces: this.namespaces.size,
-      totalEntries,
-      entriesBySource,
-      entriesByType,
-      sensitiveEntries,
-      watcherCount,
-      historySize: this.history.length,
+      valid: errors.length === 0,
+      errors,
     };
   }
 
-  private loadFromEnv(): void {
-    const env = process.env;
+  /**
+   * 加载默认配置
+   */
+  private loadDefaultConfig(): void {
+    // 可以从默认配置文件加载
+    this.logger.debug('Loaded default configuration');
+  }
 
-    for (const [key, value] of Object.entries(env)) {
-      if (value !== undefined) {
-        this.set(key, value, {
+  /**
+   * 从环境变量加载配置
+   */
+  private loadFromEnv(): void {
+    // 环境变量已经由 ConfigService 自动加载
+    this.logger.debug('Loaded configuration from environment');
+  }
+
+  /**
+   * 从文件加载配置
+   */
+  private loadFromFiles(): void {
+    for (const configPath of this.options.configPaths) {
+      try {
+        const fullPath = join(process.cwd(), configPath);
+        const content = readFileSync(fullPath, 'utf-8');
+        const config = JSON.parse(content);
+        this.importConfig(config, 'file');
+        this.logger.debug(`Loaded configuration from file: ${configPath}`);
+      } catch (error: any) {
+        // 文件不存在时不报错
+        if (error.code !== 'ENOENT') {
+          this.logger.warn(`Failed to load config from ${configPath}:`, error.message);
+        }
+      }
+    }
+  }
+
+  /**
+   * 加载命名空间配置
+   */
+  private loadNamespace(namespace: ConfigNamespace): void {
+    const prefix = namespace.prefix;
+    // 使用 Object.keys 替代 configService.keys()
+    const allKeys = Object.keys(process.env).filter(k => k.startsWith(prefix));
+
+    for (const key of allKeys) {
+      if (key.startsWith(prefix)) {
+        const shortKey = key.substring(prefix.length + 1);
+        const value = this.configService.get(key);
+
+        namespace.entries.set(shortKey, {
+          key: shortKey,
+          value,
           source: 'env',
-          type: 'string',
+          updatedAt: Date.now(),
+        });
+
+        this.entries.set(key, {
+          key,
+          value,
+          source: 'env',
+          updatedAt: Date.now(),
         });
       }
     }
   }
 
-  private recordChange(change: ConfigChange): void {
-    if (!this.options.enableHistory) return;
+  /**
+   * 设置配置条目
+   */
+  private setEntry<T>(
+    key: string,
+    value: T,
+    source: ConfigSourceType,
+    description?: string,
+  ): void {
+    const now = Date.now();
+    
+    this.entries.set(key, {
+      key,
+      value,
+      source,
+      updatedAt: now,
+      description,
+    });
 
-    this.history.push(change);
-
-    while (this.history.length > this.options.historySize) {
-      this.history.shift();
-    }
-  }
-
-  private notifyWatchers(namespace: ConfigNamespace, change: ConfigChange): void {
-    if (!this.options.enableWatchers) return;
-
-    for (const watcher of namespace.watchers.values()) {
-      if (this.matchesPattern(change.key, watcher.keyPattern)) {
-        if (change.type === 'deleted' && !watcher.options?.includeDeleted) {
-          continue;
-        }
-
-        try {
-          watcher.callback(change);
-        } catch (error) {
-          this.logger.error(`Watcher callback error for key '${change.key}'`, error);
-        }
+    // 更新命名空间
+    for (const namespace of this.namespaces.values()) {
+      if (key.startsWith(namespace.prefix)) {
+        const shortKey = key.substring(namespace.prefix.length + 1);
+        namespace.entries.set(shortKey, {
+          key: shortKey,
+          value,
+          source,
+          updatedAt: now,
+        });
       }
     }
   }
 
-  private matchesPattern(key: string, pattern: string): boolean {
-    if (pattern === '*') return true;
+  /**
+   * 检查条目是否有效
+   */
+  private isEntryValid(entry: ConfigEntry): boolean {
+    if (!this.options.enableCache) {
+      return false;
+    }
 
-    const regex = new RegExp(
-      '^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$'
-    );
+    const now = Date.now();
+    const age = (now - entry.updatedAt) / 1000;
 
-    return regex.test(key);
+    return age < this.options.cacheTTL;
   }
 
-  private isSensitiveKey(key: string): boolean {
-    const lowerKey = key.toLowerCase();
-    return this.options.sensitiveKeys.some(sk => lowerKey.includes(sk.toLowerCase()));
+  /**
+   * 验证值
+   */
+  private validateValue(value: any, validation: RegExp | ((value: any) => boolean)): boolean {
+    if (typeof validation === 'function') {
+      return validation(value);
+    }
+    if (validation instanceof RegExp) {
+      return typeof value === 'string' && validation.test(value);
+    }
+    return true;
   }
 
-  private detectType(value: any): ConfigEntry['type'] {
-    if (value === null || value === undefined) return 'string';
-    if (Array.isArray(value)) return 'array';
-    if (typeof value === 'object') return 'object';
-    if (typeof value === 'boolean') return 'boolean';
-    if (typeof value === 'number') return 'number';
-    return 'string';
+  /**
+   * 记录变更
+   */
+  private recordChange(
+    key: string,
+    oldValue: any,
+    newValue: any,
+    changeType: ConfigChangeType,
+    source: ConfigSourceType,
+  ): void {
+    const change: ConfigChange = {
+      key,
+      oldValue,
+      newValue,
+      changeType,
+      timestamp: Date.now(),
+      source,
+    };
+
+    this.changeHistory.push(change);
+    this.changeCount++;
+    this.lastChangeTime = change.timestamp;
+
+    // 限制历史记录数量
+    if (this.changeHistory.length > 1000) {
+      this.changeHistory.shift();
+    }
+
+    // 发射事件
+    this.eventEmitter.emit('config.changed', change);
+    this.eventEmitter.emit(`config.changed.${key}`, change);
   }
+
+  /**
+   * 设置文件监听
+   */
+  private setupFileWatcher(): void {
+    if (!this.options.enableFileWatch) {
+      return;
+    }
+
+    try {
+      const configDir = join(process.cwd(), 'config');
+      this.fileWatcher = watch(configDir, { persistent: false }, (eventType, filename) => {
+        if (eventType === 'change' && filename?.endsWith('.json')) {
+          this.logger.debug(`Config file changed: ${filename}`);
+          this.refresh();
+        }
+      });
+
+      this.logger.log('Config file watcher started');
+    } catch (error: any) {
+      this.logger.warn('Failed to setup config file watcher:', error.message);
+    }
+  }
+
+  /**
+   * 设置远程配置拉取
+   */
+  private setupRemotePull(): void {
+    if (!this.options.enableRemote || !this.options.remoteUrl) {
+      return;
+    }
+
+    this.remotePullInterval = setInterval(async () => {
+      try {
+        await this.pullRemoteConfig();
+      } catch (error: any) {
+        this.logger.warn('Failed to pull remote config:', error.message);
+      }
+    }, this.options.remotePullInterval * 1000);
+
+    this.logger.log('Remote config puller started');
+  }
+
+  /**
+   * 拉取远程配置
+   */
+  private async pullRemoteConfig(): Promise<void> {
+    // 实现远程配置拉取逻辑
+    // 这里可以根据实际需求接入远程配置中心
+  }
+}
+
+/**
+ * 配置装饰器
+ */
+export function Config(key: string, defaultValue?: any) {
+  return function (target: any, propertyKey: string) {
+    const privateKey = `_${propertyKey}`;
+    
+    Object.defineProperty(target, propertyKey, {
+      get() {
+        const configService = (this as any).configCenter as ConfigCenterService;
+        if (configService) {
+          return configService.get(key, defaultValue);
+        }
+        return this[privateKey];
+      },
+    });
+  };
+}
+
+/**
+ * 配置命名空间装饰器
+ */
+export function ConfigNamespaceDecorator(namespace: string) {
+  return function (target: any) {
+    const configService = (target as any).configCenter as ConfigCenterService;
+    if (configService) {
+      return configService.getNamespace(namespace);
+    }
+    return {};
+  };
 }

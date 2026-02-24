@@ -67,8 +67,8 @@ Authorization: Bearer <your-access-token>
 
 | Token 类型 | 有效期 | 用途 |
 |-----------|--------|------|
-| Access Token | 7 天 | API 请求认证 |
-| Refresh Token | 30 天 | 刷新 Access Token |
+| Access Token | 1 小时 | API 请求认证 |
+| Refresh Token | 7 天 | 刷新 Access Token |
 
 ---
 

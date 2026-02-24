@@ -60,7 +60,7 @@ Content-Type: application/json
   },
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 604800,
+  "expiresIn": 3600,
   "imConfig": {
     "wsUrl": "ws://your-server:5200",
     "uid": "user-uuid",
@@ -142,7 +142,7 @@ Content-Type: application/json
   },
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 604800
+  "expiresIn": 3600
 }
 ```
 
@@ -394,7 +394,7 @@ Content-Type: application/json
   },
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 604800
+  "expiresIn": 3600
 }
 ```
 
@@ -477,8 +477,46 @@ Content-Type: application/json
 
 | Token 类型 | 有效期 | 用途 |
 |-----------|--------|------|
-| Access Token | 7 天 | API 请求认证 |
-| Refresh Token | 30 天 | 刷新 Access Token |
+| Access Token | 1 小时 | API 请求认证 |
+| Refresh Token | 7 天 | 刷新 Access Token |
+
+---
+
+## JWT Payload 结构
+
+Access Token 的 Payload 结构如下：
+
+```json
+{
+  "sub": "user-uuid",
+  "iat": 1708123456,
+  "exp": 1708127056,
+  "iss": "openchat",
+  "jti": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "user-uuid",
+  "username": "johndoe",
+  "roles": ["user", "admin"],
+  "permissions": ["message:send", "message:read", "*"],
+  "tenantId": null,
+  "organizationId": null
+}
+```
+
+**字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| sub | string | 用户 ID（标准 JWT 字段） |
+| iat | number | 签发时间戳 |
+| exp | number | 过期时间戳 |
+| iss | string | 签发者（默认: openchat） |
+| jti | string | JWT 唯一标识符 |
+| userId | string | 用户 ID |
+| username | string | 用户名 |
+| roles | string[] | 角色列表 |
+| permissions | string[] | 权限列表 |
+| tenantId | string | 租户 ID（多租户支持） |
+| organizationId | string | 组织 ID（多租户支持） |
 
 ---
 

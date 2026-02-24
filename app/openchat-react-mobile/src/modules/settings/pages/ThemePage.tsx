@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { navigate } from '../../../router';
+import { navigate, navigateBack } from '../../../router';
 import { useTheme, ThemeType } from '../../../services/themeContext';
 import { Navbar } from '../../../components/Navbar/Navbar';
 import { Cell, CellGroup } from '../../../components/Cell';
@@ -34,7 +35,7 @@ export const ThemePage: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--bg-body)' }}>
-      <Navbar title="外观设置" onBack={() => navigate('/settings')} />
+      <Navbar title="外观设置" onBack={() => navigateBack('/settings')} />
       
       <CellGroup title="选择主题模式">
         <Cell 

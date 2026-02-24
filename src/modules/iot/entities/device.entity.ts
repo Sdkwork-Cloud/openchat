@@ -22,7 +22,7 @@ export class DeviceEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
+  @Column({ type: 'varchar', length: 100, nullable: false, unique: true })
   deviceId: string; // 设备唯一标识
 
   @Column({ type: 'enum', enum: DeviceType, default: DeviceType.OTHER })
@@ -46,7 +46,7 @@ export class DeviceEntity {
   @Column({ type: 'json', nullable: true })
   metadata: any; // 设备元数据
 
-  @Column({ type: 'varchar', length: 36, nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   userId: string; // 关联的用户ID
 
   @ManyToOne(() => UserEntity, { onDelete: 'SET NULL' })

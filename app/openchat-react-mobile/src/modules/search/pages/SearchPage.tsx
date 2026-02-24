@@ -1,231 +1,273 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { navigate, navigateBack } from '../../../router';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { navigate, navigateBack, useQueryParams } from '../../../router';
+import { SearchService, SearchResultItem } from '../services/SearchService';
 import { useChatStore } from '../../../services/store';
-import { SearchService } from '../services/SearchService';
-import { Toast } from '../../../components/Toast';
 import { getAgent } from '../../../services/agentRegistry';
 import { useDebounce } from '../../../hooks/useDebounce';
+import { SearchInput } from '../../../components/SearchInput/SearchInput';
+import { Toast } from '../../../components/Toast';
+import { Cell, CellGroup } from '../../../components/Cell'; // Import Cell
 
-// --- Highlighting Component (Optimized) ---
-const HighlightText = React.memo(({ text, highlight, color = '#2979FF' }: { text: string, highlight: string, color?: string }) => {
+// --- Highlighter Component ---
+const HighlightText = React.memo(({ text, highlight }: { text: string, highlight: string }) => {
     if (!highlight.trim() || !text) return <>{text}</>;
-    
-    // Escape regex characters
-    const escapedHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const parts = text.split(new RegExp(`(${escapedHighlight})`, 'gi'));
-    
+    const safeHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${safeHighlight})`, 'gi'));
     return (
         <span>
             {parts.map((part, i) => 
                 part.toLowerCase() === highlight.toLowerCase() ? (
-                    <span key={i} style={{ color: color, fontWeight: 600 }}>{part}</span>
-                ) : (
-                    part
-                )
+                    <span key={i} style={{ color: 'var(--primary-color)', fontWeight: 600 }}>{part}</span>
+                ) : part
             )}
         </span>
     );
 });
 
+// --- Main Page ---
 export const SearchPage: React.FC = () => {
+  const queryParams = useQueryParams();
+  const contextSessionId = queryParams.get('sessionId');
+  
   const [query, setQuery] = useState('');
-  const debouncedQuery = useDebounce(query, 300); // Wait 300ms before searching
-  const [results, setResults] = useState<{ agents: any[], chats: any[] }>({ agents: [], chats: [] });
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { createSession } = useChatStore(); // Removed 'sessions' dependency
+  const debouncedQuery = useDebounce(query, 200);
+  
+  const [results, setResults] = useState<{ 
+      agents: SearchResultItem[], 
+      chats: SearchResultItem[], 
+      others: SearchResultItem[] 
+  }>({ agents: [], chats: [], others: [] });
+  
+  const [history, setHistory] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  const { createSession, getSession } = useChatStore();
+  
+  const contextSession = contextSessionId ? getSession(contextSessionId) : null;
+  const contextAgent = contextSession ? getAgent(contextSession.agentId) : null;
+  const contextName = contextSession?.type === 'group' ? (contextSession.groupName || '群聊') : (contextAgent?.name || '会话');
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-        inputRef.current?.focus();
-    }, 300);
-    return () => clearTimeout(timer);
+    loadHistory();
   }, []);
 
-  // --- Autonomous Search ---
+  const loadHistory = async () => {
+      const h = await SearchService.getHistory();
+      setHistory(h);
+  };
+
   useEffect(() => {
       const performSearch = async () => {
           if (!debouncedQuery.trim()) {
-              setResults({ agents: [], chats: [] });
+              setResults({ agents: [], chats: [], others: [] });
               return;
           }
-          // The service now fetches what it needs internally
-          const res = await SearchService.search(debouncedQuery);
+          setIsSearching(true);
+          const res = await SearchService.search(debouncedQuery, contextSessionId || undefined);
           setResults(res);
+          setIsSearching(false);
       };
       performSearch();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, contextSessionId]);
 
-  const handleAgentClick = (agentId: string) => {
-      const sessionId = createSession(agentId);
-      navigate('/chat', { id: sessionId });
+  const handleItemClick = async (item: SearchResultItem) => {
+      await SearchService.addHistory(query);
+      
+      switch(item.type) {
+          case 'agent':
+              const sessionId = await createSession(item.id);
+              navigate('/chat', { id: sessionId });
+              break;
+          case 'chat':
+              navigate('/chat', { id: item.sessionId, msgId: item.messageId });
+              break;
+          case 'file':
+              navigate('/drive', { folderId: null }); 
+              Toast.info(`定位文件: ${item.title}`);
+              break;
+          case 'article':
+              navigate('/article/detail', { id: item.id });
+              break;
+          case 'creation':
+              navigate('/creation/detail', { id: item.id });
+              break;
+      }
   };
 
-  const handleChatClick = (sessionId: string, messageId?: string) => {
-      navigate('/chat', { id: sessionId, msgId: messageId || '' });
+  const handleClearHistory = async () => {
+      if (window.confirm('确定清空历史记录？')) {
+          await SearchService.clearHistory();
+          setHistory([]);
+      }
   };
 
-  const handleSearchWeb = () => {
-      Toast.loading('正在连接全网搜索...');
-      setTimeout(() => {
-          Toast.hide();
-          navigate('/general', { title: '全网搜索结果' });
-      }, 800);
+  const getIcon = (item: SearchResultItem) => {
+      if (typeof item.avatar === 'string' && (item.avatar.startsWith('http') || item.avatar.length < 5)) {
+           // Emoji or URL
+           if (item.avatar.startsWith('http')) {
+               return <img src={item.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+           }
+           return item.avatar; 
+      }
+      
+      // Type-based Fallback
+      switch(item.type) {
+          case 'file': return '📂';
+          case 'article': return '📰';
+          case 'creation': return '🎨';
+          case 'chat': return '💬';
+          case 'agent': return '🤖';
+          default: return '🔍';
+      }
   };
+
+  const renderIconContainer = (item: SearchResultItem) => (
+      <div style={{ 
+          width: '40px', height: '40px', borderRadius: '8px', 
+          background: 'var(--bg-cell-active)', 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', 
+          fontSize: '20px', flexShrink: 0,
+          overflow: 'hidden'
+      }}>
+          {getIcon(item)}
+      </div>
+  );
+
+  const placeholder = contextName ? `搜索“${contextName}”聊天记录` : "搜索";
 
   return (
     <div style={{ height: '100%', background: 'var(--bg-body)', display: 'flex', flexDirection: 'column' }}>
-      {/* Search Header */}
-      <div style={{
-        padding: '8px 12px 12px 12px',
-        background: 'var(--navbar-bg)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        paddingTop: 'max(8px, env(safe-area-inset-top))',
-        borderBottom: '0.5px solid var(--border-color)'
-      }}>
-        <div style={{
-          flex: 1,
-          background: 'var(--bg-body)', 
-          borderRadius: '8px',
-          height: '36px',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 10px',
-          gap: '8px',
-          transition: 'all 0.3s'
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索智能体、聊天记录..."
-            style={{
-              border: 'none',
-              background: 'transparent',
-              outline: 'none',
-              fontSize: '16px',
-              flex: 1,
-              color: 'var(--text-primary)',
-              height: '100%',
-              padding: 0
-            }}
-          />
-          {query.length > 0 && (
-             <div onClick={() => setQuery('')} style={{ color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-             </div>
-          )}
-        </div>
-        
-        <div 
-          onClick={() => navigateBack()}
-          style={{ fontSize: '16px', color: 'var(--primary-color)', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}
-        >
-          取消
-        </div>
-      </div>
+      
+      <SearchInput 
+          value={query}
+          onChange={setQuery}
+          onCancel={() => navigateBack()}
+          placeholder={placeholder}
+          autoFocus={true}
+      />
 
-      {/* Content Area */}
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        
-        {!query && (
-            <div style={{ padding: '40px 24px', animation: 'fadeIn 0.3s' }}>
-                <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px', textAlign: 'center' }}>搜索指定内容</div>
-                <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', color: 'var(--primary-color)', fontSize: '15px', fontWeight: 500 }}>
-                    <span onClick={() => navigate('/agents')} style={{ cursor: 'pointer' }}>智能体</span>
-                    <span style={{ cursor: 'pointer', opacity: 0.5 }}>朋友圈</span>
-                    <span style={{ cursor: 'pointer', opacity: 0.5 }}>文章</span>
-                </div>
-            </div>
-        )}
-
-        {debouncedQuery && (
-            <div style={{ animation: 'fadeIn 0.2s' }}>
-                {/* Agents Results */}
-                {results.agents.length > 0 && (
-                    <div style={{ background: 'var(--bg-card)', marginBottom: '12px' }}>
-                        <div style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)', borderBottom: '0.5px solid var(--border-color)' }}>智能体</div>
-                        {results.agents.map(agent => (
-                            <div 
-                                key={agent.id}
-                                onClick={() => handleAgentClick(agent.id)}
-                                style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', borderBottom: '0.5px solid var(--border-color)', cursor: 'pointer' }}
-                            >
-                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'var(--bg-cell-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginRight: '12px' }}>{agent.avatar}</div>
-                                <div>
-                                    <div style={{ color: 'var(--text-primary)', fontSize: '16px' }}>
-                                        <HighlightText text={agent.name} highlight={debouncedQuery} />
-                                    </div>
-                                    <div style={{ color: 'var(--text-secondary)', fontSize: '12px', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        <HighlightText text={agent.description} highlight={debouncedQuery} />
-                                    </div>
-                                </div>
+        {!query ? (
+            // --- Empty State ---
+            <div style={{ padding: '24px 16px' }}>
+                {history.length > 0 && (
+                    <div style={{ marginBottom: '30px', animation: 'fadeIn 0.3s' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>最近搜索</span>
+                            <div onClick={handleClearHistory} style={{ color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Chat Results */}
-                {results.chats.length > 0 && (
-                    <div style={{ background: 'var(--bg-card)', marginBottom: '12px' }}>
-                        <div style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)', borderBottom: '0.5px solid var(--border-color)' }}>聊天记录</div>
-                        {results.chats.map(({ session, matchMsg }) => {
-                            const agent = getAgent(session.agentId);
-                            const displayMsg = matchMsg || session.messages[session.messages.length - 1];
-                            
-                            return (
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                            {history.map((t, i) => (
                                 <div 
-                                    key={session.id}
-                                    onClick={() => handleChatClick(session.id, displayMsg.id)}
-                                    style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', borderBottom: '0.5px solid var(--border-color)', cursor: 'pointer' }}
+                                    key={i} 
+                                    onClick={() => setQuery(t)} 
+                                    style={{ 
+                                        padding: '6px 12px', background: 'var(--bg-card)', 
+                                        borderRadius: '16px', fontSize: '14px', color: 'var(--text-primary)', 
+                                        cursor: 'pointer', border: '0.5px solid rgba(0,0,0,0.05)'
+                                    }}
                                 >
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'var(--bg-cell-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginRight: '12px' }}>{agent.avatar}</div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: 'var(--text-primary)', fontSize: '16px' }}>
-                                                <HighlightText text={agent.name} highlight={debouncedQuery} />
-                                            </span>
-                                            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{new Date(session.lastUpdated).toLocaleDateString()}</span>
-                                        </div>
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            <HighlightText text={displayMsg.content} highlight={debouncedQuery} />
-                                        </div>
-                                    </div>
+                                    {t}
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                {!contextSessionId && (
+                    <div style={{ textAlign: 'center', marginTop: '60px', opacity: 0.8 }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>搜索指定内容</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', color: 'var(--primary-color)', fontSize: '14px', fontWeight: 500 }}>
+                            <span onClick={() => navigate('/agents')} style={{cursor:'pointer'}}>智能体</span>
+                            <span onClick={() => navigate('/moments')} style={{cursor:'pointer'}}>朋友圈</span>
+                            <span onClick={() => navigate('/drive')} style={{cursor:'pointer'}}>文件</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        ) : (
+            // --- Search Results ---
+            <div style={{ animation: 'fadeIn 0.2s', padding: '12px' }}>
+                {isSearching && (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                        搜索中...
                     </div>
                 )}
 
-                {/* Web Search Fallback */}
-                <div style={{ background: 'var(--bg-card)' }}>
-                     <div 
-                        onClick={handleSearchWeb}
-                        style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-                        onTouchStart={(e) => e.currentTarget.style.background = 'var(--bg-cell-active)'}
-                        onTouchEnd={(e) => e.currentTarget.style.background = 'var(--bg-card)'}
-                     >
-                         <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                         </div>
-                         <div>
-                             <div style={{ fontSize: '16px', color: 'var(--text-primary)' }}>搜一搜 <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>"{debouncedQuery}"</span></div>
-                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>网络搜索、百科、视频</div>
-                         </div>
-                     </div>
-                </div>
+                {!isSearching && results.agents.length > 0 && (
+                    <CellGroup title="智能体" inset>
+                        {results.agents.map(item => (
+                            <Cell 
+                                key={item.id} 
+                                onClick={() => handleItemClick(item)}
+                                icon={renderIconContainer(item)}
+                                title={<HighlightText text={item.title} highlight={debouncedQuery} />}
+                                label={item.subTitle}
+                                center
+                            />
+                        ))}
+                    </CellGroup>
+                )}
+
+                {!isSearching && results.chats.length > 0 && (
+                    <CellGroup title={contextSessionId ? `找到 ${results.chats.length} 条相关记录` : '聊天记录'} inset>
+                        {results.chats.map((item, idx) => (
+                            <Cell 
+                                key={item.messageId || idx}
+                                onClick={() => handleItemClick(item)}
+                                icon={renderIconContainer(item)}
+                                title={<HighlightText text={item.title} highlight={debouncedQuery} />}
+                                label={<HighlightText text={item.subTitle} highlight={debouncedQuery} />}
+                                value={<span style={{fontSize: '11px'}}>{new Date(item.timestamp).toLocaleDateString()}</span>}
+                                center
+                            />
+                        ))}
+                    </CellGroup>
+                )}
+
+                {!isSearching && results.others && results.others.length > 0 && (
+                    <CellGroup title="内容 (文件/文章/作品)" inset>
+                        {results.others.map((item, idx) => (
+                            <Cell 
+                                key={item.id || idx}
+                                onClick={() => handleItemClick(item)}
+                                icon={renderIconContainer(item)}
+                                title={<HighlightText text={item.title} highlight={debouncedQuery} />}
+                                label={item.subTitle}
+                                value={<span style={{fontSize: '11px'}}>{new Date(item.timestamp).toLocaleDateString()}</span>}
+                                center
+                            />
+                        ))}
+                    </CellGroup>
+                )}
+
+                {!isSearching && results.agents.length === 0 && results.chats.length === 0 && (!results.others || results.others.length === 0) && (
+                    <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.2 }}>🔍</div>
+                        <div style={{ fontSize: '14px' }}>未找到 "{query}" 相关结果</div>
+                    </div>
+                )}
+                
+                {!contextSessionId && !isSearching && (
+                    <CellGroup inset>
+                        <Cell 
+                            icon={
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                </div>
+                            }
+                            title={<span>搜一搜 <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>"{query}"</span></span>}
+                            label="网络搜索、百科、视频"
+                            onClick={() => { Toast.loading('搜索中...'); setTimeout(() => Toast.hide(), 1000); }}
+                            center
+                        />
+                    </CellGroup>
+                )}
             </div>
         )}
-        <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
       </div>
     </div>
   );

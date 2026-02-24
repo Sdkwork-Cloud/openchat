@@ -1,9 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navbar } from '../../../components/Navbar/Navbar';
 import { navigate } from '../../../router';
 import { FavoritesService, FavoriteItem } from '../services/FavoritesService';
 import { useDebounce } from '../../../hooks/useDebounce';
+import { Empty } from '../../../components/Empty/Empty';
+import { useLiveQuery } from '../../../core/hooks';
+import { StateView } from '../../../components/StateView/StateView';
 
 const CATEGORIES = [
     { id: 'all', label: '全部' },
@@ -58,17 +61,14 @@ export const FavoritesPage: React.FC = () => {
     const [activeCategory, setActiveCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedQuery = useDebounce(searchQuery, 300);
-    const [items, setItems] = useState<FavoriteItem[]>([]);
 
-    useEffect(() => {
-        const load = async () => {
-            const res = await FavoritesService.getFavorites(activeCategory, debouncedQuery);
-            if (res.success && res.data) {
-                setItems(res.data.content);
-            }
-        };
-        load();
-    }, [activeCategory, debouncedQuery]);
+    const { data: pageData, viewStatus, refresh } = useLiveQuery(
+        FavoritesService,
+        () => FavoritesService.getFavorites(activeCategory, debouncedQuery),
+        { deps: [activeCategory, debouncedQuery] }
+    );
+
+    const items = pageData?.content || [];
 
     return (
         <div style={{ height: '100%', background: 'var(--bg-body)', display: 'flex', flexDirection: 'column' }}>
@@ -112,22 +112,21 @@ export const FavoritesPage: React.FC = () => {
             </div>
             
             <div style={{ flex: 1, overflowY: 'auto' }}>
-                {items.length > 0 ? (
+                <StateView
+                    status={viewStatus}
+                    onRetry={refresh}
+                    emptyText="无相关收藏"
+                    emptyIcon="📭"
+                >
                     <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
                         {items.map((item) => (
                             <FavoriteListItem key={item.id} item={item} />
                         ))}
                     </div>
-                ) : (
-                    <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        <div style={{ fontSize: '40px', marginBottom: '10px', opacity: 0.5 }}>📭</div>
-                        <div style={{ fontSize: '14px' }}>无相关收藏</div>
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                        {items.length} 条内容
                     </div>
-                )}
-                
-                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px' }}>
-                    {items.length} 条内容
-                </div>
+                </StateView>
             </div>
         </div>
     );

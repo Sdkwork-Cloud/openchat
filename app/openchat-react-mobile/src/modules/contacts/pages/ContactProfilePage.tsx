@@ -17,7 +17,7 @@ export const ContactProfilePage: React.FC = () => {
 
     return (
         <div style={{ minHeight: '100%', background: 'var(--bg-body)' }}>
-            <Navbar title="" variant="transparent" rightElement={<div style={{padding: '0 12px', fontWeight: 900}}>···</div>} />
+            <Navbar title="" variant="transparent" backFallback="/contacts" rightElement={<div style={{padding: '0 12px', fontWeight: 900}}>···</div>} />
             
             <div style={{ background: 'var(--bg-card)', padding: '20px 24px 40px 24px', display: 'flex', marginBottom: '10px', alignItems: 'flex-start', marginTop: '-44px', paddingTop: '64px' }}>
                  <div style={{ width: '70px', height: '70px', borderRadius: '12px', backgroundImage: `url(https://api.dicebear.com/7.x/identicon/svg?seed=${name})`, backgroundSize: 'cover', marginRight: '20px', border: '1px solid var(--border-color)' }}></div>

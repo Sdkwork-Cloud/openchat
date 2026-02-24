@@ -47,7 +47,7 @@ export * from './services/data-export.service';
 export * from './services/state-machine.service';
 export * from './services/mapper.service';
 export * from './services/permission.service';
-export { BatchOperationService as BatchOperationSvc, BatchOperationOptions, BatchOperationResult, BatchProcessor } from './services/batch-operation.service';
+export { BatchOperationService as BatchOperationSvc } from './services/batch-operation.service';
 export * from './services/cache-invalidation.service';
 export { TransactionManager, TransactionOptions, TransactionResult, Transactional } from './services/transaction-manager.service';
 export { RequestContextService, RequestContext, WithContext, CONTEXT_KEYS } from './services/request-context.service';
@@ -74,31 +74,10 @@ export { DataTransformService, TransformOptions, FlattenOptions, DiffResult } fr
 export { FileHandlerService, FileInfo, FileUploadOptions, FileUploadResult, FileValidationResult, DirectoryScanOptions } from './services/file-handler.service';
 export { HealthCheckExtensionService, HealthStatus, ComponentHealth, SystemHealth, HealthCheckConfig, HealthMetrics } from './services/health-check-extension.service';
 export { CircuitBreakerService, CircuitState, CircuitBreakerOptions, CircuitStats, CircuitBreakerInstance, CircuitBreaker } from './services/circuit-breaker.service';
-export { PaginationService, PaginationParams, PaginationResult, CursorPaginationParams, CursorPaginationResult, PaginationConfig } from './services/pagination.service';
-export { ExportService, ExportFormat, ExportOptions, ExportResult, ExportProgress } from './services/export.service';
-export { ImportService, ImportFormat, ImportOptions, ImportResult, ImportError, ImportProgress, ImportJob } from './services/import.service';
-export { ConnectionPoolService, ConnectionPoolOptions, PooledConnection, PoolStats, AcquireOptions } from './services/connection-pool.service';
-export { TaskQueueService, TaskStatus, TaskPriority, Task, TaskHandler, TaskQueueOptions, TaskQueueStats, EnqueueOptions } from './services/task-queue.service';
-export { CacheStrategyService, CacheStrategy, EvictionReason, CacheEntry, CacheStrategyOptions, CacheStats, SetOptions } from './services/cache-strategy.service';
-export { ThrottleStrategyService, ThrottleStrategy, ThrottleOptions, ThrottleResult, ThrottleStats } from './services/throttle-strategy.service';
-export { EventSourcingService, Event, Aggregate, EventHandler, EventStoreOptions, Snapshot, EventQuery, EventSourcingStats } from './services/event-sourcing.service';
-export { WorkflowEngineService, WorkflowStatus, StepStatus, WorkflowStep, WorkflowDefinition, WorkflowContext, WorkflowExecution, StepExecution, StepHandler, WorkflowEngineOptions, WorkflowStats } from './services/workflow-engine.service';
-export { AuditTrailService, AuditAction, AuditSeverity, AuditEntry, AuditDiff, AuditQuery, AuditStats, AuditTrailOptions } from './services/audit-trail.service';
-export { VersionControlService, Version, VersionDiff, VersionBranch, VersionQuery, VersionControlOptions, VersionControlStats } from './services/version-control.service';
-export { StorageService, StorageProvider, StorageOptions, StorageFile, UploadOptions, UploadResult, DownloadResult, ListOptions, ListResult, SignedUrlOptions } from './services/storage.service';
-export { SearchService, SearchDocument, SearchOptions, SearchQuery, SearchResult, SearchResponse, IndexOptions, SearchStats } from './services/search.service';
-export { NotificationService as NotificationAdvancedService, NotificationChannel, NotificationStatus, NotificationRecipient, Notification, NotificationOptions, NotificationProvider, NotificationStats, NotificationQuery } from './services/notification-advanced.service';
-export { TemplateEngineService, TemplateEngine, Template, RenderOptions, RenderResult, CompileOptions, TemplateStats } from './services/template-engine.service';
-export { SchedulerService as SchedulerAdvancedService, ScheduleType, JobStatus, Job, JobResult, SchedulerStats, JobQuery } from './services/scheduler-advanced.service';
-export { LockManagerService, LockType, LockStatus, Lock, LockOptions, LockStats, LockManagerOptions } from './services/lock-manager.service';
-export { ConfigCenterService, ConfigSourceType, ConfigChangeType, ConfigEntry, ConfigChange, ConfigWatcher, ConfigNamespace, ConfigCenterOptions, ConfigStats } from './services/config-center.service';
-export { ServiceDiscoveryService, ServiceStatus, HealthCheckType, ServiceInstance, ServiceEndpoint, ServiceDefinition, LoadBalancerStrategy, ServiceDiscoveryOptions, ServiceDiscoveryStats, ServiceQuery } from './services/service-discovery.service';
-export { MessageQueueService, MessageStatus, AcknowledgmentMode, Message, QueueOptions, ConsumeOptions, QueueStats, MessageHandler } from './services/message-queue.service';
-export { DelayedQueueService, DelayedMessage, DelayedQueueOptions, DelayedQueueStats } from './services/delayed-queue.service';
-export { PriorityQueueService, PriorityLevel, PriorityItem, PriorityQueueOptions, PriorityQueueStats } from './services/priority-queue.service';
-export { DeadLetterQueueService, DeadLetterReason, DeadLetterMessage, DeadLetterQueueOptions, DeadLetterQueueStats } from './services/dead-letter-queue.service';
+export { PaginationService, PaginationResult, CursorPaginationResult } from './services/pagination.service';
 export * from './entities/audit-log.entity';
-export * from './monitoring/performance-monitor.service';
+export { MetricsService, MetricType } from './services/metrics.service';
+export { PerformanceMetrics, PerformanceMonitorService } from './monitoring/performance-monitor.service';
 export * from './decorators/response.decorator';
 export * from './decorators/cache.decorator';
 export * from './decorators/rate-limit.decorator';
@@ -110,10 +89,21 @@ export * from './exceptions/business.exception';
 export * from './filters/global-exception.filter';
 export * from './interceptors/transform.interceptor';
 export * from './interceptors/logging.interceptor';
-export * from './events/event-bus.service';
+export { EventBusService, IEvent, IEventHandler, EventSubscribeOptions, OnEvent } from './events/event-bus.service';
 export * from './queue/queue.service';
 export * from './health/health-check.service';
 export * from './websocket/base-websocket.gateway';
 export * from './schedulers/task-scheduler.service';
 export * from './decorators/validation.decorators';
 export * from './utils/query-builder.helper';
+export {
+  PermissionGuard,
+  RoleGuard,
+  OwnerGuard,
+  PERMISSION_KEY,
+  ROLE_KEY,
+  OWNER_ONLY_KEY,
+  AdminOnly,
+  Authenticated,
+} from './guards';
+export { AllExceptionsFilter, BusinessExceptionFilter } from './filters';

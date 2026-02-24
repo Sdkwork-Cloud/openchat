@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager, Repository, FindOptionsWhere } from 'typeorm';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { CacheService } from './cache.service';
 import { CacheInvalidationService } from './cache-invalidation.service';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
@@ -170,7 +170,7 @@ export abstract class DomainService<T extends DomainEntity> implements OnModuleI
       timestamp: Date.now(),
     };
 
-    await this.eventBus.publish(EventType.CUSTOM_EVENT, event);
+    await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, event);
   }
 
   protected async invalidateCache(id: string): Promise<void> {

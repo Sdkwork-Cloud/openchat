@@ -80,10 +80,8 @@ class WalletServiceImpl extends AbstractStorageService<Transaction> {
 
   async getTransactions(page: number = 1, size: number = 20): Promise<Result<Page<Transaction>>> {
       return await this.findAll({ 
-          page, 
-          size, 
-          sortField: 'createTime', 
-          sortOrder: 'desc' 
+          pageRequest: { page, size },
+          sort: { field: 'createTime', order: 'desc' }
       });
   }
 }

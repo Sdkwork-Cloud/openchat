@@ -54,11 +54,16 @@ class VideoServiceImpl extends AbstractStorageService<Video> {
    * Combines content-based filtering with a weighted shuffle.
    */
   async getRecommendedVideos(page: number = 1, size: number = 10): Promise<Result<Page<Video>>> {
-    // 1. Load fresh data from storage (to get latest like status)
-    const list = await this.loadData();
+    // 1. Standardized Retrieval: Fetch candidates (e.g. last 1000 items) using Criteria API
+    // This allows the AbstractService to handle caching/DB-fetching consistency
+    const { data } = await this.findAll({ 
+        pageRequest: { page: 1, size: 1000 } 
+    });
+    
+    const candidates = data?.content || [];
 
     // 2. Apply Scoring Algorithm
-    const scoredContent = smartRecommendShuffle(list, (video) => {
+    const scoredContent = smartRecommendShuffle(candidates, (video) => {
         // Logarithmic popularity score
         const popularityScore = Math.log10(video.likesCount + 1) * 10;
         
@@ -66,12 +71,12 @@ class VideoServiceImpl extends AbstractStorageService<Video> {
         const interestBoost = (this.userInterests[video.type] || 0) * 50;
         
         // Interaction Boost
-        const likeBoost = video.hasLiked ? -20 : 0; // Slightly penalize already liked videos to show new content? Or boost? Let's say we want variety.
+        const likeBoost = video.hasLiked ? -20 : 0; // Penalty to encourage diversity
         
         return popularityScore + interestBoost + likeBoost;
-    }, 0.3); // 30% Randomness factor to prevent echo chamber
+    }, 0.3); // 30% Randomness
 
-    // 3. Pagination
+    // 3. Manual Pagination on the Shuffled Result
     const total = scoredContent.length;
     const totalPages = Math.ceil(total / size);
     const startIndex = (page - 1) * size;

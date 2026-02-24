@@ -1,305 +1,653 @@
+/**
+ * 增强型 DTO 基类
+ * 提供通用的 DTO 功能和模式
+ *
+ * @framework
+ */
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsString,
-  IsOptional,
-  IsNotEmpty,
-  IsEmail,
-  IsPhoneNumber,
-  MinLength,
-  MaxLength,
-  Matches,
-  IsDateString,
-  IsNumber,
-  Min,
-  Max,
-  IsArray,
-  ArrayMinSize,
-  ArrayMaxSize,
-  ValidateNested,
-  IsEnum,
-  IsBoolean,
-  IsUUID,
-  IsUrl,
-} from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { IsInt, IsOptional, Min, Max, IsString, IsDateString, ValidateNested, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
 
+/**
+ * 基础 DTO 类
+ * 所有 DTO 的基类
+ */
 export abstract class BaseDto {
-  @ApiPropertyOptional({ description: '唯一标识' })
-  @IsOptional()
-  @IsString()
-  id?: string;
+  /**
+   * 转换为普通对象
+   */
+  toObject(): Record<string, any> {
+    const obj: Record<string, any> = {};
 
-  @ApiPropertyOptional({ description: 'UUID' })
-  @IsOptional()
-  @IsUUID()
-  uuid?: string;
+    for (const key of Object.keys(this)) {
+      const value = (this as any)[key];
+      obj[key] = value instanceof Date ? value.toISOString() : value;
+    }
+
+    return obj;
+  }
+
+  /**
+   * 转换为 JSON（排除 null 和 undefined）
+   */
+  toJSON(): Record<string, any> {
+    const obj: Record<string, any> = {};
+
+    for (const key of Object.keys(this)) {
+      const value = (this as any)[key];
+      if (value !== null && value !== undefined) {
+        obj[key] = value instanceof Date ? value.toISOString() : value;
+      }
+    }
+
+    return obj;
+  }
+
+  /**
+   * 获取指定字段
+   */
+  pick<T extends keyof this>(fields: T[]): Pick<this, T> {
+    const result = {} as Pick<this, T>;
+    for (const field of fields) {
+      result[field] = this[field];
+    }
+    return result;
+  }
+
+  /**
+   * 排除指定字段
+   */
+  omit<T extends keyof this>(fields: T[]): Omit<this, T> {
+    const result = { ...this } as any;
+    for (const field of fields) {
+      delete result[field];
+    }
+    return result;
+  }
 }
 
-export abstract class TimestampDto {
-  @ApiPropertyOptional({ description: '创建时间' })
-  @IsOptional()
-  @IsDateString()
-  createdAt?: Date;
-
-  @ApiPropertyOptional({ description: '更新时间' })
-  @IsOptional()
-  @IsDateString()
-  updatedAt?: Date;
-}
-
-export abstract class BaseEntityDto extends BaseDto {}
-
-export abstract class AuditableDto extends BaseEntityDto {
-  @ApiPropertyOptional({ description: '创建者ID' })
-  @IsOptional()
+/**
+ * 创建 DTO
+ */
+export abstract class CreateDto extends BaseDto {
+  @ApiPropertyOptional({ description: '创建者 ID' })
   @IsString()
+  @IsOptional()
   createdBy?: string;
+}
 
-  @ApiPropertyOptional({ description: '更新者ID' })
-  @IsOptional()
+/**
+ * 更新 DTO
+ */
+export abstract class UpdateDto extends BaseDto {
+  @ApiPropertyOptional({ description: '更新者 ID' })
   @IsString()
+  @IsOptional()
   updatedBy?: string;
 }
 
-export class StringIdParamDto {
-  @ApiProperty({ description: 'ID' })
+/**
+ * 部分更新 DTO
+ */
+export abstract class PartialUpdateDto extends UpdateDto {
+  // 所有字段都是可选的
+}
+
+/**
+ * 删除 DTO
+ */
+export abstract class DeleteDto extends BaseDto {
+  @ApiPropertyOptional({ description: '删除原因' })
   @IsString()
-  @IsNotEmpty()
-  id: string;
-}
-
-export class UuidParamDto {
-  @ApiProperty({ description: 'UUID' })
-  @IsUUID()
-  @IsNotEmpty()
-  uuid: string;
-}
-
-export class NumericIdParamDto {
-  @ApiProperty({ description: 'ID' })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  id: number;
-}
-
-export class DateRangeDto {
-  @ApiPropertyOptional({ description: '开始时间' })
   @IsOptional()
-  @IsDateString()
-  startDate?: string;
+  reason?: string;
 
-  @ApiPropertyOptional({ description: '结束时间' })
+  @ApiPropertyOptional({ description: '是否永久删除', default: false })
   @IsOptional()
-  @IsDateString()
-  endDate?: string;
+  permanent?: boolean = false;
 }
 
-export class EmailDto {
-  @ApiProperty({ description: '邮箱地址' })
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
-}
-
-export class PhoneDto {
-  @ApiProperty({ description: '手机号码' })
-  @IsString()
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: '请输入有效的手机号码' })
-  @IsNotEmpty()
-  phone: string;
-}
-
-export class PasswordDto {
-  @ApiProperty({ description: '密码', minLength: 8, maxLength: 32 })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(8)
-  @MaxLength(32)
-  @Matches(/^(?=.*[a-zA-Z])(?=.*\d).+$/, {
-    message: '密码必须包含字母和数字',
-  })
-  password: string;
-}
-
-export class UsernameDto {
-  @ApiProperty({ description: '用户名', minLength: 3, maxLength: 50 })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(3)
-  @MaxLength(50)
-  @Matches(/^[a-zA-Z][a-zA-Z0-9_]*$/, {
-    message: '用户名必须以字母开头，只能包含字母、数字和下划线',
-  })
-  username: string;
-}
-
-export class NicknameDto {
-  @ApiProperty({ description: '昵称', minLength: 1, maxLength: 50 })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
-  @MaxLength(50)
-  nickname: string;
-}
-
-export class UrlDto {
-  @ApiProperty({ description: 'URL地址' })
-  @IsUrl()
-  @IsNotEmpty()
-  url: string;
-}
-
-export class IdsDto {
-  @ApiProperty({ description: 'ID列表', type: [String] })
+/**
+ * 批量操作 DTO
+ */
+export abstract class BatchDto<T = any> extends BaseDto {
+  @ApiProperty({ description: '操作列表' })
   @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => Object)
+  items: T[];
+}
+
+/**
+ * 批量创建 DTO
+ */
+export abstract class BatchCreateDto<T extends CreateDto> extends BatchDto<T> {
+  @ApiProperty({ description: '创建项列表', type: [Object] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type((options) => {
+    // 动态类型需要在子类中指定
+    return Object;
+  })
+  items: T[];
+}
+
+/**
+ * 批量更新 DTO
+ */
+export abstract class BatchUpdateDto<T extends UpdateDto> extends BatchDto<T> {
+  @ApiProperty({ description: '更新项列表', type: [Object] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type((options) => {
+    // 动态类型需要在子类中指定
+    return Object;
+  })
+  items: T[];
+}
+
+/**
+ * 批量删除 DTO
+ */
+export abstract class BatchDeleteDto extends BaseDto {
+  @ApiProperty({ description: '要删除的 ID 列表', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  ids: string[];
+
+  @ApiPropertyOptional({ description: '删除原因' })
+  @IsString()
+  @IsOptional()
+  reason?: string;
+}
+
+/**
+ * 导入 DTO
+ */
+export abstract class ImportDto extends BaseDto {
+  @ApiProperty({ description: '导入数据' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => Object)
+  data: Record<string, any>[];
+
+  @ApiPropertyOptional({ description: '导入选项' })
+  @IsOptional()
+  options?: {
+    skipDuplicates?: boolean;
+    validateOnly?: boolean;
+    batchSize?: number;
+  };
+}
+
+/**
+ * 导出 DTO
+ */
+export abstract class ExportDto extends BaseDto {
+  @ApiPropertyOptional({ description: '导出格式', default: 'csv' })
+  @IsString()
+  @IsOptional()
+  format?: 'csv' | 'xlsx' | 'json' | 'xml' = 'csv';
+
+  @ApiPropertyOptional({ description: '导出字段' })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  fields?: string[];
+
+  @ApiPropertyOptional({ description: '过滤条件' })
+  @IsOptional()
+  filters?: Record<string, any>;
+}
+
+/**
+ * 搜索 DTO
+ */
+export abstract class SearchDto extends BaseDto {
+  @ApiPropertyOptional({ description: '搜索关键词' })
+  @IsString()
+  @IsOptional()
+  keyword?: string;
+
+  @ApiPropertyOptional({ description: '搜索字段' })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  fields?: string[];
+
+  @ApiPropertyOptional({ description: '精确匹配', default: false })
+  @IsOptional()
+  exact?: boolean = false;
+
+  @ApiPropertyOptional({ description: '是否区分大小写', default: false })
+  @IsOptional()
+  caseSensitive?: boolean = false;
+}
+
+/**
+ * 过滤 DTO
+ */
+export abstract class FilterDto extends BaseDto {
+  @ApiPropertyOptional({ description: '等于条件' })
+  @IsOptional()
+  eq?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '不等于条件' })
+  @IsOptional()
+  ne?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '大于条件' })
+  @IsOptional()
+  gt?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '大于等于条件' })
+  @IsOptional()
+  gte?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '小于条件' })
+  @IsOptional()
+  lt?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '小于等于条件' })
+  @IsOptional()
+  lte?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '包含条件' })
+  @IsOptional()
+  contains?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '开始匹配' })
+  @IsOptional()
+  startsWith?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: '结束匹配' })
+  @IsOptional()
+  endsWith?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'IN 条件' })
+  @IsOptional()
+  in?: Record<string, any[]>;
+
+  @ApiPropertyOptional({ description: 'NOT IN 条件' })
+  @IsOptional()
+  notIn?: Record<string, any[]>;
+
+  @ApiPropertyOptional({ description: 'NULL 检查' })
+  @IsOptional()
+  isNull?: string[];
+
+  @ApiPropertyOptional({ description: 'NOT NULL 检查' })
+  @IsOptional()
+  isNotNull?: string[];
+
+  @ApiPropertyOptional({ description: ' BETWEEN 条件' })
+  @IsOptional()
+  between?: Record<string, [any, any]>;
+
+  @ApiPropertyOptional({ description: '逻辑 OR 条件' })
+  @IsOptional()
+  or?: FilterDto[];
+
+  @ApiPropertyOptional({ description: '逻辑 AND 条件' })
+  @IsOptional()
+  and?: FilterDto[];
+}
+
+/**
+ * 排序 DTO
+ */
+export abstract class SortDto extends BaseDto {
+  @ApiPropertyOptional({ description: '排序字段', default: 'createdAt' })
+  @IsString()
+  @IsOptional()
+  sortBy?: string = 'createdAt';
+
+  @ApiPropertyOptional({ description: '排序方向', default: 'desc', enum: ['asc', 'desc'] })
+  @IsString()
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc' = 'desc';
+
+  /**
+   * 转换为 TypeORM 排序对象
+   */
+  toTypeORMOrder(): Record<string, 'ASC' | 'DESC'> {
+    return {
+      [this.sortBy!]: this.sortOrder === 'asc' ? 'ASC' : 'DESC',
+    };
+  }
+}
+
+/**
+ * 统计 DTO
+ */
+export abstract class StatsDto extends BaseDto {
+  @ApiProperty({ description: '总数' })
+  total: number;
+
+  @ApiPropertyOptional({ description: '活跃数量' })
+  activeCount?: number;
+
+  @ApiPropertyOptional({ description: '非活跃数量' })
+  inactiveCount?: number;
+
+  @ApiPropertyOptional({ description: '增长率' })
+  growthRate?: number;
+
+  @ApiPropertyOptional({ description: '统计时间范围' })
+  range?: {
+    start: Date;
+    end: Date;
+  };
+}
+
+/**
+ * 状态变更 DTO
+ */
+export abstract class ChangeStatusDto extends BaseDto {
+  @ApiProperty({ description: '新状态' })
+  @IsString()
+  status: string;
+
+  @ApiPropertyOptional({ description: '变更原因' })
+  @IsString()
+  @IsOptional()
+  reason?: string;
+
+  @ApiPropertyOptional({ description: '备注' })
+  @IsString()
+  @IsOptional()
+  remark?: string;
+}
+
+/**
+ * 时间戳 DTO
+ */
+export class TimestampDto extends BaseDto {
+  @ApiProperty({ description: '时间戳' })
+  @IsInt()
+  timestamp: number;
+}
+
+/**
+ * 基础实体 DTO
+ */
+export class BaseEntityDto extends BaseDto {
+  @ApiProperty({ description: 'ID' })
+  @IsString()
+  id: string;
+
+  @ApiProperty({ description: '创建时间' })
+  @IsDateString()
+  createdAt: string;
+
+  @ApiProperty({ description: '更新时间' })
+  @IsDateString()
+  updatedAt: string;
+}
+
+/**
+ * 可审计 DTO
+ */
+export class AuditableDto extends BaseEntityDto {
+  @ApiPropertyOptional({ description: '创建者 ID' })
+  @IsString()
+  @IsOptional()
+  createdBy?: string;
+
+  @ApiPropertyOptional({ description: '更新者 ID' })
+  @IsString()
+  @IsOptional()
+  updatedBy?: string;
+}
+
+/**
+ * 分页查询 DTO
+ */
+export class PaginationQueryDto extends BaseDto {
+  @ApiPropertyOptional({ description: '页码', default: 1 })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: '每页数量', default: 10 })
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  pageSize?: number = 10;
+}
+
+/**
+ * 搜索查询 DTO
+ */
+export class SearchQueryDto extends BaseDto {
+  @ApiPropertyOptional({ description: '搜索关键词' })
+  @IsString()
+  @IsOptional()
+  keyword?: string;
+
+  @ApiPropertyOptional({ description: '页码', default: 1 })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: '每页数量', default: 10 })
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  pageSize?: number = 10;
+
+  @ApiPropertyOptional({ description: '排序字段' })
+  @IsString()
+  @IsOptional()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ description: '排序方向', enum: ['asc', 'desc'] })
+  @IsString()
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc' = 'desc';
+}
+
+/**
+ * 状态 DTO
+ */
+export class StatusDto extends BaseDto {
+  @ApiProperty({ description: '状态' })
+  @IsString()
+  status: string;
+}
+
+/**
+ * 关键词 DTO
+ */
+export class KeywordDto extends BaseDto {
+  @ApiProperty({ description: '关键词' })
+  @IsString()
+  keyword: string;
+}
+
+/**
+ * IDs DTO
+ */
+export class IdsDto extends BaseDto {
+  @ApiProperty({ description: 'ID 列表', type: [String] })
+  @IsArray()
   @IsString({ each: true })
   ids: string[];
 }
 
-export class SortDto {
-  @ApiPropertyOptional({ description: '排序字段' })
+/**
+ * 日期范围 DTO
+ */
+export class DateRangeDto extends BaseDto {
+  @ApiPropertyOptional({ description: '开始日期' })
+  @IsDateString()
   @IsOptional()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: '结束日期' })
+  @IsDateString()
+  @IsOptional()
+  endDate?: string;
+}
+
+/**
+ * 邮箱 DTO
+ */
+export class EmailDto extends BaseDto {
+  @ApiProperty({ description: '邮箱地址' })
   @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({ description: '排序方向', enum: ['asc', 'desc'], default: 'desc' })
-  @IsOptional()
-  @IsEnum(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc' = 'desc';
+  email: string;
 }
 
-export class StatusDto {
-  @ApiPropertyOptional({ description: '状态' })
-  @IsOptional()
+/**
+ * 手机号 DTO
+ */
+export class PhoneDto extends BaseDto {
+  @ApiProperty({ description: '手机号' })
   @IsString()
-  status?: string;
+  phone: string;
 }
 
-export class KeywordDto {
-  @ApiPropertyOptional({ description: '搜索关键词' })
-  @IsOptional()
+/**
+ * 密码 DTO
+ */
+export class PasswordDto extends BaseDto {
+  @ApiProperty({ description: '密码' })
   @IsString()
-  @MaxLength(100)
-  keyword?: string;
+  password: string;
 }
 
-export class BooleanQueryDto {
-  @ApiPropertyOptional({ description: '布尔值' })
-  @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  @IsBoolean()
-  value?: boolean;
-}
-
-export class NumberRangeDto {
-  @ApiPropertyOptional({ description: '最小值' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  min?: number;
-
-  @ApiPropertyOptional({ description: '最大值' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  max?: number;
-}
-
-export class FileUploadDto {
-  @ApiPropertyOptional({ description: '文件名称' })
-  @IsOptional()
+/**
+ * 用户名 DTO
+ */
+export class UsernameDto extends BaseDto {
+  @ApiProperty({ description: '用户名' })
   @IsString()
-  @MaxLength(255)
-  filename?: string;
-
-  @ApiPropertyOptional({ description: '文件大小(字节)' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  size?: number;
-
-  @ApiPropertyOptional({ description: '文件MIME类型' })
-  @IsOptional()
-  @IsString()
-  mimeType?: string;
+  username: string;
 }
 
-export class CoordinatesDto {
+/**
+ * 昵称 DTO
+ */
+export class NicknameDto extends BaseDto {
+  @ApiProperty({ description: '昵称' })
+  @IsString()
+  nickname: string;
+}
+
+/**
+ * URL DTO
+ */
+export class UrlDto extends BaseDto {
+  @ApiProperty({ description: 'URL 地址' })
+  @IsString()
+  url: string;
+}
+
+/**
+ * 数字 ID 参数 DTO
+ */
+export class NumericIdParamDto extends BaseDto {
+  @ApiProperty({ description: 'ID' })
+  @IsInt()
+  id: number;
+}
+
+/**
+ * 字符串 ID 参数 DTO
+ */
+export class StringIdParamDto extends BaseDto {
+  @ApiProperty({ description: 'ID' })
+  @IsString()
+  id: string;
+}
+
+/**
+ * UUID 参数 DTO
+ */
+export class UuidParamDto extends BaseDto {
+  @ApiProperty({ description: 'UUID' })
+  @IsString()
+  id: string;
+}
+
+/**
+ * 坐标 DTO
+ */
+export class CoordinatesDto extends BaseDto {
   @ApiProperty({ description: '纬度' })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
+  @IsInt()
   latitude: number;
 
   @ApiProperty({ description: '经度' })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
+  @IsInt()
   longitude: number;
 }
 
-export class PaginationQueryDto extends SortDto {
-  @ApiPropertyOptional({ description: '页码', default: 1, minimum: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page?: number = 1;
+/**
+ * 文件上传 DTO
+ */
+export class FileUploadDto extends BaseDto {
+  @ApiProperty({ description: '文件' })
+  file: any;
 
-  @ApiPropertyOptional({ description: '每页数量', default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  pageSize?: number = 20;
-
-  get offset(): number {
-    return ((this.page || 1) - 1) * (this.pageSize || 20);
-  }
-}
-
-export class SearchQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: '搜索关键词' })
-  @IsOptional()
+  @ApiPropertyOptional({ description: '文件描述' })
   @IsString()
-  @MaxLength(100)
-  keyword?: string;
+  @IsOptional()
+  description?: string;
 }
 
-export function createEnumDto<T extends Record<string, string>>(
-  enumObj: T,
-  name: string,
-): new () => { value: T[keyof T] } {
-  class EnumDtoClass {
-    @ApiProperty({ description: `${name}值`, enum: enumObj })
-    @IsEnum(enumObj)
-    @IsNotEmpty()
-    value: T[keyof T];
+/**
+ * 布尔查询 DTO
+ */
+export class BooleanQueryDto extends BaseDto {
+  @ApiPropertyOptional({ description: '布尔值', default: true })
+  @IsOptional()
+  value?: boolean = true;
+}
+
+/**
+ * 数字范围 DTO
+ */
+export class NumberRangeDto extends BaseDto {
+  @ApiPropertyOptional({ description: '最小值' })
+  @IsInt()
+  @IsOptional()
+  min?: number;
+
+  @ApiPropertyOptional({ description: '最大值' })
+  @IsInt()
+  @IsOptional()
+  max?: number;
+}
+
+/**
+ * 创建枚举 DTO 工厂
+ */
+export function createEnumDto<T extends Record<string | number, string | number>>(enumType: T, defaultKey?: keyof T) {
+  abstract class EnumDto extends BaseDto {
+    @ApiProperty({ description: '枚举值', enum: enumType })
+    @IsString()
+    value: keyof T;
   }
-  return EnumDtoClass;
+  return EnumDto;
 }
 
-export function createArrayDto<T>(
-  itemDto: new () => T,
-  options: { minItems?: number; maxItems?: number } = {},
-): new () => { items: T[] } {
-  const { minItems = 0, maxItems = 100 } = options;
-
-  class ArrayDtoClass {
-    @ApiProperty({ description: '项目列表', type: [itemDto] })
-    @ValidateNested({ each: true })
-    @Type(() => itemDto)
+/**
+ * 创建数组 DTO 工厂
+ */
+export function createArrayDto<T>(itemType: { new (...args: any[]): T }) {
+  abstract class ArrayDto extends BaseDto {
+    @ApiProperty({ description: '数组项', type: [itemType] })
     @IsArray()
-    @ArrayMinSize(minItems)
-    @ArrayMaxSize(maxItems)
+    @ValidateNested({ each: true })
+    @Type(() => itemType)
     items: T[];
   }
-  return ArrayDtoClass;
+  return ArrayDto;
 }

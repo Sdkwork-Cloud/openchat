@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
-import { EventBusService, EventType } from '../events/event-bus.service';
+import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
 
 export type SyncStatus = 'pending' | 'syncing' | 'completed' | 'failed';
@@ -113,7 +113,7 @@ export class DataSyncService implements OnModuleInit, OnModuleDestroy {
     this.pendingTasks.set(taskId, task);
     await this.persistTask(task);
 
-    await this.eventBus.publish(EventType.CUSTOM_EVENT, {
+    await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
       type: 'sync.task.created',
       entityType,
       entityId,

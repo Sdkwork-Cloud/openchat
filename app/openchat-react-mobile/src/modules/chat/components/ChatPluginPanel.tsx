@@ -1,12 +1,14 @@
 
 import React from 'react';
 import { navigate } from '../../../router';
+import { useChatStore } from '../../../services/store';
 
 interface PluginItem {
     label: string;
     icon: string;
     color: string;
     action?: string;
+    agentId?: string; // New: Direct agent switch
 }
 
 interface ChatPluginPanelProps {
@@ -15,6 +17,7 @@ interface ChatPluginPanelProps {
 }
 
 const PLUGIN_ITEMS: PluginItem[] = [
+    { label: '好物推荐', icon: '🛍️', color: '#ff4d4f', agentId: 'agent_shopper' },
     { label: 'Prompt 库', icon: '📚', color: '#722ed1' },
     { label: '翻译助手', icon: '🌍', color: '#1890ff' },
     { label: '代码片段', icon: '💻', color: '#fa8c16' },
@@ -24,6 +27,20 @@ const PLUGIN_ITEMS: PluginItem[] = [
 ];
 
 export const ChatPluginPanel: React.FC<ChatPluginPanelProps> = ({ visible, onPluginClick }) => {
+    const { createSession } = useChatStore();
+
+    const handleItemClick = async (plugin: PluginItem) => {
+        if (plugin.action) {
+            navigate(plugin.action);
+        } else if (plugin.agentId) {
+            // Smart Switch: Create session with specific agent
+            const sessionId = await createSession(plugin.agentId);
+            navigate('/chat', { id: sessionId });
+        } else {
+            onPluginClick(plugin.label);
+        }
+    };
+
     return (
         <div style={{
             height: visible ? '180px' : '0px',
@@ -41,13 +58,7 @@ export const ChatPluginPanel: React.FC<ChatPluginPanelProps> = ({ visible, onPlu
                     {PLUGIN_ITEMS.map(plugin => (
                         <div 
                             key={plugin.label}
-                            onClick={() => {
-                                if (plugin.action) {
-                                    navigate(plugin.action);
-                                } else {
-                                    onPluginClick(plugin.label);
-                                }
-                            }}
+                            onClick={() => handleItemClick(plugin)}
                             style={{ 
                                 background: 'var(--bg-card)', 
                                 padding: '12px', 

@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
@@ -234,11 +234,12 @@ export class XiaoZhiFirmwareService implements OnModuleInit {
 
       // 发布固件升级开始事件
       this.eventBusService.publish(
-        EventType.FIRMWARE_UPGRADE_STARTED,
+        EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
           firmwareVersion: latestFirmware.version,
           firmwareInfo: latestFirmware,
+          type: 'firmware_upgrade_started'
         },
         {
           priority: EventPriority.HIGH,
@@ -288,13 +289,14 @@ export class XiaoZhiFirmwareService implements OnModuleInit {
 
     // 发布固件升级状态更新事件
     this.eventBusService.publish(
-      EventType.FIRMWARE_UPGRADE_STATUS_UPDATED,
+      EventTypeConstants.CUSTOM_EVENT,
       {
         deviceId,
         status,
         progress,
         error,
         firmwareVersion: state.firmwareVersion,
+        type: 'firmware_upgrade_status_updated'
       },
       {
         priority: EventPriority.MEDIUM,
