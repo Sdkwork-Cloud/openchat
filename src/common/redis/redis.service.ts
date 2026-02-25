@@ -307,7 +307,8 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  onModuleDestroy() {
-    this.redis.disconnect();
+  async onModuleDestroy() {
+    // 不在这里关闭连接，由 RedisModule 统一管理
+    this.logger.log('RedisService destroyed');
   }
 }

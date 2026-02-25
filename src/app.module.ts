@@ -1,6 +1,7 @@
 import { Module, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_FILTER } from '@nestjs/core';
 import { UserModule } from './modules/user/user.module';
 import { FriendModule } from './modules/friend/friend.module';
 import { MessageModule } from './modules/message/message.module';
@@ -49,6 +50,8 @@ import { Agent, AgentSession, AgentMessage } from './modules/agent/agent.entity'
 import { WukongIMModule } from './modules/wukongim/wukongim.module';
 import { CrawModule } from './modules/craw/craw.module';
 import { DataSource } from 'typeorm';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { SnakeNamingStrategy } from './common/config/snake-naming.strategy';
 
 const logger = new Logger('Database');
 
@@ -59,37 +62,14 @@ const logger = new Logger('Database');
       envFilePath: ['.env', '.env.development'],
     }),
 
-    RedisModule,
-
-    ThrottlerModule,
-
-    QueueModule.register(),
-
-    HealthModule,
-
-    AppConfigModule,
-
-    AuthModule,
-
-    CacheModule,
-
-    MetricsModule,
-
-    EventBusModule,
-
-    ExtensionsModule.forRoot({
-      useDefaultUserCenter: true,
-      useRemoteUserCenter: false,
-    }),
-
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const host = configService.get('DB_HOST', 'localhost');
         const port = parseInt(configService.get('DB_PORT', '5432'), 10);
-        const username = configService.get('DB_USER', 'openchat');
-        const password = configService.get('DB_PASSWORD', 'openchat_password');
-        const database = configService.get('DB_NAME', 'openchat');
+        const username = configService.get('DB_USERNAME', 'sdkwork_dev');
+        const password = configService.get('DB_PASSWORD', 'dev_password');
+        const database = configService.get('DB_NAME', 'sdkwork_chat_dev');
 
         logger.log('');
         logger.log('═══════════════════════════════════════════════════════════');
@@ -136,70 +116,32 @@ const logger = new Logger('Database');
             AgentSession,
             AgentMessage,
           ],
-          synchronize: configService.get('NODE_ENV') !== 'production',
-          logging: configService.get('DB_LOGGING', 'false') === 'true',
-          poolSize: parseInt(configService.get('DB_POOL_MAX', '20'), 10),
-          extra: {
-            max: parseInt(configService.get('DB_POOL_MAX', '20'), 10),
-            min: parseInt(configService.get('DB_POOL_MIN', '5'), 10),
-            idleTimeoutMillis: parseInt(configService.get('DB_IDLE_TIMEOUT', '30000'), 10),
-            connectionTimeoutMillis: parseInt(configService.get('DB_CONNECTION_TIMEOUT', '10000'), 10),
-          },
-          retryAttempts: 5,
-          retryDelay: 3000,
-          autoLoadEntities: false,
-          keepConnectionAlive: true,
-          poolErrorHandler: (err: any) => {
-            logger.error(`数据库连接池错误: ${err.message}`);
-          },
+          synchronize: false,
+          logging: false,
+          namingStrategy: new SnakeNamingStrategy(),
         };
       },
-      dataSourceFactory: async (options: any) => {
-        if (!options) {
-          throw new Error('Database options are required');
-        }
-        
-        const dataSource = new DataSource(options);
-        
-        const maxRetries = 5;
-        const retryDelay = 3000;
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            logger.log(`正在连接数据库... (尝试 ${attempt}/${maxRetries})`);
-            await dataSource.initialize();
-            logger.log('✓ 数据库连接成功!');
-            return dataSource;
-          } catch (error: any) {
-            const errorMsg = error.message || 'Unknown error';
-            const errorCode = error.code || '';
-            
-            if (errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT' || errorCode === 'ECONNREFUSED') {
-              logger.error(`✗ 数据库连接失败 (尝试 ${attempt}/${maxRetries}): [${errorCode}] ${errorMsg}`);
-            } else {
-              logger.error(`✗ 数据库连接失败 (尝试 ${attempt}/${maxRetries}): ${errorMsg}`);
-            }
-            
-            if (attempt < maxRetries) {
-              logger.log(`  ${retryDelay / 1000} 秒后重试...`);
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-            } else {
-              logger.error('');
-              logger.error('═══════════════════════════════════════════════════════════');
-              logger.error('✗ 数据库连接重试次数已用尽');
-              logger.error('  请检查:');
-              logger.error('  1. 数据库服务是否已启动');
-              logger.error('  2. 网络连接是否正常');
-              logger.error('  3. 数据库配置是否正确');
-              logger.error('═══════════════════════════════════════════════════════════');
-              logger.error('');
-              throw error;
-            }
-          }
-        }
-        
-        return dataSource;
-      },
+    }),
+
+    ThrottlerModule,
+
+    QueueModule.register(),
+
+    HealthModule,
+
+    AppConfigModule,
+
+    AuthModule,
+
+    CacheModule,
+
+    MetricsModule,
+
+    EventBusModule,
+
+    ExtensionsModule.forRoot({
+      useDefaultUserCenter: true,
+      useRemoteUserCenter: false,
     }),
     GatewayModule,
     UserModule,
@@ -217,6 +159,12 @@ const logger = new Logger('Database');
     AgentModule,
     WukongIMModule,
     CrawModule,
+  ],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
   ],
 })
 export class AppModule implements OnModuleInit, OnModuleDestroy {

@@ -10,28 +10,28 @@ export class RTCRoom extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: false, default: 'p2p' })
   type: 'p2p' | 'group';
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'creator_id' })
   creatorId: string;
 
   @Column({ type: 'text', nullable: false, default: '[]' })
-  participants: string; // JSON string of user IDs
+  participants: string;
 
   @Column({ type: 'varchar', length: 20, nullable: false, default: 'active' })
   status: 'active' | 'ended';
 
-  @Column({ type: 'bigint', nullable: true })
-  channelId?: string; // 关联到RTCChannelEntity
+  @Column({ type: 'bigint', nullable: true, name: 'channel_id' })
+  channelId?: string;
 
   @ManyToOne(() => RTCChannelEntity, { nullable: true })
-  @JoinColumn({ name: 'channelId' })
+  @JoinColumn({ name: 'channel_id' })
   channel?: RTCChannelEntity;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  externalRoomId?: string; // 外部RTC服务的房间ID
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'external_room_id' })
+  externalRoomId?: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'started_at' })
   startedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'ended_at' })
   endedAt?: Date;
 }

@@ -1,4 +1,4 @@
-import { Injectable, Scope, LoggerService } from '@nestjs/common';
+import { Injectable, Scope, LoggerService, ConsoleLogger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getRequestId } from '../middleware/request-tracing.middleware';
 
@@ -12,10 +12,32 @@ export interface LogEntry {
   data?: Record<string, any>;
 }
 
+export interface ErrorLogEntry {
+  timestamp: string;
+  level: 'ERROR';
+  module: string;
+  errorType: string;
+  errorCode?: string | number;
+  message: string;
+  stack?: string;
+  requestId?: string;
+  details?: Record<string, any>;
+}
+
+export interface SuccessLogEntry {
+  timestamp: string;
+  level: 'SUCCESS';
+  module: string;
+  message: string;
+  duration?: number;
+  details?: Record<string, any>;
+}
+
 @Injectable({ scope: Scope.TRANSIENT })
 export class AppLogger implements LoggerService {
   private context?: string;
   private readonly logLevel: string;
+  private readonly logFormat: string;
   private readonly sensitiveFields = [
     'password',
     'token',
@@ -35,10 +57,12 @@ export class AppLogger implements LoggerService {
     info: 2,
     warn: 3,
     error: 4,
+    success: 2,
   };
 
   constructor(private readonly configService: ConfigService) {
     this.logLevel = this.configService.get('LOG_LEVEL', 'info');
+    this.logFormat = this.configService.get('LOG_FORMAT', 'pretty');
   }
 
   setContext(context: string): void {
@@ -69,6 +93,34 @@ export class AppLogger implements LoggerService {
     this.printLog('info', message, context);
   }
 
+  success(message: string, context?: string, details?: Record<string, any>): void {
+    this.printSuccess(message, context, details);
+  }
+
+  moduleError(
+    module: string,
+    errorType: string,
+    message: string,
+    options?: {
+      errorCode?: string | number;
+      error?: Error;
+      details?: Record<string, any>;
+    }
+  ): void {
+    this.printModuleError(module, errorType, message, options);
+  }
+
+  moduleSuccess(
+    module: string,
+    message: string,
+    options?: {
+      duration?: number;
+      details?: Record<string, any>;
+    }
+  ): void {
+    this.printModuleSuccess(module, message, options);
+  }
+
   private printLog(
     level: string,
     message: string,
@@ -84,33 +136,217 @@ export class AppLogger implements LoggerService {
     const ctx = context || this.context || 'Application';
     const requestId = getRequestId();
 
-    const logEntry: LogEntry = {
-      timestamp,
-      level: level.toUpperCase(),
-      context: ctx,
-      message,
+    if (this.logFormat === 'json') {
+      const logEntry: LogEntry = {
+        timestamp,
+        level: level.toUpperCase(),
+        context: ctx,
+        message,
+      };
+
+      if (requestId) {
+        logEntry.requestId = requestId;
+      }
+
+      if (trace) {
+        logEntry.trace = this.formatTrace(trace);
+      }
+
+      if (data) {
+        logEntry.data = this.sanitize(data);
+      }
+
+      const output = JSON.stringify(logEntry);
+
+      if (level === 'error') {
+        process.stderr.write(`${output}\n`);
+      } else {
+        process.stdout.write(`${output}\n`);
+      }
+    } else {
+      this.printPrettyLog(level, timestamp, ctx, message, trace, data);
+    }
+  }
+
+  private printPrettyLog(
+    level: string,
+    timestamp: string,
+    context: string,
+    message: string,
+    trace?: string,
+    data?: Record<string, any>,
+  ): void {
+    const levelColors: Record<string, string> = {
+      error: '\x1b[31m',
+      warn: '\x1b[33m',
+      info: '\x1b[32m',
+      debug: '\x1b[36m',
+      verbose: '\x1b[90m',
     };
 
-    if (requestId) {
-      logEntry.requestId = requestId;
+    const reset = '\x1b[0m';
+    const color = levelColors[level] || '\x1b[37m';
+    const levelUpper = level.toUpperCase().padEnd(7);
+
+    const time = timestamp.replace('T', ' ').replace(/\.\d+Z$/, '');
+
+    let output = `${color}[Nest] ${levelUpper}${reset} ${time} `;
+    output += `\x1b[1m[${context}]\x1b[0m ${message}`;
+
+    if (data && Object.keys(data).length > 0) {
+      output += `\n  Data: ${JSON.stringify(this.sanitize(data))}`;
     }
 
     if (trace) {
-      logEntry.trace = this.formatTrace(trace);
+      output += `\n  Stack: ${this.formatTrace(trace)}`;
     }
 
-    if (data) {
-      logEntry.data = this.sanitize(data);
+    if (level === 'error') {
+      process.stderr.write(`${output}\n`);
+    } else {
+      process.stdout.write(`${output}\n`);
     }
+  }
 
-    const output = JSON.stringify(logEntry);
+  private printSuccess(
+    message: string,
+    context?: string,
+    details?: Record<string, any>,
+  ): void {
+    const timestamp = new Date().toISOString();
+    const ctx = context || this.context || 'Application';
 
-    switch (level) {
-      case 'error':
-        process.stderr.write(`${output}\n`);
-        break;
-      default:
-        process.stdout.write(`${output}\n`);
+    if (this.logFormat === 'json') {
+      const entry: SuccessLogEntry = {
+        timestamp,
+        level: 'SUCCESS',
+        module: ctx,
+        message,
+        details,
+      };
+      process.stdout.write(`${JSON.stringify(entry)}\n`);
+    } else {
+      const time = timestamp.replace('T', ' ').replace(/\.\d+Z$/, '');
+      const green = '\x1b[32m';
+      const reset = '\x1b[0m';
+      const bold = '\x1b[1m';
+
+      let output = `${green}[Nest] SUCCESS${reset} ${time} `;
+      output += `${bold}[${ctx}]${reset} ${green}✓${reset} ${message}`;
+
+      if (details && Object.keys(details).length > 0) {
+        output += `\n  Details: ${JSON.stringify(details)}`;
+      }
+
+      process.stdout.write(`${output}\n`);
+    }
+  }
+
+  private printModuleError(
+    module: string,
+    errorType: string,
+    message: string,
+    options?: {
+      errorCode?: string | number;
+      error?: Error;
+      details?: Record<string, any>;
+    }
+  ): void {
+    const timestamp = new Date().toISOString();
+
+    if (this.logFormat === 'json') {
+      const entry: ErrorLogEntry = {
+        timestamp,
+        level: 'ERROR',
+        module,
+        errorType,
+        message,
+        errorCode: options?.errorCode,
+        stack: options?.error?.stack,
+        details: options?.details,
+      };
+      process.stderr.write(`${JSON.stringify(entry)}\n`);
+    } else {
+      const time = timestamp.replace('T', ' ').replace(/\.\d+Z$/, '');
+      const red = '\x1b[31m';
+      const reset = '\x1b[0m';
+      const bold = '\x1b[1m';
+      const yellow = '\x1b[33m';
+
+      let output = `\n${red}╔═══════════════════════════════════════════════════════════════╗${reset}`;
+      output += `\n${red}║${reset} ${bold}ERROR${reset} - ${time}`;
+      output += `\n${red}╠═══════════════════════════════════════════════════════════════╣${reset}`;
+      output += `\n${red}║${reset} ${yellow}Module:${reset}     ${module}`;
+      output += `\n${red}║${reset} ${yellow}Error Type:${reset} ${errorType}`;
+      
+      if (options?.errorCode) {
+        output += `\n${red}║${reset} ${yellow}Error Code:${reset} ${options.errorCode}`;
+      }
+      
+      output += `\n${red}║${reset} ${yellow}Message:${reset}    ${message}`;
+
+      if (options?.details && Object.keys(options.details).length > 0) {
+        output += `\n${red}║${reset} ${yellow}Details:${reset}    ${JSON.stringify(options.details)}`;
+      }
+
+      if (options?.error?.stack) {
+        const stackLines = options.error.stack.split('\n').slice(0, 3);
+        output += `\n${red}║${reset} ${yellow}Stack:${reset}`;
+        for (const line of stackLines) {
+          output += `\n${red}║${reset}   ${line.trim()}`;
+        }
+      }
+
+      output += `\n${red}╚═══════════════════════════════════════════════════════════════╝${reset}\n`;
+
+      process.stderr.write(output);
+    }
+  }
+
+  private printModuleSuccess(
+    module: string,
+    message: string,
+    options?: {
+      duration?: number;
+      details?: Record<string, any>;
+    }
+  ): void {
+    const timestamp = new Date().toISOString();
+
+    if (this.logFormat === 'json') {
+      const entry: SuccessLogEntry = {
+        timestamp,
+        level: 'SUCCESS',
+        module,
+        message,
+        duration: options?.duration,
+        details: options?.details,
+      };
+      process.stdout.write(`${JSON.stringify(entry)}\n`);
+    } else {
+      const time = timestamp.replace('T', ' ').replace(/\.\d+Z$/, '');
+      const green = '\x1b[32m';
+      const reset = '\x1b[0m';
+      const bold = '\x1b[1m';
+      const cyan = '\x1b[36m';
+
+      let output = `\n${green}┌───────────────────────────────────────────────────────────────┐${reset}`;
+      output += `\n${green}│${reset} ${bold}SUCCESS${reset} - ${time}`;
+      output += `\n${green}├───────────────────────────────────────────────────────────────┤${reset}`;
+      output += `\n${green}│${reset} ${cyan}Module:${reset}   ${module}`;
+      output += `\n${green}│${reset} ${cyan}Message:${reset}  ${message}`;
+      
+      if (options?.duration) {
+        output += `\n${green}│${reset} ${cyan}Duration:${reset} ${options.duration}ms`;
+      }
+
+      if (options?.details && Object.keys(options.details).length > 0) {
+        output += `\n${green}│${reset} ${cyan}Details:${reset}  ${JSON.stringify(options.details)}`;
+      }
+
+      output += `\n${green}└───────────────────────────────────────────────────────────────┘${reset}\n`;
+
+      process.stdout.write(output);
     }
   }
 

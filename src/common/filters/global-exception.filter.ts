@@ -7,351 +7,444 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { WsException } from '@nestjs/websockets';
-import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
-import { QueryFailedError, EntityNotFoundError } from 'typeorm';
-import { Socket } from 'socket.io';
+import { QueryFailedError } from 'typeorm';
+import {
+  ErrorCode,
+  ErrorModule,
+  ErrorSeverity,
+  getErrorSolution,
+  mapSystemErrorToErrorCode,
+  determineErrorModule,
+  determineErrorSeverity,
+} from '../constants/error-codes';
 
-/**
- * 错误响应接口
- */
-interface ErrorResponse {
-  code: number;
+interface ErrorDetail {
+  module: string;
+  errorCode: ErrorCode;
+  errorType: string;
+  severity: ErrorSeverity;
   message: string;
-  details?: Record<string, any>;
   timestamp: string;
   path: string;
-  requestId: string;
+  method: string;
+  requestId?: string;
+  stack?: string;
+  details?: Record<string, any>;
+  solution?: {
+    description: string;
+    actions: string[];
+  };
 }
 
-/**
- * 全局异常过滤器
- * 统一处理所有异常并返回标准错误响应
- */
+interface ErrorResponse {
+  success: false;
+  error: {
+    code: ErrorCode;
+    type: string;
+    message: string;
+    module: string;
+    severity: string;
+    solution?: {
+      description: string;
+      actions: string[];
+    };
+  };
+  timestamp: string;
+  path: string;
+  requestId?: string;
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
+  private readonly logger = new Logger('GlobalExceptionFilter');
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    // 检查是否是启动期间的数据库连接错误
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    const errorDetail = this.buildErrorDetail(exception, request);
+
+    this.logError(errorDetail, exception);
+
+    const errorResponse = this.buildErrorResponse(errorDetail);
+
+    const httpStatus = this.determineHttpStatus(exception, errorDetail);
+
+    response.status(httpStatus).json(errorResponse);
+  }
+
+  private buildErrorDetail(exception: unknown, request: Request): ErrorDetail {
+    const timestamp = new Date().toISOString();
+    const path = request.url;
+    const method = request.method;
+    const requestId = (request as any).requestId;
+
+    if (exception instanceof HttpException) {
+      return this.handleHttpException(exception, timestamp, path, method, requestId);
+    }
+
+    if (exception instanceof QueryFailedError) {
+      return this.handleDatabaseError(exception, timestamp, path, method, requestId);
+    }
+
     if (exception instanceof Error) {
-      const errorMsg = exception.message || '';
-      const errorCode = (exception as any).code || '';
-      
-      if (errorCode === 'ECONNRESET' || errorCode === 'ETIMEDOUT' || errorCode === 'ECONNREFUSED' ||
-          errorMsg.includes('ECONNRESET') || errorMsg.includes('ETIMEDOUT') || errorMsg.includes('ECONNREFUSED')) {
-        this.logger.error('');
-        this.logger.error('═══════════════════════════════════════════════════════════');
-        this.logger.error('✗ 数据库连接失败');
-        this.logger.error(`  错误码: ${errorCode || 'N/A'}`);
-        this.logger.error(`  错误信息: ${errorMsg}`);
-        this.logger.error('  请检查:');
-        this.logger.error('  1. 数据库服务是否已启动');
-        this.logger.error('  2. 网络连接是否正常');
-        this.logger.error('  3. 数据库配置是否正确 (.env 文件)');
-        this.logger.error('═══════════════════════════════════════════════════════════');
-        this.logger.error('');
-        
-        // 如果是启动期间，直接退出
-        if (!host || host.getType() !== 'http') {
-          process.exit(1);
-        }
+      return this.handleGenericError(exception, timestamp, path, method, requestId);
+    }
+
+    return {
+      module: ErrorModule.SYSTEM,
+      errorCode: ErrorCode.UNKNOWN_ERROR,
+      errorType: 'UnknownError',
+      severity: ErrorSeverity.HIGH,
+      message: 'An unknown error occurred',
+      timestamp,
+      path,
+      method,
+      requestId,
+    };
+  }
+
+  private handleHttpException(
+    exception: HttpException,
+    timestamp: string,
+    path: string,
+    method: string,
+    requestId?: string,
+  ): ErrorDetail {
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+    const message = this.extractMessage(exceptionResponse);
+
+    let errorCode: ErrorCode;
+    let errorType: string;
+    let module: ErrorModule;
+    let severity: ErrorSeverity;
+
+    switch (status) {
+      case HttpStatus.UNAUTHORIZED:
+        errorCode = ErrorCode.AUTH_UNAUTHORIZED;
+        errorType = 'UnauthorizedError';
+        module = ErrorModule.AUTH;
+        severity = ErrorSeverity.MEDIUM;
+        break;
+      case HttpStatus.FORBIDDEN:
+        errorCode = ErrorCode.AUTH_FORBIDDEN;
+        errorType = 'ForbiddenError';
+        module = ErrorModule.AUTH;
+        severity = ErrorSeverity.MEDIUM;
+        break;
+      case HttpStatus.NOT_FOUND:
+        errorCode = ErrorCode.INTERNAL_ERROR;
+        errorType = 'NotFoundError';
+        module = determineErrorModule(exception, path);
+        severity = ErrorSeverity.LOW;
+        break;
+      case HttpStatus.BAD_REQUEST:
+        errorCode = ErrorCode.VALIDATION_ERROR;
+        errorType = 'BadRequestError';
+        module = ErrorModule.VALIDATION;
+        severity = ErrorSeverity.LOW;
+        break;
+      case HttpStatus.TOO_MANY_REQUESTS:
+        errorCode = ErrorCode.RATE_LIMIT_EXCEEDED;
+        errorType = 'RateLimitError';
+        module = ErrorModule.RATE_LIMIT;
+        severity = ErrorSeverity.HIGH;
+        break;
+      case HttpStatus.SERVICE_UNAVAILABLE:
+        errorCode = ErrorCode.SERVICE_UNAVAILABLE;
+        errorType = 'ServiceUnavailableError';
+        module = ErrorModule.SYSTEM;
+        severity = ErrorSeverity.CRITICAL;
+        break;
+      default:
+        errorCode = ErrorCode.INTERNAL_ERROR;
+        errorType = exception.constructor.name;
+        module = determineErrorModule(exception, path);
+        severity = ErrorSeverity.MEDIUM;
+    }
+
+    const solution = getErrorSolution(errorCode);
+
+    return {
+      module,
+      errorCode,
+      errorType,
+      severity,
+      message,
+      timestamp,
+      path,
+      method,
+      requestId,
+      stack: exception.stack,
+      details: typeof exceptionResponse === 'object' ? exceptionResponse as Record<string, any> : undefined,
+      solution: {
+        description: solution.description,
+        actions: solution.actions,
+      },
+    };
+  }
+
+  private handleDatabaseError(
+    exception: QueryFailedError,
+    timestamp: string,
+    path: string,
+    method: string,
+    requestId?: string,
+  ): ErrorDetail {
+    const errorCode = mapSystemErrorToErrorCode(exception);
+    const severity = determineErrorSeverity(errorCode);
+    const solution = getErrorSolution(errorCode);
+
+    const pgError = exception as any;
+    const details: Record<string, any> = {};
+
+    if (pgError.code) {
+      details.pgCode = pgError.code;
+    }
+    if (pgError.detail) {
+      details.pgDetail = pgError.detail;
+    }
+    if (pgError.constraint) {
+      details.constraint = pgError.constraint;
+    }
+    if (pgError.table) {
+      details.table = pgError.table;
+    }
+
+    return {
+      module: ErrorModule.DATABASE,
+      errorCode,
+      errorType: 'DatabaseError',
+      severity,
+      message: this.getDatabaseErrorMessage(exception),
+      timestamp,
+      path,
+      method,
+      requestId,
+      stack: exception.stack,
+      details: Object.keys(details).length > 0 ? details : undefined,
+      solution: {
+        description: solution.description,
+        actions: solution.actions,
+      },
+    };
+  }
+
+  private handleGenericError(
+    exception: Error,
+    timestamp: string,
+    path: string,
+    method: string,
+    requestId?: string,
+  ): ErrorDetail {
+    const errorCode = mapSystemErrorToErrorCode(exception);
+    const module = determineErrorModule(exception, path);
+    const severity = determineErrorSeverity(errorCode);
+    const solution = getErrorSolution(errorCode);
+
+    return {
+      module,
+      errorCode,
+      errorType: exception.constructor.name,
+      severity,
+      message: exception.message || 'An unexpected error occurred',
+      timestamp,
+      path,
+      method,
+      requestId,
+      stack: exception.stack,
+      solution: {
+        description: solution.description,
+        actions: solution.actions,
+      },
+    };
+  }
+
+  private getDatabaseErrorMessage(exception: QueryFailedError): string {
+    const pgError = exception as any;
+    
+    if (pgError.code === '23505') {
+      return 'Duplicate entry detected. The record already exists.';
+    }
+    if (pgError.code === '23503') {
+      return 'Referenced record not found. Foreign key constraint violation.';
+    }
+    if (pgError.code === '23502') {
+      return 'Required field is missing. Not null constraint violation.';
+    }
+    if (pgError.code === '08006' || pgError.code === '08001') {
+      return 'Database connection failed. Please check database configuration.';
+    }
+    
+    return exception.message || 'Database operation failed';
+  }
+
+  private extractMessage(response: any): string {
+    if (typeof response === 'string') {
+      return response;
+    }
+    if (response?.message) {
+      if (Array.isArray(response.message)) {
+        return response.message.join('; ');
+      }
+      return response.message;
+    }
+    return 'An error occurred';
+  }
+
+  private logError(errorDetail: ErrorDetail, exception: unknown): void {
+    const { severity, module, errorCode, errorType, message, path, method, solution } = errorDetail;
+
+    if (severity === ErrorSeverity.CRITICAL) {
+      this.printCriticalError(errorDetail);
+    } else if (severity === ErrorSeverity.HIGH) {
+      this.printHighError(errorDetail);
+    } else {
+      this.printStandardError(errorDetail);
+    }
+  }
+
+  private printCriticalError(detail: ErrorDetail): void {
+    const red = '\x1b[31m';
+    const reset = '\x1b[0m';
+    const bold = '\x1b[1m';
+    const yellow = '\x1b[33m';
+    const bgRed = '\x1b[41m';
+
+    let output = `\n${bgRed}${' '.repeat(67)}${reset}\n`;
+    output += `${bgRed}${red}  ${bold}!!! CRITICAL ERROR !!!${reset}${bgRed}                                      ${reset}\n`;
+    output += `${bgRed}${' '.repeat(67)}${reset}\n`;
+    output += `${red}╔═════════════════════════════════════════════════════════════════════╗${reset}\n`;
+    output += `${red}║${reset} ${bold}CRITICAL${reset} - ${detail.timestamp}\n`;
+    output += `${red}╠═════════════════════════════════════════════════════════════════════╣${reset}\n`;
+    output += `${red}║${reset} ${yellow}Module:${reset}     ${detail.module}\n`;
+    output += `${red}║${reset} ${yellow}Error Type:${reset} ${detail.errorType}\n`;
+    output += `${red}║${reset} ${yellow}Error Code:${reset} ${detail.errorCode}\n`;
+    output += `${red}║${reset} ${yellow}Message:${reset}    ${detail.message}\n`;
+    output += `${red}║${reset} ${yellow}Path:${reset}       ${detail.method} ${detail.path}\n`;
+
+    if (detail.details) {
+      output += `${red}║${reset} ${yellow}Details:${reset}\n`;
+      for (const [key, value] of Object.entries(detail.details)) {
+        output += `${red}║${reset}   ${key}: ${value}\n`;
       }
     }
 
-    // 检查上下文类型
-    if (host.getType() === 'http') {
-      // HTTP 上下文
-      const ctx = host.switchToHttp();
-      const response = ctx.getResponse<Response>();
-      const request = ctx.getRequest<Request>();
-      const requestId = this.generateRequestId();
-
-      // 构建错误响应
-      const errorResponse = this.buildErrorResponse(
-        exception,
-        request,
-        requestId,
-      );
-
-      // 记录错误日志
-      this.logError(exception, request, requestId, errorResponse);
-
-      // 发送响应
-      const statusCode = this.getHttpStatus(exception);
-      response.status(statusCode).json(errorResponse);
-    } else if (host.getType() === 'ws') {
-      // WebSocket 上下文
-      const ctx = host.switchToWs();
-      const client = ctx.getClient<Socket>();
-      const data = ctx.getData();
-      const requestId = this.generateRequestId();
-
-      // 构建错误响应
-      const errorResponse = this.buildWSErrorResponse(
-        exception,
-        client,
-        data,
-        requestId,
-      );
-
-      // 记录错误日志
-      this.logWSError(exception, client, data, requestId, errorResponse);
-
-      // 发送错误消息给客户端
-      client.emit('error', errorResponse);
+    if (detail.solution) {
+      output += `${red}║${reset} ${yellow}Solution:${reset}    ${detail.solution.description}\n`;
+      output += `${red}║${reset} ${yellow}Actions:${reset}\n`;
+      for (const action of detail.solution.actions.slice(0, 3)) {
+        output += `${red}║${reset}   - ${action}\n`;
+      }
     }
+
+    if (detail.stack) {
+      const stackLines = detail.stack.split('\n').slice(0, 3);
+      output += `${red}║${reset} ${yellow}Stack:${reset}\n`;
+      for (const line of stackLines) {
+        output += `${red}║${reset}   ${line.trim()}\n`;
+      }
+    }
+
+    output += `${red}╚═════════════════════════════════════════════════════════════════════╝${reset}\n`;
+
+    process.stderr.write(output);
   }
 
-  /**
-   * 构建错误响应
-   */
-  private buildErrorResponse(
-    exception: unknown,
-    request: Request,
-    requestId: string,
-  ): ErrorResponse {
-    const timestamp = new Date().toISOString();
-    const path = request.url;
+  private printHighError(detail: ErrorDetail): void {
+    const red = '\x1b[31m';
+    const reset = '\x1b[0m';
+    const bold = '\x1b[1m';
+    const yellow = '\x1b[33m';
 
-    // 业务异常
-    if (exception instanceof BusinessException) {
-      return {
-        code: exception.code,
-        message: exception.message,
-        details: exception.details,
-        timestamp,
-        path,
-        requestId,
-      };
+    let output = `\n${red}╔═════════════════════════════════════════════════════════════════════╗${reset}\n`;
+    output += `${red}║${reset} ${bold}HIGH ERROR${reset} - ${detail.timestamp}\n`;
+    output += `${red}╠═════════════════════════════════════════════════════════════════════╣${reset}\n`;
+    output += `${red}║${reset} ${yellow}Module:${reset}     ${detail.module}\n`;
+    output += `${red}║${reset} ${yellow}Error Type:${reset} ${detail.errorType}\n`;
+    output += `${red}║${reset} ${yellow}Error Code:${reset} ${detail.errorCode}\n`;
+    output += `${red}║${reset} ${yellow}Message:${reset}    ${detail.message}\n`;
+    output += `${red}║${reset} ${yellow}Path:${reset}       ${detail.method} ${detail.path}\n`;
+
+    if (detail.solution) {
+      output += `${red}║${reset} ${yellow}Solution:${reset}    ${detail.solution.description}\n`;
     }
 
-    // NestJS HTTP 异常
-    if (exception instanceof HttpException) {
-      const response = exception.getResponse();
-      const message = typeof response === 'string' 
-        ? response 
-        : (response as any).message || '请求错误';
+    output += `${red}╚═════════════════════════════════════════════════════════════════════╝${reset}\n`;
 
-      return {
-        code: this.mapHttpStatusToErrorCode(exception.getStatus()),
-        message,
-        timestamp,
-        path,
-        requestId,
-      };
-    }
+    process.stderr.write(output);
+  }
 
-    // TypeORM 查询错误
-    if (exception instanceof QueryFailedError) {
-      return {
-        code: BusinessErrorCode.OPERATION_FAILED,
-        message: '数据库操作失败',
-        details: { sql: (exception as any).sql },
-        timestamp,
-        path,
-        requestId,
-      };
-    }
+  private printStandardError(detail: ErrorDetail): void {
+    const yellow = '\x1b[33m';
+    const reset = '\x1b[0m';
+    const bold = '\x1b[1m';
+    const cyan = '\x1b[36m';
 
-    // TypeORM 实体未找到
-    if (exception instanceof EntityNotFoundError) {
-      return {
-        code: BusinessErrorCode.RESOURCE_NOT_FOUND,
-        message: '资源不存在',
-        timestamp,
-        path,
-        requestId,
-      };
-    }
+    let output = `\n${yellow}┌─────────────────────────────────────────────────────────────────────┐${reset}\n`;
+    output += `${yellow}│${reset} ${bold}ERROR${reset} [${detail.severity}] - ${detail.timestamp}\n`;
+    output += `${yellow}├─────────────────────────────────────────────────────────────────────┤${reset}\n`;
+    output += `${yellow}│${reset} ${cyan}Module:${reset}     ${detail.module}\n`;
+    output += `${yellow}│${reset} ${cyan}Error Code:${reset} ${detail.errorCode}\n`;
+    output += `${yellow}│${reset} ${cyan}Message:${reset}    ${detail.message}\n`;
+    output += `${yellow}│${reset} ${cyan}Path:${reset}       ${detail.method} ${detail.path}\n`;
+    output += `${yellow}└─────────────────────────────────────────────────────────────────────┘${reset}\n`;
 
-    // 其他未知错误
-    const errorMessage = exception instanceof Error 
-      ? exception.message 
-      : '未知错误';
+    process.stdout.write(output);
+  }
 
+  private buildErrorResponse(detail: ErrorDetail): ErrorResponse {
     return {
-      code: BusinessErrorCode.UNKNOWN_ERROR,
-      message: process.env.NODE_ENV === 'production' 
-        ? '服务器内部错误' 
-        : errorMessage,
-      timestamp,
-      path,
-      requestId,
+      success: false,
+      error: {
+        code: detail.errorCode,
+        type: detail.errorType,
+        message: detail.message,
+        module: detail.module,
+        severity: detail.severity,
+        solution: detail.solution,
+      },
+      timestamp: detail.timestamp,
+      path: detail.path,
+      requestId: detail.requestId,
     };
   }
 
-  /**
-   * 记录错误日志
-   */
-  private logError(
-    exception: unknown,
-    request: Request,
-    requestId: string,
-    errorResponse: ErrorResponse,
-  ): void {
-    const logData = {
-      requestId,
-      code: errorResponse.code,
-      message: errorResponse.message,
-      path: request.url,
-      method: request.method,
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-      userId: (request as any).user?.id,
-      timestamp: errorResponse.timestamp,
-      stack: exception instanceof Error ? exception.stack : undefined,
-    };
-
-    // 根据错误级别选择日志级别
-    if (errorResponse.code >= 5000) {
-      // 服务错误
-      this.logger.error(logData, 'Service error occurred');
-    } else if (errorResponse.code >= 4000) {
-      // 客户端错误
-      this.logger.warn(logData, 'Client error occurred');
-    } else {
-      // 其他错误
-      this.logger.error(logData, 'Unexpected error occurred');
-    }
-  }
-
-  /**
-   * 获取 HTTP 状态码
-   */
-  private getHttpStatus(exception: unknown): number {
+  private determineHttpStatus(exception: unknown, detail: ErrorDetail): number {
     if (exception instanceof HttpException) {
       return exception.getStatus();
     }
 
-    if (exception instanceof QueryFailedError) {
-      return HttpStatus.BAD_REQUEST;
+    switch (detail.errorCode) {
+      case ErrorCode.AUTH_UNAUTHORIZED:
+        return HttpStatus.UNAUTHORIZED;
+      case ErrorCode.AUTH_FORBIDDEN:
+        return HttpStatus.FORBIDDEN;
+      case ErrorCode.AUTH_INVALID_CREDENTIALS:
+        return HttpStatus.UNAUTHORIZED;
+      case ErrorCode.AUTH_TOKEN_EXPIRED:
+      case ErrorCode.AUTH_INVALID_TOKEN:
+        return HttpStatus.UNAUTHORIZED;
+      case ErrorCode.RATE_LIMIT_EXCEEDED:
+      case ErrorCode.TOO_MANY_REQUESTS:
+        return HttpStatus.TOO_MANY_REQUESTS;
+      case ErrorCode.VALIDATION_ERROR:
+      case ErrorCode.INVALID_INPUT:
+      case ErrorCode.MISSING_REQUIRED_FIELD:
+        return HttpStatus.BAD_REQUEST;
+      case ErrorCode.USER_NOT_FOUND:
+      case ErrorCode.GROUP_NOT_FOUND:
+      case ErrorCode.MESSAGE_NOT_FOUND:
+      case ErrorCode.FRIEND_REQUEST_NOT_FOUND:
+        return HttpStatus.NOT_FOUND;
+      case ErrorCode.DATABASE_CONNECTION_FAILED:
+      case ErrorCode.REDIS_CONNECTION_FAILED:
+      case ErrorCode.SERVICE_UNAVAILABLE:
+        return HttpStatus.SERVICE_UNAVAILABLE;
+      default:
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
-
-    if (exception instanceof EntityNotFoundError) {
-      return HttpStatus.NOT_FOUND;
-    }
-
-    return HttpStatus.INTERNAL_SERVER_ERROR;
-  }
-
-  /**
-   * 映射 HTTP 状态码到业务错误码
-   */
-  private mapHttpStatusToErrorCode(status: number): BusinessErrorCode {
-    const statusMap: Record<number, BusinessErrorCode> = {
-      [HttpStatus.BAD_REQUEST]: BusinessErrorCode.INVALID_PARAMETER,
-      [HttpStatus.UNAUTHORIZED]: BusinessErrorCode.INVALID_TOKEN,
-      [HttpStatus.FORBIDDEN]: BusinessErrorCode.PERMISSION_DENIED,
-      [HttpStatus.NOT_FOUND]: BusinessErrorCode.RESOURCE_NOT_FOUND,
-      [HttpStatus.CONFLICT]: BusinessErrorCode.RESOURCE_EXISTS,
-      [HttpStatus.TOO_MANY_REQUESTS]: BusinessErrorCode.RATE_LIMIT_EXCEEDED,
-      [HttpStatus.INTERNAL_SERVER_ERROR]: BusinessErrorCode.UNKNOWN_ERROR,
-      [HttpStatus.BAD_GATEWAY]: BusinessErrorCode.SERVICE_UNAVAILABLE,
-      [HttpStatus.SERVICE_UNAVAILABLE]: BusinessErrorCode.SERVICE_UNAVAILABLE,
-      [HttpStatus.GATEWAY_TIMEOUT]: BusinessErrorCode.SERVICE_UNAVAILABLE,
-    };
-
-    return statusMap[status] || BusinessErrorCode.UNKNOWN_ERROR;
-  }
-
-  /**
-   * 构建WebSocket错误响应
-   */
-  private buildWSErrorResponse(
-    exception: unknown,
-    client: Socket,
-    data: any,
-    requestId: string,
-  ): any {
-    const timestamp = new Date().toISOString();
-    const socketId = client.id;
-    const ip = client.handshake.address;
-
-    // WebSocket异常
-    if (exception instanceof WsException) {
-      const errorData = exception.getError();
-      return {
-        code: 4000,
-        message: typeof errorData === 'string' ? errorData : 'WebSocket error',
-        socketId,
-        timestamp,
-        requestId,
-        ip,
-      };
-    }
-
-    // 业务异常
-    if (exception instanceof BusinessException) {
-      return {
-        code: exception.code,
-        message: exception.message,
-        details: exception.details,
-        socketId,
-        timestamp,
-        requestId,
-        ip,
-      };
-    }
-
-    // 其他未知错误
-    const errorMessage = exception instanceof Error 
-      ? exception.message 
-      : 'Unknown WebSocket error';
-
-    return {
-      code: 5000,
-      message: process.env.NODE_ENV === 'production' 
-        ? 'Internal server error' 
-        : errorMessage,
-      socketId,
-      timestamp,
-      requestId,
-      ip,
-      data: process.env.NODE_ENV === 'development' ? data : undefined,
-    };
-  }
-
-  /**
-   * 记录WebSocket错误日志
-   */
-  private logWSError(
-    exception: unknown,
-    client: Socket,
-    data: any,
-    requestId: string,
-    errorResponse: any,
-  ): void {
-    const logData = {
-      requestId,
-      code: errorResponse.code,
-      message: errorResponse.message,
-      socketId: client.id,
-      ip: client.handshake.address,
-      userAgent: client.handshake.headers['user-agent'],
-      userId: (client as any).user?.id,
-      timestamp: errorResponse.timestamp,
-      data: process.env.NODE_ENV === 'development' ? data : undefined,
-      stack: exception instanceof Error ? exception.stack : undefined,
-    };
-
-    // 根据错误级别选择日志级别
-    if (errorResponse.code >= 5000) {
-      // 服务错误
-      this.logger.error(logData, 'WebSocket service error occurred');
-    } else if (errorResponse.code >= 4000) {
-      // 客户端错误
-      this.logger.warn(logData, 'WebSocket client error occurred');
-    } else {
-      // 其他错误
-      this.logger.error(logData, 'Unexpected WebSocket error occurred');
-    }
-  }
-
-  /**
-   * 生成请求 ID
-   */
-  private generateRequestId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

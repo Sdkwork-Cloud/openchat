@@ -17,14 +17,19 @@ import * as compression from 'compression';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis, RedisOptions } from 'ioredis';
+import * as net from 'net';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import {
+  ErrorCode,
+  ErrorModule,
+  ErrorSeverity,
+  getErrorSolution,
+  mapSystemErrorToErrorCode,
+} from './common/constants/error-codes';
 
 const logger = new Logger('Bootstrap');
 
-/**
- * 启动配置接口
- */
 interface BootstrapConfig {
   port: number;
   host: string;
@@ -32,9 +37,6 @@ interface BootstrapConfig {
   isProduction: boolean;
 }
 
-/**
- * 健康检查结果
- */
 interface HealthCheckResult {
   service: string;
   status: 'healthy' | 'unhealthy';
@@ -48,52 +50,173 @@ interface HealthCheckResult {
 }
 
 /**
- * 验证环境变量
+ * 检查端口是否可用
+ * @param port 端口号
+ * @param host 主机地址
+ * @returns 如果端口可用返回true，否则返回false
  */
-function validateEnvironment(): boolean {
-  const criticalEnvVars = [
-    'JWT_SECRET',
-  ];
+function isPortAvailable(port: number, host: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    
+    server.once('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(false);
+      } else {
+        resolve(false);
+      }
+    });
+    
+    server.once('listening', () => {
+      server.close();
+      resolve(true);
+    });
+    
+    server.listen(port, host);
+  });
+}
 
+/**
+ * 查找可用端口
+ * @param startPort 起始端口
+ * @param host 主机地址
+ * @param maxAttempts 最大尝试次数
+ * @returns 可用端口号
+ */
+async function findAvailablePort(startPort: number, host: string, maxAttempts: number = 100): Promise<number> {
+  let port = startPort;
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    const available = await isPortAvailable(port, host);
+    if (available) {
+      if (port !== startPort) {
+        logger.warn(`Port ${startPort} is in use, using port ${port} instead`);
+      }
+      return port;
+    }
+    port++;
+    attempts++;
+  }
+  
+  throw new Error(`Could not find an available port after ${maxAttempts} attempts starting from ${startPort}`);
+}
+
+function printModuleSuccess(module: string, message: string, details?: Record<string, any>): void {
+  const green = '\x1b[32m';
+  const reset = '\x1b[0m';
+  const bold = '\x1b[1m';
+  const cyan = '\x1b[36m';
+  const time = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+
+  let output = `\n${green}┌───────────────────────────────────────────────────────────────┐${reset}`;
+  output += `\n${green}│${reset} ${bold}SUCCESS${reset} - ${time}`;
+  output += `\n${green}├───────────────────────────────────────────────────────────────┤${reset}`;
+  output += `\n${green}│${reset} ${cyan}Module:${reset}   ${module}`;
+  output += `\n${green}│${reset} ${cyan}Message:${reset}  ${message}`;
+
+  if (details && Object.keys(details).length > 0) {
+    for (const [key, value] of Object.entries(details)) {
+      output += `\n${green}│${reset} ${cyan}${key}:${reset} ${value}`;
+    }
+  }
+
+  output += `\n${green}└───────────────────────────────────────────────────────────────┘${reset}\n`;
+
+  process.stdout.write(output);
+}
+
+function printModuleError(
+  module: string,
+  errorType: string,
+  message: string,
+  options?: {
+    errorCode?: ErrorCode | string | number;
+    severity?: ErrorSeverity;
+    stack?: string;
+    suggestions?: string[];
+    details?: Record<string, any>;
+  }
+): void {
+  const errorCode = options?.errorCode || ErrorCode.INTERNAL_ERROR;
+  const severity = options?.severity || ErrorSeverity.HIGH;
+  const solution = typeof errorCode === 'string' && Object.values(ErrorCode).includes(errorCode as ErrorCode)
+    ? getErrorSolution(errorCode as ErrorCode)
+    : null;
+
+  const red = '\x1b[31m';
+  const reset = '\x1b[0m';
+  const bold = '\x1b[1m';
+  const yellow = '\x1b[33m';
+  const bgRed = '\x1b[41m';
+  const time = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+
+  let output = '';
+
+  if (severity === ErrorSeverity.CRITICAL) {
+    output = `\n${bgRed}${' '.repeat(67)}${reset}\n`;
+    output += `${bgRed}${red}  ${bold}!!! CRITICAL ERROR !!!${reset}${bgRed}                                      ${reset}\n`;
+    output += `${bgRed}${' '.repeat(67)}${reset}\n`;
+  }
+
+  output += `\n${red}╔═════════════════════════════════════════════════════════════════════╗${reset}\n`;
+  output += `${red}║${reset} ${bold}${severity}${reset} - ${time}\n`;
+  output += `${red}╠═════════════════════════════════════════════════════════════════════╣${reset}\n`;
+  output += `${red}║${reset} ${yellow}Module:${reset}     ${module}\n`;
+  output += `${red}║${reset} ${yellow}Error Type:${reset} ${errorType}\n`;
+  output += `${red}║${reset} ${yellow}Error Code:${reset} ${errorCode}`;
+
+  if (options?.details) {
+    for (const [key, value] of Object.entries(options.details)) {
+      output += `\n${red}║${reset} ${yellow}${key}:${reset} ${value}`;
+    }
+  }
+
+  output += `\n${red}║${reset} ${yellow}Message:${reset}    ${message}`;
+
+  const suggestions = options?.suggestions || solution?.actions;
+  if (suggestions && suggestions.length > 0) {
+    output += `\n${red}║${reset} ${yellow}Suggestions:${reset}`;
+    for (const suggestion of suggestions.slice(0, 4)) {
+      output += `\n${red}║${reset}   - ${suggestion}`;
+    }
+  }
+
+  if (options?.stack) {
+    const stackLines = options.stack.split('\n').slice(0, 3);
+    output += `\n${red}║${reset} ${yellow}Stack:${reset}`;
+    for (const line of stackLines) {
+      output += `\n${red}║${reset}   ${line.trim()}`;
+    }
+  }
+
+  output += `\n${red}╚═════════════════════════════════════════════════════════════════════╝${reset}\n`;
+
+  process.stderr.write(output);
+}
+
+function validateEnvironment(): boolean {
+  const criticalEnvVars = ['JWT_SECRET'];
   const missing = criticalEnvVars.filter(varName => !process.env[varName]);
 
   if (missing.length > 0) {
-    logger.error(`Missing critical environment variables: ${missing.join(', ')}`);
-    logger.warn('Please set these variables in .env file');
+    printModuleError('Environment', 'ValidationFailed', `Missing critical environment variables: ${missing.join(', ')}`, {
+      suggestions: ['Please set these variables in .env file'],
+    });
     return false;
-  }
-
-  // 警告性检查（有默认值，但生产环境建议设置）
-  const warningEnvVars = [
-    'DB_HOST',
-    'DB_PORT',
-    'DB_USER',
-    'DB_PASSWORD',
-    'DB_NAME',
-    'REDIS_HOST',
-    'REDIS_PORT',
-  ];
-
-  const unset = warningEnvVars.filter(varName => !process.env[varName]);
-  if (unset.length > 0 && process.env.NODE_ENV === 'production') {
-    logger.warn(`Using default values for: ${unset.join(', ')}`);
-    logger.warn('Consider setting these explicitly in production');
   }
 
   return true;
 }
 
-/**
- * 检查数据库连接
- */
 async function checkDatabaseConnection(configService: ConfigService): Promise<HealthCheckResult> {
   const startTime = Date.now();
   const host = configService.get('DB_HOST', 'localhost');
   const port = configService.get('DB_PORT', 5432);
   const database = configService.get('DB_NAME', 'openchat');
-  const user = configService.get('DB_USER', 'openchat');
+  const user = configService.get('DB_USERNAME', 'sdkwork_dev');
 
-  logger.log(`正在连接数据库: ${host}:${port}/${database}`);
+  logger.log(`Checking database connection: ${host}:${port}/${database}`);
 
   try {
     const { DataSource } = await import('typeorm');
@@ -111,7 +234,12 @@ async function checkDatabaseConnection(configService: ConfigService): Promise<He
     await dataSource.destroy();
 
     const latency = Date.now() - startTime;
-    logger.log(`✓ 数据库连接成功 (${latency}ms) - postgres://${user}@${host}:${port}/${database}`);
+    printModuleSuccess('Database', 'Connection successful', {
+      Host: `${host}:${port}`,
+      Database: database,
+      User: user,
+      Latency: `${latency}ms`,
+    });
 
     return {
       service: 'Database',
@@ -121,8 +249,18 @@ async function checkDatabaseConnection(configService: ConfigService): Promise<He
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`✗ 数据库连接失败: ${message}`);
-    logger.error(`  连接信息: postgres://${user}@${host}:${port}/${database}`);
+    const errorCode = mapSystemErrorToErrorCode(error);
+    const severity = ErrorSeverity.CRITICAL;
+
+    printModuleError('Database', 'ConnectionFailed', message, {
+      errorCode,
+      severity,
+      details: {
+        Host: `${host}:${port}`,
+        Database: database,
+        User: user,
+      },
+    });
 
     return {
       service: 'Database',
@@ -134,9 +272,6 @@ async function checkDatabaseConnection(configService: ConfigService): Promise<He
   }
 }
 
-/**
- * 检查 Redis 连接（临时连接，检查后立即关闭）
- */
 async function checkRedisConnection(configService: ConfigService): Promise<HealthCheckResult> {
   const startTime = Date.now();
   let redis: Redis | null = null;
@@ -144,7 +279,7 @@ async function checkRedisConnection(configService: ConfigService): Promise<Healt
   const port = configService.get('REDIS_PORT', 6379);
   const db = configService.get('REDIS_DB', 0);
 
-  logger.log(`正在连接 Redis: ${host}:${port}/${db}`);
+  logger.log(`Checking Redis connection: ${host}:${port}/${db}`);
 
   try {
     const redisOptions: RedisOptions = {
@@ -166,7 +301,11 @@ async function checkRedisConnection(configService: ConfigService): Promise<Healt
     await redis.ping();
 
     const latency = Date.now() - startTime;
-    logger.log(`✓ Redis 连接成功 (${latency}ms) - redis://${host}:${port}/${db}`);
+    printModuleSuccess('Redis', 'Connection successful', {
+      Host: `${host}:${port}`,
+      Database: String(db),
+      Latency: `${latency}ms`,
+    });
 
     return {
       service: 'Redis',
@@ -176,8 +315,17 @@ async function checkRedisConnection(configService: ConfigService): Promise<Healt
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`✗ Redis 连接失败: ${message}`);
-    logger.error(`  连接信息: redis://${host}:${port}/${db}`);
+    const errorCode = ErrorCode.REDIS_CONNECTION_FAILED;
+    const severity = ErrorSeverity.HIGH;
+
+    printModuleError('Redis', 'ConnectionFailed', message, {
+      errorCode,
+      severity,
+      details: {
+        Host: `${host}:${port}`,
+        Database: String(db),
+      },
+    });
 
     return {
       service: 'Redis',
@@ -197,13 +345,10 @@ async function checkRedisConnection(configService: ConfigService): Promise<Healt
   }
 }
 
-/**
- * 执行健康检查
- */
 async function performHealthChecks(configService: ConfigService): Promise<HealthCheckResult[]> {
   logger.log('');
   logger.log('═══════════════════════════════════════════════════════════');
-  logger.log('                    服务连接检查                            ');
+  logger.log('                    Service Health Check                    ');
   logger.log('═══════════════════════════════════════════════════════════');
   logger.log('');
 
@@ -217,34 +362,29 @@ async function performHealthChecks(configService: ConfigService): Promise<Health
 
   logger.log('');
   logger.log('───────────────────────────────────────────────────────────');
-  logger.log(`连接检查完成: ${healthy.length} 个成功, ${unhealthy.length} 个失败`);
+  logger.log(`Health check completed: ${healthy.length} healthy, ${unhealthy.length} unhealthy`);
   logger.log('═══════════════════════════════════════════════════════════');
   logger.log('');
 
   return results;
 }
 
-// 全局共享的 Redis 适配器客户端
 let sharedPubClient: Redis | null = null;
 let sharedSubClient: Redis | null = null;
 
-/**
- * Redis WebSocket 适配器
- */
 class RedisIoAdapter extends IoAdapter {
   private adapterConstructor: ReturnType<typeof createAdapter> | null = null;
   private isConnected = false;
 
   async connectToRedis(configService: ConfigService): Promise<boolean> {
     try {
-      // 复用已存在的连接
       if (sharedPubClient && sharedSubClient) {
         this.adapterConstructor = createAdapter(sharedPubClient, sharedSubClient, {
           key: 'openchat:socket.io',
           requestsTimeout: 5000,
         });
         this.isConnected = true;
-        logger.log('✓ Redis WebSocket 适配器初始化成功 (复用现有连接)');
+        printModuleSuccess('WebSocketAdapter', 'Redis adapter initialized (reused connection)');
         return true;
       }
 
@@ -274,12 +414,11 @@ class RedisIoAdapter extends IoAdapter {
         redisOptions.password = password;
       }
 
-      logger.log(`初始化 Redis WebSocket 适配器: ${host}:${port}/${db}`);
+      logger.log(`Initializing Redis WebSocket adapter: ${host}:${port}/${db}`);
 
       sharedPubClient = new Redis(redisOptions);
       sharedSubClient = sharedPubClient.duplicate();
 
-      // 等待连接成功
       await Promise.all([
         new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
@@ -317,12 +456,13 @@ class RedisIoAdapter extends IoAdapter {
       });
 
       this.isConnected = true;
-      logger.log('✓ Redis WebSocket 适配器初始化成功');
+      printModuleSuccess('WebSocketAdapter', 'Redis adapter initialized');
       return true;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.warn(`✗ Redis WebSocket 适配器初始化失败: ${message}`);
-      logger.warn('  使用单实例模式运行');
+      printModuleError('WebSocketAdapter', 'RedisAdapterFailed', message, {
+        suggestions: ['Running in single-instance mode'],
+      });
       this.isConnected = false;
       return false;
     }
@@ -341,9 +481,6 @@ class RedisIoAdapter extends IoAdapter {
   }
 }
 
-/**
- * 配置 Swagger 文档
- */
 function setupSwagger(app: INestApplication, configService: ConfigService) {
   const isProduction = configService.get('NODE_ENV') === 'production';
 
@@ -353,23 +490,23 @@ function setupSwagger(app: INestApplication, configService: ConfigService) {
 
   const config = new DocumentBuilder()
     .setTitle('OpenChat API')
-    .setDescription('OpenChat 即时通讯服务端 API 文档')
+    .setDescription('OpenChat Instant Messaging Server API Documentation')
     .setVersion('1.0.0')
-    .addTag('auth', '认证相关接口')
-    .addTag('users', '用户管理接口')
-    .addTag('friends', '好友关系接口')
-    .addTag('messages', '消息管理接口')
-    .addTag('groups', '群组管理接口')
-    .addTag('conversations', '会话管理接口')
-    .addTag('contacts', '联系人管理接口')
-    .addTag('rtc', '实时音视频接口')
-    .addTag('iot', 'IoT设备管理接口')
+    .addTag('auth', 'Authentication APIs')
+    .addTag('users', 'User Management APIs')
+    .addTag('friends', 'Friend Relationship APIs')
+    .addTag('messages', 'Message Management APIs')
+    .addTag('groups', 'Group Management APIs')
+    .addTag('conversations', 'Conversation Management APIs')
+    .addTag('contacts', 'Contact Management APIs')
+    .addTag('rtc', 'Real-time Audio/Video APIs')
+    .addTag('iot', 'IoT Device Management APIs')
     .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: '请输入 JWT Token',
+        description: 'Enter JWT Token',
       },
       'access-token',
     )
@@ -383,19 +520,17 @@ function setupSwagger(app: INestApplication, configService: ConfigService) {
       filter: true,
       showRequestDuration: true,
     },
-    customSiteTitle: 'OpenChat API 文档',
+    customSiteTitle: 'OpenChat API Documentation',
   });
 
-  logger.log('✓ Swagger API 文档: /api/docs');
+  printModuleSuccess('Swagger', 'API documentation initialized', {
+    URL: '/api/docs',
+  });
 }
 
-/**
- * 配置安全中间件
- */
 function setupSecurity(app: INestApplication, configService: ConfigService) {
   const isProduction = configService.get('NODE_ENV') === 'production';
 
-  // Helmet 安全头
   app.use(
     helmet({
       contentSecurityPolicy: isProduction ? undefined : false,
@@ -403,10 +538,8 @@ function setupSecurity(app: INestApplication, configService: ConfigService) {
     }),
   );
 
-  // 压缩响应
   app.use(compression());
 
-  // CORS 配置
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const allowedOrigins = configService
@@ -427,16 +560,12 @@ function setupSecurity(app: INestApplication, configService: ConfigService) {
     maxAge: 86400,
   });
 
-  logger.log('✓ 安全中间件配置完成');
+  printModuleSuccess('Security', 'Middleware configured');
 }
 
-/**
- * 配置全局管道和过滤器
- */
 function setupGlobalPipes(app: INestApplication, configService: ConfigService) {
   const isProduction = configService.get('NODE_ENV') === 'production';
 
-  // 全局验证管道
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -449,20 +578,16 @@ function setupGlobalPipes(app: INestApplication, configService: ConfigService) {
     }),
   );
 
-  // 全局异常过滤器
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  logger.log('✓ 全局管道和过滤器配置完成');
+  printModuleSuccess('Pipes', 'Global pipes and filters configured');
 }
 
-/**
- * 配置 WebSocket 适配器
- */
 async function setupWebSocketAdapter(app: INestApplication, configService: ConfigService) {
   const enableRedis = configService.get<boolean>('ENABLE_REDIS_ADAPTER', true);
 
   if (!enableRedis) {
-    logger.log('Redis 适配器已禁用');
+    logger.log('Redis adapter disabled');
     return;
   }
 
@@ -474,9 +599,6 @@ async function setupWebSocketAdapter(app: INestApplication, configService: Confi
   }
 }
 
-/**
- * 初始化 IM Provider
- */
 async function initializeIMProvider(app: INestApplication, configService: ConfigService) {
   try {
     const { IMProviderService } = await import('./modules/im-provider/im-provider.service');
@@ -491,26 +613,25 @@ async function initializeIMProvider(app: INestApplication, configService: Config
       timeout: 10000,
     });
 
-    logger.log(`✓ IM Provider 初始化成功: ${provider}`);
+    printModuleSuccess('IMProvider', `Initialized: ${provider}`, {
+      Endpoint: endpoint,
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.warn(`✗ IM Provider 初始化失败: ${message}`);
-    logger.warn('  继续运行，但不使用 IM 集成');
+    printModuleError('IMProvider', 'InitializationFailed', message, {
+      suggestions: ['Continuing without IM integration'],
+    });
   }
 }
 
-/**
- * 设置优雅关闭
- */
 function setupGracefulShutdown(app: INestApplication) {
   app.enableShutdownHooks();
 
   const gracefulShutdown = async (signal: string) => {
     logger.log('');
-    logger.log(`${signal} 收到信号，开始优雅关闭...`);
+    logger.log(`${signal} received, starting graceful shutdown...`);
 
     try {
-      // 关闭共享的 Redis 连接
       if (sharedPubClient) {
         await sharedPubClient.quit();
         sharedPubClient = null;
@@ -521,10 +642,10 @@ function setupGracefulShutdown(app: INestApplication) {
       }
 
       await app.close();
-      logger.log('✓ 优雅关闭完成');
+      printModuleSuccess('Shutdown', 'Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
-      logger.error('✗ 优雅关闭出错:', error);
+      logger.error('Graceful shutdown error:', error);
       process.exit(1);
     }
   };
@@ -532,65 +653,65 @@ function setupGracefulShutdown(app: INestApplication) {
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-  // 处理未捕获的异常
   process.on('uncaughtException', (error) => {
-    logger.error('未捕获异常:', error);
+    printModuleError('Application', 'UncaughtException', error.message, {
+      stack: error.stack,
+    });
     gracefulShutdown('UNCAUGHT_EXCEPTION');
   });
 
   process.on('unhandledRejection', (reason, promise) => {
-    logger.error('未处理的 Promise 拒绝:', promise, '原因:', reason);
+    printModuleError('Application', 'UnhandledRejection', String(reason));
   });
 }
 
-/**
- * 打印启动信息
- */
-function printStartupInfo(config: BootstrapConfig) {
+function printStartupInfo(config: BootstrapConfig, startupTime: number) {
   const { port, host, nodeEnv } = config;
 
-  logger.log('');
-  logger.log('╔══════════════════════════════════════════════════════════╗');
-  logger.log('║                                                          ║');
-  logger.log('║           🚀 OpenChat Server 启动成功!                   ║');
-  logger.log('║                                                          ║');
-  logger.log('╠══════════════════════════════════════════════════════════╣');
-  logger.log(`║  环境:      ${nodeEnv.padEnd(43)}║`);
-  logger.log(`║  服务地址:  http://${host}:${port.toString().padEnd(31)}║`);
-  logger.log(`║  API文档:   http://${host}:${port}/api/docs${' '.repeat(18)}║`);
-  logger.log(`║  API前缀:   /im/api/v1${' '.repeat(28)}║`);
-  logger.log(`║  WebSocket: ws://${host}:${port}/chat-v2${' '.repeat(21)}║`);
-  logger.log('║                                                          ║');
-  logger.log('╚══════════════════════════════════════════════════════════╝');
-  logger.log('');
+  const green = '\x1b[32m';
+  const reset = '\x1b[0m';
+  const bold = '\x1b[1m';
+  const cyan = '\x1b[36m';
+
+  let output = `\n${green}╔════════════════════════════════════════════════════════════╗${reset}`;
+  output += `\n${green}║${reset}                                                            ${green}║${reset}`;
+  output += `\n${green}║${reset}           ${bold}🚀 OpenChat Server Started Successfully!${reset}           ${green}║${reset}`;
+  output += `\n${green}║${reset}                                                            ${green}║${reset}`;
+  output += `\n${green}╠════════════════════════════════════════════════════════════╣${reset}`;
+  output += `\n${green}║${reset}  ${cyan}Environment:${reset}  ${nodeEnv.padEnd(42)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}Server URL:${reset}   http://${host}:${port.toString().padEnd(30)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}API Docs:${reset}     http://${host}:${port}/api/docs${' '.repeat(17)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}API Prefix:${reset}   /im/api/v1${' '.repeat(27)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}WebSocket:${reset}    ws://${host}:${port}/chat-v2${' '.repeat(20)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}Startup Time:${reset} ${startupTime}ms${' '.repeat(36)}${green}║${reset}`;
+  output += `\n${green}║${reset}                                                            ${green}║${reset}`;
+  output += `\n${green}╚════════════════════════════════════════════════════════════╝${reset}\n`;
+
+  process.stdout.write(output);
 }
 
-/**
- * 主启动函数
- */
 export async function bootstrap() {
   const startTime = Date.now();
 
   logger.log('');
   logger.log('═══════════════════════════════════════════════════════════');
-  logger.log('                 OpenChat Server 启动中...                 ');
+  logger.log('                 OpenChat Server Starting...                ');
   logger.log('═══════════════════════════════════════════════════════════');
   logger.log('');
 
-  // 1. 验证环境变量
   if (!validateEnvironment()) {
-    throw new Error('环境变量验证失败');
+    throw new Error('Environment validation failed');
   }
-  logger.log('✓ 环境变量验证通过');
 
-  // 2. 创建应用
+  printModuleSuccess('Environment', 'Validation passed');
+
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+    abortOnError: false,
   });
 
   const configService = app.get(ConfigService);
 
-  // 3. 获取配置
   const config: BootstrapConfig = {
     port: configService.get<number>('PORT', 3000),
     host: configService.get<string>('HOST', '0.0.0.0'),
@@ -598,73 +719,34 @@ export async function bootstrap() {
     isProduction: configService.get('NODE_ENV') === 'production',
   };
 
-  // 4. 执行健康检查
+  // 查找可用端口
+  const availablePort = await findAvailablePort(config.port, config.host);
+  config.port = availablePort;
+
   const healthResults = await performHealthChecks(configService);
   const allHealthy = healthResults.every(r => r.status === 'healthy');
 
   if (!allHealthy && config.isProduction) {
-    throw new Error('健康检查失败，无法在生产环境启动');
+    throw new Error('Health check failed, cannot start in production');
   }
 
-  // 5. 配置安全中间件
   setupSecurity(app, configService);
-
-  // 6. 配置全局管道和过滤器
   setupGlobalPipes(app, configService);
-
-  // 7. 配置 Swagger
   setupSwagger(app, configService);
 
-  // 8. 设置全局前缀
   app.setGlobalPrefix('im/api/v1', {
     exclude: ['/health', '/ws', '/chat', '/chat-v2', '/metrics'],
   });
 
-  // 9. 配置 WebSocket 适配器
   await setupWebSocketAdapter(app, configService);
-
-  // 10. 设置优雅关闭
   setupGracefulShutdown(app);
 
-  // 11. 启动服务
   await app.listen(config.port, config.host);
 
-  // 12. 初始化 IM Provider
   await initializeIMProvider(app, configService);
 
-  // 13. 打印启动信息
-  printStartupInfo(config);
-
   const startupTime = Date.now() - startTime;
-  logger.log(`启动耗时: ${startupTime}ms`);
-  logger.log('');
+  printStartupInfo(config, startupTime);
 
   return app;
-}
-
-// 启动应用
-if (require.main === module) {
-  // 捕获启动期间的未处理错误
-  process.on('uncaughtException', (error) => {
-    if (error.message.includes('ECONNRESET') || error.message.includes('ETIMEDOUT') || error.message.includes('ECONNREFUSED')) {
-      logger.error('');
-      logger.error('═══════════════════════════════════════════════════════════');
-      logger.error('✗ 数据库连接失败');
-      logger.error(`  错误码: ${error.message}`);
-      logger.error('  请检查:');
-      logger.error('  1. 数据库服务是否已启动');
-      logger.error('  2. 网络连接是否正常');
-      logger.error('  3. 数据库配置是否正确');
-      logger.error('═══════════════════════════════════════════════════════════');
-      logger.error('');
-    } else {
-      logger.error('未捕获异常:', error);
-    }
-    process.exit(1);
-  });
-
-  bootstrap().catch((error) => {
-    logger.error('应用启动失败:', error);
-    process.exit(1);
-  });
 }

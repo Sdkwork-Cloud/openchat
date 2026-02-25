@@ -4,40 +4,40 @@ import { BaseEntity } from '../../common/base.entity';
 
 @Entity('chat_rtc_video_records')
 export class RTCVideoRecord extends BaseEntity {
-  @Column({ type: 'bigint', nullable: false })
-  roomId: string; // 关联到RTCRoom
+  @Column({ type: 'bigint', nullable: false, name: 'room_id' })
+  roomId: string;
 
   @ManyToOne(() => RTCRoom, { nullable: false })
-  @JoinColumn({ name: 'roomId' })
+  @JoinColumn({ name: 'room_id' })
   room: RTCRoom;
 
-  @Column({ type: 'varchar', length: 36, nullable: true })
-  userId?: string; // 录制者的用户ID，可选
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'user_id' })
+  userId?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
-  fileName: string; // 视频文件名
+  @Column({ type: 'varchar', length: 255, nullable: false, name: 'file_name' })
+  fileName: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
-  filePath: string; // 视频文件存储路径
+  @Column({ type: 'varchar', length: 100, nullable: false, name: 'file_path' })
+  filePath: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: false })
-  fileType: string; // 视频文件类型，如mp4、webm等
+  @Column({ type: 'varchar', length: 50, nullable: false, name: 'file_type' })
+  fileType: string;
 
-  @Column({ type: 'bigint', nullable: false })
-  fileSize: number; // 视频文件大小（字节）
+  @Column({ type: 'bigint', nullable: false, name: 'file_size' })
+  fileSize: number;
 
-  @Column({ type: 'timestamp', nullable: false })
-  startTime: Date; // 录制开始时间
+  @Column({ type: 'timestamp', nullable: false, name: 'start_time' })
+  startTime: Date;
 
-  @Column({ type: 'timestamp', nullable: false })
-  endTime: Date; // 录制结束时间
+  @Column({ type: 'timestamp', nullable: false, name: 'end_time' })
+  endTime: Date;
 
   @Column({ type: 'varchar', length: 20, nullable: false, default: 'completed' })
-  status: 'recording' | 'completed' | 'failed' | 'processing'; // 录制状态
+  status: 'recording' | 'completed' | 'failed' | 'processing';
 
   @Column({ type: 'text', nullable: true })
-  metadata?: string; // 视频元数据，JSON格式
+  metadata?: string;
 
-  @Column({ type: 'text', nullable: true })
-  errorMessage?: string; // 错误信息，当status为failed时
+  @Column({ type: 'text', nullable: true, name: 'error_message' })
+  errorMessage?: string;
 }

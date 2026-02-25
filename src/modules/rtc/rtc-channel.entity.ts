@@ -4,26 +4,26 @@ import { BaseEntity } from '../../common/base.entity';
 @Entity('chat_rtc_channels')
 export class RTCChannelEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 50, nullable: false, unique: true })
-  provider: string; // 提供商名称，如tencent, alibaba, bytedance, livekit等
+  provider: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
-  appId: string; // 应用ID
+  @Column({ type: 'varchar', length: 100, nullable: false, name: 'app_id' })
+  appId: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
-  appKey: string; // 应用Key
+  @Column({ type: 'varchar', length: 100, nullable: false, name: 'app_key' })
+  appKey: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
-  appSecret: string; // 应用Secret
+  @Column({ type: 'varchar', length: 255, nullable: false, name: 'app_secret' })
+  appSecret: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  region?: string; // 区域
+  region?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  endpoint?: string; // 自定义端点
+  endpoint?: string;
 
-  @Column('jsonb', { nullable: false, default: {} })
-  extraConfig: Record<string, any>; // 额外配置
+  @Column('jsonb', { nullable: false, default: {}, name: 'extra_config' })
+  extraConfig: Record<string, any>;
 
-  @Column({ type: 'boolean', nullable: false, default: true })
-  isActive: boolean; // 是否启用
+  @Column({ type: 'boolean', nullable: false, default: true, name: 'is_active' })
+  isActive: boolean;
 }

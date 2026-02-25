@@ -15,16 +15,16 @@ export class AIBotEntity extends BaseEntity {
   @Column('jsonb', { nullable: false, default: {} })
   config: Record<string, any>;
 
-  @Column({ nullable: false, default: true })
+  @Column({ nullable: false, default: true, name: 'is_active' })
   isActive: boolean;
 }
 
 @Entity('chat_bot_messages')
 export class BotMessageEntity extends BaseEntity {
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'bot_id' })
   botId: string;
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'user_id' })
   userId: string;
 
   @Column({ nullable: false, type: 'text' })

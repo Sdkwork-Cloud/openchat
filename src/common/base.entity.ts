@@ -1,10 +1,9 @@
-import { PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
-// 雪花算法生成器
 class SnowflakeIdGenerator {
   private static instance: SnowflakeIdGenerator;
-  private epoch = 1609459200000; // 2021-01-01 00:00:00 UTC
+  private epoch = 1609459200000;
   private workerId: number;
   private datacenterId: number;
   private sequence = 0;
@@ -55,34 +54,47 @@ class SnowflakeIdGenerator {
   }
 }
 
-// 基础实体类
 export abstract class BaseEntity {
-  @PrimaryColumn({ type: 'bigint', nullable: false, transformer: {
-    to: (value: string) => value,
-    from: (value: any) => value.toString()
-  } })
+  @PrimaryColumn({ 
+    type: 'bigint', 
+    nullable: false, 
+    transformer: {
+      to: (value: string) => value,
+      from: (value: any) => value.toString()
+    }
+  })
   id: string;
 
-  @Column({ type: 'varchar', length: 36, unique: true, nullable: false })
+  @Column({ 
+    type: 'varchar', 
+    length: 36, 
+    unique: true, 
+    nullable: false 
+  })
   uuid: string;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ 
+    type: 'boolean', 
+    default: false,
+    name: 'is_deleted'
+  })
   isDeleted: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ 
+    name: 'created_at' 
+  })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ 
+    name: 'updated_at' 
+  })
   updatedAt: Date;
 
   constructor() {
-    // 生成雪花ID并转换为字符串
     this.id = SnowflakeIdGenerator.getInstance().generate().toString();
-    // 生成UUID
     this.uuid = uuidv4();
   }
 
-  // 确保uuid不可变
   setUUID(uuid: string): void {
     if (!this.uuid) {
       this.uuid = uuid;

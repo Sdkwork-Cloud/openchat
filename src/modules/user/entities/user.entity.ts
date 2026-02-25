@@ -2,10 +2,6 @@ import { Entity, Column } from 'typeorm';
 import { BaseEntity } from '../../../common/base.entity';
 import { AnyMediaResource, ImageMediaResource } from '../../im-provider/media-resource.interface';
 
-/**
- * 用户实体
- * 包含用户基本信息和认证信息
- */
 @Entity('chat_users')
 export class UserEntity extends BaseEntity {
   @Column({
@@ -78,6 +74,7 @@ export class UserEntity extends BaseEntity {
   @Column({
     type: 'timestamp',
     nullable: true,
+    name: 'last_login_at',
     comment: '最后登录时间',
   })
   lastLoginAt?: Date;
@@ -86,6 +83,7 @@ export class UserEntity extends BaseEntity {
     type: 'varchar',
     length: 45,
     nullable: true,
+    name: 'last_login_ip',
     comment: '最后登录IP',
   })
   lastLoginIp?: string;
@@ -93,6 +91,7 @@ export class UserEntity extends BaseEntity {
   @Column({
     type: 'timestamp',
     nullable: true,
+    name: 'deleted_at',
     comment: '删除时间',
   })
   deletedAt?: Date;

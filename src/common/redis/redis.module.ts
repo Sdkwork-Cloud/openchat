@@ -2,7 +2,6 @@ import { Module, Global, OnModuleInit, OnModuleDestroy, Logger, Inject, Optional
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { RedisService } from './redis.service';
-import { ConnectionManager, getGlobalConnectionManager } from '../services/connection-manager.service';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 export const REDIS_PUB_CLIENT = 'REDIS_PUB_CLIENT';
@@ -20,14 +19,6 @@ export interface RedisModuleOptions {
 }
 
 /**
- * 全局 Redis 客户端实例（用于模块间共享）
- */
-let sharedRedisClient: Redis | null = null;
-let sharedPubClient: Redis | null = null;
-let sharedSubClient: Redis | null = null;
-let connectionManager: ConnectionManager | null = null;
-
-/**
  * Redis 模块
  * 提供统一的 Redis 连接管理
  */
@@ -39,51 +30,120 @@ let connectionManager: ConnectionManager | null = null;
       useFactory: async (configService: ConfigService) => {
         const logger = new Logger('RedisModule');
         
-        if (sharedRedisClient) {
-          return sharedRedisClient;
-        }
+        const host = configService.get('REDIS_HOST', 'localhost');
+        const port = configService.get('REDIS_PORT', 6379);
+        const password = configService.get('REDIS_PASSWORD');
+        const db = configService.get('REDIS_DB', 0);
         
-        connectionManager = getGlobalConnectionManager(configService);
-        sharedRedisClient = await connectionManager.getPrimaryClient();
-        logger.log('Redis primary client initialized');
+        logger.log(`Connecting to Redis at ${host}:${port}/${db}...`);
         
-        return sharedRedisClient;
+        const client = new Redis({
+          host,
+          port,
+          db,
+          password: password || undefined,
+          lazyConnect: true,
+          connectTimeout: 10000,
+          maxRetriesPerRequest: 3,
+          retryStrategy: (times) => {
+            if (times > 3) {
+              logger.error(`Redis connection retry exhausted`);
+              return null;
+            }
+            return Math.min(times * 100, 3000);
+          },
+        });
+
+        // 等待连接就绪
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Redis connection timeout'));
+          }, 10000);
+
+          client.once('ready', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+
+          client.once('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+
+          client.connect().catch((err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+        
+        logger.log('Redis primary client connected');
+        return client;
       },
       inject: [ConfigService],
     },
     {
       provide: REDIS_PUB_CLIENT,
-      useFactory: async (configService: ConfigService) => {
+      useFactory: async (primaryClient: Redis) => {
         const logger = new Logger('RedisModule');
+        const pubClient = primaryClient.duplicate();
         
-        if (sharedPubClient) {
-          return sharedPubClient;
-        }
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Redis pub client connection timeout'));
+          }, 10000);
+
+          pubClient.once('ready', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+
+          pubClient.once('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+
+          pubClient.connect().catch((err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
         
-        connectionManager = getGlobalConnectionManager(configService);
-        sharedPubClient = await connectionManager.getPubClient();
-        logger.log('Redis pub client initialized');
-        
-        return sharedPubClient;
+        logger.log('Redis pub client connected');
+        return pubClient;
       },
-      inject: [ConfigService],
+      inject: [REDIS_CLIENT],
     },
     {
       provide: REDIS_SUB_CLIENT,
-      useFactory: async (configService: ConfigService) => {
+      useFactory: async (primaryClient: Redis) => {
         const logger = new Logger('RedisModule');
+        const subClient = primaryClient.duplicate();
         
-        if (sharedSubClient) {
-          return sharedSubClient;
-        }
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Redis sub client connection timeout'));
+          }, 10000);
+
+          subClient.once('ready', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+
+          subClient.once('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+
+          subClient.connect().catch((err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
         
-        connectionManager = getGlobalConnectionManager(configService);
-        sharedSubClient = await connectionManager.getSubClient();
-        logger.log('Redis sub client initialized');
-        
-        return sharedSubClient;
+        logger.log('Redis sub client connected');
+        return subClient;
       },
-      inject: [ConfigService],
+      inject: [REDIS_CLIENT],
     },
     RedisService,
   ],
@@ -100,30 +160,6 @@ export class RedisModule implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('RedisModule destroying...');
-    
-    if (connectionManager) {
-      await connectionManager.onModuleDestroy();
-    }
-    
-    sharedRedisClient = null;
-    sharedPubClient = null;
-    sharedSubClient = null;
-    connectionManager = null;
-    
     this.logger.log('RedisModule destroyed');
-  }
-
-  /**
-   * 获取连接统计
-   */
-  static getStats() {
-    return connectionManager?.getStats() || [];
-  }
-
-  /**
-   * 获取连接数量
-   */
-  static getConnectionCount() {
-    return connectionManager?.getConnectionCount() || 0;
   }
 }

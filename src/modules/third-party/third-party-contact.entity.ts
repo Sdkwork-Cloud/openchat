@@ -6,15 +6,15 @@ export class ThirdPartyContact extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: false })
   platform: 'whatsapp' | 'telegram' | 'wechat' | 'signal';
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'user_id' })
   userId: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
+  @Column({ type: 'varchar', length: 255, nullable: false, name: 'platform_user_id' })
   platformUserId: string;
 
   @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  avatar?: string | any; // 支持URL或结构化图片资源
+  avatar?: string | any;
 }

@@ -1,4 +1,4 @@
-import { Entity, Column, Index, OneToMany } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { AgentStatus, AgentType } from './agent.interface';
 
@@ -8,89 +8,37 @@ import { AgentStatus, AgentType } from './agent.interface';
 @Index('idx_agents_type', ['type'])
 @Index('idx_agents_public', ['isPublic', 'status'])
 export class Agent extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: false,
-    comment: '智能体名称',
-  })
+  @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: '智能体描述',
-  })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({
-    type: 'varchar',
-    length: 500,
-    nullable: true,
-    comment: '智能体头像URL',
-  })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   avatar: string;
 
-  @Column({
-    type: 'enum',
-    enum: AgentType,
-    default: AgentType.CHAT,
-    comment: '智能体类型',
-  })
+  @Column({ type: 'enum', enum: AgentType, default: AgentType.CHAT })
   type: AgentType;
 
-  @Column({
-    type: 'enum',
-    enum: AgentStatus,
-    default: AgentStatus.IDLE,
-    comment: '智能体状态',
-  })
+  @Column({ type: 'enum', enum: AgentStatus, default: AgentStatus.IDLE })
   status: AgentStatus;
 
-  @Column({
-    type: 'jsonb',
-    nullable: false,
-    default: {},
-    comment: '智能体配置',
-  })
+  @Column({ type: 'jsonb', nullable: false, default: {} })
   config: AgentConfigEntity;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '所有者ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'owner_id' })
   ownerId: string;
 
-  @Column({
-    type: 'boolean',
-    default: false,
-    comment: '是否公开',
-  })
+  @Column({ type: 'boolean', default: false, name: 'is_public' })
   isPublic: boolean;
 
-  @Column({
-    type: 'boolean',
-    default: false,
-    comment: '是否删除',
-  })
+  @Column({ type: 'boolean', default: false, name: 'is_deleted' })
   isDeleted: boolean;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    default: [],
-    comment: '智能体能力列表',
-  })
+  @Column({ type: 'jsonb', nullable: true, default: [] })
   capabilities: AgentCapabilityEntity[];
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    default: [],
-    comment: '关联知识库ID列表',
-  })
+  @Column({ type: 'jsonb', nullable: true, default: [], name: 'knowledge_base_ids' })
   knowledgeBaseIds: string[];
 }
 
@@ -134,51 +82,22 @@ export interface AgentCapabilityEntity {
 @Index('idx_agent_sessions_user', ['userId'])
 @Index('idx_agent_sessions_agent_user', ['agentId', 'userId'])
 export class AgentSession extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '智能体ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'agent_id' })
   agentId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '用户ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'user_id' })
   userId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 200,
-    nullable: true,
-    comment: '会话标题',
-  })
+  @Column({ type: 'varchar', length: 200, nullable: true })
   title: string;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    default: [],
-    comment: '会话上下文',
-  })
+  @Column({ type: 'jsonb', nullable: true, default: [] })
   context: ChatMessageEntity[];
 
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    comment: '最后活动时间',
-  })
+  @Column({ type: 'timestamp', nullable: true, name: 'last_activity_at' })
   lastActivityAt: Date;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    default: {},
-    comment: '会话元数据',
-  })
+  @Column({ type: 'jsonb', nullable: true, default: {} })
   metadata: Record<string, unknown>;
 }
 
@@ -207,186 +126,81 @@ export interface ToolCallEntity {
 @Index('idx_agent_messages_user', ['userId'])
 @Index('idx_agent_messages_created', ['createdAt'])
 export class AgentMessage extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '会话ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'session_id' })
   sessionId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '智能体ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'agent_id' })
   agentId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '用户ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'user_id' })
   userId: string;
 
-  @Column({
-    type: 'text',
-    nullable: false,
-    comment: '消息内容',
-  })
+  @Column({ type: 'text', nullable: false })
   content: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['user', 'assistant', 'system', 'tool'],
-    default: 'user',
-    comment: '消息角色',
-  })
+  @Column({ type: 'enum', enum: ['user', 'assistant', 'system', 'tool'], default: 'user' })
   role: 'user' | 'assistant' | 'system' | 'tool';
 
-  @Column({
-    type: 'enum',
-    enum: ['text', 'image', 'file', 'event'],
-    default: 'text',
-    comment: '消息类型',
-  })
+  @Column({ type: 'enum', enum: ['text', 'image', 'file', 'event'], default: 'text' })
   type: 'text' | 'image' | 'file' | 'event';
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '工具调用',
-  })
+  @Column({ type: 'jsonb', nullable: true, name: 'tool_calls' })
   toolCalls: ToolCallEntity[];
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: '工具调用ID',
-  })
+  @Column({ type: 'varchar', length: 100, nullable: true, name: 'tool_call_id' })
   toolCallId: string;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '消息元数据',
-  })
+  @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown>;
 
-  @Column({
-    type: 'int',
-    nullable: true,
-    default: 0,
-    comment: 'Token数量',
-  })
+  @Column({ type: 'int', nullable: true, default: 0, name: 'token_count' })
   tokenCount: number;
 }
 
 @Entity('chat_agent_tools')
 @Index('idx_agent_tools_agent', ['agentId'])
 export class AgentTool extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '智能体ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'agent_id' })
   agentId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: false,
-    comment: '工具名称',
-  })
+  @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: '工具描述',
-  })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '工具参数Schema',
-  })
+  @Column({ type: 'jsonb', nullable: true })
   parameters: Record<string, unknown>;
 
-  @Column({
-    type: 'boolean',
-    default: true,
-    comment: '是否启用',
-  })
+  @Column({ type: 'boolean', default: true })
   enabled: boolean;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '工具配置',
-  })
+  @Column({ type: 'jsonb', nullable: true })
   config: Record<string, unknown>;
 }
 
 @Entity('chat_agent_skills')
 @Index('idx_agent_skills_agent', ['agentId'])
 export class AgentSkill extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '智能体ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'agent_id' })
   agentId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: false,
-    comment: '技能ID',
-  })
+  @Column({ type: 'varchar', length: 100, nullable: false, name: 'skill_id' })
   skillId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: false,
-    comment: '技能名称',
-  })
+  @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: '技能描述',
-  })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: '技能版本',
-  })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   version: string;
 
-  @Column({
-    type: 'boolean',
-    default: true,
-    comment: '是否启用',
-  })
+  @Column({ type: 'boolean', default: true })
   enabled: boolean;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '技能配置',
-  })
+  @Column({ type: 'jsonb', nullable: true })
   config: Record<string, unknown>;
 }
 
@@ -395,72 +209,31 @@ export class AgentSkill extends BaseEntity {
 @Index('idx_agent_executions_session', ['sessionId'])
 @Index('idx_agent_executions_user', ['userId'])
 export class AgentExecution extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: false,
-    comment: '智能体ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'agent_id' })
   agentId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    comment: '会话ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'session_id' })
   sessionId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    comment: '用户ID',
-  })
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'user_id' })
   userId: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['pending', 'running', 'paused', 'completed', 'failed', 'aborted'],
-    default: 'pending',
-    comment: '执行状态',
-  })
+  @Column({ type: 'enum', enum: ['pending', 'running', 'paused', 'completed', 'failed', 'aborted'], default: 'pending' })
   state: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'aborted';
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '执行步骤',
-  })
+  @Column({ type: 'jsonb', nullable: true })
   steps: ExecutionStepEntity[];
 
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    comment: '开始时间',
-  })
+  @Column({ type: 'timestamp', nullable: true, name: 'started_at' })
   startedAt: Date;
 
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    comment: '结束时间',
-  })
+  @Column({ type: 'timestamp', nullable: true, name: 'ended_at' })
   endedAt: Date;
 
-  @Column({
-    type: 'int',
-    nullable: true,
-    default: 0,
-    comment: '总Token数',
-  })
+  @Column({ type: 'int', nullable: true, default: 0, name: 'total_tokens' })
   totalTokens: number;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    comment: '错误信息',
-  })
+  @Column({ type: 'jsonb', nullable: true })
   error: {
     message: string;
     code?: string;

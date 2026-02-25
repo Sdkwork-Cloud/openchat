@@ -118,7 +118,7 @@ export class XiaoZhiCapabilityService {
     this.eventBusService.on(
       EventTypeConstants.CUSTOM_EVENT,
       (event: any) => {
-        if (event.payload.type === 'device_connected') {
+        if (event?.payload?.type === 'device_connected') {
           this.handleDeviceConnected(event.payload.deviceId);
         }
       },
@@ -129,7 +129,7 @@ export class XiaoZhiCapabilityService {
     this.eventBusService.on(
       EventTypeConstants.CUSTOM_EVENT,
       (event: any) => {
-        if (event.payload.type === 'device_disconnected') {
+        if (event?.payload?.type === 'device_disconnected') {
           this.handleDeviceDisconnected(event.payload.deviceId);
         }
       },
@@ -140,7 +140,7 @@ export class XiaoZhiCapabilityService {
     this.eventBusService.on(
       EventTypeConstants.CUSTOM_EVENT,
       (event: any) => {
-        if (event.payload.messageType === 'hello') {
+        if (event?.payload?.messageType === 'hello') {
           this.handleDeviceHelloMessage(event.payload.deviceId, event.payload.payload);
         }
       },
@@ -151,7 +151,7 @@ export class XiaoZhiCapabilityService {
     this.eventBusService.on(
       EventTypeConstants.CUSTOM_EVENT,
       (event: any) => {
-        if (event.payload.type === 'mcp_tools_discovered') {
+        if (event?.payload?.type === 'mcp_tools_discovered') {
           this.handleMcpToolsDiscovered(event.payload.deviceId, event.payload.tools);
         }
       },

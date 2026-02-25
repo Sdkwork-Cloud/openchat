@@ -5,13 +5,13 @@ import { BaseEntity } from '../../common/base.entity';
 @Index('idx_group_invitations_group_invitee', ['groupId', 'inviteeId'])
 @Index('idx_group_invitations_invitee_status', ['inviteeId', 'status'])
 export class GroupInvitation extends BaseEntity {
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'group_id' })
   groupId: string;
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'inviter_id' })
   inviterId: string;
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'invitee_id' })
   inviteeId: string;
 
   @Column({ type: 'varchar', length: 20, nullable: false, default: 'pending' })
@@ -20,9 +20,9 @@ export class GroupInvitation extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   message?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'expires_at' })
   expiresAt?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'responded_at' })
   respondedAt?: Date;
 }

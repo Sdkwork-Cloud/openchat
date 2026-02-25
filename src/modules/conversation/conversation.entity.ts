@@ -10,42 +10,42 @@ export class ConversationEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: false })
   type: 'single' | 'group';
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'user_id' })
   userId: string;
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'varchar', length: 36, nullable: false, name: 'target_id' })
   targetId: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true, name: 'target_name' })
   targetName?: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'jsonb', nullable: true, name: 'target_avatar' })
   targetAvatar?: string | ImageMediaResource;
 
-  @Column({ type: 'varchar', length: 36, nullable: true })
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'last_message_id' })
   lastMessageId?: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, name: 'last_message_content' })
   lastMessageContent?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'last_message_time' })
   lastMessageTime?: Date;
 
-  @Column({ type: 'int', nullable: false, default: 0 })
+  @Column({ type: 'int', nullable: false, default: 0, name: 'unread_count' })
   unreadCount: number;
 
-  @Column({ type: 'boolean', nullable: false, default: false })
+  @Column({ type: 'boolean', nullable: false, default: false, name: 'is_pinned' })
   isPinned: boolean;
 
-  @Column({ type: 'boolean', nullable: false, default: false })
+  @Column({ type: 'boolean', nullable: false, default: false, name: 'is_muted' })
   isMuted: boolean;
 
   @Column({ type: 'text', nullable: true })
   draft?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'draft_updated_at' })
   draftUpdatedAt?: Date;
 
-  @Column({ type: 'bigint', nullable: true })
+  @Column({ type: 'bigint', nullable: true, name: 'last_read_seq' })
   lastReadSeq?: number;
 }

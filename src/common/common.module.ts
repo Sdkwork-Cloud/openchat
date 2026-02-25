@@ -10,6 +10,8 @@ import { Module, Global, DynamicModule, Provider } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
+import { RedisModule } from './redis/redis.module';
+
 // 基础服务
 import { BaseService } from './base/base.service';
 import { BaseEntity, AuditableEntity, OwnedEntity, VisibleEntity, SortableEntity, UUIDEntity, SnowflakeEntity, TaggableEntity, DescribableEntity, EntityStatus, Visibility, IEntity, IAuditable, ISoftDelete, Taggable, Describable } from './base/base.entity';
@@ -271,6 +273,7 @@ export interface CommonModuleOptions {
 @Global()
 @Module({
   imports: [
+    RedisModule,
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,

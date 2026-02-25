@@ -28,6 +28,8 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
   private primaryClient: Redis | null = null;
   private pubClient: Redis | null = null;
   private subClient: Redis | null = null;
+  private initializing = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor(@Optional() configService?: ConfigService) {
     this.configService = configService || new ConfigService();
@@ -82,7 +84,7 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
       enableOfflineQueue: true,
       autoResubscribe: true,
       autoResendUnfulfilledCommands: true,
-      lazyConnect: false,
+      lazyConnect: true,
     };
 
     if (password && password.trim()) {
@@ -90,6 +92,83 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
     }
 
     return options;
+  }
+
+  /**
+   * 初始化所有连接（串行执行避免竞争）
+   */
+  async initialize(): Promise<void> {
+    if (this.initializing) {
+      return this.initPromise!;
+    }
+
+    if (this.primaryClient && this.pubClient && this.subClient) {
+      return;
+    }
+
+    this.initializing = true;
+    this.initPromise = this.doInitialize();
+    
+    try {
+      await this.initPromise;
+    } finally {
+      this.initializing = false;
+      this.initPromise = null;
+    }
+  }
+
+  private async doInitialize(): Promise<void> {
+    this.logger.log('Initializing Redis connections...');
+
+    // 1. 先创建主连接
+    if (!this.primaryClient) {
+      this.primaryClient = await this.createClient('primary');
+      this.logger.log('Primary client created');
+    }
+
+    // 2. 创建 pub 连接
+    if (!this.pubClient) {
+      this.pubClient = this.primaryClient.duplicate();
+      this.pubClient.on('error', (err) => {
+        if (!err.message.includes('ECONNRESET')) {
+          this.logger.error(`Redis pub client error: ${err.message}`);
+        }
+      });
+      
+      await this.pubClient.connect().catch(() => {});
+      this.connections.set('pub', this.pubClient);
+      this.stats.set('pub', {
+        name: 'pub',
+        status: 'connected',
+        createdAt: new Date(),
+        lastActivity: new Date(),
+        totalCommands: 0,
+      });
+      this.logger.log('Pub client created');
+    }
+
+    // 3. 创建 sub 连接
+    if (!this.subClient) {
+      this.subClient = this.primaryClient.duplicate();
+      this.subClient.on('error', (err) => {
+        if (!err.message.includes('ECONNRESET')) {
+          this.logger.error(`Redis sub client error: ${err.message}`);
+        }
+      });
+      
+      await this.subClient.connect().catch(() => {});
+      this.connections.set('sub', this.subClient);
+      this.stats.set('sub', {
+        name: 'sub',
+        status: 'connected',
+        createdAt: new Date(),
+        lastActivity: new Date(),
+        totalCommands: 0,
+      });
+      this.logger.log('Sub client created');
+    }
+
+    this.logger.log('All Redis connections initialized');
   }
 
   /**
@@ -101,7 +180,6 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
       if (client.status === 'ready' || client.status === 'connecting') {
         return client;
       }
-      // 连接已断开，移除旧连接
       this.connections.delete(name);
       this.stats.delete(name);
     }
@@ -109,7 +187,6 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
     const redisOptions = { ...this.getRedisOptions(), ...options };
     const client = new Redis(redisOptions);
 
-    // 设置事件监听
     client.on('ready', () => {
       this.logger.log(`Redis client '${name}' ready`);
       this.updateStats(name, 'connected');
@@ -152,6 +229,11 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
         clearTimeout(timeout);
         reject(err);
       });
+
+      client.connect().catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
     });
 
     this.connections.set(name, client);
@@ -181,62 +263,24 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
    * 获取主 Redis 客户端
    */
   async getPrimaryClient(): Promise<Redis> {
-    if (!this.primaryClient) {
-      this.primaryClient = await this.createClient('primary');
-    }
-    return this.primaryClient;
+    await this.initialize();
+    return this.primaryClient!;
   }
 
   /**
    * 获取发布客户端
    */
   async getPubClient(): Promise<Redis> {
-    if (!this.pubClient) {
-      const primary = await this.getPrimaryClient();
-      this.pubClient = primary.duplicate();
-      
-      this.pubClient.on('error', (err) => {
-        if (!err.message.includes('ECONNRESET')) {
-          this.logger.error(`Redis pub client error: ${err.message}`);
-        }
-      });
-      
-      this.connections.set('pub', this.pubClient);
-      this.stats.set('pub', {
-        name: 'pub',
-        status: 'connected',
-        createdAt: new Date(),
-        lastActivity: new Date(),
-        totalCommands: 0,
-      });
-    }
-    return this.pubClient;
+    await this.initialize();
+    return this.pubClient!;
   }
 
   /**
    * 获取订阅客户端
    */
   async getSubClient(): Promise<Redis> {
-    if (!this.subClient) {
-      const primary = await this.getPrimaryClient();
-      this.subClient = primary.duplicate();
-      
-      this.subClient.on('error', (err) => {
-        if (!err.message.includes('ECONNRESET')) {
-          this.logger.error(`Redis sub client error: ${err.message}`);
-        }
-      });
-      
-      this.connections.set('sub', this.subClient);
-      this.stats.set('sub', {
-        name: 'sub',
-        status: 'connected',
-        createdAt: new Date(),
-        lastActivity: new Date(),
-        totalCommands: 0,
-      });
-    }
-    return this.subClient;
+    await this.initialize();
+    return this.subClient!;
   }
 
   /**
@@ -271,41 +315,17 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
       const start = Date.now();
       try {
         await client.ping();
-        results.push({
-          name,
-          status: 'healthy',
-          latency: Date.now() - start,
-        });
+        results.push({ name, status: 'healthy', latency: Date.now() - start });
       } catch (error) {
-        results.push({
-          name,
-          status: 'unhealthy',
-          latency: Date.now() - start,
-        });
+        results.push({ name, status: 'unhealthy', latency: Date.now() - start });
       }
     }
 
     return results;
   }
-
-  /**
-   * 关闭指定连接
-   */
-  async closeConnection(name: string): Promise<void> {
-    const client = this.connections.get(name);
-    if (client) {
-      await client.quit();
-      this.connections.delete(name);
-      this.stats.delete(name);
-      
-      if (name === 'primary') this.primaryClient = null;
-      if (name === 'pub') this.pubClient = null;
-      if (name === 'sub') this.subClient = null;
-    }
-  }
 }
 
-// 全局单例
+// 全局连接管理器实例
 let globalConnectionManager: ConnectionManager | null = null;
 
 /**
@@ -319,7 +339,7 @@ export function getGlobalConnectionManager(configService?: ConfigService): Conne
 }
 
 /**
- * 重置全局连接管理器（仅用于测试）
+ * 重置全局连接管理器（用于测试）
  */
 export function resetGlobalConnectionManager(): void {
   globalConnectionManager = null;
