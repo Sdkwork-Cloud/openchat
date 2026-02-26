@@ -230,7 +230,8 @@ export class AuthService {
         secret: this.jwtSecret,
       });
       return payload.sub;
-    } catch {
+    } catch (error: any) {
+      this.logger.debug(`Token validation failed: ${error.message}`);
       return null;
     }
   }

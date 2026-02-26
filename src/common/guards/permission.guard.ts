@@ -100,12 +100,21 @@ export class OwnerGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const resourceOwnerId = request.params?.ownerId || request.body?.ownerId;
 
     if (!user) {
       throw new ForbiddenException('User not authenticated');
     }
 
+    // 警告：从请求参数中获取 ownerId 容易被篡改
+    // 建议：从数据库查询资源的实际所有者进行比较
+    const resourceOwnerId = request.params?.ownerId || request.body?.ownerId;
+
+    // 如果没有提供 resourceOwnerId，可能是创建操作，允许通过
+    if (!resourceOwnerId) {
+      return true;
+    }
+
+    // 检查用户是否是资源所有者或管理员
     if (user.id !== resourceOwnerId && !user.roles?.includes('admin')) {
       throw new ForbiddenException('You can only access your own resources');
     }

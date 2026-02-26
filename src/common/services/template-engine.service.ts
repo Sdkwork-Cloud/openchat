@@ -413,6 +413,7 @@ export class TemplateEngineService implements OnModuleInit, OnModuleDestroy {
 
     for (const part of parts) {
       if (value === null || value === undefined) return undefined;
+      if (typeof value !== 'object') return undefined;
       value = value[part];
     }
 

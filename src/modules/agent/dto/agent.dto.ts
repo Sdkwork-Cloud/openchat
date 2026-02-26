@@ -159,7 +159,7 @@ export class CreateSession {
   title?: string;
 }
 
-export class SendMessage {
+export class SendAgentMessage {
   @ApiProperty({ description: '消息内容' })
   @IsString()
   @IsNotEmpty()

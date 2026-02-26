@@ -71,17 +71,28 @@ const logger = new Logger('Database');
         const password = configService.get('DB_PASSWORD', 'dev_password');
         const database = configService.get('DB_NAME', 'sdkwork_chat_dev');
 
+        // 检查是否为生产环境
+        const isProduction = configService.get('NODE_ENV') === 'production';
+        
         logger.log('');
         logger.log('═══════════════════════════════════════════════════════════');
         logger.log('                    数据库连接配置                            ');
         logger.log('═══════════════════════════════════════════════════════════');
         logger.log(`  主机:     ${host}`);
         logger.log(`  端口:     ${port}`);
-        logger.log(`  用户:     ${username}`);
+        // 生产环境不输出敏感信息
+        if (!isProduction) {
+          logger.log(`  用户:     ${username}`);
+        } else {
+          logger.log(`  用户:     ***`);
+        }
         logger.log(`  数据库:   ${database}`);
         logger.log(`  连接池:   最小 ${configService.get('DB_POOL_MIN', 5)} / 最大 ${configService.get('DB_POOL_MAX', 20)}`);
         logger.log('═══════════════════════════════════════════════════════════');
         logger.log('');
+
+        const poolMin = parseInt(configService.get('DB_POOL_MIN', '5'), 10);
+        const poolMax = parseInt(configService.get('DB_POOL_MAX', '20'), 10);
 
         return {
           type: 'postgres',
@@ -119,6 +130,19 @@ const logger = new Logger('Database');
           synchronize: false,
           logging: false,
           namingStrategy: new SnakeNamingStrategy(),
+          // Connection pool configuration
+          extra: {
+            min: poolMin,
+            max: poolMax,
+            // Connection timeout
+            connectionTimeoutMillis: parseInt(configService.get('DB_CONNECTION_TIMEOUT', '30000'), 10),
+            // Idle timeout
+            idleTimeoutMillis: parseInt(configService.get('DB_IDLE_TIMEOUT', '300000'), 10),
+            // Acquire timeout
+            acquireTimeoutMillis: parseInt(configService.get('DB_ACQUIRE_TIMEOUT', '60000'), 10),
+            // Maximum number of milliseconds a client can be idle before being closed
+            allowExitOnIdle: false,
+          },
         };
       },
     }),

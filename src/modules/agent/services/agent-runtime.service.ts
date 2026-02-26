@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -34,9 +34,13 @@ export interface AgentRuntime {
 }
 
 @Injectable()
-export class AgentRuntimeService implements OnModuleInit {
+export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AgentRuntimeService.name);
   private runtimes: Map<string, AgentRuntime> = new Map();
+  private runtimeLocks: Map<string, Promise<void>> = new Map();
+  private runtimeLastUsed: Map<string, number> = new Map();
+  private readonly RUNTIME_TTL = 30 * 60 * 1000; // 30分钟
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(
     private configService: ConfigService,
@@ -50,6 +54,38 @@ export class AgentRuntimeService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log('Agent Runtime Service initialized');
+    // 启动清理定时器
+    this.startCleanupInterval();
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+    // 清理所有runtime
+    for (const runtimeId of this.runtimes.keys()) {
+      this.destroyRuntime(runtimeId);
+    }
+  }
+
+  private startCleanupInterval(): void {
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleRuntimes();
+    }, 60000); // 每分钟检查一次
+  }
+
+  private cleanupStaleRuntimes(): void {
+    const now = Date.now();
+    for (const [id, lastUsed] of this.runtimeLastUsed.entries()) {
+      if (now - lastUsed > this.RUNTIME_TTL) {
+        // 检查是否正在执行
+        if (!this.runtimeLocks.has(id)) {
+          this.logger.log(`Cleaning up stale runtime: ${id}`);
+          this.destroyRuntime(id);
+          this.runtimeLastUsed.delete(id);
+        }
+      }
+    }
   }
 
   async initializeRuntime(agent: Agent): Promise<AgentRuntime> {
@@ -89,16 +125,39 @@ export class AgentRuntimeService implements OnModuleInit {
     sessionId?: string,
     userId?: string,
   ): Promise<ChatResponse> {
+    // 获取或创建锁，确保同一时间只有一个请求在执行
+    const lockWaitStart = Date.now();
+    const MAX_LOCK_WAIT_TIME = 60000; // 最大等待60秒
+
+    let lock = this.runtimeLocks.get(runtimeId);
+    while (lock) {
+      // 检查是否超过最大等待时间
+      if (Date.now() - lockWaitStart > MAX_LOCK_WAIT_TIME) {
+        throw new Error(`Timeout waiting for runtime lock: ${runtimeId}`);
+      }
+      await lock;
+      lock = this.runtimeLocks.get(runtimeId);
+    }
+
+    let resolveLock: () => void;
+    const newLock = new Promise<void>(resolve => { resolveLock = resolve; });
+    this.runtimeLocks.set(runtimeId, newLock);
+
     const runtime = this.runtimes.get(runtimeId);
     if (!runtime) {
+      this.runtimeLocks.delete(runtimeId);
+      resolveLock!();
       throw new Error(`Runtime not found: ${runtimeId}`);
     }
 
     if (runtime.state !== 'ready') {
+      this.runtimeLocks.delete(runtimeId);
+      resolveLock!();
       throw new Error(`Runtime not ready: ${runtime.state}`);
     }
 
     runtime.state = 'executing';
+    this.runtimeLastUsed.set(runtimeId, Date.now());
     const executionId = uuidv4();
     const startTime = Date.now();
 
@@ -114,14 +173,14 @@ export class AgentRuntimeService implements OnModuleInit {
     };
 
     try {
-      this.emitEvent(runtime, AgentEventType.CHAT_STARTED, { 
-        sessionId, 
-        userId, 
-        executionId 
+      this.emitEvent(runtime, AgentEventType.CHAT_STARTED, {
+        sessionId,
+        userId,
+        executionId
       });
 
       const messages = await this.prepareMessages(runtime, request, executionContext);
-      
+
       const llmProvider = this.llmProviderFactory.getProvider(
         runtime.agent.config.llm?.provider || 'openai'
       );
@@ -141,10 +200,10 @@ export class AgentRuntimeService implements OnModuleInit {
 
       while (iterations < maxIterations) {
         const message = response.choices[0]?.message;
-        
+
         if (message?.toolCalls && message.toolCalls.length > 0) {
           messages.push(message);
-          
+
           for (const toolCall of message.toolCalls) {
             const toolResult = await this.executeTool(
               runtime,
@@ -153,7 +212,7 @@ export class AgentRuntimeService implements OnModuleInit {
               sessionId,
               userId
             );
-            
+
             messages.push({
               id: uuidv4(),
               role: 'tool',
@@ -162,14 +221,14 @@ export class AgentRuntimeService implements OnModuleInit {
               timestamp: Date.now(),
             });
           }
-          
+
           finalResponse = await llmProvider.chat({
             model: runtime.agent.config.model,
             messages,
             temperature: runtime.agent.config.temperature,
             tools: this.getToolDefinitions(runtime),
           });
-          
+
           iterations++;
         } else {
           break;
@@ -199,6 +258,10 @@ export class AgentRuntimeService implements OnModuleInit {
       });
 
       throw error;
+    } finally {
+      // 释放锁
+      this.runtimeLocks.delete(runtimeId);
+      resolveLock!();
     }
   }
 
@@ -208,32 +271,51 @@ export class AgentRuntimeService implements OnModuleInit {
     sessionId?: string,
     userId?: string,
   ): AsyncGenerator<ChatStreamChunk> {
+    // 获取或创建锁，确保同一时间只有一个请求在执行
+    let lock = this.runtimeLocks.get(runtimeId);
+    while (lock) {
+      await lock;
+      lock = this.runtimeLocks.get(runtimeId);
+    }
+
+    let resolveLock: () => void;
+    const newLock = new Promise<void>(resolve => { resolveLock = resolve; });
+    this.runtimeLocks.set(runtimeId, newLock);
+
     const runtime = this.runtimes.get(runtimeId);
     if (!runtime) {
+      this.runtimeLocks.delete(runtimeId);
+      resolveLock!();
       throw new Error(`Runtime not found: ${runtimeId}`);
     }
 
     if (runtime.state !== 'ready') {
+      this.runtimeLocks.delete(runtimeId);
+      resolveLock!();
       throw new Error(`Runtime not ready: ${runtime.state}`);
     }
 
     runtime.state = 'executing';
+    this.runtimeLastUsed.set(runtimeId, Date.now());
     const executionId = uuidv4();
 
+    let stream: AsyncGenerator<ChatStreamChunk> | undefined;
+    let continueStream: AsyncGenerator<ChatStreamChunk> | undefined;
+
     try {
-      this.emitEvent(runtime, AgentEventType.CHAT_STARTED, { 
-        sessionId, 
-        userId, 
-        executionId 
+      this.emitEvent(runtime, AgentEventType.CHAT_STARTED, {
+        sessionId,
+        userId,
+        executionId
       });
 
       const messages = await this.prepareMessages(runtime, request);
-      
+
       const llmProvider = this.llmProviderFactory.getProvider(
         runtime.agent.config.llm?.provider || 'openai'
       );
 
-      const stream = llmProvider.chatStream({
+      stream = llmProvider.chatStream({
         model: runtime.agent.config.model || request.model,
         messages,
         temperature: runtime.agent.config.temperature ?? request.temperature,
@@ -243,35 +325,41 @@ export class AgentRuntimeService implements OnModuleInit {
 
       let fullContent = '';
       const toolCalls: ToolCall[] = [];
-      const responseId = uuidv4();
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta;
-        
-        if (delta?.content) {
-          fullContent += delta.content;
-          
-          this.emitEvent(runtime, AgentEventType.CHAT_STREAM, {
-            sessionId,
-            userId,
-            executionId,
-            content: delta.content,
-            isComplete: false,
-          });
-        }
-        
-        if (delta?.toolCalls) {
-          for (const tc of delta.toolCalls) {
-            const existingTc = toolCalls.find(t => t.id === tc.id);
-            if (existingTc) {
-              existingTc.function.arguments += tc.function.arguments;
-            } else {
-              toolCalls.push(tc);
+      try {
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta;
+
+          if (delta?.content) {
+            fullContent += delta.content;
+
+            this.emitEvent(runtime, AgentEventType.CHAT_STREAM, {
+              sessionId,
+              userId,
+              executionId,
+              content: delta.content,
+              isComplete: false,
+            });
+          }
+
+          if (delta?.toolCalls) {
+            for (const tc of delta.toolCalls) {
+              const existingTc = toolCalls.find(t => t.id === tc.id);
+              if (existingTc) {
+                existingTc.function.arguments += tc.function.arguments;
+              } else {
+                toolCalls.push(tc);
+              }
             }
           }
+
+          yield chunk;
         }
-        
-        yield chunk;
+      } finally {
+        // 确保第一个stream被正确关闭
+        if (stream && typeof (stream as any).return === 'function') {
+          await (stream as any).return();
+        }
       }
 
       if (toolCalls.length > 0) {
@@ -291,7 +379,7 @@ export class AgentRuntimeService implements OnModuleInit {
             sessionId,
             userId
           );
-          
+
           messages.push({
             id: uuidv4(),
             role: 'tool',
@@ -301,26 +389,33 @@ export class AgentRuntimeService implements OnModuleInit {
           });
         }
 
-        const continueStream = llmProvider.chatStream({
+        continueStream = llmProvider.chatStream({
           model: runtime.agent.config.model,
           messages,
           temperature: runtime.agent.config.temperature,
         });
 
-        for await (const chunk of continueStream) {
-          const delta = chunk.choices[0]?.delta;
-          
-          if (delta?.content) {
-            this.emitEvent(runtime, AgentEventType.CHAT_STREAM, {
-              sessionId,
-              userId,
-              executionId,
-              content: delta.content,
-              isComplete: false,
-            });
+        try {
+          for await (const chunk of continueStream) {
+            const delta = chunk.choices[0]?.delta;
+
+            if (delta?.content) {
+              this.emitEvent(runtime, AgentEventType.CHAT_STREAM, {
+                sessionId,
+                userId,
+                executionId,
+                content: delta.content,
+                isComplete: false,
+              });
+            }
+
+            yield chunk;
           }
-          
-          yield chunk;
+        } finally {
+          // 确保continueStream被正确关闭
+          if (continueStream && typeof (continueStream as any).return === 'function') {
+            await (continueStream as any).return();
+          }
         }
       }
 
@@ -342,6 +437,10 @@ export class AgentRuntimeService implements OnModuleInit {
       });
 
       throw error;
+    } finally {
+      // 释放锁
+      this.runtimeLocks.delete(runtimeId);
+      resolveLock!();
     }
   }
 

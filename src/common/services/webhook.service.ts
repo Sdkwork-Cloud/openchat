@@ -4,7 +4,7 @@ import { RedisService } from '../redis/redis.service';
 import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
 import { RetryService } from './retry.service';
 import { buildCacheKey } from '../decorators/cache.decorator';
-import { createHash } from 'crypto';
+import { createHmac } from 'crypto';
 
 export interface WebhookEndpoint {
   id: string;
@@ -159,8 +159,6 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     let successful = 0;
     let failed = 0;
     let pending = 0;
-    const totalResponseTime = 0;
-    const responseCount = 0;
 
     for (const delivery of this.deliveries.values()) {
       switch (delivery.status) {
@@ -183,7 +181,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
       successful,
       failed,
       pending,
-      averageResponseTime: responseCount > 0 ? totalResponseTime / responseCount : 0,
+      averageResponseTime: 0, // TODO: 实现响应时间统计
     };
   }
 
@@ -291,30 +289,39 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
       headers['X-Webhook-Event'] = payload.event;
       headers['X-Webhook-ID'] = payload.id;
 
-      const response = await fetch(endpoint.url, {
-        method: endpoint.method,
-        headers,
-        body: JSON.stringify(payload.data),
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (response.ok) {
-        delivery.status = 'delivered';
-        delivery.response = {
-          status: response.status,
-          headers: Object.fromEntries(response.headers.entries()),
-        };
-
-        await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
-          type: 'webhook.delivered',
-          deliveryId: delivery.id,
-          endpointId: endpoint.id,
-          event: payload.event,
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      
+      try {
+        const response = await fetch(endpoint.url, {
+          method: endpoint.method,
+          headers,
+          body: JSON.stringify(payload.data),
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
 
-        this.logger.debug(`Webhook delivered: ${delivery.id}`);
-      } else {
-        throw new Error(`HTTP ${response.status}`);
+        if (response.ok) {
+          delivery.status = 'delivered';
+          delivery.response = {
+            status: response.status,
+            headers: Object.fromEntries(response.headers.entries()),
+          };
+
+          await this.eventBus.publish(EventTypeConstants.CUSTOM_EVENT, {
+            type: 'webhook.delivered',
+            deliveryId: delivery.id,
+            endpointId: endpoint.id,
+            event: payload.event,
+          });
+
+          this.logger.debug(`Webhook delivered: ${delivery.id}`);
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
+      } catch (fetchError: any) {
+        clearTimeout(timeout);
+        throw fetchError;
       }
     } catch (error: any) {
       delivery.error = error.message;
@@ -347,7 +354,8 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
       timestamp: payload.timestamp,
     });
 
-    return createHash('sha256').update(data + secret).digest('hex');
+    // 使用 HMAC-SHA256 替代简单的 SHA256，更安全
+    return createHmac('sha256', secret).update(data).digest('hex');
   }
 
   private async loadEndpoints(): Promise<void> {

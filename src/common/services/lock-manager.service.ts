@@ -50,6 +50,7 @@ export class LockManagerService implements OnModuleInit, OnModuleDestroy {
   private readonly locks = new Map<string, Lock>();
   private readonly lockByKey = new Map<string, Lock[]>();
   private readonly waitQueues = new Map<string, Array<{
+    waiterId: string;
     ownerId: string;
     resolve: (lock: Lock) => void;
     reject: (error: Error) => void;
@@ -358,8 +359,11 @@ export class LockManagerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      // 生成唯一等待者ID
+      const waiterId = `${ownerId}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
       const timeout = setTimeout(() => {
-        const index = queue.findIndex(w => w.ownerId === ownerId);
+        const index = queue.findIndex(w => w.waiterId === waiterId);
         if (index !== -1) {
           queue.splice(index, 1);
           reject(new Error(`Lock wait timeout for '${key}'`));
@@ -367,6 +371,7 @@ export class LockManagerService implements OnModuleInit, OnModuleDestroy {
       }, waitTimeout);
 
       queue.push({
+        waiterId,
         ownerId,
         resolve: (lock: Lock) => {
           clearTimeout(timeout);

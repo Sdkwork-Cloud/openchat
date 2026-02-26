@@ -142,13 +142,18 @@ export class RateLimitService implements OnModuleInit, OnModuleDestroy {
 
     if (!data) return null;
 
-    const parsed = JSON.parse(data);
-    return {
-      current: parsed.count || parsed.tokens || 0,
-      limit: parsed.limit || 100,
-      remaining: parsed.remaining || 0,
-      resetAt: parsed.resetAt || Date.now(),
-    };
+    try {
+      const parsed = JSON.parse(data);
+      return {
+        current: parsed.count || parsed.tokens || 0,
+        limit: parsed.limit || 100,
+        remaining: parsed.remaining || 0,
+        resetAt: parsed.resetAt || Date.now(),
+      };
+    } catch (parseError) {
+      this.logger.warn(`Failed to parse rate limit stats for key ${key}:`, parseError);
+      return null;
+    }
   }
 
   private async fixedWindowCheck(config: RateLimitConfig): Promise<RateLimitResult> {

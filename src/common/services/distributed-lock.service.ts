@@ -346,13 +346,18 @@ export class DistributedLockService implements OnModuleDestroy {
     const value = await client.get(fullLockName);
     if (!value) return null;
 
-    const ttl = await client.pttl(fullLockName);
-    const parsed = JSON.parse(value);
+    try {
+      const ttl = await client.pttl(fullLockName);
+      const parsed = JSON.parse(value);
 
-    return {
-      ownerId: parsed.ownerId,
-      expiresAt: Date.now() + ttl,
-    };
+      return {
+        ownerId: parsed.ownerId,
+        expiresAt: Date.now() + ttl,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to parse lock info for ${lockName}:`, error);
+      return null;
+    }
   }
 
   /**
@@ -428,7 +433,12 @@ export class DistributedLockService implements OnModuleDestroy {
         return Date.now() > lock.expiresAt;
       },
 
-      release: () => {
+      release: async () => {
+        // 清除自动续期定时器
+        if (lock.renewInterval) {
+          clearInterval(lock.renewInterval);
+          lock.renewInterval = undefined;
+        }
         return this.release(lockName);
       },
 
@@ -473,19 +483,35 @@ export class DistributedLockService implements OnModuleDestroy {
    */
   private async deleteLock(key: string, lock: LockInstance): Promise<boolean> {
     const client = this.redisService.getClient();
-    const currentValue = await client.get(key);
 
-    if (!currentValue) {
-      return true; // 锁已不存在
+    // 使用 Lua 脚本确保检查和删除是原子操作
+    const luaScript = `
+      local current = redis.call('get', KEYS[1])
+      if not current then
+        return 1  -- 锁已不存在，视为成功
+      end
+
+      local parsed = cjson.decode(current)
+      if parsed.ownerId ~= ARGV[1] then
+        return -1  -- 不是锁的持有者
+      end
+
+      redis.call('del', KEYS[1])
+      return 1  -- 删除成功
+    `;
+
+    try {
+      const result = await client.eval(luaScript, 1, key, lock.ownerId);
+
+      if (result === -1) {
+        return false; // 不是锁的持有者
+      }
+
+      return true; // 删除成功或锁已不存在
+    } catch (error) {
+      this.logger.error(`Failed to delete lock ${key}:`, error);
+      return false;
     }
-
-    const parsed = JSON.parse(currentValue);
-    if (parsed.ownerId !== lock.ownerId) {
-      return false; // 不是锁的持有者
-    }
-
-    await client.del(key);
-    return true;
   }
 
   /**

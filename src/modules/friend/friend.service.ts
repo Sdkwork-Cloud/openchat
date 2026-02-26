@@ -103,7 +103,8 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     requestId: string,
     currentUserId?: string,
   ): Promise<boolean> {
-    return this.dataSource.transaction(async (manager) => {
+    // 先获取请求信息，用于后续缓存失效
+    const requestInfo = await this.dataSource.transaction(async (manager) => {
       const request = await manager.findOne(FriendRequest, {
         where: { id: requestId },
       });
@@ -142,18 +143,26 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
 
       await manager.save([friend1, friend2]);
 
-      await this.invalidateFriendsCache(request.fromUserId);
-      await this.invalidateFriendsCache(request.toUserId);
-
-      this.createContactsAndConversations(
-        request.fromUserId,
-        request.toUserId,
-      ).catch((err) => {
-        this.logger.error('Failed to create contacts and conversations:', err);
-      });
-
-      return true;
+      // 返回需要的信息用于后续操作
+      return {
+        fromUserId: request.fromUserId,
+        toUserId: request.toUserId,
+      };
     });
+
+    // 事务成功提交后才执行缓存失效和异步操作
+    await this.invalidateFriendsCache(requestInfo.fromUserId);
+    await this.invalidateFriendsCache(requestInfo.toUserId);
+
+    // 使用事件驱动或可靠的消息队列替代异步操作
+    this.createContactsAndConversations(
+      requestInfo.fromUserId,
+      requestInfo.toUserId,
+    ).catch((err) => {
+      this.logger.error('Failed to create contacts and conversations:', err);
+    });
+
+    return true;
   }
 
   async rejectFriendRequest(requestId: string): Promise<boolean> {

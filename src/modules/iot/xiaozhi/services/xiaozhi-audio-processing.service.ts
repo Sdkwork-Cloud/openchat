@@ -169,11 +169,21 @@ export class XiaozhiAudioProcessingService {
    * @returns 降噪后的数据和噪声电平
    */
   private applyNoiseReduction(deviceId: string, pcmData: Buffer): { data: Buffer; noiseLevel: number } {
+    // 空数据检查
+    if (!pcmData || pcmData.length === 0) {
+      return { data: pcmData || Buffer.alloc(0), noiseLevel: 0 };
+    }
+
     const samples = new Int16Array(pcmData.buffer, pcmData.byteOffset, pcmData.length / 2);
-    
+
+    // 空样本检查
+    if (samples.length === 0) {
+      return { data: pcmData, noiseLevel: 0 };
+    }
+
     // 计算噪声估计（使用最小值跟踪）
     const noiseEstimate = this.estimateNoise(samples);
-    
+
     // 应用谱减法降噪（简化实现）
     const processed = new Int16Array(samples.length);
     let noiseLevel = 0;
@@ -181,7 +191,7 @@ export class XiaozhiAudioProcessingService {
     for (let i = 0; i < samples.length; i++) {
       const sample = samples[i];
       const absSample = Math.abs(sample);
-      
+
       // 简单的噪声门限
       if (absSample < noiseEstimate * 2) {
         // 可能是噪声，衰减
@@ -193,7 +203,8 @@ export class XiaozhiAudioProcessingService {
       }
     }
 
-    noiseLevel = noiseLevel / samples.length / 32768;
+    // 防止除零
+    noiseLevel = samples.length > 0 ? noiseLevel / samples.length / 32768 : 0;
 
     return {
       data: Buffer.from(processed.buffer),
@@ -324,18 +335,19 @@ export class XiaozhiAudioProcessingService {
       vadState.consecutiveSilenceFrames++;
       vadState.consecutiveSpeechFrames = 0;
 
+      // 记录静音开始时间（只在第一次静音时记录）
+      if (!vadState.silenceStartTime) {
+        vadState.silenceStartTime = now;
+      }
+
       // 连续静音帧超过阈值，判定为语音结束
-      if (vadState.isSpeech && vadState.consecutiveSilenceFrames >= 5) {
-        const silenceDuration = now - (vadState.silenceStartTime || now);
+      if (vadState.isSpeech && vadState.consecutiveSilenceFrames >= 5 && vadState.silenceStartTime) {
+        const silenceDuration = now - vadState.silenceStartTime;
         
         if (silenceDuration > config.minSilenceDuration) {
           vadState.isSpeech = false;
           vadState.silenceStartTime = null;
         }
-      }
-
-      if (!vadState.silenceStartTime) {
-        vadState.silenceStartTime = now;
       }
     }
 

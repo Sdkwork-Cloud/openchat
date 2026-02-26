@@ -89,6 +89,12 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(timer);
     }
     this.timers.clear();
+    
+    // 清理 checkInterval
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = undefined;
+    }
   }
 
   registerHandler(name: string, handler: (payload: any) => Promise<any>): void {
@@ -511,7 +517,8 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       next.setMinutes(next.getMinutes() + 1);
     }
 
-    return now.getTime() + 60000;
+    // 如果超过最大迭代次数仍未找到，抛出错误
+    throw new Error(`Unable to find next cron execution time for expression: ${cron}`);
   }
 
   private matchesCron(date: Date, minute: string, hour: string, dayOfMonth: string, month: string, dayOfWeek: string): boolean {
@@ -528,12 +535,18 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     if (pattern === '*') return true;
 
     if (pattern.includes('/')) {
-      const [base, step] = pattern.split('/');
+      const parts = pattern.split('/');
+      if (parts.length !== 2) return false;
+
+      const [base, step] = parts;
       const stepNum = parseInt(step, 10);
+      if (isNaN(stepNum) || stepNum <= 0) return false;
+
       if (base === '*') {
         return (value - min) % stepNum === 0;
       }
       const baseNum = parseInt(base, 10);
+      if (isNaN(baseNum)) return false;
       return value >= baseNum && (value - baseNum) % stepNum === 0;
     }
 

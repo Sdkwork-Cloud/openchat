@@ -24,7 +24,7 @@ import { AgentRuntimeService } from './services/agent-runtime.service';
 import { ToolRegistry } from './tools/tool-registry.service';
 import { SkillRegistry } from './skills/skill-registry.service';
 import { AgentStatus, AgentType, ChatRequest } from './agent.interface';
-import { CreateAgent, UpdateAgent, SendMessage, CreateSession, AddTool, AddSkill } from './dto/agent.dto';
+import { CreateAgent, UpdateAgent, SendAgentMessage, CreateSession, AddTool, AddSkill } from './dto/agent.dto';
 import { AgentError, AgentErrorCode } from './errors/agent.errors';
 
 @ApiTags('Agent')
@@ -176,7 +176,7 @@ export class AgentController {
   @ApiResponse({ status: 201, description: 'Message sent successfully' })
   async sendMessage(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
-    @Body() data: SendMessage,
+    @Body() data: SendAgentMessage,
     @Req() req: any,
   ) {
     const userId = req.user?.id || 'system';
@@ -252,7 +252,7 @@ export class AgentController {
   @ApiOperation({ summary: 'Stream message from agent' })
   async streamMessage(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
-    @Body() data: SendMessage,
+    @Body() data: SendAgentMessage,
     @Req() req: any,
   ) {
     const userId = req.user?.id || 'system';

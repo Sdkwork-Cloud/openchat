@@ -63,17 +63,31 @@ export class VerificationCodeService {
    */
   async verifyCode(target: string, code: string, type: VerificationCodeType): Promise<boolean> {
     const key = `verification:${type}:${target}`;
-    const storedCode = await this.redis.get(key);
 
-    if (!storedCode) {
+    // 使用 Lua 脚本确保验证和删除是原子操作，防止并发问题
+    const luaScript = `
+      local stored = redis.call('get', KEYS[1])
+      if stored == false then
+        return -1  -- 验证码不存在或已过期
+      end
+      if stored == ARGV[1] then
+        redis.call('del', KEYS[1])
+        return 1   -- 验证成功
+      else
+        return 0   -- 验证码错误
+      end
+    `;
+
+    const result = await this.redis.eval(luaScript, 1, key, code);
+
+    if (result === -1) {
       throw new BadRequestException('验证码已过期或不存在');
     }
 
-    if (storedCode !== code) {
+    if (result === 0) {
       throw new BadRequestException('验证码错误');
     }
 
-    await this.redis.del(key);
     return true;
   }
 

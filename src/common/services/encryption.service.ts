@@ -59,6 +59,12 @@ export class EncryptionService implements OnModuleInit {
         throw new Error('Master key must be 32 bytes (64 hex characters)');
       }
     } else {
+      // 生产环境强制要求配置密钥
+      const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+      if (isProduction) {
+        throw new Error('ENCRYPTION_MASTER_KEY is required in production environment. Please configure a secure 64-character hex key.');
+      }
+      // 非生产环境使用随机密钥（仅用于开发测试）
       this.masterKey = randomBytes(32);
       this.logger.warn('No master key configured, using random key. Data will not persist across restarts.');
     }

@@ -20,7 +20,7 @@ export class XiaoZhiMessageService {
   /**
    * 处理JSON消息
    */
-  handleJsonMessage(deviceId: string, connection: DeviceConnection, message: any): void {
+  async handleJsonMessage(deviceId: string, connection: DeviceConnection, message: any): Promise<void> {
     const messageType = message.type || 'unknown';
     this.logger.debug(`Received JSON message from device ${deviceId}: ${messageType}`);
 
@@ -36,7 +36,7 @@ export class XiaoZhiMessageService {
           this.handleAbortMessage(deviceId, connection, message);
           break;
         case 'mcp':
-          this.handleMcpMessage(deviceId, connection, message);
+          await this.handleMcpMessage(deviceId, connection, message);
           break;
         case 'goodbye':
           this.handleGoodbyeMessage(deviceId, connection, message);

@@ -162,7 +162,8 @@ export class ConversationService extends BaseEntityService<ConversationEntity> i
       .andWhere('conversation.isDeleted = :isDeleted', { isDeleted: false })
       .getRawOne();
 
-    return parseInt(result?.total || '0', 10);
+    const total = parseInt(result?.total || '0', 10);
+    return isNaN(total) ? 0 : total;
   }
 
   private mapToConversation(entity: ConversationEntity): Conversation {

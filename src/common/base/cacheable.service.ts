@@ -81,12 +81,16 @@ export abstract class CacheableService<T extends BaseEntity & ObjectLiteral> {
     ttl?: number,
   ): Promise<R> {
     const cached = await this.getFromCache<R>(key);
-    if (cached !== null) {
+    // 使用严格检查，确保缓存值为 null 或 undefined 时才重新获取
+    if (cached != null) {
       return cached;
     }
 
     const value = await factory();
-    await this.setToCache(key, value, ttl);
+    // 只缓存非空值
+    if (value != null) {
+      await this.setToCache(key, value, ttl);
+    }
     return value;
   }
 

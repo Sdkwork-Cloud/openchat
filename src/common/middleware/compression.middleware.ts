@@ -1,7 +1,10 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { createGzip, createDeflate, createBrotliCompress, brotliCompress } from 'zlib';
+import { createGzip, createDeflate, brotliCompress, constants } from 'zlib';
+import { promisify } from 'util';
 import { Readable } from 'stream';
+
+const brotliCompressAsync = promisify(brotliCompress);
 
 export interface CompressionOptions {
   threshold: number;
@@ -64,39 +67,64 @@ export class CompressionMiddleware implements NestMiddleware {
       return compressibleTypes.some((type) => contentType.includes(type));
     };
 
-    const compress = (data: Buffer, callback: (err: Error | null, result: Buffer) => void): void => {
+    const compress = async (data: Buffer): Promise<Buffer> => {
       const contentType = res.getHeader('Content-Type') as string || '';
 
       if (!shouldCompress(contentType)) {
-        return callback(null, data);
+        return data;
       }
 
       if (data.length < this.options.threshold) {
-        return callback(null, data);
+        return data;
       }
 
       const encoding = this.selectEncoding(acceptEncoding);
 
-      switch (encoding) {
-        case 'br':
-          if (this.options.brotli?.enabled) {
-            brotliCompress(data, callback);
-          } else {
-            callback(null, data);
+      try {
+        switch (encoding) {
+          case 'br':
+            if (this.options.brotli?.enabled) {
+              const compressed = await brotliCompressAsync(data, {
+                params: {
+                  [constants.BROTLI_PARAM_QUALITY]: this.options.brotli.quality,
+                },
+              });
+              res.setHeader('Content-Encoding', 'br');
+              return compressed;
+            }
+            return data;
+          case 'gzip': {
+            return new Promise((resolve, reject) => {
+              const gzip = createGzip({ level: this.options.level });
+              const chunks: Buffer[] = [];
+              gzip.on('data', (chunk) => chunks.push(chunk));
+              gzip.on('end', () => {
+                res.setHeader('Content-Encoding', 'gzip');
+                resolve(Buffer.concat(chunks));
+              });
+              gzip.on('error', reject);
+              gzip.end(data);
+            });
           }
-          break;
-        case 'gzip':
-          createGzip({ level: this.options.level }).end(data, () => {
-            callback(null, data);
-          });
-          break;
-        case 'deflate':
-          createDeflate({ level: this.options.level }).end(data, () => {
-            callback(null, data);
-          });
-          break;
-        default:
-          callback(null, data);
+          case 'deflate': {
+            return new Promise((resolve, reject) => {
+              const deflate = createDeflate({ level: this.options.level });
+              const chunks: Buffer[] = [];
+              deflate.on('data', (chunk) => chunks.push(chunk));
+              deflate.on('end', () => {
+                res.setHeader('Content-Encoding', 'deflate');
+                resolve(Buffer.concat(chunks));
+              });
+              deflate.on('error', reject);
+              deflate.end(data);
+            });
+          }
+          default:
+            return data;
+        }
+      } catch (error) {
+        // 压缩失败时返回原始数据
+        return data;
       }
     };
 
@@ -109,7 +137,7 @@ export class CompressionMiddleware implements NestMiddleware {
       return true;
     };
 
-    (res as any).end = function (chunk: any, ...args: any[]): Response {
+    (res as any).end = async function (chunk: any, ...args: any[]): Promise<Response> {
       if (chunk) {
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         chunks.push(buffer);
@@ -118,16 +146,11 @@ export class CompressionMiddleware implements NestMiddleware {
 
       const data = Buffer.concat(chunks);
 
-      compress(data, (err, compressed) => {
-        if (err) {
-          res.setHeader('Content-Length', data.length.toString());
-          originalEnd(data);
-          return;
-        }
+      try {
+        const compressed = await compress(data);
 
+        // 如果压缩后数据更小，使用压缩数据
         if (compressed.length < data.length) {
-          const encoding = this.selectEncoding(acceptEncoding);
-          res.setHeader('Content-Encoding', encoding);
           res.setHeader('Content-Length', compressed.length.toString());
           res.removeHeader('Transfer-Encoding');
           originalEnd(compressed);
@@ -135,7 +158,11 @@ export class CompressionMiddleware implements NestMiddleware {
           res.setHeader('Content-Length', data.length.toString());
           originalEnd(data);
         }
-      });
+      } catch (error) {
+        // 压缩失败，返回原始数据
+        res.setHeader('Content-Length', data.length.toString());
+        originalEnd(data);
+      }
 
       return res;
     }.bind(this);
@@ -167,7 +194,8 @@ export function createCompressionStream(encoding: string, options?: Partial<Comp
 
   switch (encoding) {
     case 'br':
-      return createBrotliCompress();
+      // Brotli 流式压缩需要使用特定的参数
+      return null; // 暂不实现流式 brotli
     case 'gzip':
       return createGzip({ level: opts.level });
     case 'deflate':

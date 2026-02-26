@@ -4,6 +4,7 @@ import { Request } from 'express';
 import { AuthStrategy, AuthResult } from '../auth-strategy.interface';
 import { Repository } from 'typeorm';
 import { BotEntity } from '../../../modules/bot-platform/entities/bot.entity';
+import { compare } from 'bcrypt';
 
 @Injectable()
 export class BotTokenAuthStrategy implements AuthStrategy {
@@ -76,8 +77,14 @@ export class BotTokenAuthStrategy implements AuthStrategy {
         };
       }
 
-      // 验证Token（这里简化处理，实际应该使用bcrypt验证tokenHash）
-      // 注意：这是临时解决方案，实际应该使用BotService
+      // 验证Token哈希
+      const isTokenValid = await compare(token, bot.tokenHash);
+      if (!isTokenValid) {
+        return {
+          success: false,
+          error: 'Invalid bot token'
+        };
+      }
 
       return {
         success: true,

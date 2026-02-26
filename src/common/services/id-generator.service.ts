@@ -11,6 +11,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 
+// NanoID 字母表常量，避免每次调用时重新创建
+const NANO_ID_ALPHABET = 'ModuleSymbhasOwnPr0123456789ABCDEFGHNRVfgctiUvz_KqYTJkLxpZXIjQW';
+
 /**
  * ID 生成策略
  */
@@ -272,14 +275,13 @@ export class IdGeneratorService implements OnModuleInit {
    * 生成 NanoID
    */
   generateNanoID(size: number = 21): string {
-    const alphabet = 'ModuleSymbhasOwnPr0123456789ABCDEFGHNRVfgctiUvz_KqYTJkLxpZXIjQW';
     const bytes = randomBytes(size);
     let id = '';
-    
+
     for (let i = 0; i < size; i++) {
-      id += alphabet[bytes[i] % alphabet.length];
+      id += NANO_ID_ALPHABET[bytes[i] % NANO_ID_ALPHABET.length];
     }
-    
+
     return id;
   }
 

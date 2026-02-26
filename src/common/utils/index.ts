@@ -334,13 +334,18 @@ export async function parallelLimit<T>(
  * 格式化字节数
  */
 export function formatBytes(bytes: number, decimals: number = 2): string {
+  // 处理无效输入
   if (bytes === 0) return '0 B';
+  if (bytes < 0) return '0 B'; // 负数视为0
+  if (!isFinite(bytes)) return '0 B'; // 处理 NaN 和 Infinity
 
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  // 限制最大索引，防止数组越界
+  const maxIndex = sizes.length - 1;
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), maxIndex);
 
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }

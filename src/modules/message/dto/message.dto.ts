@@ -12,6 +12,7 @@ import {
   Min,
   IsBoolean,
   IsUUID,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
@@ -340,6 +341,7 @@ export class BatchSendMessage {
     type: [SendMessage],
   })
   @IsArray()
+  @ArrayMaxSize(100) // 限制最大批量发送数量为100
   @ValidateNested({ each: true })
   @Type(() => SendMessage)
   messages: SendMessage[];

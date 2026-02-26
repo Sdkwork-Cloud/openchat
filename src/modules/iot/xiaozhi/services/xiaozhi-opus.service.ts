@@ -1,37 +1,91 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { EventBusService } from '../../../../common/events/event-bus.service';
 
-let OpusEncoder: any;
+// Opus 编码器类型
+interface OpusEncoderInstance {
+  encode(buffer: Buffer): Buffer;
+  decode(buffer: Buffer): Buffer;
+  destroy?(): void;
+  close?(): void;
+}
+
+// Opus 编码器构造函数
+interface OpusEncoderConstructor {
+  new(sampleRate: number, channels: number): OpusEncoderInstance;
+}
+
+let OpusEncoder: OpusEncoderConstructor | null = null;
+let opusLibraryName: string | null = null;
+
+// 尝试加载 Opus 库
 try {
   const opus = require('@discordjs/opus');
   OpusEncoder = opus.OpusEncoder;
+  opusLibraryName = '@discordjs/opus';
+  Logger.log('Using @discordjs/opus for audio encoding', 'XiaozhiOpus');
 } catch (error) {
   Logger.warn('@discordjs/opus not available, falling back to opusscript', 'XiaozhiOpus');
   try {
     const opusscript = require('opusscript');
-    OpusEncoder = opusscript;
+    // opusscript 的 API 不同，需要包装
+    OpusEncoder = class OpusScriptWrapper implements OpusEncoderInstance {
+      private encoder: any;
+      constructor(sampleRate: number, channels: number) {
+        this.encoder = new opusscript(sampleRate, channels, opusscript.Application.AUDIO);
+      }
+      encode(buffer: Buffer): Buffer {
+        return this.encoder.encode(buffer, 960);
+      }
+      decode(buffer: Buffer): Buffer {
+        return this.encoder.decode(buffer);
+      }
+      destroy(): void {
+        this.encoder.delete();
+      }
+    };
+    opusLibraryName = 'opusscript';
+    Logger.log('Using opusscript for audio encoding', 'XiaozhiOpus');
   } catch (e) {
     Logger.error('No Opus library available', '', 'XiaozhiOpus');
   }
 }
 
 @Injectable()
-export class XiaozhiOpusService {
+export class XiaozhiOpusService implements OnModuleDestroy {
   private readonly logger = new Logger(XiaozhiOpusService.name);
-  
-  private encoders = new Map<string, any>();
-  private decoders = new Map<string, any>();
-  
+
+  private encoders = new Map<string, OpusEncoderInstance>();
+  private decoders = new Map<string, OpusEncoderInstance>();
+
   private readonly DEFAULT_SAMPLE_RATE = 16000;
   private readonly DEFAULT_CHANNELS = 1;
   private readonly DEFAULT_FRAME_SIZE = 960;
+
+  // 使用计数器，用于统计编码/解码操作
+  private encodeCount = new Map<string, number>();
+  private decodeCount = new Map<string, number>();
+  private errorCount = new Map<string, number>();
 
   constructor(
     private readonly eventBus: EventBusService,
   ) {
     if (!OpusEncoder) {
-      this.logger.error('No Opus encoder available. Please install @discordjs/opus or opusscript');
+      this.logger.error(
+        'No Opus encoder available. Audio compression features will be disabled. ' +
+        'To enable audio features, please install one of the following packages:\n' +
+        '  - npm install @discordjs/opus (recommended, requires Python and build tools)\n' +
+        '  - npm install opusscript (pure JavaScript, slower but easier to install)'
+      );
+    } else {
+      this.logger.log(`Opus service initialized with ${opusLibraryName}`);
     }
+  }
+
+  /**
+   * 模块销毁时清理所有资源
+   */
+  onModuleDestroy(): void {
+    this.cleanupAll();
   }
 
   /**
@@ -70,9 +124,20 @@ export class XiaozhiOpusService {
    * @returns Opus 编码后的数据
    */
   encode(deviceId: string, pcmData: Buffer): Buffer {
+    // 检查 Opus 库是否可用
+    if (!OpusEncoder) {
+      throw new Error('Opus encoder not available. Please install @discordjs/opus or opusscript.');
+    }
+
     const encoder = this.encoders.get(deviceId);
     if (!encoder) {
       throw new Error(`Opus encoder not found for device ${deviceId}. Call initialize() first.`);
+    }
+
+    // 检查输入数据
+    if (!pcmData || pcmData.length === 0) {
+      this.logger.warn(`Empty PCM data provided for device ${deviceId}`);
+      return Buffer.alloc(0);
     }
 
     try {
@@ -88,8 +153,12 @@ export class XiaozhiOpusService {
       const validData = pcmData.slice(0, validLength);
       const encoded = encoder.encode(validData);
       
+      // 更新统计
+      this.encodeCount.set(deviceId, (this.encodeCount.get(deviceId) || 0) + 1);
+      
       return encoded;
     } catch (error) {
+      this.errorCount.set(deviceId, (this.errorCount.get(deviceId) || 0) + 1);
       this.logger.error(`Opus encoding failed for device ${deviceId}:`, error);
       throw error;
     }
@@ -103,15 +172,31 @@ export class XiaozhiOpusService {
    * @returns PCM 音频数据
    */
   decode(deviceId: string, opusData: Buffer): Buffer {
+    // 检查 Opus 库是否可用
+    if (!OpusEncoder) {
+      throw new Error('Opus decoder not available. Please install @discordjs/opus or opusscript.');
+    }
+
     const decoder = this.decoders.get(deviceId);
     if (!decoder) {
       throw new Error(`Opus decoder not found for device ${deviceId}. Call initialize() first.`);
     }
 
+    // 检查输入数据
+    if (!opusData || opusData.length === 0) {
+      this.logger.warn(`Empty Opus data provided for device ${deviceId}`);
+      return Buffer.alloc(0);
+    }
+
     try {
       const decoded = decoder.decode(opusData);
+      
+      // 更新统计
+      this.decodeCount.set(deviceId, (this.decodeCount.get(deviceId) || 0) + 1);
+      
       return decoded;
     } catch (error) {
+      this.errorCount.set(deviceId, (this.errorCount.get(deviceId) || 0) + 1);
       this.logger.error(`Opus decoding failed for device ${deviceId}:`, error);
       throw error;
     }
@@ -205,6 +290,11 @@ export class XiaozhiOpusService {
       this.decoders.delete(deviceId);
     }
 
+    // 清理统计信息
+    this.encodeCount.delete(deviceId);
+    this.decodeCount.delete(deviceId);
+    this.errorCount.delete(deviceId);
+
     this.logger.log(`Opus codec cleaned up for device ${deviceId}`);
   }
 
@@ -222,11 +312,49 @@ export class XiaozhiOpusService {
    * 
    * @returns 编解码器统计
    */
-  getStats(): { initializedDevices: number; encoderCount: number; decoderCount: number } {
+  getStats(): { 
+    initializedDevices: number; 
+    encoderCount: number; 
+    decoderCount: number;
+    libraryName: string | null;
+    deviceStats: Array<{
+      deviceId: string;
+      encodeCount: number;
+      decodeCount: number;
+      errorCount: number;
+    }>;
+  } {
+    const deviceStats = Array.from(this.encoders.keys()).map(deviceId => ({
+      deviceId,
+      encodeCount: this.encodeCount.get(deviceId) || 0,
+      decodeCount: this.decodeCount.get(deviceId) || 0,
+      errorCount: this.errorCount.get(deviceId) || 0,
+    }));
+
     return {
       initializedDevices: this.encoders.size,
       encoderCount: this.encoders.size,
       decoderCount: this.decoders.size,
+      libraryName: opusLibraryName,
+      deviceStats,
     };
+  }
+
+  /**
+   * 检查 Opus 库是否可用
+   * 
+   * @returns 是否可用
+   */
+  isAvailable(): boolean {
+    return OpusEncoder !== null;
+  }
+
+  /**
+   * 获取当前使用的 Opus 库名称
+   * 
+   * @returns 库名称
+   */
+  getLibraryName(): string | null {
+    return opusLibraryName;
   }
 }

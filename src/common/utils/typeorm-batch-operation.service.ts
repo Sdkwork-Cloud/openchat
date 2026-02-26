@@ -16,9 +16,13 @@ type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
+/**
+ * TypeORM 批量操作服务
+ * 专门用于 TypeORM 实体的高效批量操作
+ */
 @Injectable()
-export class BatchOperationService {
-  private readonly logger = new Logger(BatchOperationService.name);
+export class TypeOrmBatchOperationService {
+  private readonly logger = new Logger(TypeOrmBatchOperationService.name);
   private readonly defaultBatchSize: number;
 
   constructor(
@@ -38,14 +42,14 @@ export class BatchOperationService {
 
     for (let i = 0; i < entities.length; i += batchSize) {
       const batch = entities.slice(i, i + batchSize);
-      
+
       try {
         await repository
           .createQueryBuilder()
           .insert()
           .values(batch as any)
           .execute();
-        
+
         insertedCount += batch.length;
       } catch (error) {
         this.logger.error(`Batch insert failed at batch ${Math.floor(i / batchSize)}:`, error);
@@ -78,14 +82,14 @@ export class BatchOperationService {
     try {
       for (let i = 0; i < entities.length; i += batchSize) {
         const batch = entities.slice(i, i + batchSize);
-        
+
         await queryRunner.manager
           .createQueryBuilder()
           .insert()
           .into(repository.target as any)
           .values(batch as any)
           .execute();
-        
+
         insertedCount += batch.length;
       }
 
@@ -118,7 +122,7 @@ export class BatchOperationService {
           .update()
           .where('id IN (:...ids)', { ids })
           .execute();
-        
+
         updatedCount += batch.length;
       } catch (error) {
         this.logger.error(`Batch update failed at batch ${Math.floor(i / batchSize)}:`, error);
@@ -138,7 +142,7 @@ export class BatchOperationService {
 
     for (let i = 0; i < ids.length; i += batchSize) {
       const batch = ids.slice(i, i + batchSize);
-      
+
       try {
         const result = await repository.delete(batch as any);
         deletedCount += result.affected || 0;
@@ -160,13 +164,13 @@ export class BatchOperationService {
 
     for (let i = 0; i < ids.length; i += batchSize) {
       const batch = ids.slice(i, i + batchSize);
-      
+
       try {
         const entities = await repository
           .createQueryBuilder('entity')
           .where(`entity.${idField} IN (:...ids)`, { ids: batch })
           .getMany();
-        
+
         results.push(...entities);
       } catch (error) {
         this.logger.error(`Batch query failed at batch ${Math.floor(i / batchSize)}:`, error);
@@ -187,7 +191,7 @@ export class BatchOperationService {
 
     for (let i = 0; i < entities.length; i += batchSize) {
       const batch = entities.slice(i, i + batchSize);
-      
+
       try {
         await repository
           .createQueryBuilder()
@@ -198,7 +202,7 @@ export class BatchOperationService {
             conflictFields,
           )
           .execute();
-        
+
         upsertedCount += batch.length;
       } catch (error) {
         this.logger.error(`Batch upsert failed at batch ${Math.floor(i / batchSize)}:`, error);

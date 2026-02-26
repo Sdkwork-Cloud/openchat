@@ -68,12 +68,23 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
 
   async onModuleInit() {
     this.logger.log('Memory Manager Service initialized');
-    
+
     if (this.configService.get<boolean>('MEMORY_AUTO_CONSOLIDATION', false)) {
       const interval = this.configService.get<number>('MEMORY_CONSOLIDATION_INTERVAL', 3600000);
-      this.consolidationInterval = setInterval(() => {
-        this.runConsolidation();
-      }, interval);
+      // 使用递归 setTimeout 替代 setInterval，避免并发执行
+      const scheduleConsolidation = () => {
+        this.consolidationInterval = setTimeout(async () => {
+          try {
+            await this.runConsolidation();
+          } catch (error) {
+            this.logger.error('Error during memory consolidation:', error);
+          } finally {
+            // 只有当前任务完成后才调度下一次
+            scheduleConsolidation();
+          }
+        }, interval);
+      };
+      scheduleConsolidation();
     }
   }
 
@@ -142,13 +153,18 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
   }
 
   async storeBatch(memories: Array<Omit<MemoryEntry, 'id' | 'createdAt' | 'updatedAt'>>): Promise<MemoryEntry[]> {
+    // 空数组检查，避免不必要的循环
+    if (!memories || memories.length === 0) {
+      return [];
+    }
+
     const results: MemoryEntry[] = [];
-    
+
     for (const memory of memories) {
       const result = await this.store(memory);
       results.push(result);
     }
-    
+
     return results;
   }
 
@@ -263,10 +279,19 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
   async semanticSearch(query: string, agentId: string, limit: number = 10): Promise<MemorySearchResult[]> {
     const queryEmbedding = await this.embeddingService.embed(query);
 
+    // 限制最大查询数量，避免内存溢出
+    const MAX_VECTORS_TO_LOAD = 10000;
+
     const vectors = await this.vectorRepository
       .createQueryBuilder('vector')
       .where('vector.agentId = :agentId', { agentId })
+      .take(MAX_VECTORS_TO_LOAD) // 限制最大数量
       .getMany();
+
+    // 如果数据量很大，记录警告
+    if (vectors.length >= MAX_VECTORS_TO_LOAD) {
+      this.logger.warn(`Semantic search loaded maximum ${MAX_VECTORS_TO_LOAD} vectors for agent ${agentId}. Consider implementing database-level vector search.`);
+    }
 
     const scoredVectors: Array<{ id: string; score: number }> = vectors.map(v => ({
       id: v.memoryId,
@@ -286,11 +311,18 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
 
     const memoryMap = new Map(memories.map(m => [m.id, m]));
 
-    return scoredVectors.slice(0, limit).map(v => ({
-      memory: this.toMemoryEntry(memoryMap.get(v.id)!),
-      score: v.score,
-      relevance: v.score,
-    }));
+    return scoredVectors.slice(0, limit).map(v => {
+      const memory = memoryMap.get(v.id);
+      if (!memory) {
+        this.logger.warn(`Memory not found for vector id: ${v.id}`);
+        return null;
+      }
+      return {
+        memory: this.toMemoryEntry(memory),
+        score: v.score,
+        relevance: v.score,
+      };
+    }).filter((result): result is NonNullable<typeof result> => result !== null);
   }
 
   async fullTextSearch(query: string, agentId: string, limit: number = 10): Promise<MemorySearchResult[]> {
@@ -397,7 +429,24 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
   }
 
   async getStats(agentId: string): Promise<MemoryStats> {
-    const memories = await this.memoryRepository.find({ where: { agentId } });
+    // 使用聚合查询而不是加载所有数据到内存
+    const typeStats = await this.memoryRepository
+      .createQueryBuilder('memory')
+      .select('memory.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('memory.agentId = :agentId', { agentId })
+      .groupBy('memory.type')
+      .getRawMany();
+
+    const sourceStats = await this.memoryRepository
+      .createQueryBuilder('memory')
+      .select('memory.source', 'source')
+      .addSelect('COUNT(*)', 'count')
+      .where('memory.agentId = :agentId', { agentId })
+      .groupBy('memory.source')
+      .getRawMany();
+
+    const totalMemories = await this.memoryRepository.count({ where: { agentId } });
 
     const byType: Record<MemoryType, number> = {
       episodic: 0,
@@ -414,33 +463,38 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
       knowledge: 0,
     };
 
-    let totalImportance = 0;
-    let totalAccessCount = 0;
-    let oldestTimestamp: Date | undefined;
-    let newestTimestamp: Date | undefined;
+    // 填充聚合统计结果
+    typeStats.forEach((stat: { type: MemoryType; count: string }) => {
+      byType[stat.type] = parseInt(stat.count, 10);
+    });
 
-    for (const memory of memories) {
-      byType[memory.type]++;
-      bySource[memory.source]++;
-      totalImportance += memory.importance || 0;
-      totalAccessCount += memory.accessCount || 0;
+    sourceStats.forEach((stat: { source: MemorySource; count: string }) => {
+      bySource[stat.source] = parseInt(stat.count, 10);
+    });
 
-      if (!oldestTimestamp || memory.timestamp < oldestTimestamp) {
-        oldestTimestamp = memory.timestamp;
-      }
-      if (!newestTimestamp || memory.timestamp > newestTimestamp) {
-        newestTimestamp = memory.timestamp;
-      }
-    }
+    // 使用单独的聚合查询获取平均值和极值
+    const avgStats = await this.memoryRepository
+      .createQueryBuilder('memory')
+      .select('AVG(memory.importance)', 'avgImportance')
+      .addSelect('AVG(memory.accessCount)', 'avgAccessCount')
+      .addSelect('MIN(memory.createdAt)', 'oldestTimestamp')
+      .addSelect('MAX(memory.createdAt)', 'newestTimestamp')
+      .where('memory.agentId = :agentId', { agentId })
+      .getRawOne();
+
+    const avgImportance = parseFloat(avgStats?.avgImportance || '0');
+    const avgAccessCount = parseFloat(avgStats?.avgAccessCount || '0');
+    const oldestTimestamp = avgStats?.oldestTimestamp;
+    const newestTimestamp = avgStats?.newestTimestamp;
 
     return {
-      totalCount: memories.length,
+      totalCount: totalMemories,
       byType,
       bySource,
       oldestTimestamp,
       newestTimestamp,
-      averageImportance: memories.length > 0 ? totalImportance / memories.length : 0,
-      totalAccessCount,
+      averageImportance: avgImportance,
+      totalAccessCount: Math.round(avgAccessCount * totalMemories),
     };
   }
 
@@ -557,8 +611,8 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
       topics,
       messageCount: memories.length,
       timeRange: {
-        start: memories[0].timestamp,
-        end: memories[memories.length - 1].timestamp,
+        start: memories.length > 0 ? memories[0].timestamp : new Date(),
+        end: memories.length > 0 ? memories[memories.length - 1].timestamp : new Date(),
       },
     };
   }

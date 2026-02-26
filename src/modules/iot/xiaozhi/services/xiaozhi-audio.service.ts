@@ -80,6 +80,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   private readonly cacheConfig: AudioCacheConfig;
   private readonly processingConfig: XiaozhiAudioProcessingConfig;
   private flushIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private cleanupInterval?: NodeJS.Timeout;
 
   // 性能监控
   private performanceMetrics = {
@@ -93,6 +94,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   // 音频缓冲池（减少内存分配）
   private bufferPool: Buffer[] = [];
   private readonly MAX_POOL_SIZE = 100;
+  private readonly STREAM_TIMEOUT = 30 * 60 * 1000; // 30分钟超时
 
   constructor(
     private eventBusService: EventBusService,
@@ -123,18 +125,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async onModuleInit() {
-    this.logger.log('Audio service initialized with caching and batching');
-  }
 
-  async onModuleDestroy() {
-    // 清理所有定时器
-    this.flushIntervals.forEach(interval => clearInterval(interval));
-    this.flushIntervals.clear();
-    // 清理所有音频流
-    this.audioStreams.clear();
-    this.logger.log('Audio service destroyed, all resources cleaned up');
-  }
 
   /**
    * 处理二进制音频数据
@@ -764,6 +755,24 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         this.logger.debug(`Cleared flush interval for stream ${streamKey}`);
       }
 
+      // 清理Opus编解码器资源
+      try {
+        if (this.opusService.isInitialized(streamState.deviceId)) {
+          this.opusService.cleanup(streamState.deviceId);
+          this.logger.debug(`Cleaned up Opus codec for device ${streamState.deviceId}`);
+        }
+      } catch (opusError) {
+        this.logger.warn(`Error cleaning up Opus codec for device ${streamState.deviceId}:`, opusError);
+      }
+
+      // 清理音频处理资源
+      try {
+        this.audioProcessingService.cleanup(streamState.deviceId);
+        this.logger.debug(`Cleaned up audio processing for device ${streamState.deviceId}`);
+      } catch (processingError) {
+        this.logger.warn(`Error cleaning up audio processing for device ${streamState.deviceId}:`, processingError);
+      }
+
       // 发布音频流停止事件
       this.eventBusService.publish(
         EventTypeConstants.CUSTOM_EVENT,
@@ -982,6 +991,64 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
       totalBytes,
       averageLevel,
     };
+  }
+
+  /**
+   * 启动定期清理任务
+   */
+  onModuleInit() {
+    // 每5分钟检查一次过期流
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleStreams();
+    }, 5 * 60 * 1000);
+  }
+
+  /**
+   * 清理模块资源
+   */
+  onModuleDestroy() {
+    // 停止清理定时器
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    // 停止所有音频流
+    this.stopAllAudioStreams();
+
+    // 清空音频质量统计
+    this.audioQuality.clear();
+
+    // 清空缓冲池
+    this.bufferPool = [];
+  }
+
+  /**
+   * 清理过期的音频流
+   */
+  private cleanupStaleStreams(): void {
+    const now = Date.now();
+    const streamKeys = Array.from(this.audioStreams.keys());
+
+    for (const streamKey of streamKeys) {
+      const streamState = this.audioStreams.get(streamKey);
+      if (streamState) {
+        const inactiveTime = now - streamState.lastActivity;
+        if (inactiveTime > this.STREAM_TIMEOUT) {
+          this.logger.warn(`Cleaning up stale audio stream: ${streamKey}, inactive for ${inactiveTime}ms`);
+          this.stopAudioStream(streamKey, streamState);
+        }
+      }
+    }
+
+    // 清理过期的音频质量统计
+    const deviceIds = Array.from(this.audioQuality.keys());
+    for (const deviceId of deviceIds) {
+      const hasActiveStream = Array.from(this.audioStreams.values()).some(s => s.deviceId === deviceId);
+      if (!hasActiveStream) {
+        this.audioQuality.delete(deviceId);
+        this.logger.debug(`Cleaned up audio quality stats for device ${deviceId}`);
+      }
+    }
   }
 }
 

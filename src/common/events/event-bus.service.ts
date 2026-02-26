@@ -159,15 +159,38 @@ export interface EventBusStats {
 export class InMemoryEventStore implements EventStore {
   private readonly events: Map<string, IEvent> = new Map();
   private readonly aggregateEvents: Map<string, string[]> = new Map();
+  private readonly maxEvents: number;
+  private readonly eventQueue: string[] = []; // 用于LRU清理
+
+  constructor(maxEvents: number = 10000) {
+    this.maxEvents = maxEvents;
+  }
 
   async save(event: IEvent): Promise<void> {
+    // 检查是否需要清理旧事件
+    if (this.events.size >= this.maxEvents) {
+      this.cleanupOldEvents();
+    }
+
     this.events.set(event.eventId, event);
+    this.eventQueue.push(event.eventId);
 
     if (event.aggregateId) {
       const key = `${event.aggregateType || 'default'}:${event.aggregateId}`;
       const existing = this.aggregateEvents.get(key) || [];
       existing.push(event.eventId);
       this.aggregateEvents.set(key, existing);
+    }
+  }
+
+  private cleanupOldEvents(): void {
+    // 移除最旧的事件（LRU策略）
+    const eventsToRemove = Math.floor(this.maxEvents * 0.2); // 移除20%的旧事件
+    for (let i = 0; i < eventsToRemove && this.eventQueue.length > 0; i++) {
+      const eventId = this.eventQueue.shift();
+      if (eventId) {
+        this.delete(eventId);
+      }
     }
   }
 
@@ -276,7 +299,7 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
       maxListeners: 100,
     });
 
-    this.eventStore = new InMemoryEventStore();
+    this.eventStore = new InMemoryEventStore(this.maxStoredEvents);
     
     this.prefix = this.configService?.get<string>('EVENTBUS_PREFIX', 'event') || 'event';
     this.enablePersistence = this.configService?.get<boolean>('EVENTBUS_ENABLE_PERSISTENCE', false) || false;

@@ -77,15 +77,19 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
 
   async deleteGroup(id: string): Promise<boolean> {
     return this.dataSource.transaction(async (manager) => {
-      this.groupSyncService.syncGroupOnDelete(id).catch(error => {
-        this.logger.error('Failed to sync group delete to WukongIM:', error);
-      });
-
       await manager.delete(GroupMember, { groupId: id });
       await manager.delete(GroupInvitation, { groupId: id });
-      
+
       const result = await manager.delete(Group, id);
       return (result.affected || 0) > 0;
+    }).then(async (success) => {
+      // 事务成功提交后才执行同步操作
+      if (success) {
+        this.groupSyncService.syncGroupOnDelete(id).catch(error => {
+          this.logger.error('Failed to sync group delete to WukongIM:', error);
+        });
+      }
+      return success;
     });
   }
 

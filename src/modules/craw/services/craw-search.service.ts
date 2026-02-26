@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { CrawPost } from '../entities/craw-post.entity';
 import { CrawComment } from '../entities/craw-post.entity';
 
@@ -14,7 +14,16 @@ export class CrawSearchService {
   ) {}
 
   async search(apiKey: string, query: string, type: string = 'all', limit: number = 20): Promise<any> {
-    const q = `%${query}%`;
+    // 转义 LIKE 特殊字符，防止 SQL 注入和错误匹配
+    const escapedQuery = query
+      .replace(/\\/g, '\\\\')  // 先转义反斜杠
+      .replace(/%/g, '\\%')     // 转义百分号
+      .replace(/_/g, '\\_');    // 转义下划线
+    const q = `%${escapedQuery}%`;
+
+    // 限制最大查询数量
+    const MAX_LIMIT = 100;
+    const safeLimit = Math.min(limit, MAX_LIMIT);
 
     let posts: CrawPost[] = [];
     let comments: CrawComment[] = [];
@@ -22,20 +31,20 @@ export class CrawSearchService {
     if (type === 'all' || type === 'posts') {
       posts = await this.postRepository.find({
         where: [
-          { title: q },
-          { content: q },
+          { title: Like(q) },
+          { content: Like(q) },
         ],
         relations: ['author', 'submolt'],
-        take: limit,
+        take: safeLimit,
         order: { createdAt: 'DESC' },
       });
     }
 
     if (type === 'all' || type === 'comments') {
       comments = await this.commentRepository.find({
-        where: { content: q },
+        where: { content: Like(q) },
         relations: ['author', 'post'],
-        take: limit,
+        take: safeLimit,
         order: { createdAt: 'DESC' },
       });
     }

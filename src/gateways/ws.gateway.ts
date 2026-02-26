@@ -11,12 +11,15 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger, Inject, UseGuards, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
 import { RedisService } from '../common/redis/redis.service';
 import { IMProviderService } from '../modules/im-provider/im-provider.service';
+import { GroupMember } from '../modules/group/group-member.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -115,9 +118,12 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     retryCount: number;
   }>();
 
-  private readonly ACK_TIMEOUT = 30000;
-  private readonly MAX_RETRY_COUNT = 3;
+  private readonly ACK_TIMEOUT: number;
+  private readonly MAX_RETRY_COUNT: number;
   private ackCheckInterval: NodeJS.Timeout;
+
+  // 标记是否已订阅跨服务器消息
+  private isSubscribed = false;
 
   constructor(
     @Inject('REDIS_PUB_CLIENT') private readonly pubClient: Redis,
@@ -126,9 +132,15 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     private readonly configService: ConfigService,
     private readonly wsThrottlerGuard: WsThrottlerGuard,
     private readonly imProviderService: IMProviderService,
+    @InjectRepository(GroupMember) private readonly groupMemberRepository: Repository<GroupMember>,
   ) {
     this.serverId = `${process.env.POD_NAME || 'server'}-${process.pid}-${uuidv4().slice(0, 8)}`;
-    this.logger.log(`Gateway initialized with serverId: ${this.serverId}`);
+    
+    // 从配置读取超时和重试设置
+    this.ACK_TIMEOUT = this.configService.get<number>('WS_ACK_TIMEOUT', 30000);
+    this.MAX_RETRY_COUNT = this.configService.get<number>('WS_MAX_RETRY_COUNT', 3);
+    
+    this.logger.log(`Gateway initialized with serverId: ${this.serverId}, ackTimeout: ${this.ACK_TIMEOUT}ms, maxRetry: ${this.MAX_RETRY_COUNT}`);
   }
 
   async afterInit(server: Server) {
@@ -156,9 +168,15 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
   }
 
   async handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id} from ${client.handshake.address}`);
+    const ip = client.handshake?.address || 'unknown';
+    this.logger.log(`Client connected: ${client.id} from ${ip}`);
 
-    const ip = client.handshake.address;
+    if (ip === 'unknown') {
+      this.logger.warn(`Client ${client.id} has no IP address`);
+      client.disconnect(true);
+      return;
+    }
+
     const connectionCount = await this.redisService.increment(`conn:ip:${ip}`, 300);
 
     if (connectionCount > 10) {
@@ -202,8 +220,10 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       this.logger.log(`User ${clientInfo.userId} disconnected from socket ${client.id}`);
     }
 
-    const ip = client.handshake.address;
-    await this.redisService.decrement(`conn:ip:${ip}`);
+    const ip = client.handshake?.address;
+    if (ip) {
+      await this.redisService.decrement(`conn:ip:${ip}`);
+    }
 
     this.logger.log(`Client disconnected: ${client.id}`);
   }
@@ -271,8 +291,23 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       return { success: false, error: 'Missing required fields' };
     }
 
+    // 从已认证的客户端信息中获取真实用户ID，防止伪造
+    const clientInfo = this.localClients.get(client.id);
+    if (!clientInfo) {
+      return { success: false, error: 'Client not authenticated' };
+    }
+
+    const authenticatedUserId = clientInfo.userId;
+
+    // 验证 fromUserId 是否与认证用户一致
+    if (fromUserId && fromUserId !== authenticatedUserId) {
+      this.logger.warn(`User ${authenticatedUserId} attempted to spoof sender as ${fromUserId}`);
+      return { success: false, error: 'Invalid sender' };
+    }
+
     const message: MessagePayload = {
       ...data,
+      fromUserId: authenticatedUserId, // 使用认证的用户ID
       timestamp: Date.now(),
     };
 
@@ -280,44 +315,40 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       const imMessage = {
         type,
         content: { text: content },
-        from: fromUserId,
+        from: authenticatedUserId, // 使用认证的用户ID
         to: toUserId,
       };
 
       await this.imProviderService.sendMessage(imMessage);
-      this.logger.debug(`Message ${messageId} sent via WukongIM from ${fromUserId} to ${toUserId}`);
+      this.logger.debug(`Message ${messageId} sent via WukongIM from ${authenticatedUserId} to ${toUserId}`);
 
       this.server.to(`user:${toUserId}`).emit('newMessage', message);
 
       if (requireAck) {
         this.pendingAcks.set(messageId, {
           messageId,
-          fromUserId,
+          fromUserId: authenticatedUserId,
           toUserId,
           timestamp: Date.now(),
           retryCount: 0,
         });
       }
 
-      const clientInfo = this.localClients.get(client.id);
-      if (clientInfo && clientInfo.userId === fromUserId) {
-        client.emit('messageSent', { messageId, status: 'sent', timestamp: Date.now() });
-      }
+      // 通知发送者消息已发送
+      client.emit('messageSent', { messageId, status: 'sent', timestamp: Date.now() });
 
-      this.logger.debug(`Message ${messageId} sent from ${fromUserId} to ${toUserId}`);
+      this.logger.debug(`Message ${messageId} sent from ${authenticatedUserId} to ${toUserId}`);
 
       return { success: true, messageId, status: 'sent', timestamp: Date.now() };
     } catch (error: any) {
       this.logger.error(`Failed to send message ${messageId}:`, error);
 
-      const clientInfo = this.localClients.get(client.id);
-      if (clientInfo && clientInfo.userId === fromUserId) {
-        client.emit('messageFailed', {
-          messageId,
-          error: `Failed to send message: ${error.message || 'Unknown error'}`,
-          timestamp: Date.now(),
-        });
-      }
+      // 通知发送者消息发送失败
+      client.emit('messageFailed', {
+        messageId,
+        error: `Failed to send message: ${error.message || 'Unknown error'}`,
+        timestamp: Date.now(),
+      });
 
       return { success: false, error: `Failed to send message: ${error.message || 'Unknown error'}`, messageId };
     }
@@ -357,8 +388,30 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       return { success: false, error: 'Missing required fields' };
     }
 
+    // 从已认证的客户端信息中获取真实用户ID，防止伪造
+    const clientInfo = this.localClients.get(client.id);
+    if (!clientInfo) {
+      return { success: false, error: 'Client not authenticated' };
+    }
+
+    const authenticatedUserId = clientInfo.userId;
+
+    // 验证 fromUserId 是否与认证用户一致
+    if (fromUserId && fromUserId !== authenticatedUserId) {
+      this.logger.warn(`User ${authenticatedUserId} attempted to spoof sender as ${fromUserId} in group ${groupId}`);
+      return { success: false, error: 'Invalid sender' };
+    }
+
+    // 检查用户是否是群组成员
+    const isMember = await this.isGroupMember(authenticatedUserId, groupId);
+    if (!isMember) {
+      this.logger.warn(`User ${authenticatedUserId} attempted to send message to group ${groupId} without membership`);
+      return { success: false, error: 'You are not a member of this group' };
+    }
+
     const message = {
       ...data,
+      fromUserId: authenticatedUserId,
       timestamp: Date.now(),
     };
 
@@ -366,7 +419,7 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       const imMessage = {
         type,
         content: { text: content },
-        from: fromUserId,
+        from: authenticatedUserId,
         to: groupId,
         roomId: groupId,
       };
@@ -391,6 +444,41 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       });
 
       return { success: false, error: `Failed to send group message: ${error.message || 'Unknown error'}`, messageId };
+    }
+  }
+
+  /**
+   * 检查用户是否是群组成员
+   * 
+   * @param userId - 用户ID
+   * @param groupId - 群组ID
+   * @returns 是否是成员
+   */
+  private async isGroupMember(userId: string, groupId: string): Promise<boolean> {
+    // 从Redis缓存检查
+    const cacheKey = `group:member:${groupId}:${userId}`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached === 'true') {
+      return true;
+    }
+
+    // 查询数据库验证成员身份
+    try {
+      const member = await this.groupMemberRepository.findOne({
+        where: { groupId, userId }
+      });
+      
+      if (member) {
+        // 缓存结果，设置5分钟过期
+        await this.redisService.set(cacheKey, 'true', 300);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      this.logger.error(`Failed to check group membership for user ${userId} in group ${groupId}:`, error);
+      // 数据库查询失败时，保守起见返回false
+      return false;
     }
   }
 
@@ -539,18 +627,27 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
   }
 
   private subscribeCrossServerMessages() {
+    // 防止重复订阅
+    if (this.isSubscribed) {
+      return;
+    }
+
     this.subClient.subscribe('openchat:system');
-    this.subClient.on('message', (channel, message) => {
-      if (channel === 'openchat:system') {
-        try {
-          const data = JSON.parse(message);
-          this.handleSystemMessage(data);
-        } catch (error) {
-          this.logger.error('Failed to parse system message:', error);
-        }
-      }
-    });
+    this.subClient.on('message', this.handleCrossServerMessage);
+    this.isSubscribed = true;
+    this.logger.log('Subscribed to cross-server messages');
   }
+
+  private handleCrossServerMessage = (channel: string, message: string) => {
+    if (channel === 'openchat:system') {
+      try {
+        const data = JSON.parse(message);
+        this.handleSystemMessage(data);
+      } catch (error) {
+        this.logger.error('Failed to parse system message:', error);
+      }
+    }
+  };
 
   private handleSystemMessage(data: any) {
     switch (data.type) {
@@ -637,19 +734,37 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
 
   onModuleDestroy() {
     this.logger.log('Cleaning up WebSocket gateway resources...');
-    
+
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
-    
+
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
-    
+
     if (this.ackCheckInterval) {
       clearInterval(this.ackCheckInterval);
     }
-    
+
+    // 清理所有连接超时定时器
+    for (const [clientId, timeout] of this.connectionTimeouts) {
+      clearTimeout(timeout);
+      this.connectionTimeouts.delete(clientId);
+    }
+
+    // 取消订阅跨服务器消息
+    if (this.isSubscribed) {
+      try {
+        this.subClient.unsubscribe('openchat:system');
+        this.subClient.off('message', this.handleCrossServerMessage);
+        this.isSubscribed = false;
+        this.logger.log('Unsubscribed from cross-server messages');
+      } catch (error) {
+        this.logger.error('Error unsubscribing from cross-server messages:', error);
+      }
+    }
+
     this.logger.log('WebSocket gateway resources cleaned up');
   }
 }

@@ -1,4 +1,5 @@
-import { Injectable, ForbiddenException, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, ForbiddenException, Logger, Inject, forwardRef, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource, EntityManager } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -49,6 +50,7 @@ export class MessageService implements MessageManager {
     private messageDeduplicationService: MessageDeduplicationService,
     @Inject(forwardRef(() => GroupMessageBatchService))
     private groupMessageBatchService: GroupMessageBatchService,
+    private configService: ConfigService,
   ) {}
 
   /**
@@ -120,15 +122,25 @@ export class MessageService implements MessageManager {
       // 提交事务
       await queryRunner.commitTransaction();
 
-      // 提交去重标记
-      await this.messageDeduplicationService.commitTransactionalMark(transactionId);
+      // 提交去重标记（带重试机制）
+      try {
+        await this.messageDeduplicationService.commitTransactionalMark(transactionId);
+      } catch (dedupError) {
+        // 如果去重标记提交失败，记录错误但不影响消息发送
+        // 因为消息已经保存，下次重复消息会被数据库唯一约束拦截
+        this.logger.error(`Failed to commit deduplication mark:`, dedupError);
+      }
 
     } catch (error) {
       // 回滚事务
       await queryRunner.rollbackTransaction();
 
       // 回滚去重标记
-      await this.messageDeduplicationService.rollbackTransactionalMark(transactionId);
+      try {
+        await this.messageDeduplicationService.rollbackTransactionalMark(transactionId);
+      } catch (rollbackError) {
+        this.logger.error(`Failed to rollback deduplication mark:`, rollbackError);
+      }
 
       this.logger.error(`Failed to save message in transaction:`, error);
       return {
@@ -223,8 +235,8 @@ export class MessageService implements MessageManager {
       messagesData.map(msg => this.checkMessagePermission(msg)),
     );
 
-    // 3. 按批次处理消息（每批20条，增加批处理大小）
-    const batchSize = 20;
+    // 3. 按批次处理消息（从配置读取批处理大小）
+    const batchSize = this.configService.get<number>('MESSAGE_BATCH_SIZE', 20);
     for (let i = 0; i < messagesData.length; i += batchSize) {
       const batch = messagesData.slice(i, i + batchSize);
       const batchPermissionChecks = permissionChecks.slice(i, i + batchSize);
@@ -328,32 +340,34 @@ export class MessageService implements MessageManager {
       }
 
       await queryRunner.commitTransaction();
-      await this.messageDeduplicationService.commitTransactionalMark(transactionId);
+
+      // 提交去重标记（带错误处理）
+      try {
+        await this.messageDeduplicationService.commitTransactionalMark(transactionId);
+      } catch (dedupError) {
+        this.logger.error(`Failed to commit batch deduplication marks:`, dedupError);
+      }
 
       // 异步发送到 IM（批量处理，减少网络往返）
-      const imSendPromises = savedMessages.map((msg, savedIndex) => {
-        // 找到原始消息数据的索引 - 更安全的实现
-        let batchIndex = 0;
-        let foundCount = 0;
-        
-        // 遍历batch，找到对应位置的非duplicate消息
-        for (let i = 0; i < batch.length; i++) {
-          if (!duplicateIndexes.includes(i)) {
-            if (foundCount === savedIndex) {
-              batchIndex = i;
-              break;
-            }
-            foundCount++;
-          }
+      // 使用 Map 存储原始消息数据，避免索引混乱
+      const originalMessagesMap = new Map<number, typeof batch[0]>();
+      let validIndex = 0;
+      for (let i = 0; i < batch.length; i++) {
+        if (!duplicateIndexes.includes(i) && batch[i]) {
+          originalMessagesMap.set(validIndex, batch[i]);
+          validIndex++;
         }
-        
-        // 安全检查
-        if (batchIndex >= batch.length || !batch[batchIndex]) {
+      }
+
+      const imSendPromises = savedMessages.map((msg, savedIndex) => {
+        const originalMessage = originalMessagesMap.get(savedIndex);
+
+        if (!originalMessage) {
           this.logger.error(`Failed to find original message for saved index ${savedIndex}`);
           return Promise.resolve();
         }
-        
-        return this.sendToIMProvider(msg, batch[batchIndex]);
+
+        return this.sendToIMProvider(msg, originalMessage);
       });
 
       // 并行发送到 IM，提高性能
@@ -371,7 +385,13 @@ export class MessageService implements MessageManager {
 
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      await this.messageDeduplicationService.rollbackTransactionalMark(transactionId);
+
+      // 回滚去重标记（带错误处理）
+      try {
+        await this.messageDeduplicationService.rollbackTransactionalMark(transactionId);
+      } catch (rollbackError) {
+        this.logger.error(`Failed to rollback batch deduplication marks:`, rollbackError);
+      }
 
       this.logger.error('Batch message processing failed:', error);
 
@@ -756,11 +776,18 @@ export class MessageService implements MessageManager {
     }
 
     if (cursor) {
-      const cursorDate = new Date(Buffer.from(cursor, 'base64').toString());
-      if (direction === 'before') {
-        queryBuilder.andWhere('message.createdAt < :cursorDate', { cursorDate });
-      } else {
-        queryBuilder.andWhere('message.createdAt > :cursorDate', { cursorDate });
+      try {
+        const cursorDate = new Date(Buffer.from(cursor, 'base64').toString());
+        if (isNaN(cursorDate.getTime())) {
+          throw new BadRequestException('Invalid cursor format');
+        }
+        if (direction === 'before') {
+          queryBuilder.andWhere('message.createdAt < :cursorDate', { cursorDate });
+        } else {
+          queryBuilder.andWhere('message.createdAt > :cursorDate', { cursorDate });
+        }
+      } catch (error) {
+        throw new BadRequestException('Invalid cursor format');
       }
     }
 

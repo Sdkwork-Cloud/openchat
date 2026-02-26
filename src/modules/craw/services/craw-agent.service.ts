@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CrawAgent } from '../entities/craw-agent.entity';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class CrawAgentService {
@@ -107,14 +108,19 @@ export class CrawAgentService {
   }
 
   private generateApiKey(): string {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    // 使用加密安全的随机字符串生成API Key
+    return crypto.randomBytes(16).toString('hex');
   }
 
   private generateClaimId(): string {
-    return Math.random().toString(36).substring(2, 10);
+    // 使用加密安全的随机字符串生成Claim ID
+    return crypto.randomBytes(8).toString('hex');
   }
 
   private generateVerificationCode(): string {
-    return `reef-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    // 使用加密安全的随机字符串生成验证码
+    const randomBytes = crypto.randomBytes(4);
+    const code = randomBytes.toString('hex').substring(0, 4).toUpperCase();
+    return `reef-${code}`;
   }
 }
