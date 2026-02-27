@@ -8,8 +8,8 @@
  * - 可自定义尺寸和形状
  */
 
-import React from 'react';
-import { cn } from '../../../utils/cn';
+import React from "react";
+import { cn } from "../../../utils/cn";
 
 // ==================== 类型定义 ====================
 
@@ -38,25 +38,22 @@ export interface SkeletonProps {
  * 基础骨架屏组件
  */
 export const Skeleton: React.FC<SkeletonProps> = ({
-  width = '100%',
+  width = "100%",
   height = 16,
   borderRadius = 4,
   shimmer = true,
   className,
 }) => {
   const style: React.CSSProperties = {
-    width: typeof width === 'number' ? `${width}px` : width,
-    height: typeof height === 'number' ? `${height}px` : height,
-    borderRadius: typeof borderRadius === 'number' ? `${borderRadius}px` : borderRadius,
+    width: typeof width === "number" ? `${width}px` : width,
+    height: typeof height === "number" ? `${height}px` : height,
+    borderRadius:
+      typeof borderRadius === "number" ? `${borderRadius}px` : borderRadius,
   };
 
   return (
     <div
-      className={cn(
-        'bg-[var(--bg-tertiary)]',
-        shimmer && 'skeleton-shimmer',
-        className
-      )}
+      className={cn("bg-bg-tertiary", shimmer && "skeleton-shimmer", className)}
       style={style}
     />
   );
@@ -67,19 +64,15 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 /**
  * 文本骨架屏
  */
-export const SkeletonText: React.FC<Omit<SkeletonProps, 'height'> & { lines?: number }> = ({
-  lines = 3,
-  width = '100%',
-  shimmer = true,
-  className,
-  rowGap = 8,
-}) => {
+export const SkeletonText: React.FC<
+  Omit<SkeletonProps, "height"> & { lines?: number }
+> = ({ lines = 3, width = "100%", shimmer = true, className, rowGap = 8 }) => {
   return (
-    <div className={cn('flex flex-col', className)} style={{ gap: rowGap }}>
+    <div className={cn("flex flex-col", className)} style={{ gap: rowGap }}>
       {Array.from({ length: lines }).map((_, index) => (
         <Skeleton
           key={index}
-          width={index === lines - 1 ? '60%' : width}
+          width={index === lines - 1 ? "60%" : width}
           height={16}
           borderRadius={4}
           shimmer={shimmer}
@@ -118,14 +111,20 @@ export const SkeletonCard: React.FC<SkeletonProps> = ({
   return (
     <div
       className={cn(
-        'p-4 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)]',
-        className
+        "p-4 bg-bg-secondary rounded-lg border border-border",
+        className,
       )}
     >
       <div className="flex items-start gap-3">
         <SkeletonAvatar size={48} shimmer={shimmer} />
         <div className="flex-1 min-w-0">
-          <Skeleton width="40%" height={20} borderRadius={4} shimmer={shimmer} className="mb-2" />
+          <Skeleton
+            width="40%"
+            height={20}
+            borderRadius={4}
+            shimmer={shimmer}
+            className="mb-2"
+          />
           <SkeletonText lines={2} shimmer={shimmer} />
         </div>
       </div>
@@ -136,24 +135,40 @@ export const SkeletonCard: React.FC<SkeletonProps> = ({
 /**
  * 消息骨架屏
  */
-export const SkeletonMessage: React.FC<{ isSelf?: boolean; shimmer?: boolean }> = ({
-  isSelf = false,
-  shimmer = true,
-}) => {
+export const SkeletonMessage: React.FC<{
+  isSelf?: boolean;
+  shimmer?: boolean;
+}> = ({ isSelf = false, shimmer = true }) => {
   return (
-    <div className={cn('flex gap-3', isSelf ? 'flex-row-reverse' : 'flex-row')}>
+    <div className={cn("flex gap-3", isSelf ? "flex-row-reverse" : "flex-row")}>
       <SkeletonAvatar size={36} shimmer={shimmer} />
-      <div className={cn('flex flex-col max-w-[70%]', isSelf ? 'items-end' : 'items-start')}>
-        <Skeleton width={60} height={14} borderRadius={4} shimmer={shimmer} className="mb-1" />
+      <div
+        className={cn(
+          "flex flex-col max-w-[70%]",
+          isSelf ? "items-end" : "items-start",
+        )}
+      >
+        <Skeleton
+          width={60}
+          height={14}
+          borderRadius={4}
+          shimmer={shimmer}
+          className="mb-1"
+        />
         <div
           className={cn(
-            'px-4 py-2 rounded-2xl',
+            "px-4 py-2 rounded-2xl",
             isSelf
-              ? 'bg-[var(--ai-primary)] rounded-br-sm'
-              : 'bg-[var(--bg-tertiary)] rounded-bl-sm'
+              ? "bg-primary rounded-br-sm"
+              : "bg-bg-tertiary rounded-bl-sm",
           )}
         >
-          <Skeleton width={200} height={16} borderRadius={4} shimmer={shimmer} />
+          <Skeleton
+            width={200}
+            height={16}
+            borderRadius={4}
+            shimmer={shimmer}
+          />
         </div>
       </div>
     </div>
@@ -163,12 +178,20 @@ export const SkeletonMessage: React.FC<{ isSelf?: boolean; shimmer?: boolean }> 
 /**
  * 列表项骨架屏
  */
-export const SkeletonListItem: React.FC<{ shimmer?: boolean }> = ({ shimmer = true }) => {
+export const SkeletonListItem: React.FC<{ shimmer?: boolean }> = ({
+  shimmer = true,
+}) => {
   return (
     <div className="flex items-center gap-3 p-3">
       <SkeletonAvatar size={40} shimmer={shimmer} />
       <div className="flex-1 min-w-0">
-        <Skeleton width="50%" height={16} borderRadius={4} shimmer={shimmer} className="mb-2" />
+        <Skeleton
+          width="50%"
+          height={16}
+          borderRadius={4}
+          shimmer={shimmer}
+          className="mb-2"
+        />
         <Skeleton width="80%" height={12} borderRadius={4} shimmer={shimmer} />
       </div>
       <Skeleton width={40} height={12} borderRadius={4} shimmer={shimmer} />
@@ -179,7 +202,9 @@ export const SkeletonListItem: React.FC<{ shimmer?: boolean }> = ({ shimmer = tr
 /**
  * 聊天列表骨架屏
  */
-export const SkeletonChatList: React.FC<{ count?: number }> = ({ count = 8 }) => {
+export const SkeletonChatList: React.FC<{ count?: number }> = ({
+  count = 8,
+}) => {
   return (
     <div className="flex flex-col">
       {Array.from({ length: count }).map((_, index) => (
@@ -192,7 +217,9 @@ export const SkeletonChatList: React.FC<{ count?: number }> = ({ count = 8 }) =>
 /**
  * 消息列表骨架屏
  */
-export const SkeletonMessageList: React.FC<{ count?: number }> = ({ count = 6 }) => {
+export const SkeletonMessageList: React.FC<{ count?: number }> = ({
+  count = 6,
+}) => {
   return (
     <div className="flex flex-col gap-4 p-4">
       {Array.from({ length: count }).map((_, index) => (

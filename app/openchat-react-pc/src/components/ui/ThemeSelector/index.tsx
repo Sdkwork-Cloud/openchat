@@ -4,17 +4,21 @@
  * 职责：提供主题切换 UI
  */
 
-import React from 'react';
-import { useTheme, themes, type ThemeType } from '../../../contexts/ThemeContext';
-import { cn } from '../../../utils/cn';
+import React from "react";
+import {
+  useTheme,
+  themes,
+  type ThemeType,
+} from "../../../contexts/ThemeContext";
+import { cn } from "../../../utils/cn";
 
 export interface ThemeSelectorProps {
   /** 自定义类名 */
   className?: string;
   /** 布局方向 */
-  direction?: 'horizontal' | 'vertical';
+  direction?: "horizontal" | "vertical";
   /** 尺寸 */
-  size?: 'small' | 'medium' | 'large';
+  size?: "small" | "medium" | "large";
 }
 
 /**
@@ -22,26 +26,26 @@ export interface ThemeSelectorProps {
  */
 export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
   className,
-  direction = 'horizontal',
-  size = 'medium',
+  direction = "horizontal",
+  size = "medium",
 }) => {
   const { currentTheme, setTheme } = useTheme();
 
   const sizeClasses = {
     small: {
-      container: 'gap-2',
-      item: 'w-8 h-8',
-      label: 'text-xs',
+      container: "gap-2",
+      item: "w-8 h-8",
+      label: "text-xs",
     },
     medium: {
-      container: 'gap-3',
-      item: 'w-12 h-12',
-      label: 'text-sm',
+      container: "gap-3",
+      item: "w-12 h-12",
+      label: "text-sm",
     },
     large: {
-      container: 'gap-4',
-      item: 'w-16 h-16',
-      label: 'text-base',
+      container: "gap-4",
+      item: "w-16 h-16",
+      label: "text-base",
     },
   };
 
@@ -50,10 +54,10 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
   return (
     <div
       className={cn(
-        'flex',
-        direction === 'horizontal' ? 'flex-row flex-wrap' : 'flex-col',
+        "flex",
+        direction === "horizontal" ? "flex-row flex-wrap" : "flex-col",
         currentSize.container,
-        className
+        className,
       )}
     >
       {(Object.keys(themes) as ThemeType[]).map((themeKey) => {
@@ -65,21 +69,22 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
             key={themeKey}
             onClick={() => setTheme(themeKey)}
             className={cn(
-              'group relative flex flex-col items-center gap-2 rounded-xl transition-all duration-200',
-              direction === 'vertical' && 'flex-row w-full p-3 hover:bg-[var(--bg-hover)]',
-              isActive && direction === 'vertical' && 'bg-[var(--bg-hover)]'
+              "group relative flex flex-col items-center gap-2 rounded-xl transition-all duration-200",
+              direction === "vertical" &&
+                "flex-row w-full p-3 hover:bg-bg-hover",
+              isActive && direction === "vertical" && "bg-bg-hover",
             )}
             title={theme.name}
           >
             {/* 主题预览色块 */}
             <div
               className={cn(
-                'relative rounded-xl overflow-hidden transition-all duration-200',
+                "relative rounded-xl overflow-hidden transition-all duration-200",
                 currentSize.item,
-                'ring-2 ring-offset-2 ring-offset-[var(--bg-primary)]',
+                "ring-2 ring-offset-2 ring-offset-bg-primary",
                 isActive
-                  ? 'ring-[var(--ai-primary)] scale-110 shadow-[var(--shadow-glow)]'
-                  : 'ring-transparent hover:ring-[var(--border-medium)]'
+                  ? "ring-primary scale-110 shadow-glow-primary"
+                  : "ring-transparent hover:ring-border-medium",
               )}
               style={{
                 background: `linear-gradient(135deg, ${theme.colors.bgPrimary} 50%, ${theme.colors.primary} 50%)`,
@@ -107,10 +112,10 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
             <span
               className={cn(
                 currentSize.label,
-                'font-medium transition-colors',
+                "font-medium transition-colors",
                 isActive
-                  ? 'text-[var(--ai-primary)]'
-                  : 'text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]'
+                  ? "text-primary"
+                  : "text-text-secondary group-hover:text-text-primary",
               )}
             >
               {theme.name}
@@ -125,17 +130,19 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
 /**
  * 简洁主题切换按钮
  */
-export const ThemeToggle: React.FC<{ className?: string }> = ({ className }) => {
+export const ThemeToggle: React.FC<{ className?: string }> = ({
+  className,
+}) => {
   const { currentTheme, toggleTheme, themeConfig } = useTheme();
 
   return (
     <button
       onClick={toggleTheme}
       className={cn(
-        'flex items-center gap-2 px-3 py-2 rounded-lg',
-        'bg-[var(--bg-secondary)] border border-[var(--border-color)]',
-        'hover:bg-[var(--bg-hover)] transition-colors',
-        className
+        "flex items-center gap-2 px-3 py-2 rounded-lg",
+        "bg-bg-secondary border border-border",
+        "hover:bg-bg-hover transition-colors",
+        className,
       )}
       title={`当前主题: ${themeConfig.name}`}
     >
@@ -146,9 +153,9 @@ export const ThemeToggle: React.FC<{ className?: string }> = ({ className }) => 
           background: `linear-gradient(135deg, ${themeConfig.colors.bgPrimary} 50%, ${themeConfig.colors.primary} 50%)`,
         }}
       />
-      <span className="text-sm text-[var(--text-secondary)]">{themeConfig.name}</span>
+      <span className="text-sm text-text-secondary">{themeConfig.name}</span>
       <svg
-        className="w-4 h-4 text-[var(--text-muted)]"
+        className="w-4 h-4 text-text-muted"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

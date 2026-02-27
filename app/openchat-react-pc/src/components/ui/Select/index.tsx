@@ -89,7 +89,7 @@ export interface SelectValueProps {
 export const SelectValue: React.FC<SelectValueProps> = ({ placeholder }) => {
   const { value } = useSelect();
   return (
-    <span className={!value ? "text-[var(--text-muted)]" : ""}>
+    <span className={!value ? "text-text-muted" : ""}>
       {value || placeholder}
     </span>
   );
@@ -105,7 +105,7 @@ export const SelectContent: React.FC<SelectContentProps> = ({ children }) => {
   if (!open) return null;
 
   return (
-    <div className="absolute z-50 mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-lg">
+    <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-bg-secondary shadow-lg">
       <div className="max-h-60 overflow-auto p-1">{children}</div>
     </div>
   );
@@ -130,9 +130,9 @@ export const SelectItem = React.forwardRef<HTMLButtonElement, SelectItemProps>(
           setOpen(false);
         }}
         className={cn(
-          "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm text-[var(--text-primary)] outline-none transition-colors",
-          "hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)]",
-          isSelected && "bg-[var(--ai-primary)]/10 text-[var(--ai-primary)]",
+          "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm text-text-primary outline-none transition-colors",
+          "hover:bg-bg-tertiary focus:bg-bg-tertiary",
+          isSelected && "bg-primary/10 text-primary",
           className,
         )}
         {...props}

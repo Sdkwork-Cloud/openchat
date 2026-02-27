@@ -210,7 +210,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <div className={wrapperClasses} style={style}>
         {/* 前缀 */}
         {prefix && (
-          <span className="flex-shrink-0 mr-2 text-[var(--text-secondary)]">
+          <span className="flex-shrink-0 mr-2 text-text-secondary">
             {prefix}
           </span>
         )}
@@ -244,7 +244,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <button
             type="button"
             onClick={handleClear}
-            className="flex-shrink-0 ml-2 p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+            className="flex-shrink-0 ml-2 p-0.5 text-text-muted hover:text-text-secondary transition-colors"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -258,7 +258,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
         {/* 后缀 */}
         {suffix && (
-          <span className="flex-shrink-0 ml-2 text-[var(--text-secondary)]">
+          <span className="flex-shrink-0 ml-2 text-text-secondary">
             {suffix}
           </span>
         )}

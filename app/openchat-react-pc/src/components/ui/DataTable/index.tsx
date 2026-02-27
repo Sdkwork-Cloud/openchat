@@ -17,14 +17,14 @@
  * ```
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from "react";
 import type {
   TableColumn,
   TablePagination,
   TableRowSelection,
   BaseComponentProps,
   SortChangeEvent,
-} from '../../../types/common';
+} from "../../../types/common";
 
 // ==================== 类型定义 ====================
 
@@ -57,7 +57,7 @@ export interface DataTableProps<T = unknown> extends BaseComponentProps {
   /** 是否显示斑马纹 */
   striped?: boolean;
   /** 是否紧凑模式 */
-  size?: 'default' | 'small' | 'large';
+  size?: "default" | "small" | "large";
 }
 
 // ==================== 子组件 ====================
@@ -96,17 +96,17 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
     } else {
       if (page <= 4) {
         for (let i = 1; i <= 5; i++) pages.push(i);
-        pages.push('...');
+        pages.push("...");
         pages.push(totalPages);
       } else if (page >= totalPages - 3) {
         pages.push(1);
-        pages.push('...');
+        pages.push("...");
         for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
       } else {
         pages.push(1);
-        pages.push('...');
+        pages.push("...");
         for (let i = page - 1; i <= page + 1; i++) pages.push(i);
-        pages.push('...');
+        pages.push("...");
         pages.push(totalPages);
       }
     }
@@ -125,11 +125,11 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-secondary)] border-t border-[var(--border-color)]">
+    <div className="flex items-center justify-between px-4 py-3 bg-bg-secondary border-t border-border">
       {/* 总数信息 */}
       {showTotal && (
-        <div className="text-sm text-[var(--text-secondary)]">
-          共 <span className="font-medium text-[var(--text-primary)]">{total}</span> 条
+        <div className="text-sm text-text-secondary">
+          共 <span className="font-medium text-text-primary">{total}</span> 条
           {total > 0 && (
             <span className="ml-1">
               (第 {startItem}-{endItem} 条)
@@ -144,10 +144,10 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
         <select
           value={size}
           onChange={(e) => handleSizeChange(Number(e.target.value))}
-          className="h-8 px-2 text-sm bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-[var(--text-primary)] focus:outline-none focus:border-[var(--ai-primary)]"
+          className="h-8 px-2 text-sm bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-primary"
         >
           {pageSizeOptions.map((option) => (
-            <option key={option} value={option} className="bg-[var(--bg-secondary)]">
+            <option key={option} value={option} className="bg-bg-secondary">
               {option}条/页
             </option>
           ))}
@@ -157,7 +157,7 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
         <button
           onClick={() => handlePageChange(page - 1)}
           disabled={page <= 1}
-          className="px-3 py-1.5 text-sm bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-[var(--text-primary)] hover:border-[var(--ai-primary)] hover:text-[var(--ai-primary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded text-text-primary hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           上一页
         </button>
@@ -166,15 +166,15 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
         <div className="flex items-center space-x-1">
           {getPageNumbers().map((p, index) => (
             <React.Fragment key={index}>
-              {p === '...' ? (
-                <span className="px-2 text-[var(--text-muted)]">...</span>
+              {p === "..." ? (
+                <span className="px-2 text-text-muted">...</span>
               ) : (
                 <button
                   onClick={() => handlePageChange(p as number)}
                   className={`min-w-[32px] h-8 px-2 text-sm rounded transition-colors ${
                     page === p
-                      ? 'bg-[var(--ai-primary)] text-white'
-                      : 'bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--ai-primary)] hover:text-[var(--ai-primary)]'
+                      ? "bg-primary text-white"
+                      : "bg-bg-tertiary border border-border text-text-primary hover:border-primary hover:text-primary"
                   }`}
                 >
                   {p}
@@ -188,7 +188,7 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
         <button
           onClick={() => handlePageChange(page + 1)}
           disabled={page >= totalPages}
-          className="px-3 py-1.5 text-sm bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-[var(--text-primary)] hover:border-[var(--ai-primary)] hover:text-[var(--ai-primary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded text-text-primary hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           下一页
         </button>
@@ -196,22 +196,22 @@ const Pagination: React.FC<PaginationProps> = ({ pagination, onChange }) => {
         {/* 快速跳转 */}
         {showQuickJumper && (
           <div className="flex items-center space-x-2 ml-4">
-            <span className="text-sm text-[var(--text-secondary)]">跳至</span>
+            <span className="text-sm text-text-secondary">跳至</span>
             <input
               type="number"
               min={1}
               max={totalPages}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === "Enter") {
                   const value = parseInt((e.target as HTMLInputElement).value);
                   if (value >= 1 && value <= totalPages) {
                     handlePageChange(value);
                   }
                 }
               }}
-              className="w-12 h-8 px-2 text-sm text-center bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded text-[var(--text-primary)] focus:outline-none focus:border-[var(--ai-primary)]"
+              className="w-12 h-8 px-2 text-sm text-center bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-primary"
             />
-            <span className="text-sm text-[var(--text-secondary)]">页</span>
+            <span className="text-sm text-text-secondary">页</span>
           </div>
         )}
       </div>
@@ -237,8 +237,8 @@ export function DataTable<T extends Record<string, unknown>>({
   columns,
   dataSource,
   loading = false,
-  emptyText = '暂无数据',
-  rowKey = 'id' as keyof T,
+  emptyText = "暂无数据",
+  rowKey = "id" as keyof T,
   rowSelection,
   pagination,
   onSortChange,
@@ -246,24 +246,27 @@ export function DataTable<T extends Record<string, unknown>>({
   rowClassName,
   bordered = false,
   striped = true,
-  size = 'default',
+  size = "default",
   className,
   style,
 }: DataTableProps<T>) {
   // 获取行唯一标识
   const getRowKey = useCallback(
     (record: T): string => {
-      if (typeof rowKey === 'function') {
+      if (typeof rowKey === "function") {
         return rowKey(record);
       }
       return String(record[rowKey]);
     },
-    [rowKey]
+    [rowKey],
   );
 
   // 排序状态
-  const [sortState, setSortState] = useState<{ field: string; order: 'asc' | 'desc' | null }>({
-    field: '',
+  const [sortState, setSortState] = useState<{
+    field: string;
+    order: "asc" | "desc" | null;
+  }>({
+    field: "",
     order: null,
   });
 
@@ -271,10 +274,10 @@ export function DataTable<T extends Record<string, unknown>>({
   const handleSort = (column: TableColumn<T>) => {
     if (!column.sortable) return;
 
-    let newOrder: 'asc' | 'desc' | null = 'asc';
-    if (sortState.field === column.key && sortState.order === 'asc') {
-      newOrder = 'desc';
-    } else if (sortState.field === column.key && sortState.order === 'desc') {
+    let newOrder: "asc" | "desc" | null = "asc";
+    if (sortState.field === column.key && sortState.order === "asc") {
+      newOrder = "desc";
+    } else if (sortState.field === column.key && sortState.order === "desc") {
       newOrder = null;
     }
 
@@ -283,8 +286,11 @@ export function DataTable<T extends Record<string, unknown>>({
   };
 
   // 获取单元格值
-  const getCellValue = (record: T, dataIndex: keyof T | string | undefined): unknown => {
-    if (!dataIndex) return '';
+  const getCellValue = (
+    record: T,
+    dataIndex: keyof T | string | undefined,
+  ): unknown => {
+    if (!dataIndex) return "";
     return record[dataIndex as keyof T];
   };
 
@@ -293,80 +299,79 @@ export function DataTable<T extends Record<string, unknown>>({
     const classes: string[] = [];
 
     if (striped && index % 2 === 1) {
-      classes.push('bg-[var(--bg-tertiary)]/30');
+      classes.push("bg-bg-tertiary/30");
     }
 
     if (onRowClick) {
-      classes.push('cursor-pointer hover:bg-[var(--bg-tertiary)]');
+      classes.push("cursor-pointer hover:bg-bg-tertiary");
     }
 
     if (rowClassName) {
-      if (typeof rowClassName === 'function') {
+      if (typeof rowClassName === "function") {
         classes.push(rowClassName(record, index));
       } else {
         classes.push(rowClassName);
       }
     }
 
-    return classes.join(' ');
+    return classes.join(" ");
   };
 
   // 尺寸样式
   const sizeClasses = useMemo(() => {
     switch (size) {
-      case 'small':
-        return 'text-xs';
-      case 'large':
-        return 'text-base';
+      case "small":
+        return "text-xs";
+      case "large":
+        return "text-base";
       default:
-        return 'text-sm';
+        return "text-sm";
     }
   }, [size]);
 
   const cellPaddingClasses = useMemo(() => {
     switch (size) {
-      case 'small':
-        return 'px-3 py-2';
-      case 'large':
-        return 'px-6 py-4';
+      case "small":
+        return "px-3 py-2";
+      case "large":
+        return "px-6 py-4";
       default:
-        return 'px-4 py-3';
+        return "px-4 py-3";
     }
   }, [size]);
 
   return (
-    <div className={`flex flex-col ${className || ''}`} style={style}>
+    <div className={`flex flex-col ${className || ""}`} style={style}>
       {/* 表格容器 */}
       <div className="overflow-x-auto">
         <table
-          className={`w-full ${sizeClasses} ${bordered ? 'border border-[var(--border-color)]' : ''}`}
+          className={`w-full ${sizeClasses} ${bordered ? "border border-border" : ""}`}
         >
           {/* 表头 */}
-          <thead className="bg-[var(--bg-secondary)]">
+          <thead className="bg-bg-secondary">
             <tr>
               {/* 选择列 */}
               {rowSelection && (
                 <th
-                  className={`${cellPaddingClasses} text-left font-medium text-[var(--text-secondary)] border-b border-[var(--border-color)] w-12`}
+                  className={`${cellPaddingClasses} text-left font-medium text-text-secondary border-b border-border w-12`}
                 >
                   {rowSelection.showSelectAll !== false && (
                     <input
                       type="checkbox"
                       checked={
-                        rowSelection.selectedRowKeys?.length === dataSource.length &&
-                        dataSource.length > 0
+                        rowSelection.selectedRowKeys?.length ===
+                          dataSource.length && dataSource.length > 0
                       }
                       onChange={(e) => {
                         if (e.target.checked) {
-                          rowSelection.onChange?.(
-                            dataSource.map(getRowKey),
-                            [...dataSource]
-                          );
+                          rowSelection.onChange?.(dataSource.map(getRowKey), [
+                            ...dataSource,
+                          ]);
                         } else {
                           rowSelection.onChange?.([], []);
                         }
                       }}
-                      className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-tertiary)] text-[var(--ai-primary)] focus:ring-[var(--ai-primary)]"
+                      className="w-4 h-4 rounded border-border bg-bg-tertiary text-primary focus:ring-primary"
                     />
                   )}
                 </th>
@@ -378,11 +383,11 @@ export function DataTable<T extends Record<string, unknown>>({
                   key={column.key}
                   className={`
                     ${cellPaddingClasses}
-                    text-left font-medium text-[var(--text-secondary)]
-                    border-b border-[var(--border-color)]
-                    ${column.sortable ? 'cursor-pointer select-none hover:text-[var(--text-primary)]' : ''}
-                    ${column.align === 'center' ? 'text-center' : ''}
-                    ${column.align === 'right' ? 'text-right' : ''}
+                    text-left font-medium text-text-secondary
+                    border-b border-border
+                    ${column.sortable ? "cursor-pointer select-none hover:text-text-primary" : ""}
+                    ${column.align === "center" ? "text-center" : ""}
+                    ${column.align === "right" ? "text-right" : ""}
                   `}
                   style={{ width: column.width }}
                   onClick={() => handleSort(column)}
@@ -393,9 +398,10 @@ export function DataTable<T extends Record<string, unknown>>({
                       <span className="flex flex-col">
                         <svg
                           className={`w-3 h-3 ${
-                            sortState.field === column.key && sortState.order === 'asc'
-                              ? 'text-[var(--ai-primary)]'
-                              : 'text-[var(--text-muted)]'
+                            sortState.field === column.key &&
+                            sortState.order === "asc"
+                              ? "text-primary"
+                              : "text-text-muted"
                           }`}
                           fill="currentColor"
                           viewBox="0 0 20 20"
@@ -408,9 +414,10 @@ export function DataTable<T extends Record<string, unknown>>({
                         </svg>
                         <svg
                           className={`w-3 h-3 -mt-1 ${
-                            sortState.field === column.key && sortState.order === 'desc'
-                              ? 'text-[var(--ai-primary)]'
-                              : 'text-[var(--text-muted)]'
+                            sortState.field === column.key &&
+                            sortState.order === "desc"
+                              ? "text-primary"
+                              : "text-text-muted"
                           }`}
                           fill="currentColor"
                           viewBox="0 0 20 20"
@@ -439,8 +446,8 @@ export function DataTable<T extends Record<string, unknown>>({
                   className="px-4 py-12 text-center"
                 >
                   <div className="flex items-center justify-center space-x-2">
-                    <div className="w-5 h-5 border-2 border-[var(--border-color)] border-t-[var(--ai-primary)] rounded-full animate-spin" />
-                    <span className="text-[var(--text-muted)]">加载中...</span>
+                    <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
+                    <span className="text-text-muted">加载中...</span>
                   </div>
                 </td>
               </tr>
@@ -451,7 +458,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   colSpan={columns.length + (rowSelection ? 1 : 0)}
                   className="px-4 py-12 text-center"
                 >
-                  <div className="text-[var(--text-muted)]">{emptyText}</div>
+                  <div className="text-text-muted">{emptyText}</div>
                 </td>
               </tr>
             ) : (
@@ -465,7 +472,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     key={key}
                     className={`
                       ${getRowClassName(record, index)}
-                      ${isSelected ? 'bg-[var(--ai-primary)]/10' : ''}
+                      ${isSelected ? "bg-primary/10" : ""}
                       transition-colors
                     `}
                     onClick={() => onRowClick?.(record, index)}
@@ -473,25 +480,28 @@ export function DataTable<T extends Record<string, unknown>>({
                     {/* 选择单元格 */}
                     {rowSelection && (
                       <td
-                        className={`${cellPaddingClasses} border-b border-[var(--border-color)]`}
+                        className={`${cellPaddingClasses} border-b border-border`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={(e) => {
-                            const selectedKeys = rowSelection.selectedRowKeys || [];
+                            const selectedKeys =
+                              rowSelection.selectedRowKeys || [];
                             const selectedRows: T[] = [];
 
                             if (e.target.checked) {
                               const newKeys = [...selectedKeys, key];
                               rowSelection.onChange?.(newKeys, selectedRows);
                             } else {
-                              const newKeys = selectedKeys.filter((k) => k !== key);
+                              const newKeys = selectedKeys.filter(
+                                (k) => k !== key,
+                              );
                               rowSelection.onChange?.(newKeys, selectedRows);
                             }
                           }}
-                          className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-tertiary)] text-[var(--ai-primary)] focus:ring-[var(--ai-primary)]"
+                          className="w-4 h-4 rounded border-border bg-bg-tertiary text-primary focus:ring-primary"
                         />
                       </td>
                     )}
@@ -502,15 +512,21 @@ export function DataTable<T extends Record<string, unknown>>({
                         key={column.key}
                         className={`
                           ${cellPaddingClasses}
-                          border-b border-[var(--border-color)]
-                          text-[var(--text-primary)]
-                          ${column.align === 'center' ? 'text-center' : ''}
-                          ${column.align === 'right' ? 'text-right' : ''}
+                          border-b border-border
+                          text-text-primary
+                          ${column.align === "center" ? "text-center" : ""}
+                          ${column.align === "right" ? "text-right" : ""}
                         `}
                       >
                         {column.render
-                          ? column.render(getCellValue(record, column.dataIndex), record, index)
-                          : String(getCellValue(record, column.dataIndex) ?? '')}
+                          ? column.render(
+                              getCellValue(record, column.dataIndex),
+                              record,
+                              index,
+                            )
+                          : String(
+                              getCellValue(record, column.dataIndex) ?? "",
+                            )}
                       </td>
                     ))}
                   </tr>
