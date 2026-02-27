@@ -67,7 +67,7 @@ export {
   type ConsolidateResult,
 } from './entities/memory.entity';
 
-export { AgentService, agentService } from './services/agent.service';
+export { AgentService } from './services/agent.service';
 export { MemoryService, memoryService } from './services/memory.service';
 
 export { AgentMarketPage } from './pages/AgentMarketPage';

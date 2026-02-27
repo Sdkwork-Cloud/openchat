@@ -12,7 +12,7 @@ import type {
   AgentCategoryInfo,
 } from '../entities/agent.entity';
 import { AgentCategory as AC } from '../entities/agent.entity';
-import { agentService } from '../services/agent.service';
+import { AgentService } from '../services/agent.service';
 
 export function AgentMarketPage() {
   const navigate = useNavigate();
@@ -34,14 +34,14 @@ export function AgentMarketPage() {
   }, [activeCategory, sortBy]);
 
   const loadCategories = async () => {
-    const data = await agentService.getCategories();
-    setCategories(data);
+    // TODO: 实现分类加载
+    setCategories([]);
   };
 
   const loadAgents = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await agentService.searchAgents(
+      const data = await AgentService.searchAgents(
         searchKeyword,
         activeCategory,
         undefined,
@@ -50,8 +50,8 @@ export function AgentMarketPage() {
       setAgents(data);
 
       if (!searchKeyword && activeCategory === AC.ALL) {
-        const recommended = await agentService.getRecommendedAgents(6);
-        setRecommendedAgents(recommended);
+        // TODO: 实现推荐智能体加载
+        setRecommendedAgents(data.slice(0, 6));
       }
     } catch (error) {
       console.error('Failed to load agents:', error);
@@ -158,7 +158,7 @@ export function AgentMarketPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-[1400px] mx-auto">
+        <div className="px-6">
           {activeCategory === AC.ALL && !searchKeyword && recommendedAgents.length > 0 && (
             <div className="mb-10">
               <div className="flex items-center justify-between mb-5">

@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Agent, AgentSession, AgentMessage } from '../entities/agent.entity';
-import { agentService } from '../services/agent.service';
+import { AgentService } from '../services/agent.service';
 
 interface AgentChatProps {
   agent: Agent;
@@ -44,8 +44,16 @@ export const AgentChat: React.FC<AgentChatProps> = ({
   const loadMessages = async () => {
     if (!session) return;
     try {
-      const msgs = await agentService.getMessages(session.id, 50);
-      setMessages(msgs);
+      const msgs = await AgentService.getSessionMessages(session.id);
+      // 转换 ChatMessage 到 AgentMessage
+      const agentMsgs: AgentMessage[] = msgs.map((m: any) => ({
+        id: m.id,
+        sessionId: session.id,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        role: m.role,
+        createdAt: new Date(m.timestamp).toISOString(),
+      }));
+      setMessages(agentMsgs);
     } catch (err) {
       console.error('Failed to load messages:', err);
     }
@@ -63,7 +71,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({
       let currentSession = session;
 
       if (!currentSession) {
-        currentSession = await agentService.createSession(agent.id, {
+        currentSession = await AgentService.createSession(agent.id, {
           title: userMessage.slice(0, 50),
         });
         setSession(currentSession);
@@ -81,27 +89,29 @@ export const AgentChat: React.FC<AgentChatProps> = ({
       setMessages((prev) => [...prev, tempUserMessage]);
       setStreamingContent('');
 
-      await agentService.streamMessage(
+      await AgentService.streamMessage(
         currentSession.id,
         { content: userMessage },
-        (chunk) => {
+        (chunk: { id: string; content: string; done: boolean }) => {
           setStreamingContent(chunk.content || '');
         },
         () => {
           setStreamingContent((prev) => {
-            const assistantMessage: AgentMessage = {
-              id: `msg-${Date.now()}`,
-              sessionId: currentSession!.id,
-              content: prev,
-              role: 'assistant',
-              createdAt: new Date().toISOString(),
-            };
-            setMessages((prevMsgs) => [...prevMsgs, assistantMessage]);
+            if (currentSession) {
+              const assistantMessage: AgentMessage = {
+                id: `msg-${Date.now()}`,
+                sessionId: currentSession.id,
+                content: prev,
+                role: 'assistant',
+                createdAt: new Date().toISOString(),
+              };
+              setMessages((prevMsgs) => [...prevMsgs, assistantMessage]);
+            }
             return '';
           });
           setLoading(false);
         },
-        (err) => {
+        (err: Error) => {
           setError(err.message);
           setLoading(false);
         }

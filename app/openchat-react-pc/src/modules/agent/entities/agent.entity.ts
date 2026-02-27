@@ -77,6 +77,17 @@ export interface AgentConfig {
   memory?: MemoryConfig;
   llm?: LLMConfig;
   customSettings?: Record<string, unknown>;
+  category?: AgentCategory;
+  tags?: string[];
+  rating?: number;
+  usageCount?: number;
+  creator?: string;
+  llmConfig?: {
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    systemPrompt?: string;
+  };
 }
 
 export interface AgentCapability {
@@ -241,11 +252,15 @@ export interface AgentMarketFilter {
 }
 
 export interface AgentStats {
-  totalUsage: number;
-  todayUsage: number;
-  weeklyUsage: number;
-  averageRating: number;
-  favoriteCount: number;
+  totalUsage?: number;
+  todayUsage?: number;
+  weeklyUsage?: number;
+  averageRating?: number;
+  favoriteCount?: number;
+  totalSessions?: number;
+  totalMessages?: number;
+  avgResponseTime?: number;
+  satisfactionRate?: number;
 }
 
 export interface CreateAgentRequest {

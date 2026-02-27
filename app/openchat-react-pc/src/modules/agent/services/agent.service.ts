@@ -1,61 +1,41 @@
 /**
- * Agent 服务层
+ * Agent 服务
  *
  * 职责：
- * 1. 调用后端 API 管理智能体
- * 2. 提供智能体市场功能
- * 3. 处理智能体会话和消息
- * 4. 开发环境模拟数据
+ * 1. 管理 Agent 的 CRUD 操作
+ * 2. 处理 Agent 对话和消息
+ * 3. 管理 Agent 会话
+ * 4. 提供 Agent 搜索和推荐
  */
 
-import { apiClient } from '@/services/api.client';
-import { IS_DEV } from '@/app/env';
 import {
-  AgentCategory,
-  AgentType,
-  AgentStatus,
-} from '../entities/agent.entity';
-import type {
   Agent,
+  AgentStatus,
+  AgentType,
+  AgentCategory,
   AgentSession,
-  AgentMessage,
-  AgentTool,
-  AgentSkill,
-  AgentCategoryInfo,
+  ChatMessage,
   AgentStats,
   CreateAgentRequest,
   UpdateAgentRequest,
-  CreateSessionRequest,
   SendMessageRequest,
-  AddToolRequest,
-  AddSkillRequest,
-  ChatStreamChunk,
-  AvailableTool,
-  AvailableSkill,
+  CreateSessionRequest,
 } from '../entities/agent.entity';
 
-const AGENT_ENDPOINT = '/agents';
-
-const CATEGORY_INFOS: AgentCategoryInfo[] = [
-  { id: AgentCategory.ALL, name: '全部', icon: '🔥', description: '所有智能体', agentCount: 100 },
-  { id: AgentCategory.PRODUCTIVITY, name: '效率工具', icon: '⚡', description: '提升工作效率的智能体', agentCount: 25 },
-  { id: AgentCategory.EDUCATION, name: '学习教育', icon: '📚', description: '学习和教育相关智能体', agentCount: 20 },
-  { id: AgentCategory.ENTERTAINMENT, name: '娱乐休闲', icon: '🎮', description: '娱乐和休闲相关智能体', agentCount: 15 },
-  { id: AgentCategory.LIFE, name: '生活助手', icon: '🏠', description: '日常生活相关智能体', agentCount: 18 },
-  { id: AgentCategory.PROGRAMMING, name: '编程开发', icon: '💻', description: '编程和开发相关智能体', agentCount: 22 },
-  { id: AgentCategory.WRITING, name: '写作创作', icon: '✍️', description: '写作和创作相关智能体', agentCount: 16 },
-  { id: AgentCategory.BUSINESS, name: '商业办公', icon: '💼', description: '商业和办公相关智能体', agentCount: 14 },
-  { id: AgentCategory.CREATIVE, name: '创意设计', icon: '🎨', description: '创意和设计相关智能体', agentCount: 12 },
-];
+// API 配置
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const AGENT_ENDPOINT = `${API_BASE_URL}/agents`;
+const IS_DEV = import.meta.env.DEV;
 
 // 模拟 Agent 数据
 const MOCK_AGENTS: Agent[] = [
   {
     id: 'agent-1',
+    uuid: 'agent-uuid-1',
     name: 'AI 编程助手',
     description: '专业的编程助手，支持多种编程语言，可以帮助你解决代码问题、优化代码、解释代码逻辑。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '🤖',
     config: {
       category: AgentCategory.PROGRAMMING,
@@ -70,15 +50,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个专业的编程助手，帮助用户解决编程问题。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-01-15').toISOString(),
     updatedAt: new Date('2024-03-01').toISOString(),
   },
   {
     id: 'agent-2',
+    uuid: 'agent-uuid-2',
     name: '写作大师',
     description: '创意写作助手，可以帮助你写文章、故事、文案，提供写作建议和灵感。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '✍️',
     config: {
       category: AgentCategory.WRITING,
@@ -93,15 +77,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个创意写作助手，帮助用户创作优质内容。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-01-20').toISOString(),
     updatedAt: new Date('2024-03-05').toISOString(),
   },
   {
     id: 'agent-3',
+    uuid: 'agent-uuid-3',
     name: '英语学习伙伴',
     description: '英语学习助手，可以帮助你练习英语对话、纠正语法错误、提供学习建议。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '📚',
     config: {
       category: AgentCategory.EDUCATION,
@@ -116,15 +104,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个英语学习助手，帮助用户提高英语水平。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-02-01').toISOString(),
     updatedAt: new Date('2024-03-10').toISOString(),
   },
   {
     id: 'agent-4',
+    uuid: 'agent-uuid-4',
     name: '数据分析专家',
     description: '数据分析助手，可以帮助你分析数据、生成图表、提供数据洞察。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '📊',
     config: {
       category: AgentCategory.BUSINESS,
@@ -139,15 +131,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个数据分析专家，帮助用户分析和理解数据。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-02-10').toISOString(),
     updatedAt: new Date('2024-03-12').toISOString(),
   },
   {
     id: 'agent-5',
+    uuid: 'agent-uuid-5',
     name: '旅行规划师',
     description: '旅行规划助手，可以根据你的需求制定完美的旅行计划，推荐景点和美食。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '✈️',
     config: {
       category: AgentCategory.LIFE,
@@ -162,15 +158,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个旅行规划师，帮助用户制定完美的旅行计划。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-02-15').toISOString(),
     updatedAt: new Date('2024-03-15').toISOString(),
   },
   {
     id: 'agent-6',
+    uuid: 'agent-uuid-6',
     name: '健身教练',
     description: '健身指导助手，可以制定健身计划、提供营养建议、解答健身疑问。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '💪',
     config: {
       category: AgentCategory.LIFE,
@@ -185,15 +185,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个健身教练，帮助用户实现健康目标。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-02-20').toISOString(),
     updatedAt: new Date('2024-03-18').toISOString(),
   },
   {
     id: 'agent-7',
+    uuid: 'agent-uuid-7',
     name: '美食达人',
     description: '美食推荐助手，可以根据你的口味推荐菜谱、餐厅，提供烹饪技巧。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '🍳',
     config: {
       category: AgentCategory.LIFE,
@@ -208,15 +212,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个美食达人，帮助用户发现和制作美食。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-02-25').toISOString(),
     updatedAt: new Date('2024-03-20').toISOString(),
   },
   {
     id: 'agent-8',
+    uuid: 'agent-uuid-8',
     name: '心理咨询师',
     description: '心理健康助手，提供情绪支持、压力管理建议，帮助你保持心理健康。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '💚',
     config: {
       category: AgentCategory.LIFE,
@@ -231,15 +239,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个心理咨询师，帮助用户处理情绪和心理问题。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-03-01').toISOString(),
     updatedAt: new Date('2024-03-22').toISOString(),
   },
   {
     id: 'agent-9',
+    uuid: 'agent-uuid-9',
     name: '游戏攻略王',
     description: '游戏攻略助手，提供各种游戏的攻略、技巧、隐藏要素，帮助你成为游戏高手。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '🎮',
     config: {
       category: AgentCategory.ENTERTAINMENT,
@@ -254,15 +266,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个游戏攻略专家，帮助用户掌握各种游戏技巧。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-03-05').toISOString(),
     updatedAt: new Date('2024-03-24').toISOString(),
   },
   {
     id: 'agent-10',
+    uuid: 'agent-uuid-10',
     name: '设计师助手',
     description: '设计创意助手，提供设计灵感、配色建议、布局方案，帮助你完成设计项目。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '🎨',
     config: {
       category: AgentCategory.CREATIVE,
@@ -277,15 +293,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个设计师助手，帮助用户完成创意设计项目。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-03-10').toISOString(),
     updatedAt: new Date('2024-03-26').toISOString(),
   },
   {
     id: 'agent-11',
+    uuid: 'agent-uuid-11',
     name: '法律顾问',
     description: '法律咨询助手，提供法律知识解答、合同审查建议、法律风险评估。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '⚖️',
     config: {
       category: AgentCategory.BUSINESS,
@@ -300,15 +320,19 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个法律顾问，帮助用户解答法律问题。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-03-12').toISOString(),
     updatedAt: new Date('2024-03-28').toISOString(),
   },
   {
     id: 'agent-12',
+    uuid: 'agent-uuid-12',
     name: '投资理财师',
     description: '投资理财助手，提供投资建议、理财规划、风险评估，帮助你做出明智的财务决策。',
     type: AgentType.ASSISTANT,
-    status: AgentStatus.ACTIVE,
+    status: AgentStatus.READY,
     avatar: '💰',
     config: {
       category: AgentCategory.BUSINESS,
@@ -323,332 +347,409 @@ const MOCK_AGENTS: Agent[] = [
         systemPrompt: '你是一个投资理财顾问，帮助用户做出明智的财务决策。',
       },
     },
+    ownerId: 'system',
+    isPublic: true,
+    isDeleted: false,
     createdAt: new Date('2024-03-15').toISOString(),
     updatedAt: new Date('2024-03-30').toISOString(),
   },
 ];
 
-// 模拟会话存储
-const mockSessions: Map<string, AgentSession> = new Map();
-const mockMessages: Map<string, AgentMessage[]> = new Map();
+// 模拟会话数据
+const MOCK_SESSIONS: Map<string, AgentSession> = new Map();
 
-export class AgentService {
-  async getAgents(isPublic?: boolean): Promise<Agent[]> {
+// 模拟消息数据
+const MOCK_MESSAGES: Map<string, ChatMessage[]> = new Map();
+
+// API 客户端（模拟）
+const apiClient = {
+  get: async <T>(url: string): Promise<T> => {
     if (IS_DEV) {
-      return MOCK_AGENTS.filter(agent => 
-        isPublic === undefined || isPublic === true
-      );
+      // 模拟延迟
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // 解析 URL 获取 agent ID
+      const match = url.match(/\/agents\/([^\/]+)/);
+      if (match) {
+        const agentId = match[1];
+        const agent = MOCK_AGENTS.find(a => a.id === agentId);
+        if (agent) return agent as T;
+      }
+      
+      throw new Error('Agent not found');
     }
-    const params: Record<string, string | boolean> = {};
-    if (isPublic !== undefined) {
-      params.public = isPublic;
-    }
-    return apiClient.get(AGENT_ENDPOINT, { params });
-  }
-
-  async getAgent(id: string): Promise<Agent> {
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+  
+  post: async <T>(url: string, data?: unknown): Promise<T> => {
     if (IS_DEV) {
-      const agent = MOCK_AGENTS.find(a => a.id === id);
-      if (!agent) throw new Error('Agent not found');
-      return agent;
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // 创建 Agent
+      if (url === AGENT_ENDPOINT && data) {
+        const newAgent: Agent = {
+          ...(data as CreateAgentRequest),
+          id: `agent-${Date.now()}`,
+          uuid: `agent-uuid-${Date.now()}`,
+          ownerId: 'current-user',
+          isPublic: false,
+          isDeleted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as Agent;
+        MOCK_AGENTS.push(newAgent);
+        return newAgent as T;
+      }
+      
+      // 发送消息
+      const match = url.match(/\/agents\/([^\/]+)\/messages/);
+      if (match) {
+        const agentId = match[1];
+        return {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content: '这是一个模拟的 AI 回复消息。',
+          timestamp: Date.now(),
+        } as T;
+      }
+      
+      return {} as T;
     }
-    return apiClient.get(`${AGENT_ENDPOINT}/${id}`);
-  }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+  
+  put: async <T>(url: string, data?: unknown): Promise<T> => {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const match = url.match(/\/agents\/([^\/]+)/);
+      if (match && data) {
+        const agentId = match[1];
+        const index = MOCK_AGENTS.findIndex(a => a.id === agentId);
+        if (index !== -1) {
+          MOCK_AGENTS[index] = {
+            ...MOCK_AGENTS[index],
+            ...(data as UpdateAgentRequest),
+            updatedAt: new Date().toISOString(),
+          };
+          return MOCK_AGENTS[index] as T;
+        }
+      }
+      
+      throw new Error('Agent not found');
+    }
+    
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  },
+  
+  delete: async (url: string): Promise<void> => {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const match = url.match(/\/agents\/([^\/]+)/);
+      if (match) {
+        const agentId = match[1];
+        const index = MOCK_AGENTS.findIndex(a => a.id === agentId);
+        if (index !== -1) {
+          MOCK_AGENTS.splice(index, 1);
+          return;
+        }
+      }
+      
+      throw new Error('Agent not found');
+    }
+    
+    const response = await fetch(url, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+  },
+};
 
+// Agent 服务
+export const AgentService = {
+  // 获取 Agent 列表
+  async getAgents(params?: {
+    category?: AgentCategory;
+    type?: AgentType;
+    search?: string;
+    sortBy?: 'popular' | 'newest' | 'rating';
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ agents: Agent[]; total: number }> {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      let filtered = [...MOCK_AGENTS];
+      
+      // 分类筛选
+      if (params?.category && params.category !== AgentCategory.ALL) {
+        filtered = filtered.filter(
+          a => a.config.category === params.category
+        );
+      }
+      
+      // 类型筛选
+      if (params?.type) {
+        filtered = filtered.filter(a => a.type === params.type);
+      }
+      
+      // 搜索
+      if (params?.search) {
+        const keyword = params.search.toLowerCase();
+        filtered = filtered.filter(
+          a =>
+            a.name.toLowerCase().includes(keyword) ||
+            a.description?.toLowerCase().includes(keyword) ||
+            a.config.tags?.some(tag => tag.toLowerCase().includes(keyword))
+        );
+      }
+      
+      // 排序
+      switch (params?.sortBy) {
+        case 'popular':
+          filtered.sort((a, b) => (b.config.usageCount || 0) - (a.config.usageCount || 0));
+          break;
+        case 'newest':
+          filtered.sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          break;
+        case 'rating':
+          filtered.sort((a, b) => (b.config.rating || 0) - (a.config.rating || 0));
+          break;
+      }
+      
+      // 分页
+      const page = params?.page || 1;
+      const pageSize = params?.pageSize || 20;
+      const start = (page - 1) * pageSize;
+      const paginated = filtered.slice(start, start + pageSize);
+      
+      return { agents: paginated, total: filtered.length };
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.pageSize)
+      queryParams.append('pageSize', params.pageSize.toString());
+    
+    return apiClient.get(
+      `${AGENT_ENDPOINT}?${queryParams.toString()}`
+    );
+  },
+
+  // 获取单个 Agent
+  async getAgent(agentId: string): Promise<Agent> {
+    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}`);
+  },
+
+  // 创建 Agent
   async createAgent(request: CreateAgentRequest): Promise<Agent> {
     return apiClient.post(AGENT_ENDPOINT, request);
-  }
+  },
 
-  async updateAgent(id: string, request: UpdateAgentRequest): Promise<Agent> {
-    return apiClient.put(`${AGENT_ENDPOINT}/${id}`, request);
-  }
+  // 更新 Agent
+  async updateAgent(
+    agentId: string,
+    request: UpdateAgentRequest
+  ): Promise<Agent> {
+    return apiClient.put(`${AGENT_ENDPOINT}/${agentId}`, request);
+  },
 
-  async deleteAgent(id: string): Promise<{ success: boolean }> {
-    return apiClient.delete(`${AGENT_ENDPOINT}/${id}`);
-  }
+  // 删除 Agent
+  async deleteAgent(agentId: string): Promise<void> {
+    return apiClient.delete(`${AGENT_ENDPOINT}/${agentId}`);
+  },
 
-  async getCategories(): Promise<AgentCategoryInfo[]> {
-    return CATEGORY_INFOS;
-  }
+  // 获取 Agent 会话列表
+  async getAgentSessions(agentId: string): Promise<AgentSession[]> {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return Array.from(MOCK_SESSIONS.values()).filter(
+        s => s.agentId === agentId
+      );
+    }
+    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/sessions`);
+  },
 
-  async getPublicAgents(): Promise<Agent[]> {
-    return this.getAgents(true);
-  }
-
-  async getMyAgents(): Promise<Agent[]> {
-    return this.getAgents(false);
-  }
-
+  // 创建会话
   async createSession(
     agentId: string,
-    request?: CreateSessionRequest
+    request: CreateSessionRequest
   ): Promise<AgentSession> {
     if (IS_DEV) {
-      const sessionId = `session-${Date.now()}`;
+      await new Promise(resolve => setTimeout(resolve, 200));
       const session: AgentSession = {
-        id: sessionId,
+        id: `session-${Date.now()}`,
         agentId,
-        userId: 'test-user',
-        status: 'active',
+        userId: 'current-user',
+        title: request.title || '新会话',
+        context: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      mockSessions.set(sessionId, session);
-      mockMessages.set(sessionId, []);
-      console.log('[Dev] Created session:', sessionId);
+      MOCK_SESSIONS.set(session.id, session);
+      MOCK_MESSAGES.set(session.id, []);
       return session;
     }
-    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/sessions`, request || {});
-  }
+    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/sessions`, request);
+  },
 
-  async getSessions(agentId: string, limit?: number): Promise<AgentSession[]> {
+  // 获取会话消息
+  async getSessionMessages(sessionId: string): Promise<ChatMessage[]> {
     if (IS_DEV) {
-      return Array.from(mockSessions.values())
-        .filter(s => s.agentId === agentId)
-        .slice(0, limit || 10);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return MOCK_MESSAGES.get(sessionId) || [];
     }
-    const params: Record<string, number> = {};
-    if (limit) {
-      params.limit = limit;
-    }
-    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/sessions`, { params });
-  }
+    return apiClient.get(`${AGENT_ENDPOINT}/sessions/${sessionId}/messages`);
+  },
 
-  async getSession(sessionId: string): Promise<AgentSession> {
-    if (IS_DEV) {
-      const session = mockSessions.get(sessionId);
-      if (!session) throw new Error('Session not found');
-      return session;
-    }
-    return apiClient.get(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
-  }
-
-  async deleteSession(sessionId: string): Promise<{ success: boolean }> {
-    if (IS_DEV) {
-      mockSessions.delete(sessionId);
-      mockMessages.delete(sessionId);
-      return { success: true };
-    }
-    return apiClient.delete(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
-  }
-
-  async getMessages(
-    sessionId: string,
-    limit?: number,
-    offset?: number
-  ): Promise<AgentMessage[]> {
-    if (IS_DEV) {
-      const messages = mockMessages.get(sessionId) || [];
-      return messages.slice(offset || 0, (offset || 0) + (limit || 50));
-    }
-    const params: Record<string, number> = {};
-    if (limit) params.limit = limit;
-    if (offset) params.offset = offset;
-    return apiClient.get(`${AGENT_ENDPOINT}/sessions/${sessionId}/messages`, {
-      params,
-    });
-  }
-
+  // 发送消息
   async sendMessage(
     sessionId: string,
     request: SendMessageRequest
-  ): Promise<AgentMessage> {
+  ): Promise<ChatMessage> {
     if (IS_DEV) {
-      const messages = mockMessages.get(sessionId) || [];
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // 添加用户消息
-      const userMessage: AgentMessage = {
+      const userMessage: ChatMessage = {
         id: `msg-${Date.now()}-user`,
-        sessionId,
         role: 'user',
         content: request.content,
-        createdAt: new Date().toISOString(),
+        timestamp: Date.now(),
       };
+      
+      const messages = MOCK_MESSAGES.get(sessionId) || [];
       messages.push(userMessage);
       
-      // 模拟 AI 响应
-      const aiMessage: AgentMessage = {
+      // 模拟 AI 回复
+      const aiMessage: ChatMessage = {
         id: `msg-${Date.now()}-ai`,
-        sessionId,
         role: 'assistant',
-        content: this.generateMockResponse(request.content),
-        createdAt: new Date().toISOString(),
+        content: `这是模拟回复：我收到了你的消息 "${request.content}"。在实际应用中，这里会调用 LLM API 生成回复。`,
+        timestamp: Date.now(),
       };
       messages.push(aiMessage);
       
-      mockMessages.set(sessionId, messages);
+      MOCK_MESSAGES.set(sessionId, messages);
       return aiMessage;
     }
     return apiClient.post(
       `${AGENT_ENDPOINT}/sessions/${sessionId}/messages`,
       request
     );
-  }
+  },
 
+  // 流式发送消息
   async streamMessage(
     sessionId: string,
     request: SendMessageRequest,
-    onChunk: (chunk: ChatStreamChunk) => void,
+    onChunk: (chunk: { id: string; content: string; done: boolean }) => void,
     onComplete: () => void,
     onError: (error: Error) => void
   ): Promise<void> {
-    if (IS_DEV) {
-      // 开发环境模拟流式响应
-      const messages = mockMessages.get(sessionId) || [];
-      
+    try {
       // 添加用户消息
-      const userMessage: AgentMessage = {
+      const userMessage: ChatMessage = {
         id: `msg-${Date.now()}-user`,
-        sessionId,
         role: 'user',
         content: request.content,
-        createdAt: new Date().toISOString(),
+        timestamp: Date.now(),
       };
+      
+      const messages = MOCK_MESSAGES.get(sessionId) || [];
       messages.push(userMessage);
       
-      // 模拟 AI 流式响应
-      const aiResponse = this.generateMockResponse(request.content);
+      // 模拟流式响应
+      const responseText = `这是模拟的流式回复：我收到了你的消息 "${request.content}"。在实际应用中，这里会调用 LLM API 的流式接口。`;
+      const chunks = responseText.split('');
+      
       const aiMessageId = `msg-${Date.now()}-ai`;
+      let accumulatedContent = '';
       
-      let currentContent = '';
-      const words = aiResponse.split('');
-      
-      for (let i = 0; i < words.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 30));
-        currentContent += words[i];
+      for (let i = 0; i < chunks.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        accumulatedContent += chunks[i];
         onChunk({
           id: aiMessageId,
-          content: currentContent,
-          done: i === words.length - 1,
+          content: accumulatedContent,
+          done: i === chunks.length - 1,
         });
       }
       
       // 保存完整消息
-      const aiMessage: AgentMessage = {
+      const aiMessage: ChatMessage = {
         id: aiMessageId,
-        sessionId,
         role: 'assistant',
-        content: aiResponse,
-        createdAt: new Date().toISOString(),
+        content: accumulatedContent,
+        timestamp: Date.now(),
       };
       messages.push(aiMessage);
-      mockMessages.set(sessionId, messages);
+      MOCK_MESSAGES.set(sessionId, messages);
       
-      onComplete();
-      return;
-    }
-
-    const token = localStorage.getItem('token');
-    const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:3000';
-
-    const response = await fetch(`${API_BASE_URL}/api${AGENT_ENDPOINT}/sessions/${sessionId}/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      const error = new Error(`HTTP ${response.status}`);
-      onError(error);
-      return;
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      onError(new Error('No response body'));
-      return;
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              onComplete();
-              return;
-            }
-            try {
-              const chunk = JSON.parse(data);
-              onChunk(chunk);
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
-      }
       onComplete();
     } catch (error) {
-      onError(error instanceof Error ? error : new Error('Stream error'));
+      onError(error as Error);
     }
-  }
+  },
 
-  private generateMockResponse(userMessage: string): string {
-    const responses = [
-      `感谢您的提问！关于"${userMessage.slice(0, 20)}..."，我来为您详细解答。\n\n首先，这是一个很好的问题。让我从几个方面来分析：\n\n1. **核心概念**：理解这个问题的关键在于把握其本质。\n\n2. **实践建议**：我建议您可以从以下几个方面入手...\n\n3. **注意事项**：在处理这个问题时，需要注意...\n\n希望我的回答对您有所帮助！如果您还有其他问题，欢迎继续提问。`,
-      
-      `您好！很高兴为您解答这个问题。\n\n根据您的问题，我的理解是：\n\n${userMessage.slice(0, 50)}...\n\n**我的建议如下：**\n\n- 第一点：这是非常重要的方面\n- 第二点：需要考虑的因素\n- 第三点：具体的实施步骤\n\n如果您需要更详细的解释，请随时告诉我！`,
-      
-      `这是一个非常有趣的话题！\n\n让我来分享一些见解：\n\n> "${userMessage.slice(0, 30)}..."\n\n针对这个问题，我认为可以从多个角度来看待。首先，我们需要理解背景和上下文。其次，分析关键因素和变量。最后，制定合理的策略和方案。\n\n**总结要点：**\n1. 理解问题本质\n2. 分析相关因素\n3. 制定解决方案\n4. 持续优化改进\n\n希望这些信息对您有价值！`,
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
+  // 删除会话
+  async deleteSession(sessionId: string): Promise<void> {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      MOCK_SESSIONS.delete(sessionId);
+      MOCK_MESSAGES.delete(sessionId);
+      return;
+    }
+    return apiClient.delete(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
+  },
 
-  async getAgentTools(agentId: string): Promise<AgentTool[]> {
-    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/tools`);
-  }
+  // 清空会话历史
+  async clearSessionHistory(sessionId: string): Promise<void> {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      MOCK_MESSAGES.set(sessionId, []);
+      return;
+    }
+    return apiClient.post(`${AGENT_ENDPOINT}/sessions/${sessionId}/clear`);
+  },
 
-  async addToolToAgent(
-    agentId: string,
-    request: AddToolRequest
-  ): Promise<AgentTool> {
-    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/tools`, request);
-  }
-
-  async getAgentSkills(agentId: string): Promise<AgentSkill[]> {
-    return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/skills`);
-  }
-
-  async addSkillToAgent(
-    agentId: string,
-    request: AddSkillRequest
-  ): Promise<AgentSkill> {
-    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/skills`, request);
-  }
-
-  async getAvailableTools(): Promise<AvailableTool[]> {
-    return apiClient.get(`${AGENT_ENDPOINT}/tools/available`);
-  }
-
-  async getAvailableSkills(): Promise<AvailableSkill[]> {
-    return apiClient.get(`${AGENT_ENDPOINT}/skills/available`);
-  }
-
-  async startAgent(agentId: string): Promise<{ runtimeId: string; status: string }> {
-    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/start`);
-  }
-
-  async stopAgent(agentId: string): Promise<{ status: string }> {
-    return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/stop`);
-  }
-
-  async resetAgent(agentId: string): Promise<{ status: string }> {
+  // 重置 Agent
+  async resetAgent(agentId: string): Promise<void> {
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      // 删除该 Agent 的所有会话
+      for (const [sessionId, session] of MOCK_SESSIONS.entries()) {
+        if (session.agentId === agentId) {
+          MOCK_SESSIONS.delete(sessionId);
+          MOCK_MESSAGES.delete(sessionId);
+        }
+      }
+      return;
+    }
     return apiClient.post(`${AGENT_ENDPOINT}/${agentId}/reset`);
-  }
+  },
 
   async getAgentStats(agentId: string): Promise<AgentStats> {
     if (IS_DEV) {
@@ -660,7 +761,7 @@ export class AgentService {
       };
     }
     return apiClient.get(`${AGENT_ENDPOINT}/${agentId}/stats`);
-  }
+  },
 
   async searchAgents(
     keyword: string,
@@ -668,68 +769,67 @@ export class AgentService {
     type?: AgentType,
     sortBy: 'popular' | 'newest' | 'rating' = 'popular'
   ): Promise<Agent[]> {
-    let agents = await this.getPublicAgents();
-
-    if (category && category !== AgentCategory.ALL) {
-      agents = agents.filter((agent) => {
-        const config = agent.config as any;
-        return config?.category === category;
-      });
-    }
-
-    if (type) {
-      agents = agents.filter((agent) => agent.type === type);
-    }
-
-    if (keyword) {
-      const lowerKeyword = keyword.toLowerCase();
-      agents = agents.filter(
-        (agent) =>
-          agent.name.toLowerCase().includes(lowerKeyword) ||
-          (agent.description?.toLowerCase().includes(lowerKeyword) ?? false)
-      );
-    }
-
-    switch (sortBy) {
-      case 'popular':
-        agents.sort((a, b) => {
-          const aCount = (a.config as any)?.usageCount || 0;
-          const bCount = (b.config as any)?.usageCount || 0;
-          return bCount - aCount;
-        });
-        break;
-      case 'newest':
-        agents.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    if (IS_DEV) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      let filtered = [...MOCK_AGENTS];
+      
+      // 关键词搜索
+      if (keyword) {
+        const lowerKeyword = keyword.toLowerCase();
+        filtered = filtered.filter(
+          agent =>
+            agent.name.toLowerCase().includes(lowerKeyword) ||
+            agent.description?.toLowerCase().includes(lowerKeyword) ||
+            agent.config.tags?.some(tag =>
+              tag.toLowerCase().includes(lowerKeyword)
+            )
         );
-        break;
-      case 'rating':
-        agents.sort((a, b) => {
-          const aRating = (a.config as any)?.rating || 0;
-          const bRating = (b.config as any)?.rating || 0;
-          return bRating - aRating;
-        });
-        break;
+      }
+      
+      // 分类筛选
+      if (category && category !== AgentCategory.ALL) {
+        filtered = filtered.filter(
+          agent => agent.config.category === category
+        );
+      }
+      
+      // 类型筛选
+      if (type) {
+        filtered = filtered.filter(agent => agent.type === type);
+      }
+      
+      // 排序
+      switch (sortBy) {
+        case 'popular':
+          filtered.sort(
+            (a, b) => (b.config.usageCount || 0) - (a.config.usageCount || 0)
+          );
+          break;
+        case 'newest':
+          filtered.sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          break;
+        case 'rating':
+          filtered.sort(
+            (a, b) => (b.config.rating || 0) - (a.config.rating || 0)
+          );
+          break;
+      }
+      
+      return filtered;
     }
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('keyword', keyword);
+    if (category) queryParams.append('category', category);
+    if (type) queryParams.append('type', type);
+    queryParams.append('sortBy', sortBy);
+    
+    return apiClient.get(`${AGENT_ENDPOINT}/search?${queryParams.toString()}`);
+  },
+};
 
-    return agents;
-  }
-
-  async getRecommendedAgents(limit: number = 6): Promise<Agent[]> {
-    const agents = await this.getPublicAgents();
-    return agents
-      .filter((agent) => {
-        const rating = (agent.config as any)?.rating || 0;
-        return rating >= 4.5;
-      })
-      .sort((a, b) => {
-        const aCount = (a.config as any)?.usageCount || 0;
-        const bCount = (b.config as any)?.usageCount || 0;
-        return bCount - aCount;
-      })
-      .slice(0, limit);
-  }
-}
-
-export const agentService = new AgentService();
+export default AgentService;
