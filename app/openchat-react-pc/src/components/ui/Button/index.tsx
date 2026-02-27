@@ -7,14 +7,21 @@
  * 3. 依赖倒置：依赖抽象类型定义
  */
 
-import React from 'react';
-import type { BaseComponentProps } from '../../../types/common';
+import React from "react";
+import type { BaseComponentProps } from "../../../types/common";
 
 // ==================== 类型定义 ====================
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-export type ButtonSize = 'small' | 'default' | 'large';
-export type ButtonShape = 'default' | 'circle' | 'round';
+export type ButtonVariant =
+  | "default"
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "danger"
+  | "destructive";
+export type ButtonSize = "default" | "small" | "large" | "sm" | "icon";
+export type ButtonShape = "default" | "circle" | "round";
 
 export interface ButtonProps extends BaseComponentProps {
   /** 按钮类型 */
@@ -32,11 +39,11 @@ export interface ButtonProps extends BaseComponentProps {
   /** 图标 */
   icon?: React.ReactNode;
   /** 图标位置 */
-  iconPosition?: 'left' | 'right';
+  iconPosition?: "left" | "right";
   /** 点击事件 */
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   /** 按钮类型 */
-  type?: 'button' | 'submit' | 'reset';
+  type?: "button" | "submit" | "reset";
   /** 原生title属性 */
   title?: string;
 }
@@ -44,23 +51,34 @@ export interface ButtonProps extends BaseComponentProps {
 // ==================== 样式映射 ====================
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-[var(--ai-primary)] text-white hover:bg-[var(--ai-primary-hover)] active:bg-[var(--ai-primary-dark)] shadow-[0_0_20px_rgba(14,165,233,0.3)] hover:shadow-[0_0_30px_rgba(14,165,233,0.5)]',
-  secondary: 'bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] hover:border-[var(--ai-primary-light)]',
-  outline: 'bg-transparent border border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--ai-primary)] hover:text-[var(--ai-primary)] hover:bg-[var(--ai-primary)]/5',
-  ghost: 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]',
-  danger: 'bg-[#EF4444] text-white hover:bg-[#DC2626] active:bg-[#B91C1C] shadow-[0_0_20px_rgba(239,68,68,0.3)]',
+  default:
+    "bg-primary text-white hover:bg-primary-hover hover:scale-105 hover:shadow-lg active:bg-primary-dark shadow-glow-primary hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]",
+  primary:
+    "bg-primary text-white hover:bg-primary-hover hover:scale-105 hover:shadow-lg active:bg-primary-dark shadow-glow-primary hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]",
+  secondary:
+    "bg-bg-secondary text-text-primary border border-border hover:bg-bg-tertiary hover:border-primary-light hover:scale-[1.02]",
+  outline:
+    "bg-transparent border border-border text-text-primary hover:border-primary hover:text-primary hover:bg-primary/5 hover:scale-[1.02]",
+  ghost:
+    "bg-transparent text-text-secondary hover:bg-bg-secondary hover:text-text-primary hover:scale-[1.02]",
+  danger:
+    "bg-error text-white hover:bg-red-600 hover:scale-105 hover:shadow-lg active:bg-red-700 shadow-glow-error hover:shadow-[0_0_30px_rgba(239,68,68,0.5)]",
+  destructive:
+    "bg-error text-white hover:bg-red-600 hover:scale-105 hover:shadow-lg active:bg-red-700 shadow-glow-error hover:shadow-[0_0_30px_rgba(239,68,68,0.5)]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  small: 'px-3 py-1.5 text-xs h-7',
-  default: 'px-4 py-2 text-sm h-9',
-  large: 'px-6 py-2.5 text-base h-11',
+  default: "px-4 py-2 text-sm h-9",
+  small: "px-3 py-1.5 text-xs h-7",
+  sm: "px-3 py-1.5 text-xs h-7",
+  large: "px-6 py-2.5 text-base h-11",
+  icon: "h-9 w-9 p-0",
 };
 
 const shapeStyles: Record<ButtonShape, string> = {
-  default: 'rounded-md',
-  circle: 'rounded-full w-9 h-9 p-0',
-  round: 'rounded-full',
+  default: "rounded-md",
+  circle: "rounded-full w-9 h-9 p-0",
+  round: "rounded-full",
 };
 
 // ==================== 组件实现 ====================
@@ -92,30 +110,30 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       children,
-      variant = 'primary',
-      size = 'default',
-      shape = 'default',
+      variant = "primary",
+      size = "default",
+      shape = "default",
       disabled = false,
       loading = false,
       block = false,
       icon,
-      iconPosition = 'left',
+      iconPosition = "left",
       onClick,
-      type = 'button',
+      type = "button",
       className,
       style,
       title,
     },
-    ref
+    ref,
   ) => {
     // 计算样式类名
     const classes = [
       // 基础样式
-      'inline-flex items-center justify-center font-medium transition-all duration-200',
-      'focus:outline-none focus:ring-2 focus:ring-[var(--ai-primary)]/30',
-      'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none',
+      "inline-flex items-center justify-center font-medium transition-all duration-200",
+      "focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2 focus:ring-offset-bg-primary",
+      "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none",
       // 微交互 - 点击缩放效果
-      'active:scale-[0.98] transform',
+      "active:scale-[0.98] active:brightness-90 transform",
       // 变体样式
       variantStyles[variant],
       // 尺寸样式
@@ -123,14 +141,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       // 形状样式
       shapeStyles[shape],
       // 块级样式
-      block ? 'w-full' : '',
+      block ? "w-full" : "",
       // 加载状态
-      loading ? 'cursor-wait' : '',
+      loading ? "cursor-wait" : "",
       // 自定义类名
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     // 处理点击事件
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -178,7 +196,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {loading && loadingIcon}
 
         {/* 左侧图标 */}
-        {!loading && icon && iconPosition === 'left' && (
+        {!loading && icon && iconPosition === "left" && (
           <span className="mr-2">{icon}</span>
         )}
 
@@ -186,14 +204,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {children}
 
         {/* 右侧图标 */}
-        {!loading && icon && iconPosition === 'right' && (
+        {!loading && icon && iconPosition === "right" && (
           <span className="ml-2">{icon}</span>
         )}
       </button>
     );
-  }
+  },
 );
 
-Button.displayName = 'Button';
+Button.displayName = "Button";
 
 export default Button;
