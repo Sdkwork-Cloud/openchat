@@ -6,11 +6,13 @@
 
 export interface Friend {
   id: string;
-  name: string;
-  avatar: string;
+  name?: string;
+  nickname?: string;
+  username?: string;
+  avatar?: string;
   status?: string;
   isOnline?: boolean;
-  initial: string;
+  initial?: string;
   region?: string;
   signature?: string;
   remark?: string; // 备注名
@@ -18,6 +20,7 @@ export interface Friend {
   email?: string;
   addTime?: string;
   lastContactTime?: string;
+  createdAt?: string;
 }
 
 export interface Group {
@@ -37,7 +40,7 @@ export interface FriendRequest {
   id: string;
   fromId: string;
   fromName: string;
-  fromAvatar: string;
+  fromAvatar?: string;
   toId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message?: string;

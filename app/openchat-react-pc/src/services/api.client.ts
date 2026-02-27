@@ -99,6 +99,20 @@ async function request<T = any>(
       return {} as T;
     }
 
+    // 检查响应内容类型
+    const contentType = response.headers.get('content-type');
+    
+    // 如果不是JSON响应，可能是HTML错误页面
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('API returned non-JSON response:', text.substring(0, 200));
+      throw new ApiError(
+        `服务器返回了非JSON数据 (HTTP ${response.status})，可能是后端服务未启动或API路径错误`,
+        response.status,
+        { rawResponse: text.substring(0, 500) }
+      );
+    }
+
     const data = await response.json();
 
     if (!response.ok) {

@@ -133,8 +133,13 @@ export function useServiceWorker() {
     if (!registrationRef.current) return false;
 
     try {
-      await registrationRef.current.sync.register(tag);
-      return true;
+      // @ts-ignore - sync may not be available in all browsers
+      if (registrationRef.current.sync) {
+        // @ts-ignore
+        await registrationRef.current.sync.register(tag);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('[SW] Sync registration failed:', error);
       return false;
@@ -147,7 +152,7 @@ export function useServiceWorker() {
   const postMessage = useCallback((message: unknown) => {
     if (!registrationRef.current?.active) return;
 
-    registrationRef.current.active.postMessage(message);
+    registrationRef.current.active?.postMessage(message);
   }, []);
 
   /**
@@ -163,10 +168,13 @@ export function useServiceWorker() {
         resolve(event.data?.version || null);
       };
 
-      registrationRef.current?.active.postMessage(
-        { type: 'GET_VERSION' },
-        [channel.port2]
-      );
+      const activeWorker = registrationRef.current?.active;
+      if (activeWorker) {
+        activeWorker.postMessage(
+          { type: 'GET_VERSION' },
+          [channel.port2]
+        );
+      }
     });
   }, []);
 

@@ -77,10 +77,10 @@ export function App() {
   // 加载中
   if (!isReady && !error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#0F172A]">
+      <div className="flex items-center justify-center h-screen bg-bg-primary">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 border-2 border-[#0EA5E9] border-t-transparent rounded-full animate-spin" />
-          <span className="text-[#94A3B8]">初始化中...</span>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-text-secondary">初始化中...</span>
         </div>
       </div>
     );
@@ -89,10 +89,10 @@ export function App() {
   // 初始化失败
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#0F172A]">
+      <div className="flex items-center justify-center h-screen bg-bg-primary">
         <div className="text-center">
-          <div className="text-[#EF4444] text-lg mb-2">初始化失败</div>
-          <div className="text-[#94A3B8] text-sm">{error.message}</div>
+          <div className="text-error text-lg mb-2">初始化失败</div>
+          <div className="text-text-secondary text-sm">{error.message}</div>
         </div>
       </div>
     );

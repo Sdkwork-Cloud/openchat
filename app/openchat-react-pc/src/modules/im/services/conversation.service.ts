@@ -19,7 +19,7 @@ import {
 } from '../adapters/sdk-adapter';
 
 export interface ConversationQueryParams {
-  type?: 'single' | 'group' | 'ai' | 'customer';
+  type?: 'single' | 'group' | 'ai' | 'customer' | 'user';
   keyword?: string;
   limit?: number;
 }
@@ -64,7 +64,8 @@ export async function getConversations(params?: ConversationQueryParams): Promis
  */
 export async function getConversation(conversationId: string): Promise<Conversation | null> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     const sdkConversation = await client.im.conversations.getConversation(conversationId);
 
     if (!sdkConversation) {
@@ -83,7 +84,8 @@ export async function getConversation(conversationId: string): Promise<Conversat
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     await client.im.conversations.deleteConversation(conversationId);
   } catch (error) {
     console.error('删除会话失败:', error);
@@ -99,7 +101,8 @@ export async function pinConversation(
   isPinned: boolean
 ): Promise<void> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     await client.im.conversations.pinConversation(conversationId, isPinned);
   } catch (error) {
     console.error('置顶会话失败:', error);
@@ -115,7 +118,8 @@ export async function muteConversation(
   isMuted: boolean
 ): Promise<void> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     await client.im.conversations.muteConversation(conversationId, isMuted);
   } catch (error) {
     console.error('设置免打扰失败:', error);
@@ -128,7 +132,8 @@ export async function muteConversation(
  */
 export async function markConversationAsRead(conversationId: string): Promise<void> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     await client.im.messages.markConversationAsRead(conversationId);
   } catch (error) {
     console.error('标记会话已读失败:', error);
@@ -144,7 +149,8 @@ export async function setConversationDraft(
   draft: string
 ): Promise<void> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     await client.im.conversations.setConversationDraft(conversationId, draft);
   } catch (error) {
     console.error('设置会话草稿失败:', error);

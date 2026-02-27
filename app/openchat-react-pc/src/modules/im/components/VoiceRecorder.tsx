@@ -158,7 +158,7 @@ export function VoiceRecorder({ isRecording, onStart, onStop, onCancel }: VoiceR
     return (
       <button
         onClick={startRecording}
-        className="p-2 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--ai-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+        className="p-2 rounded-lg text-text-tertiary hover:text-primary hover:bg-bg-hover transition-colors"
         title="语音消息"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,11 +169,11 @@ export function VoiceRecorder({ isRecording, onStart, onStop, onCancel }: VoiceR
   }
 
   return (
-    <div className="flex items-center space-x-3 px-4 py-2 bg-[var(--bg-tertiary)] rounded-lg">
+    <div className="flex items-center space-x-3 px-4 py-2 bg-bg-tertiary rounded-lg border border-border animate-in fade-in duration-200">
       {/* 取消按钮 */}
       <button
         onClick={cancelRecording}
-        className="p-2 rounded-full text-[var(--ai-error)] hover:bg-[var(--ai-error)]/10 transition-colors"
+        className="p-2 rounded-full text-error hover:bg-error/10 transition-colors"
         title="取消"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,12 +185,12 @@ export function VoiceRecorder({ isRecording, onStart, onStop, onCancel }: VoiceR
       <div className="flex items-center space-x-2">
         {/* 录制指示器 */}
         <div className="relative">
-          <div className="w-3 h-3 bg-[var(--ai-error)] rounded-full animate-pulse" />
-          <div className="absolute inset-0 w-3 h-3 bg-[var(--ai-error)] rounded-full animate-ping opacity-75" />
+          <div className="w-3 h-3 bg-error rounded-full animate-pulse" />
+          <div className="absolute inset-0 w-3 h-3 bg-error rounded-full animate-ping opacity-75" />
         </div>
 
         {/* 时长 */}
-        <span className="text-sm font-mono text-[var(--text-primary)] min-w-[50px]">
+        <span className="text-sm font-mono text-text-primary min-w-[50px] font-bold">
           {formatDuration(duration)}
         </span>
 
@@ -199,7 +199,7 @@ export function VoiceRecorder({ isRecording, onStart, onStop, onCancel }: VoiceR
           {Array.from({ length: 20 }).map((_, i) => (
             <div
               key={i}
-              className="w-1 bg-[var(--ai-primary)] rounded-full transition-all duration-100"
+              className="w-1 bg-primary rounded-full transition-all duration-100"
               style={{
                 height: `${Math.max(4, Math.min(24, (audioLevel / 255) * 24 * (0.5 + Math.random() * 0.5)))}px`,
               }}
@@ -211,7 +211,7 @@ export function VoiceRecorder({ isRecording, onStart, onStop, onCancel }: VoiceR
       {/* 完成按钮 */}
       <button
         onClick={stopRecording}
-        className="p-2 rounded-full text-[var(--ai-success)] hover:bg-[var(--ai-success)]/10 transition-colors"
+        className="p-2 rounded-full text-success hover:bg-success/10 transition-colors"
         title="完成"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

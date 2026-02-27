@@ -21,12 +21,12 @@ export const MessageList = memo(({ messages, isTyping: _isTyping }: MessageListP
   }, [messages]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5">
+    <div className="flex-1 overflow-y-auto px-6 py-5 scrollbar-thin scrollbar-thumb-border-medium hover:scrollbar-thumb-text-muted">
       {/* AI欢迎提示 */}
       <div className="flex items-center justify-center mb-6">
-        <div className="flex items-center space-x-2 px-4 py-2 bg-[var(--ai-primary-soft)] border border-[var(--ai-primary-medium)] rounded-full">
-          <div className="w-2 h-2 bg-[var(--ai-primary)] rounded-full animate-pulse"></div>
-          <span className="text-xs text-[var(--ai-primary)]">AI助手已连接</span>
+        <div className="flex items-center space-x-2 px-4 py-2 bg-primary-soft border border-primary-medium rounded-full backdrop-blur-sm">
+          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+          <span className="text-xs text-primary font-medium">AI助手已连接</span>
         </div>
       </div>
 

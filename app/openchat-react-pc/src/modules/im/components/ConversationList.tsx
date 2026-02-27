@@ -117,19 +117,19 @@ export const ConversationList = memo(({
   };
 
   return (
-    <div className="w-[300px] bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
+    <div className="w-[300px] bg-bg-secondary border-r border-border flex flex-col h-full backdrop-blur-md">
       {/* 搜索栏 + 加号菜单按钮 */}
-      <div className="p-4 border-b border-[var(--border-color)] flex-shrink-0">
+      <div className="p-4 border-b border-border flex-shrink-0">
         <div className="flex items-center space-x-2">
           {/* 搜索框 */}
-          <div className="relative flex-1">
+          <div className="relative flex-1 group">
             <input
               type="text"
               placeholder="搜索AI助手或对话..."
-              className="w-full h-10 pl-10 pr-4 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.15)] transition-all"
+              className="w-full h-10 pl-10 pr-4 bg-bg-tertiary border border-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
             <svg
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-primary transition-colors"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -143,10 +143,10 @@ export const ConversationList = memo(({
             <button
               ref={buttonRef}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 ${
+              className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 ${
                 isMenuOpen
-                  ? 'bg-[var(--ai-primary)] text-white rotate-45'
-                  : 'bg-[var(--ai-primary)] hover:bg-[var(--ai-primary-hover)] text-white shadow-[var(--shadow-glow)]'
+                  ? 'bg-primary text-white rotate-45 shadow-glow-primary'
+                  : 'bg-bg-tertiary text-text-primary hover:bg-bg-hover hover:text-primary border border-border hover:border-primary'
               }`}
               title="更多功能"
             >
@@ -159,21 +159,18 @@ export const ConversationList = memo(({
             {isMenuOpen && (
               <div
                 ref={menuRef}
-                className="absolute top-full right-0 mt-2 w-44 bg-[#2C2C2C] rounded-lg shadow-2xl py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-                style={{
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
-                }}
+                className="absolute top-full right-0 mt-2 w-44 bg-bg-elevated rounded-lg shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150 border border-border"
               >
                 {/* 小三角箭头 */}
-                <div className="absolute -top-1.5 right-3 w-3 h-3 bg-[#2C2C2C] rotate-45 rounded-sm" />
+                <div className="absolute -top-1.5 right-3 w-3 h-3 bg-bg-elevated border-t border-l border-border rotate-45 rounded-sm" />
 
                 {menuItems.map((item, index) => (
                   <button
                     key={item.id}
                     onClick={() => handleMenuClick(item.id)}
-                    className="relative w-full flex items-center px-4 py-3 text-white/90 hover:bg-white/10 transition-colors text-sm"
+                    className="relative w-full flex items-center px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors text-sm group"
                   >
-                    <span className="mr-3 text-white/70">{item.icon}</span>
+                    <span className="mr-3 text-text-tertiary group-hover:text-primary transition-colors">{item.icon}</span>
                     <span>{item.label}</span>
                   </button>
                 ))}
@@ -184,7 +181,7 @@ export const ConversationList = memo(({
       </div>
 
       {/* 会话列表 - 自适应高度 */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-border-medium hover:scrollbar-thumb-text-muted">
         {conversations.map((conversation) => (
           <ConversationItem
             key={conversation.id}

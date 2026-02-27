@@ -58,7 +58,8 @@ export function useWasm(): WasmState & {
 
     const loadWasm = async () => {
       // 检查是否支持 WebAssembly
-      if (!WebAssembly.supported) {
+      // @ts-ignore - WebAssembly.supported is not standard
+      if (typeof WebAssembly !== 'object' || !(WebAssembly as any).supported) {
         setState({
           isLoading: false,
           isReady: false,
@@ -72,6 +73,7 @@ export function useWasm(): WasmState & {
 
       try {
         // 动态导入 WASM 模块
+        // @ts-ignore - WASM module may not exist
         const wasmModule = await import('../../wasm/markdown-parser/pkg');
 
         if (!isMounted) return;

@@ -242,17 +242,17 @@ const DeviceDetailPage: React.FC = () => {
             description="该设备还没有消息记录"
           />
         ) : (
-          <DataTable
+          <DataTable<DeviceMessage>
             columns={[
               {
                 key: 'createdAt',
                 title: '时间',
-                render: (_, row: DeviceMessage) => row.createdAt.toLocaleString()
+                render: (_, row) => row.createdAt.toLocaleString()
               },
               {
                 key: 'type',
                 title: '类型',
-                render: (_, row: DeviceMessage) => {
+                render: (_, row) => {
                   switch (row.type) {
                     case DeviceMessageType.STATUS: return '状态';
                     case DeviceMessageType.COMMAND: return '命令';
@@ -264,19 +264,19 @@ const DeviceDetailPage: React.FC = () => {
               {
                 key: 'direction',
                 title: '方向',
-                render: (_, row: DeviceMessage) => {
+                render: (_, row) => {
                   return row.direction === 'from_device' ? '来自设备' : '发送到设备';
                 }
               },
               {
                 key: 'payload',
                 title: '内容',
-                render: (_, row: DeviceMessage) => JSON.stringify(row.payload)
+                render: (_, row) => JSON.stringify(row.payload)
               },
               {
                 key: 'processed',
                 title: '状态',
-                render: (_, row: DeviceMessage) => {
+                render: (_, row) => {
                   return row.processed ? '已处理' : '未处理';
                 }
               }
@@ -310,8 +310,8 @@ const DeviceDetailPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">命令参数 (JSON格式)</label>
-            <Input
-              type="textarea"
+            <textarea
+              className="w-full px-3 py-2 border rounded-md"
               rows={4}
               placeholder='{"volume": 50}'
               value={customParams}

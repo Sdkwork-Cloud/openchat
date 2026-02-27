@@ -11,6 +11,48 @@ export type { ButtonProps, ButtonVariant, ButtonSize, ButtonShape } from './Butt
 export { Input } from './Input';
 export type { InputProps, InputSize, InputVariant } from './Input';
 
+export { Card, CardHeader, CardTitle, CardContent } from './Card';
+export type { CardProps, CardHeaderProps, CardTitleProps, CardContentProps } from './Card';
+
+export { Badge } from './Badge';
+export type { BadgeProps, BadgeVariant } from './Badge';
+
+export { ScrollArea } from './ScrollArea';
+export type { ScrollAreaProps } from './ScrollArea';
+
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
+export type { TabsProps, TabsListProps, TabsTriggerProps, TabsContentProps } from './Tabs';
+
+export { Dialog, DialogContent, DialogHeader, DialogTitle } from './Dialog';
+export type { DialogProps, DialogContentProps, DialogHeaderProps, DialogTitleProps } from './Dialog';
+
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './Select';
+export type { SelectProps, SelectTriggerProps, SelectValueProps, SelectContentProps, SelectItemProps } from './Select';
+
+export { Avatar, AvatarImage, AvatarFallback } from './Avatar';
+export type { AvatarProps, AvatarImageProps, AvatarFallbackProps } from './Avatar';
+
+export { Separator } from './Separator';
+export type { SeparatorProps } from './Separator';
+
+export { Textarea } from './Textarea';
+export type { TextareaProps } from './Textarea';
+
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './DropdownMenu';
+export type { DropdownMenuProps, DropdownMenuTriggerProps, DropdownMenuContentProps, DropdownMenuItemProps } from './DropdownMenu';
+
+export { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from './Tooltip';
+export type { TooltipProps, TooltipProviderProps, TooltipTriggerProps, TooltipContentProps } from './Tooltip';
+
+export { Progress } from './Progress';
+export type { ProgressProps } from './Progress';
+
+export { Slider } from './Slider';
+export type { SliderProps } from './Slider';
+
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';
+
 export { DataTable } from './DataTable';
 export type { DataTableProps } from './DataTable';
 
@@ -29,22 +71,22 @@ export type {
   PageQuery,
   PageResult,
   PageResponse,
-  
+
   // 组件基础类型
   BaseComponentProps,
   BaseFormProps,
   BaseListProps,
-  
+
   // 事件类型
   PaginationChangeEvent,
   SortChangeEvent,
   FilterChangeEvent,
-  
+
   // 表格类型
   TableColumn,
   TableRowSelection,
   TablePagination,
-  
+
   // 业务类型
   UserBaseInfo,
   ConversationBaseInfo,

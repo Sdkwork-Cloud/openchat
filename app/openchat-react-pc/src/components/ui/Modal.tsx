@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full' | 'custom';
 export type ModalVariant = 'default' | 'centered' | 'right' | 'left';
@@ -147,22 +148,22 @@ export function Modal({
   const widthStyle = customWidth ? { width: customWidth } : undefined;
   const heightStyle = customHeight ? { height: customHeight } : undefined;
 
-  return (
+  const modalContent = (
     <div
-      className={`fixed inset-0 z-[1000] flex ${variantMap[variant]} ${showOverlay ? 'bg-black/80 backdrop-blur-sm' : ''} ${overlayClassName}`}
+      className={`fixed inset-0 z-[9999] flex ${variantMap[variant]} ${showOverlay ? 'bg-black/60 backdrop-blur-md' : ''} ${overlayClassName} animate-in fade-in duration-300`}
       onClick={handleOverlayClick}
     >
       <div
         ref={modalRef}
         tabIndex={-1}
         className={`
-          bg-[var(--bg-secondary)] 
-          rounded-xl 
+          bg-bg-secondary
+          rounded-2xl
           shadow-2xl 
           overflow-hidden 
           flex flex-col
-          border border-[var(--border-color)]
-          animate-in fade-in zoom-in-95 duration-200
+          border border-border
+          animate-in fade-in zoom-in-95 duration-300
           ${sizeClass}
           ${className}
         `}
@@ -174,25 +175,25 @@ export function Modal({
             className={`
               flex items-center justify-between 
               px-6 py-5 
-              border-b border-[var(--border-color)] 
+              border-b border-border
               flex-shrink-0 
-              bg-[var(--bg-secondary)]
+              bg-bg-secondary/50 backdrop-blur-sm
               ${headerClassName}
             `}
           >
             {title && (
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+              <h2 className="text-lg font-bold text-text-primary tracking-tight">
                 {title}
               </h2>
             )}
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--bg-hover)] transition-colors ml-auto"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-bg-hover text-text-tertiary hover:text-text-primary transition-all duration-200 ml-auto"
                 aria-label="关闭"
               >
                 <svg
-                  className="w-5 h-5 text-[var(--text-tertiary)]"
+                  className="w-5 h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -219,9 +220,9 @@ export function Modal({
           <div
             className={`
               px-6 py-4 
-              border-t border-[var(--border-color)] 
+              border-t border-border
               flex-shrink-0 
-              bg-[var(--bg-secondary)]
+              bg-bg-secondary/80 backdrop-blur-sm
               ${footerClassName}
             `}
           >
@@ -231,6 +232,8 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 // 预设的 Modal 变体组件
@@ -246,9 +249,9 @@ export function ModalHeader({
       className={`
         flex items-center justify-between 
         px-6 py-5 
-        border-b border-[var(--border-color)] 
+        border-b border-border
         flex-shrink-0 
-        bg-[var(--bg-secondary)]
+        bg-bg-secondary
         ${className}
       `}
     >
@@ -270,7 +273,7 @@ export function ModalBody({
     <div
       className={`
         flex-1 
-        ${scrollable ? 'overflow-y-auto' : 'overflow-hidden'}
+        ${scrollable ? 'overflow-y-auto scrollbar-thin scrollbar-thumb-border-medium' : 'overflow-hidden'}
         ${className}
       `}
     >
@@ -298,9 +301,9 @@ export function ModalFooter({
     <div
       className={`
         px-6 py-4 
-        border-t border-[var(--border-color)] 
+        border-t border-border
         flex-shrink-0 
-        bg-[var(--bg-secondary)]
+        bg-bg-secondary
         flex items-center ${alignClass}
         ${className}
       `}
@@ -335,9 +338,9 @@ export function ModalButtonGroup({
   children?: React.ReactNode;
 }) {
   const variantClass = {
-    primary: 'bg-[var(--ai-primary)] hover:bg-[var(--ai-primary-hover)]',
-    success: 'bg-[var(--ai-success)] hover:bg-[#16A34A]',
-    danger: 'bg-[var(--ai-error)] hover:bg-[#DC2626]',
+    primary: 'bg-primary hover:bg-primary-hover shadow-glow-primary',
+    success: 'bg-success hover:bg-green-600 shadow-glow-success',
+    danger: 'bg-error hover:bg-red-600 shadow-glow-error',
   }[confirmVariant];
 
   return (
@@ -347,7 +350,7 @@ export function ModalButtonGroup({
         <button
           onClick={onCancel}
           disabled={isLoading}
-          className="px-5 py-2.5 text-[15px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors disabled:opacity-50"
+          className="px-5 py-2 text-[14px] text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-xl transition-all duration-200 disabled:opacity-50 border border-border"
         >
           {cancelText}
         </button>
@@ -357,10 +360,11 @@ export function ModalButtonGroup({
           onClick={onConfirm}
           disabled={isLoading || disabled}
           className={`
-            px-5 py-2.5 text-[15px] text-white 
-            rounded-lg transition-colors 
+            px-6 py-2 text-[14px] text-white 
+            rounded-xl transition-all duration-300 
             flex items-center font-medium
             disabled:opacity-50 disabled:cursor-not-allowed
+            active:scale-95 transform
             ${variantClass}
           `}
         >

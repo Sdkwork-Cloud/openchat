@@ -36,7 +36,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
       if (inline) {
         return (
           <code
-            className="px-1.5 py-0.5 bg-[rgba(0,212,170,0.1)] text-[#00D4AA] rounded text-sm font-mono"
+            className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-sm font-mono"
             {...props}
           >
             {children}
@@ -45,15 +45,15 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
       }
 
       return (
-        <div className="my-3 rounded-xl overflow-hidden border border-[rgba(255,255,255,0.1)]">
+        <div className="my-3 rounded-xl overflow-hidden border border-white/10 shadow-sm">
           {/* 代码块头部 */}
-          <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a2e]">
+          <div className="flex items-center justify-between px-4 py-2 bg-bg-secondary border-b border-white/5">
             <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
-              <div className="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
-              <div className="w-3 h-3 rounded-full bg-[#27c93f]"></div>
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <span className="text-xs text-[#6B7280] uppercase">{language}</span>
+            <span className="text-xs text-text-muted uppercase font-medium tracking-wider">{language}</span>
           </div>
           {/* 代码内容 */}
           <SyntaxHighlighter
@@ -62,7 +62,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
             customStyle={{
               margin: 0,
               padding: '16px',
-              background: '#0d1117',
+              background: '#0d1117', // Keep code background dark for contrast
               fontSize: '13px',
               lineHeight: '1.6',
             }}
@@ -82,29 +82,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
 
     // 段落
     p({ children }: any) {
-      return <p className="mb-3 leading-relaxed text-[#E5E7EB]">{children}</p>;
+      return <p className="mb-3 leading-relaxed text-text-secondary last:mb-0">{children}</p>;
     },
 
     // 标题
     h1({ children }: any) {
-      return <h1 className="text-2xl font-bold mb-4 text-[#F9FAFB] mt-6">{children}</h1>;
+      return <h1 className="text-2xl font-bold mb-4 text-text-primary mt-6 border-b border-border pb-2">{children}</h1>;
     },
     h2({ children }: any) {
-      return <h2 className="text-xl font-bold mb-3 text-[#F9FAFB] mt-5">{children}</h2>;
+      return <h2 className="text-xl font-bold mb-3 text-text-primary mt-5">{children}</h2>;
     },
     h3({ children }: any) {
-      return <h3 className="text-lg font-semibold mb-2 text-[#F9FAFB] mt-4">{children}</h3>;
+      return <h3 className="text-lg font-semibold mb-2 text-text-primary mt-4">{children}</h3>;
     },
     h4({ children }: any) {
-      return <h4 className="text-base font-semibold mb-2 text-[#F9FAFB] mt-3">{children}</h4>;
+      return <h4 className="text-base font-semibold mb-2 text-text-primary mt-3">{children}</h4>;
     },
 
     // 列表
     ul({ children }: any) {
-      return <ul className="mb-3 pl-5 space-y-1 list-disc text-[#E5E7EB]">{children}</ul>;
+      return <ul className="mb-3 pl-5 space-y-1 list-disc text-text-secondary marker:text-text-muted">{children}</ul>;
     },
     ol({ children }: any) {
-      return <ol className="mb-3 pl-5 space-y-1 list-decimal text-[#E5E7EB]">{children}</ol>;
+      return <ol className="mb-3 pl-5 space-y-1 list-decimal text-text-secondary marker:text-text-muted">{children}</ol>;
     },
     li({ children }: any) {
       return <li className="leading-relaxed">{children}</li>;
@@ -113,7 +113,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
     // 引用
     blockquote({ children }: any) {
       return (
-        <blockquote className="mb-3 pl-4 border-l-4 border-[#00D4AA] bg-[rgba(0,212,170,0.05)] py-2 px-3 rounded-r-lg text-[#9CA3AF]">
+        <blockquote className="mb-3 pl-4 border-l-4 border-primary bg-primary/5 py-2 px-3 rounded-r-lg text-text-tertiary italic">
           {children}
         </blockquote>
       );
@@ -126,7 +126,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#00D4AA] hover:text-[#00E4BA] hover:underline transition-colors"
+          className="text-primary hover:text-primary-hover hover:underline transition-colors decoration-primary/30 underline-offset-2"
         >
           {children}
         </a>
@@ -135,21 +135,21 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
 
     // 强调
     strong({ children }: any) {
-      return <strong className="font-semibold text-[#F9FAFB]">{children}</strong>;
+      return <strong className="font-bold text-text-primary">{children}</strong>;
     },
     em({ children }: any) {
-      return <em className="italic text-[#E5E7EB]">{children}</em>;
+      return <em className="italic text-text-secondary">{children}</em>;
     },
 
     // 删除线
     del({ children }: any) {
-      return <del className="line-through text-[#6B7280]">{children}</del>;
+      return <del className="line-through text-text-muted">{children}</del>;
     },
 
     // 表格
     table({ children }: any) {
       return (
-        <div className="overflow-x-auto mb-3">
+        <div className="overflow-x-auto mb-3 rounded-lg border border-border">
           <table className="w-full border-collapse text-sm">
             {children}
           </table>
@@ -157,24 +157,24 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
       );
     },
     thead({ children }: any) {
-      return <thead className="bg-[#1F2937]">{children}</thead>;
+      return <thead className="bg-bg-tertiary">{children}</thead>;
     },
     tbody({ children }: any) {
-      return <tbody>{children}</tbody>;
+      return <tbody className="divide-y divide-border">{children}</tbody>;
     },
     tr({ children }: any) {
-      return <tr className="border-b border-[rgba(255,255,255,0.05)]">{children}</tr>;
+      return <tr className="border-b border-border last:border-0 hover:bg-bg-hover/50 transition-colors">{children}</tr>;
     },
     th({ children }: any) {
-      return <th className="px-4 py-2 text-left font-semibold text-[#F9FAFB]">{children}</th>;
+      return <th className="px-4 py-2 text-left font-semibold text-text-primary">{children}</th>;
     },
     td({ children }: any) {
-      return <td className="px-4 py-2 text-[#E5E7EB]">{children}</td>;
+      return <td className="px-4 py-2 text-text-secondary">{children}</td>;
     },
 
     // 水平线
     hr() {
-      return <hr className="my-4 border-[rgba(255,255,255,0.1)]" />;
+      return <hr className="my-6 border-border" />;
     },
 
     // 图片
@@ -183,7 +183,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
         <img
           src={src}
           alt={alt}
-          className="max-w-full rounded-lg border border-[rgba(255,255,255,0.1)] my-3"
+          className="max-w-full rounded-lg border border-border my-3 shadow-sm hover:shadow-md transition-shadow"
           loading="lazy"
         />
       );

@@ -15,9 +15,9 @@ interface CallModalProps {
   session: CallSession | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
-  onAccept: () => Promise<void>;
-  onReject: () => Promise<void>;
-  onHangup: () => Promise<void>;
+  onAccept: () => Promise<void> | Promise<boolean>;
+  onReject: () => Promise<void> | Promise<boolean>;
+  onHangup: () => Promise<void> | Promise<boolean>;
   onToggleMute: () => Promise<void>;
   onToggleCamera: () => Promise<void>;
   onToggleSpeaker: () => Promise<void>;

@@ -44,7 +44,7 @@ const scheduler = {
       return requestIdleCallback(callback, options);
     }
     // 降级到 setTimeout
-    return window.setTimeout(() => {
+    return (window as any).setTimeout(() => {
       callback({
         didTimeout: false,
         timeRemaining: () => 50,

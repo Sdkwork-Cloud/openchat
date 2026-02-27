@@ -139,7 +139,9 @@ export function useCachedMarkdownWorker() {
         // LRU 清理：最多缓存 100 条
         if (cacheRef.current.size > 100) {
           const firstKey = cacheRef.current.keys().next().value;
-          cacheRef.current.delete(firstKey);
+          if (firstKey) {
+            cacheRef.current.delete(firstKey);
+          }
         }
       }
 

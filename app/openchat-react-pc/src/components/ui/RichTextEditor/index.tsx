@@ -154,15 +154,15 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
     return (
       <div
-        className={`relative w-full bg-[#1F2937] border rounded-xl transition-all duration-200 ${
+        className={`relative w-full bg-bg-tertiary border rounded-2xl transition-all duration-300 ${
           isFocused
-            ? 'border-[#00D4AA] shadow-[0_0_0_3px_rgba(0,212,170,0.1)]'
-            : 'border-[rgba(255,255,255,0.08)]'
+            ? 'border-primary ring-2 ring-primary/20 shadow-glow-primary'
+            : 'border-border'
         } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         style={{ minHeight, maxHeight }}
       >
         {/* 工具栏 */}
-        <div className="flex items-center px-3 py-2 border-b border-[rgba(255,255,255,0.05)]">
+        <div className="flex items-center px-3 py-2 border-b border-border bg-bg-secondary/50 backdrop-blur-sm rounded-t-2xl">
           <div className="flex items-center space-x-1">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
@@ -231,10 +231,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         </div>
 
         {/* 编辑器内容 */}
-        <div className="overflow-y-auto" style={{ maxHeight: maxHeight - 45 }}>
+        <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-border-medium hover:scrollbar-thumb-text-muted" style={{ maxHeight: maxHeight - 45 }}>
           <EditorContent
             editor={editor}
-            className="px-4 py-3 text-sm text-[#F9FAFB]"
+            className="px-4 py-3 text-sm text-text-primary font-medium leading-relaxed"
           />
         </div>
       </div>
@@ -259,10 +259,10 @@ function ToolbarButton({ onClick, isActive, children, title }: ToolbarButtonProp
     <button
       onClick={onClick}
       title={title}
-      className={`p-1.5 rounded-lg transition-all ${
+      className={`p-1.5 rounded-lg transition-all duration-200 ${
         isActive
-          ? 'text-[#00D4AA] bg-[rgba(0,212,170,0.15)]'
-          : 'text-[#6B7280] hover:text-[#00D4AA] hover:bg-[rgba(255,255,255,0.05)]'
+          ? 'text-primary bg-primary-soft shadow-sm scale-110'
+          : 'text-text-tertiary hover:text-primary hover:bg-bg-hover'
       }`}
     >
       {children}

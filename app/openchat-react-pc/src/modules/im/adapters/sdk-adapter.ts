@@ -58,9 +58,10 @@ let stateChangeCallbacks: Array<(state: SDKState) => void> = [];
 
 /**
  * 获取SDK客户端实例（单例模式）
+ * @param throwIfNotInitialized 如果为true且SDK未初始化，则抛出错误；否则返回null
  */
-export function getSDKClient(): OpenChatClient {
-  if (!sdkClient) {
+export function getSDKClient(throwIfNotInitialized: boolean = true): OpenChatClient | null {
+  if (!sdkClient && throwIfNotInitialized) {
     throw new Error('SDK client not initialized. Call initializeSDK first.');
   }
   return sdkClient;
@@ -198,11 +199,11 @@ export function convertSDKMessageToFrontend(sdkMessage: SDKMessage): Message {
   return {
     id: sdkMessage.id,
     conversationId: sdkMessage.channelId || '',
-    senderId: sdkMessage.fromUid,
-    senderName: sdkMessage.fromUid, // 需要通过user服务获取真实名称
+    senderId: sdkMessage.fromUid || '',
+    senderName: sdkMessage.fromUid || '', // 需要通过user服务获取真实名称
     senderAvatar: '', // 需要通过user服务获取头像
     content,
-    time: new Date(sdkMessage.timestamp).toISOString(),
+    time: sdkMessage.timestamp ? new Date(sdkMessage.timestamp).toISOString() : new Date().toISOString(),
     status: convertMessageStatus(sdkMessage.status),
   };
 }
@@ -316,26 +317,18 @@ export function convertFrontendContentToSDK(content: any): any {
 
     case 'file':
       return ResourceBuilder.file(content.url, content.fileName, {
-        size: content.fileSize?.toString(),
-      });
+        size: content.fileSize,
+      } as any);
 
     case 'location':
-      return ResourceBuilder.location(
-        content.location.latitude.toString(),
-        content.location.longitude.toString(),
-        {
-          name: content.location.name,
-          address: content.location.address,
-        }
-      );
+      // TODO: SDK暂不支持location类型
+      console.warn('Location message type not supported by SDK');
+      return ResourceBuilder.text(`[位置] ${content.location?.name || ''}`);
 
     case 'card':
-      return ResourceBuilder.card(content.cardType || 'user', {
-        title: content.card?.title,
-        description: content.card?.description,
-        imageUrl: content.card?.image,
-        linkUrl: content.card?.url,
-      });
+      // TODO: SDK暂不支持card类型
+      console.warn('Card message type not supported by SDK');
+      return ResourceBuilder.text(`[卡片] ${content.card?.title || ''}`);
 
     default:
       throw new Error(`Unsupported message type: ${content.type}`);
@@ -497,7 +490,13 @@ export function registerSDKEvents(callbacks: {
   onDisconnected?: () => void;
   onError?: (error: any) => void;
 }): () => void {
-  const client = getSDKClient();
+  // 检查SDK是否已初始化
+  if (!sdkClient) {
+    console.warn('SDK not initialized, skipping event registration');
+    return () => {}; // 返回空函数作为unsubscribe
+  }
+  
+  const client = sdkClient;
 
   const handlers: Array<{ event: OpenChatEvent; handler: any }> = [];
 
@@ -550,7 +549,8 @@ export async function sendTextMessage(
   text: string,
   isGroup: boolean = false
 ): Promise<Message> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   const params = isGroup
     ? { groupId: conversationId, text }
@@ -569,13 +569,14 @@ export async function sendImageMessage(
   options?: { width?: number; height?: number; fileSize?: number },
   isGroup: boolean = false
 ): Promise<Message> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   const resource = ResourceBuilder.image(imageUrl, {
-    width: options?.width?.toString(),
-    height: options?.height?.toString(),
-    size: options?.fileSize?.toString(),
-  });
+    width: options?.width,
+    height: options?.height,
+    size: options?.fileSize,
+  } as any);
 
   const params = isGroup
     ? { groupId: conversationId, resource }
@@ -592,7 +593,8 @@ export async function getMessageList(
   conversationId: string,
   options?: { beforeMessageId?: string; limit?: number }
 ): Promise<Message[]> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   const sdkMessages = await client.im.messages.getMessageList(conversationId, {
     startMessageId: options?.beforeMessageId,
@@ -606,9 +608,12 @@ export async function getMessageList(
  * 获取会话列表
  */
 export async function getConversationList(): Promise<Conversation[]> {
-  const client = getSDKClient();
+  if (!sdkClient) {
+    console.warn('SDK not initialized, returning empty conversation list');
+    return [];
+  }
 
-  const sdkConversations = await client.im.conversations.getConversationList();
+  const sdkConversations = await sdkClient.im.conversations.getConversationList();
   return sdkConversations.map(convertSDKConversationToFrontend);
 }
 
@@ -616,7 +621,8 @@ export async function getConversationList(): Promise<Conversation[]> {
  * 撤回消息
  */
 export async function recallMessage(messageId: string): Promise<boolean> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   return client.im.messages.recallMessage(messageId);
 }
 
@@ -624,7 +630,8 @@ export async function recallMessage(messageId: string): Promise<boolean> {
  * 删除消息
  */
 export async function deleteMessage(messageId: string): Promise<boolean> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   return client.im.messages.deleteMessage(messageId);
 }
 
@@ -632,7 +639,8 @@ export async function deleteMessage(messageId: string): Promise<boolean> {
  * 标记消息已读
  */
 export async function markMessageAsRead(messageId: string): Promise<void> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   return client.im.messages.markMessageAsRead(messageId);
 }
 
@@ -640,7 +648,8 @@ export async function markMessageAsRead(messageId: string): Promise<void> {
  * 标记会话已读
  */
 export async function markConversationAsRead(conversationId: string): Promise<void> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   return client.im.messages.markConversationAsRead(conversationId);
 }
 
@@ -651,7 +660,8 @@ export async function searchMessageList(
   conversationId: string,
   keyword: string
 ): Promise<Message[]> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   const sdkMessages = await client.im.messages.searchMessages(keyword, conversationId);
   return sdkMessages.map(convertSDKMessageToFrontend);
@@ -661,7 +671,8 @@ export async function searchMessageList(
  * 获取群组列表
  */
 export async function getGroupList(): Promise<Group[]> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   const sdkGroups = await client.im.groups.getMyGroups();
   return sdkGroups.map(convertSDKGroupToFrontend);
@@ -671,7 +682,8 @@ export async function getGroupList(): Promise<Group[]> {
  * 获取群组详情
  */
 export async function getGroupDetail(groupId: string): Promise<Group | null> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   try {
     const sdkGroup = await client.im.groups.getGroup(groupId);
@@ -689,7 +701,8 @@ export async function createGroup(
   memberIds: string[],
   options?: { description?: string; avatar?: string }
 ): Promise<Group> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   const sdkGroup = await client.im.groups.createGroup(name, memberIds, {
     avatar: options?.avatar,
@@ -703,7 +716,8 @@ export async function createGroup(
  * 添加群成员
  */
 export async function addGroupMembers(groupId: string, memberIds: string[]): Promise<void> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
 
   for (const memberId of memberIds) {
     await client.im.groups.addGroupMember(groupId, memberId);
@@ -714,7 +728,8 @@ export async function addGroupMembers(groupId: string, memberIds: string[]): Pro
  * 移除群成员
  */
 export async function removeGroupMember(groupId: string, memberId: string): Promise<void> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   await client.im.groups.removeGroupMember(groupId, memberId);
 }
 
@@ -722,7 +737,8 @@ export async function removeGroupMember(groupId: string, memberId: string): Prom
  * 退出群组
  */
 export async function quitGroup(groupId: string): Promise<void> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   await client.im.groups.quitGroup(groupId);
 }
 
@@ -730,7 +746,8 @@ export async function quitGroup(groupId: string): Promise<void> {
  * 解散群组
  */
 export async function dissolveGroup(groupId: string): Promise<void> {
-  const client = getSDKClient();
+  const client = getSDKClient(false);
+  if (!client) throw new Error('SDK not initialized');
   await client.im.groups.dissolveGroup(groupId);
 }
 

@@ -55,10 +55,15 @@ export function usePerformanceMonitor(reporter?: PerformanceReporter) {
       reportMetrics();
     });
 
-    onFID((metric: Metric) => {
-      metricsRef.current.fid = metric.value;
-      reportMetrics();
-    });
+    // onFID is deprecated in web-vitals v4, using INP instead
+    // @ts-ignore - for backwards compatibility
+    if (typeof onFID === 'function') {
+      // @ts-ignore
+      onFID((metric: Metric) => {
+        metricsRef.current.fid = metric.value;
+        reportMetrics();
+      });
+    }
 
     onLCP((metric: Metric) => {
       metricsRef.current.lcp = metric.value;

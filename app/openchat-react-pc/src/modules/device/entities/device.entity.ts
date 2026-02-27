@@ -58,7 +58,7 @@ export interface Device {
 /**
  * 设备消息接口
  */
-export interface DeviceMessage {
+export interface DeviceMessage extends Record<string, unknown> {
   id: string;                  // 消息唯一标识
   deviceId: string;             // 设备ID
   type: DeviceMessageType;       // 消息类型

@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../../lib/utils";
 
 export interface DialogProps {
@@ -14,15 +15,17 @@ export const Dialog: React.FC<DialogProps> = ({
 }) => {
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+  const dialogContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center animate-fade-in">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={() => onOpenChange?.(false)}
       />
-      <div className="relative z-50 animate-scale-in">{children}</div>
+      <div className="relative z-[10000] animate-scale-in">{children}</div>
     </div>
   );
+
+  return createPortal(dialogContent, document.body);
 };
 
 export interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {

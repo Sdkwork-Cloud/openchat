@@ -57,14 +57,14 @@ export function ContactsPage() {
 
     await initiateCall(
       selectedFriend.id,
-      selectedFriend.name,
-      selectedFriend.avatar,
+      selectedFriend.name || selectedFriend.nickname || '未知',
+      selectedFriend.avatar || '',
       callType
     );
   };
 
   return (
-    <>
+    <div className="h-full w-full flex bg-bg-primary overflow-hidden">
       {/* 左侧列表 */}
       <ContactSidebar
         friends={friends}
@@ -80,11 +80,13 @@ export function ContactsPage() {
       />
 
       {/* 右侧详情区域 */}
-      <ContactDetail
-        friend={selectedFriend}
-        group={selectedGroup}
-        onCall={selectedFriend ? handleCall : undefined}
-      />
+      <div className="flex-1 flex min-w-0">
+        <ContactDetail
+          friend={selectedFriend}
+          group={selectedGroup}
+          onCall={selectedFriend ? handleCall : undefined}
+        />
+      </div>
 
       {/* 通话弹窗 */}
       {isInCall && (
@@ -100,7 +102,7 @@ export function ContactsPage() {
           onToggleSpeaker={toggleSpeaker}
         />
       )}
-    </>
+    </div>
   );
 }
 

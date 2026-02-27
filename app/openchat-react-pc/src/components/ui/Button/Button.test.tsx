@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { Button } from './index';
 
 describe('Button', () => {
@@ -47,10 +48,10 @@ describe('Button', () => {
     const { rerender } = render(<Button size="sm">Small</Button>);
     expect(screen.getByText('Small')).toHaveClass('px-3', 'py-1.5', 'text-xs');
 
-    rerender(<Button size="md">Medium</Button>);
+    rerender(<Button size="default">Medium</Button>);
     expect(screen.getByText('Medium')).toHaveClass('px-4', 'py-2', 'text-sm');
 
-    rerender(<Button size="lg">Large</Button>);
+    rerender(<Button size="large">Large</Button>);
     expect(screen.getByText('Large')).toHaveClass('px-6', 'py-2.5', 'text-base');
   });
 

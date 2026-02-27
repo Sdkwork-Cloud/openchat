@@ -128,7 +128,7 @@ export function SkillMarketPage() {
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : skills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-text-muted">
+          <div className="flex flex-col items-center justify-center h-40 text-text-muted page-enter">
             <svg
               className="w-12 h-12 mb-3"
               fill="none"
@@ -146,14 +146,19 @@ export function SkillMarketPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {skills.map((skill) => (
-              <SkillCard
+            {skills.map((skill, index) => (
+              <div
                 key={skill.id}
-                skill={skill}
-                onEnable={handleEnable}
-                onDisable={handleDisable}
-                onClick={() => navigate(`/skills/${skill.id}`)}
-              />
+                className="stagger-item"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <SkillCard
+                  skill={skill}
+                  onEnable={handleEnable}
+                  onDisable={handleDisable}
+                  onClick={() => navigate(`/skills/${skill.id}`)}
+                />
+              </div>
             ))}
           </div>
         )}

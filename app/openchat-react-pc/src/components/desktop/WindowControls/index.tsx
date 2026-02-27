@@ -94,7 +94,7 @@ export const WindowControls = memo(({
     <div
       className={`
         z-[9999]
-        ${showTitleBar ? 'fixed top-0 right-0 h-10 w-full flex items-center' : 'flex items-center'}
+        ${showTitleBar ? 'fixed top-0 right-0 h-10 w-full flex items-center bg-bg-secondary/80 backdrop-blur-sm border-b border-border' : 'flex items-center'}
         ${className}
       `}
       data-tauri-drag-region={showTitleBar ? true : undefined}
@@ -107,7 +107,7 @@ export const WindowControls = memo(({
           data-tauri-drag-region
         >
           {title && (
-            <span className="text-sm text-[#94A3B8] font-medium select-none">
+            <span className="text-sm text-text-secondary font-medium select-none">
               {title}
             </span>
           )}

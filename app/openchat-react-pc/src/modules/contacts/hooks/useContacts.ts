@@ -126,7 +126,7 @@ export function useContacts(): UseContactsReturn {
     }
 
     return filtered.reduce((acc, friend) => {
-      const initial = friend.initial;
+      const initial = friend.initial || '#';
       if (!acc[initial]) {
         acc[initial] = [];
       }

@@ -83,7 +83,8 @@ class MessageQueue {
     content: MessageContent,
     isGroup: boolean
   ): Promise<Message> {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     const sdkContent = convertFrontendContentToSDK(content);
 
     const sendParams = isGroup
@@ -319,7 +320,8 @@ export async function markMessagesAsRead(
       }
     } else {
       // 标记整个会话为已读
-      const client = getSDKClient();
+      const client = getSDKClient(false);
+      if (!client) throw new Error('SDK not initialized');
       await client.im.messages.markConversationAsRead(conversationId);
     }
   } catch (error) {
@@ -334,7 +336,8 @@ export async function markMessagesAsRead(
  */
 export async function getUnreadCount(conversationId: string): Promise<number> {
   try {
-    const client = getSDKClient();
+    const client = getSDKClient(false);
+    if (!client) throw new Error('SDK not initialized');
     const conversation = await client.im.conversations.getConversation(conversationId);
 
     return conversation?.unreadCount || 0;

@@ -81,13 +81,13 @@ export function NewNoteModal({ isOpen, onClose, onSuccess }: NewNoteModalProps) 
       bodyClassName="p-0"
       footer={
         <div className="flex items-center justify-between w-full">
-          <div className="text-sm text-[var(--text-muted)]">
+          <div className="text-sm font-medium">
             {saveSuccess && (
-              <span className="text-[var(--ai-success)] flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="text-success flex items-center animate-in fade-in slide-in-from-left-2 duration-300">
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                保存成功
+                笔记已成功保存
               </span>
             )}
           </div>
@@ -102,75 +102,76 @@ export function NewNoteModal({ isOpen, onClose, onSuccess }: NewNoteModalProps) 
         </div>
       }
     >
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-[500px]">
         {/* 编辑/预览切换 */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
-          <div className="flex bg-[var(--bg-tertiary)] rounded-md p-0.5">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-bg-secondary/50 backdrop-blur-sm">
+          <div className="flex bg-bg-tertiary rounded-xl p-1 shadow-inner border border-border/50">
             <button
               onClick={() => setActiveTab('edit')}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+              className={`px-5 py-1.5 text-xs font-bold rounded-lg transition-all duration-300 ${
                 activeTab === 'edit'
-                  ? 'bg-[var(--ai-primary)] text-white'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+                  : 'text-text-tertiary hover:text-text-primary'
               }`}
             >
               编辑
             </button>
             <button
               onClick={() => setActiveTab('preview')}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+              className={`px-5 py-1.5 text-xs font-bold rounded-lg transition-all duration-300 ${
                 activeTab === 'preview'
-                  ? 'bg-[var(--ai-primary)] text-white'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+                  : 'text-text-tertiary hover:text-text-primary'
               }`}
             >
               预览
             </button>
           </div>
-          <span className="text-xs text-[var(--text-muted)]">
-            {content.length} 字符
-          </span>
+          <div className="flex items-center space-x-3 text-[11px] font-bold text-text-muted uppercase tracking-wider">
+            <span>{content.length} 字符</span>
+            <span className="w-1 h-1 bg-border rounded-full" />
+            <span>Markdown 支持</span>
+          </div>
         </div>
 
         {/* 内容区域 */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden bg-bg-primary/30">
           {activeTab === 'edit' ? (
-            <div className="flex flex-col h-full p-5 space-y-4">
+            <div className="flex flex-col h-full p-6 space-y-5 animate-in fade-in duration-300">
               {/* 标题 */}
-              <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-2">标题</label>
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-text-muted uppercase tracking-widest px-1">笔记标题</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="输入笔记标题..."
-                  className="w-full h-10 px-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] transition-colors"
+                  className="w-full h-11 px-4 bg-bg-tertiary border border-border rounded-xl text-[15px] font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
                 />
               </div>
 
               {/* 内容 */}
-              <div className="flex-1">
-                <label className="block text-sm text-[var(--text-secondary)] mb-2">
-                  内容
-                  <span className="text-xs text-[var(--text-muted)] ml-2">支持 Markdown 格式</span>
-                </label>
+              <div className="flex-1 flex flex-col space-y-2">
+                <label className="text-[11px] font-bold text-text-muted uppercase tracking-widest px-1">内容详情</label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="输入笔记内容...\n\n支持 Markdown 格式：\n# 标题\n## 二级标题\n**粗体**\n*斜体*\n`代码`\n```代码块```\n- 列表项"
-                  className="w-full h-full min-h-[200px] px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] transition-colors resize-none font-mono leading-relaxed"
+                  placeholder="开始记录你的想法...\n\n支持 Markdown 语法：\n# 标题\n- 列表\n**加粗**\n`代码`"
+                  className="flex-1 w-full px-4 py-3 bg-bg-tertiary border border-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none font-mono leading-relaxed shadow-inner"
                 />
               </div>
             </div>
           ) : (
-            <div className="h-full p-5 overflow-y-auto">
-              {/* 预览标题 */}
-              {title && (
-                <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4">{title}</h1>
-              )}
-              {/* 预览内容 */}
-              <div className="text-[var(--text-secondary)] leading-relaxed">
-                {renderPreview()}
+            <div className="h-full p-8 overflow-y-auto scrollbar-thin animate-in fade-in duration-300">
+              <div className="max-w-3xl mx-auto">
+                {/* 预览标题 */}
+                {title && (
+                  <h1 className="text-3xl font-extrabold text-text-primary mb-8 border-b border-border pb-4 tracking-tight">{title}</h1>
+                )}
+                {/* 预览内容 */}
+                <div className="text-text-secondary leading-loose prose prose-invert prose-sm max-w-none">
+                  {renderPreview()}
+                </div>
               </div>
             </div>
           )}

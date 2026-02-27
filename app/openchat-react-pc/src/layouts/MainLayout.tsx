@@ -21,7 +21,7 @@ interface MainLayoutProps {
  */
 export function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="flex h-screen w-screen bg-[#0A0F1C] overflow-hidden">
+    <div className="flex h-screen w-screen bg-bg-primary overflow-hidden">
       {/* 窗口控制栏 - 悬浮在右上角，只在 Desktop 环境显示 */}
       <WindowControls
         showTitleBar={false}
@@ -33,7 +33,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Sidebar />
       
       {/* 主内容区域 - 无顶部预留空间 */}
-      <main className="flex-1 flex min-w-0">
+      <main className="flex-1 flex min-w-0 bg-bg-secondary">
         {children}
       </main>
     </div>

@@ -8,6 +8,13 @@ import { MicroFrontend, MicroFrontendConfig, MicroFrontendStatus, MicroFrontendL
 import { microFrontendChannel } from './channel';
 import { errorService } from '../services/error.service';
 
+// 扩展Window接口以支持微前端
+declare global {
+  interface Window {
+    [key: string]: any;
+  }
+}
+
 // 浏览器兼容的 EventEmitter 实现
 class EventEmitter {
   private events: Map<string, Function[]>;
@@ -235,7 +242,7 @@ export class DefaultMicroFrontend implements MicroFrontend {
     for (const style of styles) {
       const newStyle = document.createElement('link');
       newStyle.rel = 'stylesheet';
-      newStyle.href = style.href;
+      newStyle.href = (style as HTMLLinkElement).href;
       await new Promise((resolve, reject) => {
         newStyle.onload = resolve;
         newStyle.onerror = reject;

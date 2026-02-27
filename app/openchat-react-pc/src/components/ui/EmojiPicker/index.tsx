@@ -187,25 +187,25 @@ export const EmojiPicker = memo(({
   return (
     <div
       ref={pickerRef}
-      className="absolute z-50 w-[360px] bg-[#1E293B] rounded-xl shadow-2xl border border-[rgba(255,255,255,0.1)] overflow-hidden"
+      className="absolute z-50 w-[360px] bg-bg-elevated rounded-xl shadow-2xl border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
       style={{
         bottom: anchorEl ? '100%' : 'auto',
         left: anchorEl ? '0' : 'auto',
-        marginBottom: anchorEl ? '8px' : '0',
+        marginBottom: anchorEl ? '12px' : '0',
       }}
     >
       {/* 搜索栏 */}
-      <div className="p-3 border-b border-[rgba(255,255,255,0.05)]">
-        <div className="relative">
+      <div className="p-3 border-b border-border">
+        <div className="relative group">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索表情..."
-            className="w-full h-9 pl-9 pr-3 bg-[#0F172A] border border-[rgba(255,255,255,0.08)] rounded-lg text-sm text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-[#0EA5E9] transition-colors"
+            className="w-full h-9 pl-9 pr-3 bg-bg-tertiary border border-border rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
           />
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-primary transition-colors"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -215,7 +215,7 @@ export const EmojiPicker = memo(({
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#F8FAFC]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -226,7 +226,7 @@ export const EmojiPicker = memo(({
       </div>
 
       {/* 表情网格 */}
-      <div className="h-[280px] overflow-y-auto p-3">
+      <div className="h-[280px] overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-border-medium hover:scrollbar-thumb-text-muted">
         {searchQuery ? (
           // 搜索结果
           <div className="grid grid-cols-8 gap-1">
@@ -234,7 +234,7 @@ export const EmojiPicker = memo(({
               <button
                 key={emoji.id}
                 onClick={() => handleSelect(emoji.emoji)}
-                className="w-9 h-9 flex items-center justify-center text-2xl hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
+                className="w-9 h-9 flex items-center justify-center text-2xl hover:bg-bg-hover hover:scale-110 rounded-lg transition-all duration-200"
                 title={emoji.name}
               >
                 {emoji.emoji}
@@ -246,13 +246,13 @@ export const EmojiPicker = memo(({
             {/* 最近使用 */}
             {recentEmojis.length > 0 && activeCategory === '常用' && (
               <div className="mb-4">
-                <h3 className="text-xs text-[#64748B] font-medium mb-2 px-1">最近使用</h3>
+                <h3 className="text-xs text-text-muted font-bold mb-2 px-1 uppercase tracking-wider">最近使用</h3>
                 <div className="grid grid-cols-8 gap-1">
                   {recentEmojis.map((emoji, index) => (
                     <button
                       key={`recent-${index}`}
                       onClick={() => handleSelect(emoji)}
-                      className="w-9 h-9 flex items-center justify-center text-2xl hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
+                      className="w-9 h-9 flex items-center justify-center text-2xl hover:bg-bg-hover hover:scale-110 rounded-lg transition-all duration-200"
                     >
                       {emoji}
                     </button>
@@ -267,7 +267,7 @@ export const EmojiPicker = memo(({
                 <button
                   key={emoji.id}
                   onClick={() => handleSelect(emoji.emoji)}
-                  className="w-9 h-9 flex items-center justify-center text-2xl hover:bg-[rgba(255,255,255,0.1)] rounded-lg transition-colors"
+                  className="w-9 h-9 flex items-center justify-center text-2xl hover:bg-bg-hover hover:scale-110 rounded-lg transition-all duration-200"
                   title={emoji.name}
                 >
                   {emoji.emoji}
@@ -278,7 +278,7 @@ export const EmojiPicker = memo(({
         )}
 
         {filteredEmojis.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-[#64748B]">
+          <div className="flex flex-col items-center justify-center h-full text-text-muted">
             <svg className="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -289,15 +289,15 @@ export const EmojiPicker = memo(({
 
       {/* 分类标签 */}
       {!searchQuery && (
-        <div className="flex items-center px-2 py-2 border-t border-[rgba(255,255,255,0.05)] overflow-x-auto scrollbar-hide">
+        <div className="flex items-center px-2 py-2 border-t border-border overflow-x-auto scrollbar-hide bg-bg-secondary/50">
           {categories.map((category) => (
             <button
               key={category}
               onClick={() => setActiveCategory(category)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors mr-1 ${
                 activeCategory === category
-                  ? 'bg-[#0EA5E9] text-white'
-                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[rgba(255,255,255,0.05)]'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-hover'
               }`}
             >
               {category}

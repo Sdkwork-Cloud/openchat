@@ -69,8 +69,8 @@ export function DeviceListPage() {
   };
 
   return (
-    <div className="p-6 bg-[var(--bg-primary)] min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <div className="h-full w-full flex flex-col bg-[var(--bg-primary)] overflow-hidden">
+      <div className="flex-1 w-full p-6 overflow-y-auto">
         {/* 页面标题 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">设备管理</h1>
@@ -200,7 +200,7 @@ export function DeviceListPage() {
                           </button>
                           <button 
                             className="text-[var(--secondary)] hover:text-[var(--secondary-light)]"
-                            onClick={() => handleStatusUpdate(device.deviceId, device.status === 'online' ? 'offline' : 'online')}
+                            onClick={() => handleStatusUpdate(device.deviceId, device.status === DeviceStatus.ONLINE ? DeviceStatus.OFFLINE : DeviceStatus.ONLINE)}
                           >
                             {device.status === 'online' ? '下线' : '上线'}
                           </button>

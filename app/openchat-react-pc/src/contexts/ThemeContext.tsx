@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 // 主题类型
-export type ThemeType = 'dark' | 'light' | 'blue' | 'purple' | 'green';
+export type ThemeType = 'dark' | 'light' | 'blue' | 'purple' | 'green' | 'system';
 
 // 主题配置接口
 export interface ThemeConfig {
@@ -153,6 +153,29 @@ export const themes: Record<ThemeType, ThemeConfig> = {
       borderColor: 'rgba(110, 231, 183, 0.15)',
       borderLight: 'rgba(110, 231, 183, 0.08)',
       borderMedium: 'rgba(110, 231, 183, 0.2)',
+    },
+  },
+  system: {
+    name: '跟随系统',
+    type: 'light',
+    colors: {
+      primary: '#3B82F6',
+      primaryHover: '#2563EB',
+      primaryLight: '#60A5FA',
+      primaryDark: '#1D4ED8',
+      primarySoft: 'rgba(59, 130, 246, 0.1)',
+      primaryMedium: 'rgba(59, 130, 246, 0.2)',
+      bgPrimary: '#FFFFFF',
+      bgSecondary: '#F8FAFC',
+      bgTertiary: '#F1F5F9',
+      bgElevated: '#E2E8F0',
+      textPrimary: '#0F172A',
+      textSecondary: '#334155',
+      textTertiary: '#64748B',
+      textMuted: '#94A3B8',
+      borderColor: 'rgba(0, 0, 0, 0.08)',
+      borderLight: 'rgba(0, 0, 0, 0.04)',
+      borderMedium: 'rgba(0, 0, 0, 0.12)',
     },
   },
 };

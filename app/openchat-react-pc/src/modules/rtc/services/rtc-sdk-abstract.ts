@@ -413,7 +413,10 @@ class WebRTCAdapter implements RTCSDK {
       const stream = this.localStreams.get(roomId);
       if (stream) {
         stream.getTracks().forEach(track => {
-          pc.removeTrack(pc.getSenders().find(sender => sender.track === track));
+          const sender = pc.getSenders().find(s => s.track === track);
+          if (sender) {
+            pc.removeTrack(sender);
+          }
         });
         stream.getTracks().forEach(track => track.stop());
         this.localStreams.delete(roomId);

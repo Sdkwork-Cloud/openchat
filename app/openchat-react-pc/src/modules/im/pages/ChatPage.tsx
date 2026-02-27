@@ -125,7 +125,7 @@ export function ChatPage() {
   return (
     <>
       {/* 左侧会话列表 */}
-      <div className="flex h-full">
+      <div className="flex h-full w-full">
         <ConversationList
           conversations={conversations}
           selectedId={selectedId}
@@ -133,7 +133,7 @@ export function ChatPage() {
         />
 
         {/* 右侧对话区域 */}
-        <div className="flex-1 flex flex-col bg-[var(--bg-primary)] min-w-0">
+        <div className="flex-1 flex flex-col bg-bg-primary min-w-0">
           {selectedConversation ? (
             <>
               <ChatHeader 
@@ -155,51 +155,51 @@ export function ChatPage() {
 
         {/* 设备管理面板 */}
         {showDevicePanel && (
-          <div className="w-80 bg-[var(--bg-secondary)] border-l border-[var(--border-color)] flex flex-col">
-            <div className="p-4 border-b border-[var(--border-color)]">
-              <h3 className="text-lg font-semibold">设备管理</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
+          <div className="w-80 bg-bg-secondary border-l border-border flex flex-col">
+            <div className="p-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-text-primary">设备管理</h3>
+              <p className="text-sm text-text-secondary mt-1">
                 在线设备: {devices.filter(d => d.status === DeviceStatus.ONLINE).length}
               </p>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-border-medium">
               {devices.map((device) => (
                 <div 
                   key={device.id} 
-                  className={`p-3 rounded-lg mb-2 cursor-pointer transition-all ${selectedDevice?.id === device.id ? 'bg-[var(--primary-light)]' : 'hover:bg-[var(--bg-tertiary)]'}`}
+                  className={`p-3 rounded-lg mb-2 cursor-pointer transition-all border border-transparent hover:border-border ${selectedDevice?.id === device.id ? 'bg-primary-soft' : 'hover:bg-bg-tertiary'}`}
                   onClick={() => handleSelectDevice(device)}
                 >
                   <div className="flex justify-between items-center">
                     <div>
-                      <h4 className="font-medium">{device.name}</h4>
-                      <p className="text-sm text-[var(--text-secondary)]">{device.deviceId}</p>
+                      <h4 className="font-medium text-text-primary">{device.name}</h4>
+                      <p className="text-sm text-text-secondary">{device.deviceId}</p>
                     </div>
-                    <span className={`w-2 h-2 rounded-full ${device.status === DeviceStatus.ONLINE ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <span className={`w-2 h-2 rounded-full ${device.status === DeviceStatus.ONLINE ? 'bg-success' : 'bg-text-disabled'}`} />
                   </div>
-                  <div className="mt-2 text-xs text-[var(--text-tertiary)]">
+                  <div className="mt-2 text-xs text-text-tertiary">
                     {device.type === 'xiaozhi' ? '开源小智' : '其他设备'}
                   </div>
                 </div>
               ))}
             </div>
             {selectedDevice && (
-              <div className="p-4 border-t border-[var(--border-color)]">
-                <h4 className="font-medium mb-2">控制 {selectedDevice.name}</h4>
+              <div className="p-4 border-t border-border">
+                <h4 className="font-medium mb-2 text-text-primary">控制 {selectedDevice.name}</h4>
                 <div className="flex space-x-2">
                   <button 
-                    className="px-3 py-1 bg-[var(--primary)] text-white rounded-md text-sm hover:bg-[var(--primary-dark)]"
+                    className="px-3 py-1 bg-primary text-white rounded-md text-sm hover:bg-primary-hover shadow-sm"
                     onClick={() => handleControlDevice(selectedDevice.deviceId, { action: 'turnOn' })}
                   >
                     开启
                   </button>
                   <button 
-                    className="px-3 py-1 bg-[var(--primary)] text-white rounded-md text-sm hover:bg-[var(--primary-dark)]"
+                    className="px-3 py-1 bg-primary text-white rounded-md text-sm hover:bg-primary-hover shadow-sm"
                     onClick={() => handleControlDevice(selectedDevice.deviceId, { action: 'turnOff' })}
                   >
                     关闭
                   </button>
                   <button 
-                    className="px-3 py-1 bg-[var(--primary)] text-white rounded-md text-sm hover:bg-[var(--primary-dark)]"
+                    className="px-3 py-1 bg-bg-tertiary text-text-primary border border-border rounded-md text-sm hover:bg-bg-hover"
                     onClick={() => handleControlDevice(selectedDevice.deviceId, { action: 'refresh' })}
                   >
                     刷新

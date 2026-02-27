@@ -116,48 +116,50 @@ export const MediaViewer = memo(({
   if (!isOpen || !currentItem) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
       {/* 顶部工具栏 */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/50 to-transparent">
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/60 to-transparent z-10">
         <div className="flex items-center space-x-4">
-          <span className="text-white text-sm">
-            {currentIndex + 1} / {items.length}
-          </span>
+          <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-sm">
+            <span className="text-white text-xs font-bold tracking-wider">
+              {currentIndex + 1} / {items.length}
+            </span>
+          </div>
           {currentItem.name && (
-            <span className="text-white/70 text-sm truncate max-w-[300px]">
+            <span className="text-white font-medium text-sm truncate max-w-[400px] drop-shadow-md">
               {currentItem.name}
             </span>
           )}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
           {/* 缩放控制（仅图片） */}
           {currentItem.type === 'image' && (
-            <>
+            <div className="flex items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/10 p-1">
               <button
                 onClick={handleZoomOut}
-                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all active:scale-90"
                 title="缩小"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                 </svg>
               </button>
-              <span className="text-white text-sm min-w-[60px] text-center">{Math.round(scale * 100)}%</span>
+              <span className="text-white text-xs font-bold min-w-[50px] text-center">{Math.round(scale * 100)}%</span>
               <button
                 onClick={handleZoomIn}
-                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all active:scale-90"
                 title="放大"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               </button>
-            </>
+            </div>
           )}
           {/* 下载按钮 */}
           <button
             onClick={() => onDownload?.(currentItem)}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2.5 bg-white/10 backdrop-blur-md text-white/80 hover:text-white hover:bg-primary rounded-xl border border-white/10 transition-all shadow-sm active:scale-95"
             title="下载"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,10 +169,10 @@ export const MediaViewer = memo(({
           {/* 关闭按钮 */}
           <button
             onClick={onClose}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2.5 bg-white/10 backdrop-blur-md text-white/80 hover:text-white hover:bg-error rounded-xl border border-white/10 transition-all shadow-sm active:scale-95"
             title="关闭 (Esc)"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -178,46 +180,48 @@ export const MediaViewer = memo(({
       </div>
 
       {/* 媒体内容 */}
-      <div className="flex items-center justify-center w-full h-full p-16">
+      <div className="flex items-center justify-center w-full h-full p-8 md:p-16 overflow-hidden">
         {currentItem.type === 'image' && (
           <img
             src={currentItem.url}
             alt={currentItem.name || '图片'}
-            className="max-w-full max-h-full object-contain transition-transform duration-200"
+            className="max-w-full max-h-full object-contain transition-all duration-300 shadow-2xl animate-in zoom-in-95"
             style={{ transform: `scale(${scale})` }}
             draggable={false}
           />
         )}
 
         {currentItem.type === 'video' && (
-          <video
-            src={currentItem.url}
-            controls
-            autoPlay
-            className="max-w-full max-h-full"
-            poster={currentItem.thumbnail}
-          >
-            您的浏览器不支持视频播放
-          </video>
+          <div className="relative max-w-full max-h-full rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 border border-white/10">
+            <video
+              src={currentItem.url}
+              controls
+              autoPlay
+              className="max-w-full max-h-[80vh]"
+              poster={currentItem.thumbnail}
+            >
+              您的浏览器不支持视频播放
+            </video>
+          </div>
         )}
 
         {currentItem.type === 'file' && (
-          <div className="flex flex-col items-center justify-center p-12 bg-[#1E293B] rounded-2xl border border-[rgba(255,255,255,0.1)]">
-            <div className="w-24 h-24 mb-6 rounded-2xl bg-[#0EA5E9]/10 flex items-center justify-center">
-              <svg className="w-12 h-12 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex flex-col items-center justify-center p-16 bg-bg-elevated/80 backdrop-blur-xl rounded-[32px] border border-border shadow-2xl animate-in zoom-in-95 max-w-lg w-full">
+            <div className="w-24 h-24 mb-8 rounded-[24px] bg-primary/10 border border-primary/20 flex items-center justify-center shadow-glow-primary">
+              <svg className="w-12 h-12 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h3 className="text-white text-lg font-medium mb-2">{currentItem.name || '未知文件'}</h3>
-            <p className="text-[#94A3B8] text-sm mb-6">{formatFileSize(currentItem.size)}</p>
+            <h3 className="text-text-primary text-2xl font-bold mb-3 text-center">{currentItem.name || '未知文件'}</h3>
+            <p className="text-text-tertiary text-sm mb-8 font-medium">{formatFileSize(currentItem.size)}</p>
             <button
               onClick={() => onDownload?.(currentItem)}
-              className="px-6 py-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-medium rounded-lg transition-colors flex items-center space-x-2"
+              className="px-8 py-3.5 bg-primary hover:bg-primary-hover text-white text-base font-bold rounded-2xl transition-all shadow-glow-primary flex items-center space-x-3 active:scale-95"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>下载文件</span>
+              <span>立即下载</span>
             </button>
           </div>
         )}
@@ -228,7 +232,7 @@ export const MediaViewer = memo(({
         <>
           <button
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all"
+            className="absolute left-6 top-1/2 -translate-y-1/2 p-4 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-md rounded-full transition-all border border-white/5 hover:border-white/20 active:scale-90"
             title="上一个 (←)"
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -237,7 +241,7 @@ export const MediaViewer = memo(({
           </button>
           <button
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all"
+            className="absolute right-6 top-1/2 -translate-y-1/2 p-4 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-md rounded-full transition-all border border-white/5 hover:border-white/20 active:scale-90"
             title="下一个 (→)"
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,10 +252,10 @@ export const MediaViewer = memo(({
       )}
 
       {/* 底部信息栏 */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-gradient-to-t from-black/50 to-transparent">
-        <div className="flex items-center justify-center space-x-4 text-white/70 text-sm">
-          {currentItem.size && <span>大小: {formatFileSize(currentItem.size)}</span>}
-          {currentItem.duration && <span>时长: {formatDuration(currentItem.duration)}</span>}
+      <div className="absolute bottom-0 left-0 right-0 px-6 py-5 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="flex items-center justify-center space-x-6 text-white/60 text-xs font-bold tracking-widest uppercase">
+          {currentItem.size && <span>Size: {formatFileSize(currentItem.size)}</span>}
+          {currentItem.duration && <span>Duration: {formatDuration(currentItem.duration)}</span>}
         </div>
       </div>
     </div>
