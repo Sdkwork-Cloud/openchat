@@ -7,9 +7,10 @@
  * 3. 显示搜索结果
  */
 
-import { useState, useCallback } from 'react';
-import type { Friend } from '@/modules/contacts/entities/contact.entity';
-import { Modal, ModalButtonGroup } from '@/components/ui/Modal';
+import { useState, useCallback } from "react";
+import type { Friend } from "@/modules/contacts/entities/contact.entity";
+import { Modal, ModalButtonGroup } from "@/components/ui/Modal";
+import { Button } from "@/components/ui";
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -19,19 +20,68 @@ interface AddFriendModalProps {
 
 // 模拟用户数据
 const mockUsers: Friend[] = [
-  { id: 'user-100', name: '小明', avatar: '明', status: '在线', isOnline: true, initial: '明', region: '北京', signature: '热爱生活' },
-  { id: 'user-101', name: '小红', avatar: '红', status: '忙碌', isOnline: true, initial: '红', region: '上海', signature: '工作狂' },
-  { id: 'user-102', name: '小李', avatar: '李', status: '离线', isOnline: false, initial: '李', region: '广州', signature: '程序员' },
-  { id: 'user-103', name: '小王', avatar: '王', status: '在线', isOnline: true, initial: '王', region: '深圳', signature: '产品经理' },
-  { id: 'user-104', name: '小张', avatar: '张', status: '离开', isOnline: false, initial: '张', region: '杭州', signature: '设计师' },
+  {
+    id: "user-100",
+    name: "小明",
+    avatar: "明",
+    status: "在线",
+    isOnline: true,
+    initial: "明",
+    region: "北京",
+    signature: "热爱生活",
+  },
+  {
+    id: "user-101",
+    name: "小红",
+    avatar: "红",
+    status: "忙碌",
+    isOnline: true,
+    initial: "红",
+    region: "上海",
+    signature: "工作狂",
+  },
+  {
+    id: "user-102",
+    name: "小李",
+    avatar: "李",
+    status: "离线",
+    isOnline: false,
+    initial: "李",
+    region: "广州",
+    signature: "程序员",
+  },
+  {
+    id: "user-103",
+    name: "小王",
+    avatar: "王",
+    status: "在线",
+    isOnline: true,
+    initial: "王",
+    region: "深圳",
+    signature: "产品经理",
+  },
+  {
+    id: "user-104",
+    name: "小张",
+    avatar: "张",
+    status: "离开",
+    isOnline: false,
+    initial: "张",
+    region: "杭州",
+    signature: "设计师",
+  },
 ];
 
-export function AddFriendModal({ isOpen, onClose, onSuccess }: AddFriendModalProps) {
-  const [searchKeyword, setSearchKeyword] = useState('');
+export function AddFriendModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: AddFriendModalProps) {
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Friend | null>(null);
-  const [verifyMessage, setVerifyMessage] = useState('');
+  const [verifyMessage, setVerifyMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
 
@@ -48,8 +98,8 @@ export function AddFriendModal({ isOpen, onClose, onSuccess }: AddFriendModalPro
 
     const results = mockUsers.filter(
       (user) =>
-        user.name.includes(searchKeyword.trim()) ||
-        user.id.includes(searchKeyword.trim())
+        (user.name || "").includes(searchKeyword.trim()) ||
+        user.id.includes(searchKeyword.trim()),
     );
 
     setSearchResults(results);
@@ -84,10 +134,10 @@ export function AddFriendModal({ isOpen, onClose, onSuccess }: AddFriendModalPro
 
   // 关闭弹窗并重置状态
   const handleClose = () => {
-    setSearchKeyword('');
+    setSearchKeyword("");
     setSearchResults([]);
     setSelectedUser(null);
-    setVerifyMessage('');
+    setVerifyMessage("");
     setSendSuccess(false);
     onClose();
   };
@@ -103,71 +153,123 @@ export function AddFriendModal({ isOpen, onClose, onSuccess }: AddFriendModalPro
           <ModalButtonGroup
             onCancel={handleClose}
             onConfirm={handleSendRequest}
-            confirmText={sendSuccess ? '已发送' : '发送申请'}
+            confirmText={sendSuccess ? "申请已发送" : "发送好友申请"}
             confirmVariant="primary"
             isLoading={isSending}
             disabled={sendSuccess}
           />
         ) : (
           <div className="flex justify-end">
-            <button
+            <Button
+              variant="ghost"
               onClick={handleClose}
-              className="px-5 py-2.5 text-[15px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+              className="px-8 rounded-xl"
             >
               取消
-            </button>
+            </Button>
           </div>
         )
       }
     >
-      <div className="p-5 space-y-4">
+      <div className="p-6 space-y-6">
         {/* 搜索框 */}
-        <div className="flex space-x-2">
-          <div className="relative flex-1">
+        <div className="flex space-x-3">
+          <div className="relative flex-1 group">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-primary transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
             <input
               type="text"
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="输入用户名或ID搜索"
-              className="w-full h-10 pl-3 pr-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] transition-colors"
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="搜索用户 ID 或 手机号"
+              className="w-full h-11 pl-10 pr-4 bg-bg-tertiary border border-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
-          <button
+          <Button
             onClick={handleSearch}
             disabled={!searchKeyword.trim() || isSearching}
-            className="px-4 h-10 text-sm font-medium text-white bg-[var(--ai-primary)] hover:bg-[var(--ai-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors"
+            className="h-11 px-6 rounded-xl"
           >
             {isSearching ? (
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              <svg
+                className="animate-spin h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
             ) : (
-              '搜索'
+              "搜索"
             )}
-          </button>
+          </Button>
         </div>
 
         {/* 搜索结果 */}
         {searchResults.length > 0 && !selectedUser && (
-          <div className="space-y-1">
-            <p className="text-xs text-[var(--text-muted)]">搜索结果</p>
-            <div className="max-h-48 overflow-y-auto space-y-1 border border-[var(--border-color)] rounded-md">
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider px-1">
+              搜索结果
+            </p>
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
               {searchResults.map((user) => (
                 <button
                   key={user.id}
                   onClick={() => handleSelectUser(user)}
-                  className="w-full flex items-center px-3 py-3 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                  className="w-full flex items-center p-3.5 bg-bg-tertiary/50 border border-border rounded-xl hover:border-primary/50 hover:bg-bg-hover transition-all text-left group"
                 >
-                  <div className="w-10 h-10 rounded-full bg-[var(--ai-primary)] flex items-center justify-center text-white text-sm font-medium">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 flex items-center justify-center text-primary text-lg font-bold group-hover:scale-105 transition-transform flex-shrink-0 shadow-sm">
                     {user.avatar}
                   </div>
-                  <div className="ml-3 flex-1">
-                    <p className="text-sm text-[var(--text-primary)] font-medium">{user.name}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{user.region} · {user.signature}</p>
+                  <div className="ml-4 flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <p className="text-[15px] text-text-primary font-bold truncate group-hover:text-primary transition-colors">
+                        {user.name}
+                      </p>
+                      <div
+                        className={`w-2 h-2 rounded-full ${user.isOnline ? "bg-success shadow-glow-success" : "bg-text-muted"}`}
+                      />
+                    </div>
+                    <p className="text-xs text-text-tertiary truncate mt-0.5">
+                      {user.region} · {user.signature}
+                    </p>
                   </div>
-                  <div className={`w-2 h-2 rounded-full ${user.isOnline ? 'bg-[var(--ai-success)]' : 'bg-[var(--text-muted)]'}`} />
+                  <svg
+                    className="w-5 h-5 text-text-muted group-hover:text-primary transition-colors"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
                 </button>
               ))}
             </div>
@@ -176,55 +278,124 @@ export function AddFriendModal({ isOpen, onClose, onSuccess }: AddFriendModalPro
 
         {/* 无搜索结果 */}
         {searchResults.length === 0 && searchKeyword && !isSearching && (
-          <div className="text-center py-8">
-            <svg className="w-12 h-12 mx-auto text-[var(--text-muted)] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <p className="text-sm text-[var(--text-muted)]">未找到相关用户</p>
+          <div className="text-center py-12 bg-bg-tertiary/30 rounded-2xl border border-dashed border-border">
+            <div className="w-16 h-16 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
+              <svg
+                className="w-8 h-8 text-text-muted opacity-50"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            </div>
+            <p className="text-text-secondary font-medium">未找到相关用户</p>
+            <p className="text-text-muted text-xs mt-1">请尝试搜索其他关键词</p>
           </div>
         )}
 
         {/* 发送申请 */}
         {selectedUser && (
-          <div className="space-y-4">
-            {/* 选中的用户 */}
-            <div className="flex items-center p-4 bg-[var(--bg-tertiary)] rounded-md border border-[var(--border-color)]">
-              <div className="w-12 h-12 rounded-full bg-[var(--ai-primary)] flex items-center justify-center text-white text-lg font-medium">
+          <div className="space-y-5 animate-in slide-in-from-bottom-4 duration-400">
+            {/* 选中的用户卡片 */}
+            <div className="flex items-center p-5 bg-gradient-to-br from-primary/10 to-transparent rounded-2xl border border-primary/20 shadow-md relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-2">
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="p-1.5 rounded-lg hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+                  title="返回搜索"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-white text-2xl font-bold shadow-glow-primary">
                 {selectedUser.avatar}
               </div>
-              <div className="ml-3 flex-1">
-                <p className="text-[var(--text-primary)] font-medium">{selectedUser.name}</p>
-                <p className="text-xs text-[var(--text-muted)]">{selectedUser.region}</p>
+              <div className="ml-5 flex-1">
+                <p className="text-lg text-text-primary font-bold">
+                  {selectedUser.name}
+                </p>
+                <p className="text-sm text-text-tertiary flex items-center mt-0.5">
+                  <svg
+                    className="w-3.5 h-3.5 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  {selectedUser.region}
+                </p>
               </div>
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-              >
-                重新选择
-              </button>
             </div>
 
             {/* 验证消息 */}
-            <div>
-              <label className="block text-sm text-[var(--text-secondary)] mb-2">验证消息</label>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">
+                  验证消息
+                </label>
+                <span
+                  className={`text-[10px] ${verifyMessage.length >= 100 ? "text-error" : "text-text-muted"}`}
+                >
+                  {verifyMessage.length}/100
+                </span>
+              </div>
               <textarea
                 value={verifyMessage}
                 onChange={(e) => setVerifyMessage(e.target.value)}
-                placeholder="输入验证消息..."
-                rows={3}
+                placeholder="输入验证消息，介绍一下你自己..."
+                rows={4}
                 maxLength={100}
-                className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-md text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--ai-primary)] transition-colors resize-none"
+                className="w-full px-4 py-3 bg-bg-tertiary border border-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner"
               />
-              <p className="mt-1 text-xs text-[var(--text-muted)] text-right">{verifyMessage.length}/100</p>
             </div>
 
             {/* 发送成功提示 */}
             {sendSuccess && (
-              <div className="flex items-center justify-center text-[var(--ai-success)] text-sm py-2">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <div className="flex items-center justify-center bg-success/10 text-success text-sm py-3 rounded-xl border border-success/20 animate-bounce">
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
-                好友申请已发送
+                <span className="font-bold">好友申请已成功发送</span>
               </div>
             )}
           </div>
