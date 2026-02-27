@@ -8,8 +8,9 @@
  * - 支持操作按钮
  */
 
-import React from 'react';
-import { cn } from '../../../utils/cn';
+import React from "react";
+import { cn } from "../../../utils/cn";
+import { Button } from "../Button";
 
 // ==================== 类型定义 ====================
 
@@ -23,16 +24,16 @@ export interface EmptyStateProps {
   /** 操作按钮 */
   action?: React.ReactNode;
   /** 尺寸 */
-  size?: 'small' | 'medium' | 'large';
+  size?: "small" | "medium" | "large";
   /** 自定义类名 */
   className?: string;
 }
 
 // ==================== 预设图标 ====================
 
-const EmptyIcon: React.FC<{ type?: 'default' | 'search' | 'message' | 'file' }> = ({
-  type = 'default',
-}) => {
+const EmptyIcon: React.FC<{
+  type?: "default" | "search" | "message" | "file";
+}> = ({ type = "default" }) => {
   const icons = {
     default: (
       <svg
@@ -41,7 +42,14 @@ const EmptyIcon: React.FC<{ type?: 'default' | 'search' | 'message' | 'file' }> 
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <circle cx="60" cy="60" r="50" stroke="currentColor" strokeWidth="2" opacity="0.2" />
+        <circle
+          cx="60"
+          cy="60"
+          r="50"
+          stroke="currentColor"
+          strokeWidth="2"
+          opacity="0.2"
+        />
         <circle cx="45" cy="50" r="8" fill="currentColor" opacity="0.4" />
         <circle cx="75" cy="50" r="8" fill="currentColor" opacity="0.4" />
         <path
@@ -60,7 +68,14 @@ const EmptyIcon: React.FC<{ type?: 'default' | 'search' | 'message' | 'file' }> 
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <circle cx="55" cy="55" r="30" stroke="currentColor" strokeWidth="3" opacity="0.3" />
+        <circle
+          cx="55"
+          cy="55"
+          r="30"
+          stroke="currentColor"
+          strokeWidth="3"
+          opacity="0.3"
+        />
         <path
           d="M78 78 L95 95"
           stroke="currentColor"
@@ -68,7 +83,14 @@ const EmptyIcon: React.FC<{ type?: 'default' | 'search' | 'message' | 'file' }> 
           strokeLinecap="round"
           opacity="0.3"
         />
-        <circle cx="55" cy="55" r="20" stroke="currentColor" strokeWidth="2" opacity="0.2" />
+        <circle
+          cx="55"
+          cy="55"
+          r="20"
+          stroke="currentColor"
+          strokeWidth="2"
+          opacity="0.2"
+        />
       </svg>
     ),
     message: (
@@ -95,11 +117,7 @@ const EmptyIcon: React.FC<{ type?: 'default' | 'search' | 'message' | 'file' }> 
           strokeLinecap="round"
           opacity="0.2"
         />
-        <path
-          d="M50 90 L60 80 L70 90"
-          fill="currentColor"
-          opacity="0.3"
-        />
+        <path d="M50 90 L60 80 L70 90" fill="currentColor" opacity="0.3" />
       </svg>
     ),
     file: (
@@ -139,30 +157,30 @@ const EmptyIcon: React.FC<{ type?: 'default' | 'search' | 'message' | 'file' }> 
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   icon,
-  title = '暂无数据',
-  description = '当前列表为空',
+  title = "暂无数据",
+  description = "当前列表为空",
   action,
-  size = 'medium',
+  size = "medium",
   className,
 }) => {
   const sizeClasses = {
     small: {
-      container: 'py-8',
-      icon: 'w-16 h-16',
-      title: 'text-base',
-      description: 'text-sm',
+      container: "py-8",
+      icon: "w-16 h-16",
+      title: "text-base",
+      description: "text-sm",
     },
     medium: {
-      container: 'py-12',
-      icon: 'w-24 h-24',
-      title: 'text-lg',
-      description: 'text-base',
+      container: "py-12",
+      icon: "w-24 h-24",
+      title: "text-lg",
+      description: "text-base",
     },
     large: {
-      container: 'py-16',
-      icon: 'w-32 h-32',
-      title: 'text-xl',
-      description: 'text-lg',
+      container: "py-16",
+      icon: "w-32 h-32",
+      title: "text-xl",
+      description: "text-lg",
     },
   };
 
@@ -171,105 +189,85 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center',
+        "flex flex-col items-center justify-center text-center",
         currentSize.container,
-        className
+        className,
       )}
     >
       {/* 图标 */}
-      <div
-        className={cn(
-          'text-[var(--text-muted)] mb-4',
-          currentSize.icon
-        )}
-      >
+      <div className={cn("text-text-muted mb-4", currentSize.icon)}>
         {icon || <EmptyIcon />}
       </div>
 
       {/* 标题 */}
       <h3
-        className={cn(
-          'font-medium text-[var(--text-primary)] mb-2',
-          currentSize.title
-        )}
+        className={cn("font-medium text-text-primary mb-2", currentSize.title)}
       >
         {title}
       </h3>
 
       {/* 描述 */}
       <p
-        className={cn(
-          'text-[var(--text-secondary)] max-w-xs',
-          currentSize.description
-        )}
+        className={cn("text-text-secondary max-w-xs", currentSize.description)}
       >
         {description}
       </p>
 
       {/* 操作按钮 */}
-      {action && (
-        <div className="mt-6 animate-slideUp">
-          {action}
-        </div>
-      )}
+      {action && <div className="mt-6 animate-slideUp">{action}</div>}
     </div>
   );
 };
 
 // ==================== 预设空状态 ====================
 
-export const EmptySearch: React.FC<{ keyword?: string; onClear?: () => void }> = ({
-  keyword,
-  onClear,
-}) => (
+export const EmptySearch: React.FC<{
+  keyword?: string;
+  onClear?: () => void;
+}> = ({ keyword, onClear }) => (
   <EmptyState
     icon={<EmptyIcon type="search" />}
-    title={keyword ? `未找到 "${keyword}" 相关结果` : '无搜索结果'}
+    title={keyword ? `未找到 "${keyword}" 相关结果` : "无搜索结果"}
     description="请尝试使用其他关键词搜索"
     action={
       onClear && (
-        <button
-          onClick={onClear}
-          className="px-4 py-2 bg-[var(--ai-primary)] text-white rounded-lg hover:bg-[var(--ai-primary-hover)] transition-colors"
-        >
+        <Button variant="primary" onClick={onClear}>
           清除搜索
-        </button>
+        </Button>
       )
     }
   />
 );
 
-export const EmptyChat: React.FC<{ onStartChat?: () => void }> = ({ onStartChat }) => (
+export const EmptyChat: React.FC<{ onStartChat?: () => void }> = ({
+  onStartChat,
+}) => (
   <EmptyState
     icon={<EmptyIcon type="message" />}
     title="开始新的对话"
     description="选择一个联系人或群组开始聊天"
     action={
       onStartChat && (
-        <button
-          onClick={onStartChat}
-          className="px-4 py-2 bg-[var(--ai-primary)] text-white rounded-lg hover:bg-[var(--ai-primary-hover)] transition-colors"
-        >
+        <Button variant="primary" onClick={onStartChat}>
           新建对话
-        </button>
+        </Button>
       )
     }
   />
 );
 
-export const EmptyFile: React.FC<{ onUpload?: () => void }> = ({ onUpload }) => (
+export const EmptyFile: React.FC<{ onUpload?: () => void }> = ({
+  onUpload,
+}) => (
   <EmptyState
     icon={<EmptyIcon type="file" />}
     title="暂无文件"
     description="点击上传按钮添加文件"
     action={
       onUpload && (
-        <button
-          onClick={onUpload}
-          className="px-4 py-2 bg-[var(--ai-primary)] text-white rounded-lg hover:bg-[var(--ai-primary-hover)] transition-colors"
-        >
+        <Button variant="primary" onClick={onUpload}>
           上传文件
-        </button>
+        </Button>
       )
     }
   />
