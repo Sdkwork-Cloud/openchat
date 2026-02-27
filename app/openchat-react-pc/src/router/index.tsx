@@ -27,7 +27,11 @@ import { CreationPage } from "../modules/creation";
 import { CloudDrivePage } from "../modules/drive";
 import { ShortVideoPage } from "../modules/video";
 import { ToolsPage } from "../modules/tools";
-import { SkillMarketPage, MySkillsPage } from "../modules/skill";
+import {
+  SkillMarketPage,
+  MySkillsPage,
+  SkillDetailPage,
+} from "../modules/skill";
 import { ToolMarketPage, MyToolsPage, ToolConfigPage } from "../modules/tool";
 
 /**
@@ -61,7 +65,7 @@ export function AppRouter() {
       {/* Skill 市场页面 */}
       <Route path={ROUTES.SKILLS} element={<SkillMarketPage />} />
       <Route path={ROUTES.MY_SKILLS} element={<MySkillsPage />} />
-      <Route path={ROUTES.SKILL_DETAIL} element={<SkillMarketPage />} />
+      <Route path={ROUTES.SKILL_DETAIL} element={<SkillDetailPage />} />
 
       {/* Tool API 工具页面 */}
       <Route path={ROUTES.TOOL_MARKET} element={<ToolMarketPage />} />
