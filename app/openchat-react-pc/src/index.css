@@ -386,6 +386,18 @@ body {
 .animate-fadeIn {
   animation: fadeIn 0.3s var(--ease-out);
 }
+.animate-fade-in {
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+.animate-slide-in-from-right {
+  animation: slideInRight var(--transition-slow) ease-out;
+}
+.animate-scale-in {
+  animation: scaleIn var(--transition-normal) ease-out;
+}
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 .animate-slideUp {
   animation: slideUp 0.4s var(--ease-out-expo);
 }
