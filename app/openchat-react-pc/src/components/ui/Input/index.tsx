@@ -7,17 +7,17 @@
  * 3. 依赖倒置：依赖抽象类型定义
  */
 
-import React, { useState, useCallback, forwardRef } from 'react';
-import type { BaseFormProps } from '../../../types/common';
+import React, { useState, useCallback, forwardRef } from "react";
+import type { BaseFormProps } from "../../../types/common";
 
 // ==================== 类型定义 ====================
 
-export type InputSize = 'small' | 'default' | 'large';
-export type InputVariant = 'default' | 'filled' | 'outlined';
+export type InputSize = "small" | "default" | "large";
+export type InputVariant = "default" | "filled" | "outlined";
 
 export interface InputProps extends BaseFormProps<string> {
   /** 输入框类型 */
-  type?: 'text' | 'password' | 'email' | 'number' | 'tel' | 'url' | 'search';
+  type?: "text" | "password" | "email" | "number" | "tel" | "url" | "search";
   /** 输入框尺寸 */
   size?: InputSize;
   /** 输入框变体 */
@@ -59,15 +59,18 @@ export interface InputProps extends BaseFormProps<string> {
 // ==================== 样式映射 ====================
 
 const sizeStyles: Record<InputSize, string> = {
-  small: 'h-7 px-2 text-xs',
-  default: 'h-9 px-3 text-sm',
-  large: 'h-11 px-4 text-base',
+  small: "h-7 px-2 text-xs",
+  default: "h-9 px-3 text-sm",
+  large: "h-11 px-4 text-base",
 };
 
 const variantStyles: Record<InputVariant, string> = {
-  default: 'bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--ai-primary)] focus:ring-2 focus:ring-[var(--ai-primary)]/20',
-  filled: 'bg-[var(--bg-tertiary)] border border-transparent text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:bg-[var(--bg-secondary)] focus:border-[var(--ai-primary)]',
-  outlined: 'bg-transparent border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--ai-primary)]',
+  default:
+    "bg-bg-tertiary/80 border border-border text-text-primary placeholder:text-text-muted focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-lg",
+  filled:
+    "bg-bg-tertiary border border-transparent text-text-primary placeholder:text-text-muted focus-within:bg-bg-secondary focus-within:border-primary rounded-lg",
+  outlined:
+    "bg-transparent border border-border text-text-primary placeholder:text-text-muted focus-within:border-primary rounded-lg",
 };
 
 // ==================== 组件实现 ====================
@@ -99,9 +102,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       placeholder,
       disabled = false,
       readOnly = false,
-      type = 'text',
-      size = 'default',
-      variant = 'default',
+      type = "text",
+      size = "default",
+      variant = "default",
       prefix,
       suffix,
       allowClear = false,
@@ -121,10 +124,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       onKeyUp,
       onPressEnter,
     },
-    ref
+    ref,
   ) => {
     // 受控/非受控状态管理
-    const [innerValue, setInnerValue] = useState(defaultValue || '');
+    const [innerValue, setInnerValue] = useState(defaultValue || "");
     const [focused, setFocused] = useState(false);
 
     const isControlled = value !== undefined;
@@ -139,26 +142,26 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         }
         onChange?.(newValue);
       },
-      [isControlled, onChange]
+      [isControlled, onChange],
     );
 
     // 处理清除
     const handleClear = useCallback(() => {
       if (!isControlled) {
-        setInnerValue('');
+        setInnerValue("");
       }
-      onChange?.('');
+      onChange?.("");
     }, [isControlled, onChange]);
 
     // 处理按键
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
+        if (e.key === "Enter") {
           onPressEnter?.(e);
         }
         onKeyDown?.(e);
       },
-      [onKeyDown, onPressEnter]
+      [onKeyDown, onPressEnter],
     );
 
     // 处理聚焦
@@ -167,7 +170,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         setFocused(true);
         onFocus?.(e);
       },
-      [onFocus]
+      [onFocus],
     );
 
     // 处理失焦
@@ -176,7 +179,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         setFocused(false);
         onBlur?.(e);
       },
-      [onBlur]
+      [onBlur],
     );
 
     // 是否显示清除按钮
@@ -184,30 +187,32 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     // 计算样式类名
     const wrapperClasses = [
-      'relative flex items-center w-full',
-      'transition-all duration-200 rounded-md',
+      "relative flex items-center w-full",
+      "transition-all duration-200",
       variantStyles[variant],
-      focused ? 'border-[var(--ai-primary)] ring-2 ring-[var(--ai-primary)]/20' : '',
-      disabled ? 'bg-[var(--bg-tertiary)] cursor-not-allowed opacity-60' : '',
+      focused ? "border-primary ring-2 ring-primary/20" : "",
+      disabled ? "bg-bg-tertiary cursor-not-allowed opacity-60" : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     const inputClasses = [
-      'flex-1 w-full bg-transparent outline-none',
+      "flex-1 w-full bg-transparent outline-none",
       sizeStyles[size],
-      'placeholder:text-[var(--text-muted)]',
-      disabled ? 'cursor-not-allowed' : '',
+      "placeholder:text-text-muted",
+      disabled ? "cursor-not-allowed" : "",
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <div className={wrapperClasses} style={style}>
         {/* 前缀 */}
         {prefix && (
-          <span className="flex-shrink-0 mr-2 text-[var(--text-secondary)]">{prefix}</span>
+          <span className="flex-shrink-0 mr-2 text-[var(--text-secondary)]">
+            {prefix}
+          </span>
         )}
 
         {/* 输入框 */}
@@ -253,13 +258,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
         {/* 后缀 */}
         {suffix && (
-          <span className="flex-shrink-0 ml-2 text-[var(--text-secondary)]">{suffix}</span>
+          <span className="flex-shrink-0 ml-2 text-[var(--text-secondary)]">
+            {suffix}
+          </span>
         )}
       </div>
     );
-  }
+  },
 );
 
-Input.displayName = 'Input';
+Input.displayName = "Input";
 
 export default Input;
