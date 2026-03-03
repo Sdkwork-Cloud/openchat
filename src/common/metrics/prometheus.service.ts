@@ -67,6 +67,20 @@ export class PrometheusService {
         registers: [this.registry],
       }));
 
+      this.counters.set('rtc_provider_operations_total', new Counter({
+        name: 'rtc_provider_operations_total',
+        help: 'Total RTC provider operations',
+        labelNames: ['provider', 'operation', 'status', 'retryable'],
+        registers: [this.registry],
+      }));
+
+      this.counters.set('rtc_control_plane_signals_total', new Counter({
+        name: 'rtc_control_plane_signals_total',
+        help: 'RTC control-plane reliability signal counters',
+        labelNames: ['provider', 'operation', 'signal'],
+        registers: [this.registry],
+      }));
+
       this.gauges.set('websocket_connections_current', new Gauge({
         name: 'websocket_connections_current',
         help: 'Current WebSocket connections',
@@ -83,6 +97,76 @@ export class PrometheusService {
         name: 'db_pool_size',
         help: 'Database connection pool size',
         labelNames: ['state'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_health_status', new Gauge({
+        name: 'rtc_provider_health_status',
+        help: 'RTC provider health status one-hot gauge',
+        labelNames: ['provider', 'status'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_failure_rate', new Gauge({
+        name: 'rtc_provider_failure_rate',
+        help: 'RTC provider failure rate in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_avg_duration_ms', new Gauge({
+        name: 'rtc_provider_avg_duration_ms',
+        help: 'RTC provider average duration in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_total_samples', new Gauge({
+        name: 'rtc_provider_total_samples',
+        help: 'RTC provider sample count in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_control_plane_retry_rate', new Gauge({
+        name: 'rtc_provider_control_plane_retry_rate',
+        help: 'RTC provider control-plane retry ratio in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_control_plane_circuit_open_rate', new Gauge({
+        name: 'rtc_provider_control_plane_circuit_open_rate',
+        help: 'RTC provider control-plane circuit-open ratio in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_control_plane_invocations', new Gauge({
+        name: 'rtc_provider_control_plane_invocations',
+        help: 'RTC provider control-plane invocation count in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_control_plane_retries', new Gauge({
+        name: 'rtc_provider_control_plane_retries',
+        help: 'RTC provider control-plane retry count in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_control_plane_circuit_open_short_circuits', new Gauge({
+        name: 'rtc_provider_control_plane_circuit_open_short_circuits',
+        help: 'RTC provider control-plane circuit-open short-circuit count in latest health report window',
+        labelNames: ['provider'],
+        registers: [this.registry],
+      }));
+
+      this.gauges.set('rtc_provider_control_plane_unsafe_idempotency_calls', new Gauge({
+        name: 'rtc_provider_control_plane_unsafe_idempotency_calls',
+        help: 'RTC provider control-plane unsafe idempotency-protected calls in latest health report window',
+        labelNames: ['provider'],
         registers: [this.registry],
       }));
 
@@ -115,6 +199,14 @@ export class PrometheusService {
         help: 'Redis operation duration in seconds',
         labelNames: ['operation'],
         buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
+        registers: [this.registry],
+      }));
+
+      this.histograms.set('rtc_provider_operation_duration_seconds', new Histogram({
+        name: 'rtc_provider_operation_duration_seconds',
+        help: 'RTC provider operation duration in seconds',
+        labelNames: ['provider', 'operation', 'status'],
+        buckets: [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
         registers: [this.registry],
       }));
 
@@ -207,6 +299,110 @@ export class PrometheusService {
     if (!this.enabled) return;
     const histogram = this.histograms.get('redis_operation_duration_seconds');
     histogram?.observe({ operation }, duration);
+  }
+
+  incrementRtcProviderOperation(
+    provider: string,
+    operation: string,
+    status: 'success' | 'failure',
+    retryable: boolean,
+  ): void {
+    if (!this.enabled) return;
+    const counter = this.counters.get('rtc_provider_operations_total');
+    counter?.inc({
+      provider,
+      operation,
+      status,
+      retryable: retryable ? 'true' : 'false',
+    });
+  }
+
+  observeRtcProviderOperationDuration(
+    provider: string,
+    operation: string,
+    status: 'success' | 'failure',
+    durationMs: number,
+  ): void {
+    if (!this.enabled) return;
+    const histogram = this.histograms.get('rtc_provider_operation_duration_seconds');
+    histogram?.observe(
+      { provider, operation, status },
+      Math.max(0, durationMs) / 1000,
+    );
+  }
+
+  incrementRtcControlPlaneSignal(
+    provider: string,
+    operation: string,
+    signal: 'invocation' | 'retry' | 'circuit_open_short_circuit' | 'unsafe_idempotency',
+    value: number = 1,
+  ): void {
+    if (!this.enabled) return;
+    const safeValue = Math.max(0, Math.trunc(value));
+    if (safeValue <= 0) {
+      return;
+    }
+    const counter = this.counters.get('rtc_control_plane_signals_total');
+    counter?.inc({
+      provider,
+      operation,
+      signal,
+    }, safeValue);
+  }
+
+  setRtcProviderHealth(
+    provider: string,
+    status: 'healthy' | 'degraded' | 'unknown' | 'unhealthy',
+    failureRate: number,
+    avgDurationMs: number,
+    total: number,
+    controlPlane?: {
+      retryRate: number;
+      circuitOpenRate: number;
+      invocations: number;
+      retries: number;
+      circuitOpenShortCircuits: number;
+      unsafeIdempotencyCalls: number;
+    },
+  ): void {
+    if (!this.enabled) return;
+    const healthGauge = this.gauges.get('rtc_provider_health_status');
+    for (const item of ['healthy', 'degraded', 'unknown', 'unhealthy']) {
+      healthGauge?.set(
+        { provider, status: item },
+        item === status ? 1 : 0,
+      );
+    }
+
+    this.gauges.get('rtc_provider_failure_rate')?.set({ provider }, Math.max(0, failureRate));
+    this.gauges.get('rtc_provider_avg_duration_ms')?.set({ provider }, Math.max(0, avgDurationMs));
+    this.gauges.get('rtc_provider_total_samples')?.set({ provider }, Math.max(0, total));
+    if (controlPlane) {
+      this.gauges.get('rtc_provider_control_plane_retry_rate')?.set(
+        { provider },
+        Math.max(0, controlPlane.retryRate),
+      );
+      this.gauges.get('rtc_provider_control_plane_circuit_open_rate')?.set(
+        { provider },
+        Math.max(0, controlPlane.circuitOpenRate),
+      );
+      this.gauges.get('rtc_provider_control_plane_invocations')?.set(
+        { provider },
+        Math.max(0, controlPlane.invocations),
+      );
+      this.gauges.get('rtc_provider_control_plane_retries')?.set(
+        { provider },
+        Math.max(0, controlPlane.retries),
+      );
+      this.gauges.get('rtc_provider_control_plane_circuit_open_short_circuits')?.set(
+        { provider },
+        Math.max(0, controlPlane.circuitOpenShortCircuits),
+      );
+      this.gauges.get('rtc_provider_control_plane_unsafe_idempotency_calls')?.set(
+        { provider },
+        Math.max(0, controlPlane.unsafeIdempotencyCalls),
+      );
+    }
   }
 
   isEnabled(): boolean {

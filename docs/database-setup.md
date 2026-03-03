@@ -377,10 +377,7 @@ sudo ufw enable
 # 创建数据库架构
 psql -h localhost -U sdkwork_prod -d sdkwork_chat -f database/schema.sql
 
-# 执行迁移
-psql -h localhost -U sdkwork_prod -d sdkwork_chat -f database/migrations/001_add_fulltext_search.sql
-
-# 执行索引优化
+# （可选）执行索引优化
 psql -h localhost -U sdkwork_prod -d sdkwork_chat -f database/indexes-optimization.sql
 
 # 注意：生产环境不执行 seed.sql

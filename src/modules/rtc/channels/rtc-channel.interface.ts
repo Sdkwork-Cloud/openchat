@@ -1,8 +1,10 @@
 // RTC Channel抽象接口定义
 
+import { RTCProviderType } from '../rtc.constants';
+
 // RTC Channel配置接口
 export interface RTCChannelConfig {
-  provider: string;
+  provider: RTCProviderType;
   appId: string;
   appKey: string;
   appSecret: string;
@@ -29,10 +31,49 @@ export interface RTCChannelToken {
   [key: string]: any;
 }
 
+// RTC 云端录制任务状态
+export type RTCChannelRecordingStatus =
+  | 'recording'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'stopped';
+
+// RTC 云端录制任务
+export interface RTCChannelRecordingTask {
+  taskId: string;
+  roomId: string;
+  status: RTCChannelRecordingStatus;
+  startTime?: Date;
+  endTime?: Date;
+  fileName?: string;
+  filePath?: string;
+  fileType?: string;
+  fileSize?: number;
+  metadata?: Record<string, any>;
+  [key: string]: any;
+}
+
+// RTC 启动云录制请求
+export interface RTCChannelStartRecordingRequest {
+  roomId: string;
+  userId: string;
+  roomType?: 'p2p' | 'group';
+  taskId?: string;
+  metadata?: Record<string, any>;
+}
+
+// RTC 停止云录制请求
+export interface RTCChannelStopRecordingRequest {
+  roomId: string;
+  taskId: string;
+  metadata?: Record<string, any>;
+}
+
 // RTC Channel抽象接口
 export interface RTCChannel {
   // 获取Channel提供商名称
-  getProvider(): string;
+  getProvider(): RTCProviderType;
   
   // 初始化Channel
   initialize(config: RTCChannelConfig): Promise<void>;
@@ -63,15 +104,24 @@ export interface RTCChannel {
   
   // 检查参与者是否在房间中
   isParticipantInRoom(roomId: string, userId: string): Promise<boolean>;
+
+  // 启动云端录制任务
+  startRecording?(request: RTCChannelStartRecordingRequest): Promise<RTCChannelRecordingTask>;
+
+  // 停止云端录制任务
+  stopRecording?(request: RTCChannelStopRecordingRequest): Promise<RTCChannelRecordingTask>;
+
+  // 查询云端录制任务
+  getRecordingTask?(roomId: string, taskId: string): Promise<RTCChannelRecordingTask | null>;
 }
 
 // RTC Channel工厂接口
 export interface RTCChannelFactory {
   // 注册Channel提供商
-  registerProvider(provider: string, channelClass: new () => RTCChannel): void;
+  registerProvider(provider: RTCProviderType, channelClass: new () => RTCChannel): void;
   
   // 创建Channel实例
-  createChannel(provider: string): RTCChannel;
+  createChannel(provider: RTCProviderType): RTCChannel;
   
   // 获取所有支持的提供商
   getSupportedProviders(): string[];

@@ -22,6 +22,8 @@ interface ImportMetaEnv {
   // ============================================
   /** OpenChat Server API 地址 */
   readonly VITE_API_BASE_URL: string
+  /** SDKWork app access token */
+  readonly VITE_ACCESS_TOKEN: string
   /** 悟空IM WebSocket 地址 */
   readonly VITE_IM_WS_URL: string
 

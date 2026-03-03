@@ -1,0 +1,734 @@
+﻿openapi: 3.0.3
+info:
+  title: OpenChat Multi-Module SDK Upgrade API
+  version: v1.1.0
+  description: Missing APIs required by OpenChat PC modules during SDK integration.
+servers:
+  - url: /app/v3/api
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+paths:
+  /social/moments:
+    post:
+      tags: [SocialMoments]
+      operationId: createSocialMoment
+      summary: Create moment post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMomentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /social/moments/{momentId}:
+    delete:
+      tags: [SocialMoments]
+      operationId: deleteSocialMoment
+      summary: Delete moment
+      parameters:
+        - $ref: '#/components/parameters/MomentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /social/moments/stats:
+    get:
+      tags: [SocialMoments]
+      operationId: getSocialMomentStats
+      summary: Get social moment stats
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /video/{videoId}/view:
+    post:
+      tags: [Video]
+      operationId: reportVideoView
+      summary: Report video view count
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /video/{videoId}/comments:
+    get:
+      tags: [Video]
+      operationId: getVideoComments
+      summary: Get video comments
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /wallet/summary:
+    get:
+      tags: [Wallet]
+      operationId: getWalletSummary
+      summary: Get wallet summary
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /wallet/stats:
+    get:
+      tags: [Wallet]
+      operationId: getWalletStats
+      summary: Get wallet stats
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /wallet/transactions:
+    get:
+      tags: [Wallet]
+      operationId: listWalletTransactions
+      summary: List wallet transactions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+    post:
+      tags: [Wallet]
+      operationId: createWalletTransaction
+      summary: Create wallet transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /wallet/payment-methods/default:
+    put:
+      tags: [Wallet]
+      operationId: setDefaultPaymentMethod
+      summary: Set default payment method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /wallet/red-packets:
+    post:
+      tags: [Wallet]
+      operationId: createRedPacket
+      summary: Create red packet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRedPacketRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /devices/{deviceId}:
+    get:
+      tags: [Device]
+      operationId: getDeviceDetail
+      summary: Get device detail
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /devices/{deviceId}/status:
+    put:
+      tags: [Device]
+      operationId: updateDeviceStatus
+      summary: Update device status
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /devices/{deviceId}/messages:
+    get:
+      tags: [Device]
+      operationId: listDeviceMessages
+      summary: Get device messages
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /devices/{deviceId}/control:
+    post:
+      tags: [Device]
+      operationId: controlDevice
+      summary: Send device control command
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command]
+              properties:
+                command:
+                  type: string
+                payload:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /devices/stats:
+    get:
+      tags: [Device]
+      operationId: getDeviceStats
+      summary: Get device stats
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /settings/storage:
+    get:
+      tags: [Settings]
+      operationId: getStorageInfo
+      summary: Get storage info
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /settings/storage/clean-cache:
+    post:
+      tags: [Settings]
+      operationId: cleanCache
+      summary: Clean cache only
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /settings/storage/clean-all:
+    post:
+      tags: [Settings]
+      operationId: cleanAllStorageData
+      summary: Clean all local storage data
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /settings/models:
+    post:
+      tags: [Settings]
+      operationId: createModelConfig
+      summary: Create model config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelConfig'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /settings/models/{modelId}:
+    delete:
+      tags: [Settings]
+      operationId: deleteModelConfig
+      summary: Delete model config
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /settings/models/{modelId}/default:
+    put:
+      tags: [Settings]
+      operationId: setDefaultModelConfig
+      summary: Set default model config
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /cart/count:
+    get:
+      tags: [CartCommerce]
+      operationId: getCartCount
+      summary: Get cart item count
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /cart/select-all:
+    put:
+      tags: [CartCommerce]
+      operationId: selectAllCartItems
+      summary: Select or unselect all items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selected]
+              properties:
+                selected:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /cart/selected:
+    delete:
+      tags: [CartCommerce]
+      operationId: clearSelectedCartItems
+      summary: Clear selected cart items
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /products/{productId}/recommended:
+    get:
+      tags: [CartCommerce]
+      operationId: getRecommendedProducts
+      summary: Get recommended products by product id
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /notification/{notificationId}/unread:
+    put:
+      tags: [Notification]
+      operationId: markNotificationAsUnread
+      summary: Mark notification as unread
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /notification/stats:
+    get:
+      tags: [Notification]
+      operationId: getNotificationStats
+      summary: Get notification statistics
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /notification/clear-read:
+    post:
+      tags: [Notification]
+      operationId: clearReadNotifications
+      summary: Clear read notifications
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /skills:
+    get:
+      tags: [Skill]
+      operationId: listSkills
+      summary: List skills
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /skills/{skillId}/enable:
+    post:
+      tags: [Skill]
+      operationId: enableSkill
+      summary: Enable skill
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /skills/{skillId}/disable:
+    post:
+      tags: [Skill]
+      operationId: disableSkill
+      summary: Disable skill
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /skills/{skillId}/config:
+    put:
+      tags: [Skill]
+      operationId: updateSkillConfig
+      summary: Update skill config
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [config]
+              properties:
+                config:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /tools/market:
+    get:
+      tags: [Tool]
+      operationId: listToolMarket
+      summary: List tool market items
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /tools/market/{toolId}/test:
+    post:
+      tags: [Tool]
+      operationId: testTool
+      summary: Test tool health
+      parameters:
+        - $ref: '#/components/parameters/ToolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /tools/my/{toolId}/credentials:
+    put:
+      tags: [Tool]
+      operationId: updateToolCredentials
+      summary: Update tool credentials
+      parameters:
+        - $ref: '#/components/parameters/ToolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credentials]
+              properties:
+                credentials:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+  /agents:
+    get:
+      tags: [Agent]
+      operationId: listAgents
+      summary: List agents
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /agents/{agentId}/sessions:
+    get:
+      tags: [Agent]
+      operationId: listAgentSessions
+      summary: List sessions by agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+    post:
+      tags: [Agent]
+      operationId: createAgentSession
+      summary: Create session for agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /agents/sessions/{sessionId}/messages:
+    get:
+      tags: [Agent]
+      operationId: listSessionMessages
+      summary: List session messages
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+    post:
+      tags: [Agent]
+      operationId: sendSessionMessage
+      summary: Send message to session
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /agents/{agentId}/memory:
+    get:
+      tags: [Agent]
+      operationId: listAgentMemory
+      summary: List agent memory
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+    post:
+      tags: [Agent]
+      operationId: createAgentMemory
+      summary: Create memory record
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                type:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /agents/{agentId}/memory/search:
+    get:
+      tags: [Agent]
+      operationId: searchAgentMemory
+      summary: Search agent memory
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - in: query
+          name: keyword
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+  /agents/{agentId}/memory/stats:
+    get:
+      tags: [Agent]
+      operationId: getAgentMemoryStats
+      summary: Get memory stats
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/StandardResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+  responses:
+    StandardResponse:
+      description: Standard business response envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardResponse'
+  parameters:
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Size:
+      in: query
+      name: size
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    MomentId:
+      in: path
+      name: momentId
+      required: true
+      schema:
+        type: string
+    VideoId:
+      in: path
+      name: videoId
+      required: true
+      schema:
+        type: string
+    DeviceId:
+      in: path
+      name: deviceId
+      required: true
+      schema:
+        type: string
+    ModelId:
+      in: path
+      name: modelId
+      required: true
+      schema:
+        type: string
+    ProductId:
+      in: path
+      name: productId
+      required: true
+      schema:
+        type: string
+    NotificationId:
+      in: path
+      name: notificationId
+      required: true
+      schema:
+        type: string
+    SkillId:
+      in: path
+      name: skillId
+      required: true
+      schema:
+        type: string
+    ToolId:
+      in: path
+      name: toolId
+      required: true
+      schema:
+        type: string
+    AgentId:
+      in: path
+      name: agentId
+      required: true
+      schema:
+        type: string
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+  schemas:
+    StandardResponse:
+      type: object
+      required: [success, code, message, requestId, timestamp]
+      properties:
+        success:
+          type: boolean
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+    CreateMomentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        mediaUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+        visibility:
+          type: string
+          enum: [public, contacts, private]
+    CreateTransactionRequest:
+      type: object
+      required: [title, amount, type, category]
+      properties:
+        title:
+          type: string
+        amount:
+          type: number
+        type:
+          type: string
+          enum: [income, expense]
+        category:
+          type: string
+        description:
+          type: string
+    CreateRedPacketRequest:
+      type: object
+      required: [amount, count]
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+        count:
+          type: integer
+          minimum: 1
+        message:
+          type: string
+    ModelConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        model:
+          type: string
+        isDefault:
+          type: boolean
+        settings:
+          type: object
+          additionalProperties: true

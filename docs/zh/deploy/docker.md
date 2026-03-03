@@ -341,17 +341,14 @@ psql -h your-db-host -U your-db-user -d openchat
 \i database/seed.sql
 ```
 
-### 数据库迁移
+### 数据库初始化校验
 
 ```bash
 # 进入应用容器
 docker exec -it openchat sh
 
-# 运行迁移
-npm run migration:run
-
-# 创建迁移
-npm run migration:generate -- -n MigrationName
+# 检查初始化脚本是否存在
+ls database/schema.sql database/seed.sql
 ```
 
 ## 数据持久化

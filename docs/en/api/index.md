@@ -25,6 +25,7 @@ OpenChat provides a complete RESTful API for building instant messaging applicat
 | Conversation Management | `/api/v1/conversations` | Conversation list, unread management |
 | Group Management | `/api/v1/groups` | Group creation, member management |
 | Friend Management | `/api/v1/friends` | Friend requests, groups |
+| Timeline | `/api/v1/timeline` | Moments posting, feed retrieval, likes |
 | Contact Management | `/api/v1/contacts` | Contact management, groups |
 | Real-time Audio/Video | `/api/v1/rtc` | Audio/video calls, signaling |
 | AI Bots | `/api/v1/ai-bots` | AI bot management, message processing |
@@ -194,6 +195,7 @@ Authorization: Bearer <your-access-token>
 |------|------|
 | [Group Management API](./groups.md) | Group creation, member management, permission settings |
 | [Friend Management API](./friends.md) | Friend requests, group management, blacklist |
+| [Timeline API](./timeline.md) | Moments posting, feed retrieval, likes, and deletion |
 
 ### Real-time Communication
 

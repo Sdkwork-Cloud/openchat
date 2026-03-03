@@ -53,7 +53,7 @@ fi
 # 设置 PGPASSWORD
 export PGPASSWORD="${DB_PASSWORD}"
 
-echo -e "${BLUE}步骤 1/5: 测试数据库连接...${NC}"
+echo -e "${BLUE}步骤 1/4: 测试数据库连接...${NC}"
 if psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d postgres -c "SELECT 1" > /dev/null 2>&1; then
     echo -e "${GREEN}✓ 数据库连接成功${NC}"
 else
@@ -62,11 +62,11 @@ else
     exit 1
 fi
 
-echo -e "${BLUE}步骤 2/5: 创建数据库（如果不存在）...${NC}"
+echo -e "${BLUE}步骤 2/4: 创建数据库（如果不存在）...${NC}"
 psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d postgres -c "CREATE DATABASE ${DB_NAME};" 2>/dev/null || true
 echo -e "${GREEN}✓ 数据库已就绪${NC}"
 
-echo -e "${BLUE}步骤 3/5: 执行数据库架构...${NC}"
+echo -e "${BLUE}步骤 3/4: 执行数据库架构...${NC}"
 if [ -f "database/schema.sql" ]; then
     psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -f database/schema.sql
     echo -e "${GREEN}✓ 数据库架构已创建${NC}"
@@ -75,20 +75,7 @@ else
     exit 1
 fi
 
-echo -e "${BLUE}步骤 4/5: 执行数据库迁移...${NC}"
-if [ -d "database/migrations" ]; then
-    for migration in database/migrations/*.sql; do
-        if [ -f "$migration" ]; then
-            echo -e "  执行: ${migration}"
-            psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -f "$migration"
-        fi
-    done
-    echo -e "${GREEN}✓ 数据库迁移已完成${NC}"
-else
-    echo -e "${YELLOW}! 没有迁移文件${NC}"
-fi
-
-echo -e "${BLUE}步骤 5/5: 插入种子数据...${NC}"
+echo -e "${BLUE}步骤 4/4: 插入种子数据...${NC}"
 if [ "$ENV" != "prod" ]; then
     if [ -f "database/seed.sql" ]; then
         read -p "是否插入测试数据? (yes/no): " seed_confirm

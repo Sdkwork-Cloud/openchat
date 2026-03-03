@@ -166,11 +166,12 @@ export class MessageService implements MessageManager {
         from: messageData.fromUserId,
         to: messageData.toUserId || messageData.groupId || '',
         roomId: messageData.groupId,
+        clientMsgNo: savedMessage.id,
       };
 
       // 使用重试机制发送消息
-      await this.retryWithExponentialBackoff(
-        () => this.imProviderService.sendMessage(imMessage),
+      const providerMessage = await this.retryWithExponentialBackoff(
+        () => this.dispatchMessageToIM(imMessage),
         3, // 最多重试3次
         1000, // 初始重试间隔1秒
         savedMessage.id,
@@ -178,6 +179,11 @@ export class MessageService implements MessageManager {
 
       // 更新消息状态为 sent
       savedMessage.status = MessageStatus.SENT;
+      savedMessage.extra = {
+        ...(savedMessage.extra || {}),
+        imMessageId: providerMessage?.id,
+        imClientMsgNo: (providerMessage as any)?.clientMsgNo || savedMessage.id,
+      };
       const updatedMessage = await this.messageRepository.save(savedMessage);
 
       // 异步更新会话（不阻塞响应）
@@ -424,11 +430,12 @@ export class MessageService implements MessageManager {
       from: messageData.fromUserId,
       to: messageData.toUserId || messageData.groupId || '',
       roomId: messageData.groupId,
+      clientMsgNo: message.id,
     };
 
     // 使用重试机制发送消息
-    await this.retryWithExponentialBackoff(
-      () => this.imProviderService.sendMessage(imMessage),
+    const providerMessage = await this.retryWithExponentialBackoff(
+      () => this.dispatchMessageToIM(imMessage),
       3, // 最多重试3次
       1000, // 初始重试间隔1秒
       message.id,
@@ -436,6 +443,11 @@ export class MessageService implements MessageManager {
 
     // 更新状态为 sent
     message.status = MessageStatus.SENT;
+    message.extra = {
+      ...(message.extra || {}),
+      imMessageId: providerMessage?.id,
+      imClientMsgNo: (providerMessage as any)?.clientMsgNo || message.id,
+    };
     await this.messageRepository.save(message);
 
     await this.updateConversationForMessageOptimized(message);
@@ -716,6 +728,44 @@ export class MessageService implements MessageManager {
     return this.messageRepository.findOne({ where: { id } });
   }
 
+  async isUserInGroup(groupId: string, userId: string): Promise<boolean> {
+    const member = await this.groupMemberRepository.findOne({
+      where: {
+        groupId,
+        userId,
+        status: 'joined',
+        isDeleted: false,
+      },
+      select: ['id'],
+    });
+    return !!member;
+  }
+
+  async canUserAccessMessage(userId: string, messageId: string): Promise<boolean> {
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId },
+      select: ['id', 'fromUserId', 'toUserId', 'groupId'],
+    });
+    if (!message) {
+      return false;
+    }
+    if (message.fromUserId === userId || message.toUserId === userId) {
+      return true;
+    }
+    if (message.groupId) {
+      return this.isUserInGroup(message.groupId, userId);
+    }
+    return false;
+  }
+
+  async isMessageSender(userId: string, messageId: string): Promise<boolean> {
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId },
+      select: ['id', 'fromUserId'],
+    });
+    return !!message && message.fromUserId === userId;
+  }
+
   async getMessagesByUserId(userId: string, options?: MessageQueryOptions): Promise<Message[]> {
     const { limit = 50, offset = 0, messageType } = options || {};
     
@@ -835,6 +885,15 @@ export class MessageService implements MessageManager {
     return (result.affected || 0) > 0;
   }
 
+  private async dispatchMessageToIM(
+    imMessage: Omit<IMMessage, 'id' | 'timestamp' | 'status'>,
+  ): Promise<IMMessage> {
+    if (imMessage.roomId) {
+      return this.imProviderService.sendGroupMessage(imMessage);
+    }
+    return this.imProviderService.sendMessage(imMessage);
+  }
+
   /**
    * 指数退避重试机制
    */
@@ -892,16 +951,21 @@ export class MessageService implements MessageManager {
         from: message.fromUserId,
         to: message.toUserId || message.groupId || '',
         roomId: message.groupId,
+        clientMsgNo: message.id,
       };
 
       await this.retryWithExponentialBackoff(
-        () => this.imProviderService.sendMessage(imMessage),
+        () => this.dispatchMessageToIM(imMessage),
         3,
         1000,
         `retry_message_${messageId}`,
       );
 
       message.status = MessageStatus.SENT;
+      message.extra = {
+        ...(message.extra || {}),
+        imClientMsgNo: message.id,
+      };
       const updatedMessage = await this.messageRepository.save(message);
 
       return { success: true, message: updatedMessage };
@@ -948,6 +1012,9 @@ export class MessageService implements MessageManager {
 
     if (!originalMessage) {
       return { success: false, error: 'Original message not found' };
+    }
+    if (!(await this.canUserAccessMessage(fromUserId, messageId))) {
+      return { success: false, error: 'No permission to forward this message' };
     }
 
     if (!toUserId && !toGroupId) {

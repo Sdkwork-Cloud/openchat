@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { toolchainService } from '../services/toolchain.service';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
+import { toolchainService } from '@sdkwork/openchat-pc-kernel';
 
 describe('ToolchainService', () => {
   beforeEach(() => {
-    // 初始化服务
-    toolchainService.initialize();
+    // 鍒濆鍖栨湇鍔?    toolchainService.initialize();
   });
 
   it('should initialize without errors', () => {
@@ -70,7 +69,7 @@ describe('ToolchainService', () => {
     expect(updatedConfig.linting.extensions).toEqual(['.ts', '.tsx']);
     expect(updatedConfig.linting.ignorePaths).toEqual(['node_modules', 'dist']);
 
-    // 恢复原始配置
+    // 鎭㈠鍘熷閰嶇疆
     toolchainService.updateConfig({ linting: originalConfig.linting });
   });
 
@@ -97,3 +96,4 @@ describe('ToolchainService', () => {
     expect(result.style).toBeUndefined();
   });
 });
+

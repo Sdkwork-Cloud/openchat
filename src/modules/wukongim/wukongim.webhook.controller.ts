@@ -1,41 +1,37 @@
-/**
- * 悟空IM Webhook 控制器
- * 接收悟空IM的消息回执和事件通知
- * 文档: https://githubim.com/server/advance/webhook.html
- */
-
 import {
-  Controller,
-  Post,
-  Body,
-  Headers,
-  Logger,
-  UnauthorizedException,
   BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  Inject,
+  Logger,
+  Optional,
+  Post,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { createHmac, timingSafeEqual } from 'crypto';
+import { Request } from 'express';
+import { Redis } from 'ioredis';
+import { Repository } from 'typeorm';
+import { REDIS_CLIENT } from '../../common/redis/redis.module';
 import { Message } from '../message/message.entity';
 import { MessageStatus } from '../message/message.interface';
 import { WukongIMWebhookEvent } from './wukongim.constants';
 
-/**
- * Webhook 请求体
- */
 interface WebhookPayload {
-  event: string;        // 事件类型
-  data: any;            // 事件数据
-  timestamp: number;    // 时间戳
-  sign?: string;        // 签名（可选）
+  event: string;
+  data: unknown;
+  timestamp: number;
+  sign?: string;
 }
 
-/**
- * 消息送达回执数据
- */
 interface MessageAckData {
   message_id: string;
+  client_msg_no?: string;
   channel_id: string;
   channel_type: number;
   from_uid: string;
@@ -43,20 +39,15 @@ interface MessageAckData {
   timestamp: number;
 }
 
-/**
- * 消息已读回执数据
- */
 interface MessageReadData {
-  message_ids: string[];
+  message_ids?: string[];
+  client_msg_nos?: string[];
   channel_id: string;
   channel_type: number;
-  uid: string;          // 阅读者
+  uid: string;
   timestamp: number;
 }
 
-/**
- * 用户连接事件数据
- */
 interface UserConnectData {
   uid: string;
   device_flag: number;
@@ -64,173 +55,292 @@ interface UserConnectData {
   timestamp: number;
 }
 
+type RawBodyRequest = Request & { rawBody?: Buffer };
+
 @ApiTags('wukongim-webhook')
 @Controller('webhook/wukongim')
 export class WukongIMWebhookController {
   private readonly logger = new Logger(WukongIMWebhookController.name);
   private readonly webhookSecret: string;
   private readonly enabled: boolean;
+  private readonly timestampToleranceSeconds: number;
+  private readonly replayWindowSeconds: number;
+  private readonly requireReplayRedis: boolean;
 
   constructor(
-    private configService: ConfigService,
+    private readonly configService: ConfigService,
     @InjectRepository(Message)
-    private messageRepository: Repository<Message>,
+    private readonly messageRepository: Repository<Message>,
+    @Optional()
+    @Inject(REDIS_CLIENT)
+    private readonly redis?: Redis,
   ) {
-    this.webhookSecret = this.configService.get<string>('im.wukongim.webhookSecret') || '';
-    this.enabled = this.configService.get<boolean>('im.wukongim.webhookEnabled') !== false;
+    this.webhookSecret = this.readConfig(
+      ['im.wukongim.webhookSecret', 'WUKONGIM_WEBHOOK_SECRET'],
+      '',
+    );
+    this.enabled = this.readBooleanConfig(
+      ['im.wukongim.webhookEnabled', 'WUKONGIM_WEBHOOK_ENABLED'],
+      true,
+    );
+    this.timestampToleranceSeconds = this.readNumberConfig(
+      [
+        'im.wukongim.webhookTimestampToleranceSeconds',
+        'WUKONGIM_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS',
+      ],
+      300,
+      30,
+    );
+    this.replayWindowSeconds = this.readNumberConfig(
+      [
+        'im.wukongim.webhookReplayWindowSeconds',
+        'WUKONGIM_WEBHOOK_REPLAY_WINDOW_SECONDS',
+      ],
+      600,
+      this.timestampToleranceSeconds,
+    );
+    this.requireReplayRedis = this.readBooleanConfig(
+      [
+        'im.wukongim.webhookReplayRequireRedis',
+        'WUKONGIM_WEBHOOK_REPLAY_REQUIRE_REDIS',
+      ],
+      false,
+    );
   }
 
-  /**
-   * 接收悟空IM Webhook
-   * 悟空IM会在以下场景调用：
-   * 1. 消息送达时
-   * 2. 消息已读时
-   * 3. 用户连接/断开时
-   * 4. 其他自定义事件
-   */
   @Post()
   @ApiOperation({
-    summary: '接收悟空IM Webhook',
-    description: '接收消息回执、已读通知等事件',
+    summary: 'Receive WukongIM Webhook',
+    description: 'Receive message ack/read and online/offline events',
   })
   async receiveWebhook(
     @Body() payload: WebhookPayload,
     @Headers('x-wukongim-signature') signature?: string,
+    @Headers('x-wukongim-timestamp') timestampHeader?: string,
+    @Headers('x-wukongim-nonce') nonce?: string,
+    @Req() req?: RawBodyRequest,
   ): Promise<{ success: boolean }> {
     if (!this.enabled) {
       this.logger.warn('Webhook is disabled');
       throw new BadRequestException('Webhook is disabled');
     }
 
-    // 验证签名（如果配置了密钥）
-    if (this.webhookSecret && signature) {
-      this.validateSignature(payload, signature);
+    if (this.webhookSecret) {
+      if (!signature) {
+        throw new UnauthorizedException('Missing signature');
+      }
+      if (!timestampHeader) {
+        throw new UnauthorizedException('Missing timestamp');
+      }
+      if (!nonce) {
+        throw new UnauthorizedException('Missing nonce');
+      }
+
+      const rawBody = this.extractRawBody(payload, req);
+      const timestampSeconds = this.validateTimestamp(timestampHeader);
+      this.validateSignature(rawBody, signature);
+      await this.ensureRequestNotReplayed(timestampSeconds, nonce);
     }
 
-    this.logger.debug(`收到Webhook: ${payload.event}`);
+    this.logger.debug(`Received webhook event: ${payload.event}`);
 
     try {
       switch (payload.event) {
         case WukongIMWebhookEvent.MESSAGE_ACK:
           await this.handleMessageAck(payload.data as MessageAckData);
           break;
-
         case WukongIMWebhookEvent.MESSAGE_READ:
           await this.handleMessageRead(payload.data as MessageReadData);
           break;
-
         case WukongIMWebhookEvent.CONNECT:
           await this.handleUserConnect(payload.data as UserConnectData);
           break;
-
         case WukongIMWebhookEvent.DISCONNECT:
           await this.handleUserDisconnect(payload.data as UserConnectData);
           break;
-
         case WukongIMWebhookEvent.USER_ONLINE:
           this.handleUserOnline(payload.data);
           break;
-
         case WukongIMWebhookEvent.USER_OFFLINE:
           this.handleUserOffline(payload.data);
           break;
-
         default:
-          this.logger.warn(`未知的事件类型: ${payload.event}`);
+          this.logger.warn(`Unknown webhook event: ${payload.event}`);
       }
 
       return { success: true };
-    } catch (error: any) {
-      this.logger.error(`处理Webhook失败: ${error.message}`, error.stack);
-      // 返回成功避免悟空IM重试（如果业务不需要重试）
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Failed to process webhook: ${err.message}`, err.stack);
       return { success: true };
     }
   }
 
-  /**
-   * 处理消息送达回执
-   */
   private async handleMessageAck(data: MessageAckData): Promise<void> {
-    this.logger.debug(`消息送达: ${data.message_id}`);
-
-    // 更新消息状态为已送达
-    await this.messageRepository.update(
-      { id: data.message_id },
-      {
-        status: MessageStatus.DELIVERED,
-      },
+    const identifiers = [data.message_id, data.client_msg_no].filter(Boolean) as string[];
+    const affected = await this.updateMessageStatusByIdentifiers(
+      identifiers,
+      MessageStatus.DELIVERED,
     );
-
-    // 可以触发其他业务逻辑
-    // 例如：发送推送通知给发送者
+    if (affected === 0) {
+      this.logger.warn(`No message matched ACK identifiers: ${identifiers.join(',')}`);
+    }
   }
 
-  /**
-   * 处理消息已读回执
-   */
   private async handleMessageRead(data: MessageReadData): Promise<void> {
-    this.logger.debug(`消息已读: ${data.message_ids.join(',')}, 阅读者: ${data.uid}`);
+    const messageIds = data.message_ids || [];
+    const clientMsgNos = data.client_msg_nos || [];
+    const identifiers = [...messageIds, ...clientMsgNos].filter(Boolean);
 
-    if (data.message_ids.length > 0) {
-      await this.messageRepository.update(
-        { id: In(data.message_ids) },
-        { status: MessageStatus.READ },
-      );
+    this.logger.debug(`Read ack identifiers: ${identifiers.join(',')}, reader: ${data.uid}`);
+
+    if (identifiers.length === 0) {
+      return;
     }
 
-    // 更新会话的未读数
-    // 这里可以调用 ConversationService 更新未读数
+    const affected = await this.updateMessageStatusByIdentifiers(
+      identifiers,
+      MessageStatus.READ,
+    );
+    if (affected === 0) {
+      this.logger.warn(`No message matched READ identifiers: ${identifiers.join(',')}`);
+    }
   }
 
-  /**
-   * 处理用户连接事件
-   */
+  private async updateMessageStatusByIdentifiers(
+    identifiers: string[],
+    status: MessageStatus,
+  ): Promise<number> {
+    const uniqueIdentifiers = [...new Set(identifiers.filter(Boolean))];
+    if (uniqueIdentifiers.length === 0) {
+      return 0;
+    }
+
+    const result = await this.messageRepository
+      .createQueryBuilder()
+      .update(Message)
+      .set({ status })
+      .where('id IN (:...identifiers)', { identifiers: uniqueIdentifiers })
+      .orWhere("extra->>'imMessageId' IN (:...identifiers)", { identifiers: uniqueIdentifiers })
+      .orWhere("extra->>'imClientMsgNo' IN (:...identifiers)", { identifiers: uniqueIdentifiers })
+      .execute();
+
+    return result.affected || 0;
+  }
+
   private async handleUserConnect(data: UserConnectData): Promise<void> {
-    this.logger.log(`用户连接: ${data.uid}, 设备: ${data.device_flag}`);
-
-    // 可以更新用户在线状态到Redis
-    // 可以发送离线消息给用户
+    this.logger.log(`User connected: ${data.uid}, device: ${data.device_flag}`);
   }
 
-  /**
-   * 处理用户断开连接事件
-   */
   private async handleUserDisconnect(data: UserConnectData): Promise<void> {
-    this.logger.log(`用户断开: ${data.uid}, 设备: ${data.device_flag}`);
-
-    // 更新用户离线状态
+    this.logger.log(`User disconnected: ${data.uid}, device: ${data.device_flag}`);
   }
 
-  /**
-   * 处理用户上线
-   */
-  private handleUserOnline(data: any): void {
-    this.logger.log(`用户上线: ${data.uid}`);
+  private handleUserOnline(data: unknown): void {
+    const uid = (data as Record<string, unknown>)?.uid;
+    this.logger.log(`User online: ${uid}`);
   }
 
-  /**
-   * 处理用户离线
-   */
-  private handleUserOffline(data: any): void {
-    this.logger.log(`用户离线: ${data.uid}`);
+  private handleUserOffline(data: unknown): void {
+    const uid = (data as Record<string, unknown>)?.uid;
+    this.logger.log(`User offline: ${uid}`);
   }
 
-  /**
-   * 验证 Webhook 签名
-   * 防止伪造请求
-   */
-  private validateSignature(payload: WebhookPayload, signature: string): void {
-    // 简单的签名验证实现
-    // 实际项目中应该使用 HMAC-SHA256 等算法
-    const crypto = require('crypto');
-    const expectedSign = crypto
-      .createHmac('sha256', this.webhookSecret)
-      .update(JSON.stringify(payload))
-      .digest('hex');
+  private extractRawBody(payload: WebhookPayload, req?: RawBodyRequest): Buffer {
+    if (req?.rawBody && Buffer.isBuffer(req.rawBody)) {
+      return req.rawBody;
+    }
+    this.logger.warn('Raw body is unavailable, fallback to JSON serialized payload for signature');
+    return Buffer.from(JSON.stringify(payload), 'utf8');
+  }
 
-    if (signature !== expectedSign) {
-      this.logger.error('Webhook签名验证失败');
+  private validateSignature(rawBody: Buffer, signature: string): void {
+    const normalizedSignature = signature.replace(/^sha256=/i, '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(normalizedSignature)) {
+      throw new UnauthorizedException('Invalid signature format');
+    }
+
+    const expectedHex = createHmac('sha256', this.webhookSecret).update(rawBody).digest('hex');
+    const actualBuffer = Buffer.from(normalizedSignature, 'hex');
+    const expectedBuffer = Buffer.from(expectedHex, 'hex');
+
+    const valid = actualBuffer.length === expectedBuffer.length &&
+      timingSafeEqual(actualBuffer, expectedBuffer);
+    if (!valid) {
+      this.logger.error('Webhook signature verification failed');
       throw new UnauthorizedException('Invalid signature');
     }
+  }
+
+  private validateTimestamp(headerValue: string): number {
+    const timestampRaw = Number(headerValue);
+    if (!Number.isFinite(timestampRaw)) {
+      throw new UnauthorizedException('Invalid timestamp');
+    }
+
+    const timestampSeconds = timestampRaw > 1e12
+      ? Math.floor(timestampRaw / 1000)
+      : Math.floor(timestampRaw);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    if (Math.abs(nowSeconds - timestampSeconds) > this.timestampToleranceSeconds) {
+      throw new UnauthorizedException('Expired timestamp');
+    }
+
+    return timestampSeconds;
+  }
+
+  private async ensureRequestNotReplayed(
+    timestampSeconds: number,
+    nonceHeader: string,
+  ): Promise<void> {
+    const nonce = nonceHeader.trim();
+    if (!nonce) {
+      throw new UnauthorizedException('Invalid nonce');
+    }
+
+    if (!this.redis) {
+      if (this.requireReplayRedis) {
+        this.logger.error('Replay protection requires Redis, but REDIS_CLIENT is unavailable');
+        throw new UnauthorizedException('Replay protection unavailable');
+      }
+      this.logger.warn('REDIS_CLIENT unavailable, replay protection skipped');
+      return;
+    }
+
+    const replayKey = `wukongim:webhook:nonce:${timestampSeconds}:${nonce}`;
+    const result = await this.redis.set(replayKey, '1', 'EX', this.replayWindowSeconds, 'NX');
+
+    if (result !== 'OK') {
+      throw new UnauthorizedException('Replay request detected');
+    }
+  }
+
+  private readConfig(keys: string[], fallback: string): string {
+    for (const key of keys) {
+      const value = this.configService.get<string | number | boolean>(key);
+      if (value === undefined || value === null) {
+        continue;
+      }
+      const normalized = String(value).trim();
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return fallback;
+  }
+
+  private readNumberConfig(keys: string[], fallback: number, minValue: number): number {
+    const rawValue = this.readConfig(keys, String(fallback));
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed < minValue) {
+      return fallback;
+    }
+    return Math.floor(parsed);
+  }
+
+  private readBooleanConfig(keys: string[], fallback: boolean): boolean {
+    const rawValue = this.readConfig(keys, fallback ? 'true' : 'false').toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(rawValue);
   }
 }

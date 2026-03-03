@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { algorithmService } from '../services/algorithm.service';
-import { CountingBloomFilter } from '../utils/countingBloomFilter';
-import { SkipList } from '../utils/skipList';
+﻿import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  algorithmService,
+  CountingBloomFilter,
+  SkipList,
+} from '@sdkwork/openchat-pc-kernel';
 
 describe('AlgorithmService', () => {
   describe('CountingBloomFilter', () => {
@@ -138,3 +140,4 @@ describe('AlgorithmService', () => {
     });
   });
 });
+

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { MessageService } from './message.service';
 import { Message, SendMessageResult } from './message.interface';
@@ -23,29 +23,38 @@ export class MessageController {
   @ApiOperation({ summary: '发送消息' })
   @ApiResponse({ status: 201, description: '成功发送消息' })
   @ApiResponse({ status: 400, description: '参数错误' })
-  async sendMessage(@Body() messageData: SendMessage): Promise<SendMessageResult> {
-    return this.messageService.sendMessage(messageData as any);
+  async sendMessage(
+    @Body() messageData: SendMessage,
+    @Request() req: any,
+  ): Promise<SendMessageResult> {
+    if (messageData.fromUserId && messageData.fromUserId !== req.user.id) {
+      throw new ForbiddenException('Cannot send message for another user');
+    }
+    return this.messageService.sendMessage({
+      ...messageData,
+      fromUserId: req.user.id,
+    } as any);
   }
 
   @Post('batch')
   @ApiOperation({ summary: '批量发送消息' })
   @ApiResponse({ status: 201, description: '成功批量发送消息' })
-  async batchSendMessages(@Body() batchData: BatchSendMessage): Promise<SendMessageResult[]> {
-    const results: SendMessageResult[] = [];
-    for (const msg of batchData.messages) {
-      const result = await this.messageService.sendMessage(msg as any);
-      results.push(result);
-    }
-    return results;
-  }
+  async batchSendMessages(
+    @Body() batchData: BatchSendMessage,
+    @Request() req: any,
+  ): Promise<SendMessageResult[]> {
+    const normalizedMessages = batchData.messages.map((msg) => {
+      if (msg.fromUserId && msg.fromUserId !== req.user.id) {
+        throw new ForbiddenException('Cannot send message for another user');
+      }
+      return {
+        ...msg,
+        fromUserId: req.user.id,
+      } as any;
+    });
 
-  @Get(':id')
-  @ApiOperation({ summary: '获取消息详情' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功获取消息详情' })
-  @ApiResponse({ status: 404, description: '消息不存在' })
-  async getMessageById(@Param('id') id: string): Promise<Message | null> {
-    return this.messageService.getMessageById(id);
+    const batchResult = await this.messageService.sendMessageBatch(normalizedMessages);
+    return batchResult.results;
   }
 
   @Get('user/:userId')
@@ -55,7 +64,11 @@ export class MessageController {
   async getMessagesByUserId(
     @Param('userId') userId: string,
     @Query() query: GetMessagesQuery,
+    @Request() req: any,
   ): Promise<Message[]> {
+    if (userId !== req.user.id) {
+      throw new ForbiddenException('Cannot read messages of another user');
+    }
     return this.messageService.getMessagesByUserId(userId, { limit: query.limit, offset: query.offset });
   }
 
@@ -66,8 +79,29 @@ export class MessageController {
   async getMessagesByGroupId(
     @Param('groupId') groupId: string,
     @Query() query: GetMessagesQuery,
+    @Request() req: any,
   ): Promise<Message[]> {
+    const isMember = await this.messageService.isUserInGroup(groupId, req.user.id);
+    if (!isMember) {
+      throw new ForbiddenException('Cannot read messages of a group you have not joined');
+    }
     return this.messageService.getMessagesByGroupId(groupId, { limit: query.limit, offset: query.offset });
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '获取消息详情' })
+  @ApiParam({ name: 'id', description: '消息ID' })
+  @ApiResponse({ status: 200, description: '成功获取消息详情' })
+  @ApiResponse({ status: 404, description: '消息不存在' })
+  async getMessageById(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<Message | null> {
+    const canAccess = await this.messageService.canUserAccessMessage(req.user.id, id);
+    if (!canAccess) {
+      throw new ForbiddenException('Cannot read message that does not belong to you');
+    }
+    return this.messageService.getMessageById(id);
   }
 
   @Put(':id/status')
@@ -78,7 +112,12 @@ export class MessageController {
   async updateMessageStatus(
     @Param('id') id: string,
     @Body() body: UpdateMessageStatus,
+    @Request() req: any,
   ): Promise<boolean> {
+    const isSender = await this.messageService.isMessageSender(req.user.id, id);
+    if (!isSender) {
+      throw new ForbiddenException('Only sender can update message status');
+    }
     return this.messageService.updateMessageStatus(id, body.status as any);
   }
 
@@ -86,7 +125,14 @@ export class MessageController {
   @ApiOperation({ summary: '删除消息' })
   @ApiParam({ name: 'id', description: '消息ID' })
   @ApiResponse({ status: 200, description: '成功删除消息' })
-  async deleteMessage(@Param('id') id: string): Promise<boolean> {
+  async deleteMessage(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<boolean> {
+    const isSender = await this.messageService.isMessageSender(req.user.id, id);
+    if (!isSender) {
+      throw new ForbiddenException('Only sender can delete message');
+    }
     return this.messageService.deleteMessage(id);
   }
 
@@ -97,7 +143,11 @@ export class MessageController {
   async markMessagesAsRead(
     @Param('userId') userId: string,
     @Body() body: MarkMessagesRead,
+    @Request() req: any,
   ): Promise<boolean> {
+    if (userId !== req.user.id) {
+      throw new ForbiddenException('Cannot update another user read status');
+    }
     return this.messageService.markMessagesAsRead(userId, body.messageIds);
   }
 
@@ -141,7 +191,14 @@ export class MessageController {
   @ApiOperation({ summary: '重试发送失败的消息' })
   @ApiParam({ name: 'id', description: '消息ID' })
   @ApiResponse({ status: 200, description: '成功重试发送' })
-  async retryFailedMessage(@Param('id') id: string): Promise<SendMessageResult> {
+  async retryFailedMessage(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<SendMessageResult> {
+    const isSender = await this.messageService.isMessageSender(req.user.id, id);
+    if (!isSender) {
+      throw new ForbiddenException('Only sender can retry failed message');
+    }
     return this.messageService.retryFailedMessage(id);
   }
 }

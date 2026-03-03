@@ -10,16 +10,52 @@ import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { compression } from 'vite-plugin-compression2';
 
+const modulePackageNames = [
+  'agent',
+  'appstore',
+  'auth',
+  'commerce',
+  'contacts',
+  'creation',
+  'device',
+  'discover',
+  'drive',
+  'im',
+  'notification',
+  'rtc',
+  'search',
+  'settings',
+  'skill',
+  'social',
+  'terminal',
+  'tool',
+  'tools',
+  'video',
+  'wallet',
+  'commons',
+  'ui',
+  'kernel',
+  'contracts',
+] as const;
+
+const workspacePackageAlias = Object.fromEntries(
+  modulePackageNames.map((name) => [
+    `@sdkwork/openchat-pc-${name}`,
+    path.resolve(__dirname, `./packages/sdkwork-openchat-pc-${name}/src/index.ts`),
+  ])
+);
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [
     react({
-      babel: {
-        plugins: [
-          // React Compiler 优化（生产环境）
-          ...(mode === 'production' ? [['babel-plugin-react-compiler', {}]] : []),
-        ],
-      },
+      // React Compiler 暂时禁用，需要React 19支持
+      // babel: {
+      //   plugins: [
+      //     // React Compiler 优化（生产环境）
+      //     ...(mode === 'production' ? [['babel-plugin-react-compiler', {}]] : []),
+      //   ],
+      // },
     }),
     // 包体积分析（analyze 模式）
     mode === 'analyze' &&
@@ -40,6 +76,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      ...workspacePackageAlias,
     },
   },
 

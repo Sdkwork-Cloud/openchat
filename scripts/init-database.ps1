@@ -89,7 +89,7 @@ if (-not $psqlPath) {
 }
 
 # 步骤 1: 测试连接
-Write-ColorOutput "步骤 1/5: 测试数据库连接..." "Blue"
+Write-ColorOutput "步骤 1/4: 测试数据库连接..." "Blue"
 try {
     $result = & psql -h $dbHost -p $dbPort -U $dbUser -d postgres -c "SELECT 1" 2>&1
     if ($LASTEXITCODE -eq 0) {
@@ -104,12 +104,12 @@ try {
 }
 
 # 步骤 2: 创建数据库
-Write-ColorOutput "步骤 2/5: 创建数据库（如果不存在）..." "Blue"
+Write-ColorOutput "步骤 2/4: 创建数据库（如果不存在）..." "Blue"
 & psql -h $dbHost -p $dbPort -U $dbUser -d postgres -c "CREATE DATABASE $dbName;" 2>$null
 Write-ColorOutput "✓ 数据库已就绪" "Green"
 
 # 步骤 3: 执行架构
-Write-ColorOutput "步骤 3/5: 执行数据库架构..." "Blue"
+Write-ColorOutput "步骤 3/4: 执行数据库架构..." "Blue"
 if (Test-Path "database\schema.sql") {
     & psql -h $dbHost -p $dbPort -U $dbUser -d $dbName -f database\schema.sql
     if ($LASTEXITCODE -eq 0) {
@@ -123,21 +123,8 @@ if (Test-Path "database\schema.sql") {
     exit 1
 }
 
-# 步骤 4: 执行迁移
-Write-ColorOutput "步骤 4/5: 执行数据库迁移..." "Blue"
-if (Test-Path "database\migrations") {
-    $migrations = Get-ChildItem -Path "database\migrations" -Filter "*.sql" | Sort-Object Name
-    foreach ($migration in $migrations) {
-        Write-Host "  执行: $($migration.Name)"
-        & psql -h $dbHost -p $dbPort -U $dbUser -d $dbName -f $migration.FullName
-    }
-    Write-ColorOutput "✓ 数据库迁移已完成" "Green"
-} else {
-    Write-ColorOutput "! 没有迁移文件" "Yellow"
-}
-
-# 步骤 5: 插入种子数据
-Write-ColorOutput "步骤 5/5: 插入种子数据..." "Blue"
+# 步骤 4: 插入种子数据
+Write-ColorOutput "步骤 4/4: 插入种子数据..." "Blue"
 if ($Environment -ne "prod") {
     if (Test-Path "database\seed.sql") {
         $seedConfirm = Read-Host "是否插入测试数据? (yes/no)"

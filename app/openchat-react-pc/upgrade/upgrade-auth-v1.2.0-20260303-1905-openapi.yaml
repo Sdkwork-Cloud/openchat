@@ -1,0 +1,374 @@
+openapi: 3.0.3
+info:
+  title: OpenChat PC Auth SDK Upgrade API
+  version: v1.2.0
+  description: |
+    Contract-first auth upgrade spec for OpenChat PC.
+    This file is intended for SDK/API implementation by another agent.
+
+servers:
+  - url: /app/v3/api
+    description: Direct SDK route
+  - url: /api/app/v3/api
+    description: Gateway-prefixed SDK route
+
+tags:
+  - name: Auth
+    description: Authentication and account recovery APIs
+
+security:
+  - BearerAuth: []
+    AccessTokenAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: auth_login_with_im_config
+      summary: Login and return tokens with IM bootstrap config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/AuthLoginResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /auth/register/verified:
+    post:
+      tags: [Auth]
+      operationId: auth_register_verified
+      summary: Verify challenge and create account atomically
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterVerifiedRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/AuthRegisterResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /auth/password/reset/request:
+    post:
+      tags: [Auth]
+      operationId: auth_request_password_reset_challenge
+      summary: Request reset challenge with challenge metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PasswordResetChallengeResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Application auth token in dual-token mode.
+    AccessTokenAuth:
+      type: apiKey
+      in: header
+      name: Access-Token
+      description: Application access token in dual-token mode.
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Server-to-server API key mode; mutually exclusive with dual-token mode.
+
+  parameters:
+    RequiredIdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+
+  responses:
+    AuthLoginResponse:
+      description: Login response with tokens and IM bootstrap config
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LoginData'
+    AuthRegisterResponse:
+      description: Register response with user info
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserInfo'
+    PasswordResetChallengeResponse:
+      description: Reset challenge response with metadata
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PasswordResetChallenge'
+    ErrorResponse:
+      description: Unified error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApiResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: object
+          additionalProperties: true
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+        captcha:
+          type: string
+          maxLength: 32
+
+    RegisterVerifiedRequest:
+      type: object
+      required:
+        - username
+        - password
+        - confirmPassword
+        - account
+        - channel
+        - challengeId
+        - code
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+        confirmPassword:
+          type: string
+          minLength: 6
+          maxLength: 128
+        account:
+          type: string
+          description: Email or phone
+          minLength: 1
+          maxLength: 100
+        channel:
+          type: string
+          enum: [EMAIL, SMS]
+        challengeId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        code:
+          type: string
+          minLength: 4
+          maxLength: 16
+        nickname:
+          type: string
+          maxLength: 100
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - account
+        - channel
+      properties:
+        account:
+          type: string
+          minLength: 1
+          maxLength: 100
+        channel:
+          type: string
+          enum: [EMAIL, SMS]
+        deviceId:
+          type: string
+          maxLength: 128
+        locale:
+          type: string
+          maxLength: 32
+        redirectUri:
+          type: string
+          format: uri
+
+    LoginData:
+      type: object
+      required:
+        - accessToken
+        - userInfo
+        - imConfig
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+        expiresIn:
+          type: integer
+          minimum: 1
+        userInfo:
+          $ref: '#/components/schemas/UserInfo'
+        imConfig:
+          $ref: '#/components/schemas/ImConfig'
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        nickname:
+          type: string
+        avatar:
+          type: string
+          format: uri
+        status:
+          type: string
+
+    ImConfig:
+      type: object
+      required:
+        - wsUrl
+        - uid
+        - token
+      properties:
+        wsUrl:
+          type: string
+          format: uri
+        serverUrl:
+          type: string
+          format: uri
+        uid:
+          type: string
+        token:
+          type: string
+        deviceId:
+          type: string
+        deviceFlag:
+          type: string
+
+    PasswordResetChallenge:
+      type: object
+      required:
+        - challengeId
+        - channel
+        - expiresAt
+      properties:
+        challengeId:
+          type: string
+        channel:
+          type: string
+          enum: [EMAIL, SMS]
+        expiresAt:
+          type: string
+          format: date-time
+        retryAfterSeconds:
+          type: integer
+          minimum: 0
+        maskedTarget:
+          type: string

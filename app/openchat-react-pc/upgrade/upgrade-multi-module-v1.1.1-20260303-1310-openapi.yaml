@@ -1,0 +1,1063 @@
+﻿openapi: 3.0.3
+info:
+  title: OpenChat PC Multi-Module SDK Upgrade API
+  version: v1.1.1
+  description: |
+    Contract-first API upgrade spec for OpenChat PC.
+    This file is intended for SDK/API implementation by another agent.
+
+servers:
+  - url: /app/v3/api
+    description: Direct SDK route
+  - url: /api/app/v3/api
+    description: Gateway-prefixed SDK route
+
+tags:
+  - name: SocialMoments
+  - name: Video
+  - name: Wallet
+  - name: Device
+  - name: Settings
+  - name: CartCommerce
+  - name: Notification
+  - name: Skill
+  - name: Tool
+  - name: Agent
+
+security:
+  - BearerAuth: []
+    AccessTokenAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /social/moments:
+    post:
+      tags: [SocialMoments]
+      operationId: social_create_moment
+      summary: Create a social moment
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMomentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /social/moments/{momentId}:
+    delete:
+      tags: [SocialMoments]
+      operationId: social_delete_moment
+      summary: Delete a social moment
+      parameters:
+        - $ref: '#/components/parameters/MomentId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /social/moments/stats:
+    get:
+      tags: [SocialMoments]
+      operationId: social_get_moment_stats
+      summary: Get social moment statistics
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /video/{videoId}/view:
+    post:
+      tags: [Video]
+      operationId: video_report_view
+      summary: Report video view event
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /video/{videoId}/comments:
+    get:
+      tags: [Video]
+      operationId: video_list_comments
+      summary: List video comments in a paged format
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /wallet/summary:
+    get:
+      tags: [Wallet]
+      operationId: wallet_get_summary
+      summary: Get wallet summary
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /wallet/stats:
+    get:
+      tags: [Wallet]
+      operationId: wallet_get_stats
+      summary: Get wallet statistics
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /wallet/transactions:
+    get:
+      tags: [Wallet]
+      operationId: wallet_list_transactions
+      summary: List wallet transactions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+    post:
+      tags: [Wallet]
+      operationId: wallet_create_transaction
+      summary: Create a wallet transaction record
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWalletTransactionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /wallet/payment-methods/default:
+    put:
+      tags: [Wallet]
+      operationId: wallet_set_default_payment_method
+      summary: Set default payment method
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetDefaultPaymentMethodRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /wallet/red-packets:
+    post:
+      tags: [Wallet]
+      operationId: wallet_create_red_packet
+      summary: Create a red packet
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRedPacketRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /devices/{deviceId}:
+    get:
+      tags: [Device]
+      operationId: device_get_detail
+      summary: Get device detail
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /devices/{deviceId}/status:
+    put:
+      tags: [Device]
+      operationId: device_update_status
+      summary: Update device status
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStatusUpdateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /devices/{deviceId}/messages:
+    get:
+      tags: [Device]
+      operationId: device_list_messages
+      summary: List device messages
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /devices/{deviceId}/control:
+    post:
+      tags: [Device]
+      operationId: device_send_control
+      summary: Send control command to device
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceControlRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /devices/stats:
+    get:
+      tags: [Device]
+      operationId: device_get_stats
+      summary: Get device statistics
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /settings/storage:
+    get:
+      tags: [Settings]
+      operationId: settings_get_storage
+      summary: Get local storage statistics
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /settings/storage/clean-cache:
+    post:
+      tags: [Settings]
+      operationId: settings_clean_cache
+      summary: Clean cache only
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /settings/storage/clean-all:
+    post:
+      tags: [Settings]
+      operationId: settings_clean_all
+      summary: Clean all local data
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /settings/models:
+    post:
+      tags: [Settings]
+      operationId: settings_create_model
+      summary: Create model configuration
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateModelConfigRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /settings/models/{modelId}:
+    delete:
+      tags: [Settings]
+      operationId: settings_delete_model
+      summary: Delete model configuration
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /settings/models/{modelId}/default:
+    put:
+      tags: [Settings]
+      operationId: settings_set_default_model
+      summary: Set default model configuration
+      parameters:
+        - $ref: '#/components/parameters/ModelId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /cart/count:
+    get:
+      tags: [CartCommerce]
+      operationId: cart_get_count
+      summary: Get cart item count
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /cart/select-all:
+    put:
+      tags: [CartCommerce]
+      operationId: cart_select_all
+      summary: Select or unselect all cart items
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartSelectAllRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /cart/selected:
+    delete:
+      tags: [CartCommerce]
+      operationId: cart_clear_selected
+      summary: Clear selected cart items
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /products/{productId}/recommended:
+    get:
+      tags: [CartCommerce]
+      operationId: commerce_get_recommended_products
+      summary: Get recommended products for a product
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /notification/{notificationId}/unread:
+    put:
+      tags: [Notification]
+      operationId: notification_mark_unread
+      summary: Mark one notification as unread
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /notification/stats:
+    get:
+      tags: [Notification]
+      operationId: notification_get_stats
+      summary: Get notification statistics
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /notification/clear-read:
+    post:
+      tags: [Notification]
+      operationId: notification_clear_read
+      summary: Clear read notifications (optional by type)
+      parameters:
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationClearReadRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /skills:
+    get:
+      tags: [Skill]
+      operationId: skill_list
+      summary: List skills
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /skills/{skillId}:
+    get:
+      tags: [Skill]
+      operationId: skill_get_detail
+      summary: Get skill detail
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /skills/{skillId}/enable:
+    post:
+      tags: [Skill]
+      operationId: skill_enable
+      summary: Enable a skill
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /skills/{skillId}/disable:
+    post:
+      tags: [Skill]
+      operationId: skill_disable
+      summary: Disable a skill
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /skills/{skillId}/config:
+    put:
+      tags: [Skill]
+      operationId: skill_update_config
+      summary: Update skill configuration
+      parameters:
+        - $ref: '#/components/parameters/SkillId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSkillConfigRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /tools/market:
+    get:
+      tags: [Tool]
+      operationId: tool_list_market
+      summary: List tools in market
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /tools/my:
+    get:
+      tags: [Tool]
+      operationId: tool_list_my
+      summary: List my tools
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /tools/market/{toolId}/test:
+    post:
+      tags: [Tool]
+      operationId: tool_test
+      summary: Test tool execution health
+      parameters:
+        - $ref: '#/components/parameters/ToolId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /tools/my/{toolId}/credentials:
+    put:
+      tags: [Tool]
+      operationId: tool_update_credentials
+      summary: Update tool credentials
+      parameters:
+        - $ref: '#/components/parameters/ToolId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateToolCredentialsRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /agents:
+    get:
+      tags: [Agent]
+      operationId: agent_list
+      summary: List agents
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /agents/{agentId}:
+    get:
+      tags: [Agent]
+      operationId: agent_get_detail
+      summary: Get agent detail
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /agents/{agentId}/sessions:
+    get:
+      tags: [Agent]
+      operationId: agent_list_sessions
+      summary: List sessions by agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+    post:
+      tags: [Agent]
+      operationId: agent_create_session
+      summary: Create session for an agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentSessionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /agents/sessions/{sessionId}/messages:
+    get:
+      tags: [Agent]
+      operationId: agent_list_session_messages
+      summary: List session messages
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+    post:
+      tags: [Agent]
+      operationId: agent_send_session_message
+      summary: Send message to an agent session
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendAgentMessageRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /agents/{agentId}/memory:
+    get:
+      tags: [Agent]
+      operationId: agent_list_memory
+      summary: List memory records by agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+    post:
+      tags: [Agent]
+      operationId: agent_create_memory
+      summary: Create a memory record for agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentMemoryRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /agents/{agentId}/memory/search:
+    get:
+      tags: [Agent]
+      operationId: agent_search_memory
+      summary: Search memory records by keyword
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - in: query
+          name: keyword
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedResponse'
+
+  /agents/{agentId}/memory/stats:
+    get:
+      tags: [Agent]
+      operationId: agent_get_memory_stats
+      summary: Get memory statistics by agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /agents/{agentId}/memory/{memoryId}:
+    delete:
+      tags: [Agent]
+      operationId: agent_delete_memory
+      summary: Delete a memory record
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - $ref: '#/components/parameters/MemoryId'
+        - $ref: '#/components/parameters/RequiredIdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Auth token for application-side dual-token mode.
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key mode for server-to-server access. Mutually exclusive with dual-token mode.
+    AccessTokenAuth:
+      type: apiKey
+      in: header
+      name: Access-Token
+      description: Access token paired with BearerAuth in dual-token mode.
+
+  parameters:
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Size:
+      in: query
+      name: size
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+    RequiredIdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+    MomentId:
+      in: path
+      name: momentId
+      required: true
+      schema:
+        type: string
+    VideoId:
+      in: path
+      name: videoId
+      required: true
+      schema:
+        type: string
+    DeviceId:
+      in: path
+      name: deviceId
+      required: true
+      schema:
+        type: string
+    ModelId:
+      in: path
+      name: modelId
+      required: true
+      schema:
+        type: string
+    ProductId:
+      in: path
+      name: productId
+      required: true
+      schema:
+        type: string
+    NotificationId:
+      in: path
+      name: notificationId
+      required: true
+      schema:
+        type: string
+    SkillId:
+      in: path
+      name: skillId
+      required: true
+      schema:
+        type: string
+    ToolId:
+      in: path
+      name: toolId
+      required: true
+      schema:
+        type: string
+    AgentId:
+      in: path
+      name: agentId
+      required: true
+      schema:
+        type: string
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+    MemoryId:
+      in: path
+      name: memoryId
+      required: true
+      schema:
+        type: string
+
+  responses:
+    SuccessResponse:
+      description: Unified success response envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    PagedResponse:
+      description: Unified paged response envelope
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PagedResult'
+    ErrorResponse:
+      description: Unified error response envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApiResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: object
+          additionalProperties: true
+
+    PagedResult:
+      type: object
+      required:
+        - content
+        - total
+        - page
+        - size
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        totalPages:
+          type: integer
+          minimum: 0
+
+    CreateMomentRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        mediaUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+        visibility:
+          type: string
+          enum: [public, contacts, private]
+
+    CreateWalletTransactionRequest:
+      type: object
+      required:
+        - title
+        - amount
+        - type
+        - category
+      properties:
+        title:
+          type: string
+        amount:
+          type: number
+          minimum: 0.01
+        type:
+          type: string
+          enum: [income, expense]
+        category:
+          type: string
+        description:
+          type: string
+
+    SetDefaultPaymentMethodRequest:
+      type: object
+      required:
+        - paymentMethodId
+      properties:
+        paymentMethodId:
+          type: string
+
+    CreateRedPacketRequest:
+      type: object
+      required:
+        - amount
+        - count
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+        count:
+          type: integer
+          minimum: 1
+        message:
+          type: string
+
+    DeviceStatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [enabled, disabled, suspended]
+
+    DeviceControlRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+
+    CreateModelConfigRequest:
+      type: object
+      required:
+        - name
+        - model
+      properties:
+        name:
+          type: string
+        model:
+          type: string
+        provider:
+          type: string
+        isDefault:
+          type: boolean
+        settings:
+          type: object
+          additionalProperties: true
+
+    CartSelectAllRequest:
+      type: object
+      required:
+        - selected
+      properties:
+        selected:
+          type: boolean
+
+    NotificationClearReadRequest:
+      type: object
+      properties:
+        type:
+          type: string
+        before:
+          type: string
+          format: date-time
+
+    UpdateSkillConfigRequest:
+      type: object
+      required:
+        - config
+      properties:
+        config:
+          type: object
+          additionalProperties: true
+
+    UpdateToolCredentialsRequest:
+      type: object
+      required:
+        - credentials
+      properties:
+        credentials:
+          type: object
+          additionalProperties: true
+
+    CreateAgentSessionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+
+    SendAgentMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        role:
+          type: string
+          enum: [user, system]
+
+    CreateAgentMemoryRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        type:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true

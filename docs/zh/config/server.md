@@ -113,6 +113,17 @@ vim .env
 | `BATCH_SIZE` | 批处理大小 | `100` |
 | `CONCURRENCY_MAX` | 最大并发数 | `10` |
 
+## Timeline Feed 配置
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `TIMELINE_FANOUT_BATCH_SIZE` | 朋友圈 fanout 单批写入数量 | `500` |
+| `TIMELINE_FANOUT_THRESHOLD` | 超过该受众规模后从 `push` 切换到 `hybrid` | `5000` |
+| `TIMELINE_HYBRID_SEED_COUNT` | `hybrid` 模式下写入 inbox 的种子受众数量 | `2000` |
+| `TIMELINE_FEED_SCAN_ROUNDS` | feed 可见性过滤后的最大回填扫描轮次 | `4` |
+| `TIMELINE_FEED_PROFILING_ENABLED` | 是否开启 timeline feed profiling 日志 | `false` |
+| `TIMELINE_FEED_PROFILING_SAMPLE_RATE` | profiling 日志采样率，取值 `[0, 1]` | `1` |
+
 ## 缓存配置
 
 | 变量 | 说明 | 默认值 |
@@ -172,6 +183,14 @@ SLOW_QUERY_THRESHOLD=1000
 DB_QUERY_TIMEOUT=30000
 BATCH_SIZE=100
 CONCURRENCY_MAX=10
+
+# Timeline feed 配置
+TIMELINE_FANOUT_BATCH_SIZE=500
+TIMELINE_FANOUT_THRESHOLD=5000
+TIMELINE_HYBRID_SEED_COUNT=2000
+TIMELINE_FEED_SCAN_ROUNDS=4
+TIMELINE_FEED_PROFILING_ENABLED=false
+TIMELINE_FEED_PROFILING_SAMPLE_RATE=0.1
 ```
 
 ## 下一步

@@ -33,12 +33,17 @@ export class WukongIMProvider extends IMProviderBase {
     this.validateInitialized();
 
     try {
+      if (message.roomId) {
+        return this.sendGroupMessage(message);
+      }
+
       const channelId = WukongIMUtils.generatePersonalChannelId(message.from, message.to);
       const payload = WukongIMUtils.createMessagePayload(
         channelId,
         WukongIMChannelType.PERSON,
         message.from,
         { type: message.type, content: message.content },
+        (message as { clientMsgNo?: string }).clientMsgNo,
       );
 
       const response = await this.wukongIMClient.sendMessage(payload);
@@ -51,6 +56,7 @@ export class WukongIMProvider extends IMProviderBase {
         to: message.to,
         timestamp: Date.now(),
         status: 'sent',
+        clientMsgNo: response.client_msg_no || (message as { clientMsgNo?: string }).clientMsgNo,
       };
     } catch (error: any) {
       this.logger.error('Error sending message:', error.message);
@@ -68,6 +74,7 @@ export class WukongIMProvider extends IMProviderBase {
         WukongIMChannelType.GROUP,
         message.from,
         { type: message.type, content: message.content },
+        (message as { clientMsgNo?: string }).clientMsgNo,
       );
 
       const response = await this.wukongIMClient.sendMessage(payload);
@@ -81,6 +88,7 @@ export class WukongIMProvider extends IMProviderBase {
         roomId: message.roomId,
         timestamp: Date.now(),
         status: 'sent',
+        clientMsgNo: response.client_msg_no || (message as { clientMsgNo?: string }).clientMsgNo,
       };
     } catch (error: any) {
       this.logger.error('Error sending group message:', error.message);
@@ -103,13 +111,21 @@ export class WukongIMProvider extends IMProviderBase {
           isGroup ? WukongIMChannelType.GROUP : WukongIMChannelType.PERSON,
           msg.from,
           { type: msg.type, content: msg.content },
+          (msg as { clientMsgNo?: string }).clientMsgNo,
         );
       });
 
       const response = await this.wukongIMClient.sendBatchMessages(payloads);
+      const normalizedResponse = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.messages)
+          ? response.messages
+          : [];
 
       return messages.map((msg, index) => ({
-        id: response[index]?.message_id || `${msg.from}_${Date.now()}_${index}`,
+        id: normalizedResponse[index]?.message_id ||
+          normalizedResponse[index]?.client_msg_no ||
+          `${msg.from}_${Date.now()}_${index}`,
         type: msg.type,
         content: msg.content,
         from: msg.from,
@@ -117,6 +133,7 @@ export class WukongIMProvider extends IMProviderBase {
         roomId: msg.roomId,
         timestamp: Date.now(),
         status: 'sent',
+        clientMsgNo: normalizedResponse[index]?.client_msg_no || (msg as { clientMsgNo?: string }).clientMsgNo,
       }));
     } catch (error: any) {
       this.logger.error('Error sending batch messages:', error.message);
@@ -140,15 +157,21 @@ export class WukongIMProvider extends IMProviderBase {
         endMessageSeq: before,
       });
 
-      return (response.messages || []).map((msg: any) => ({
-        id: msg.message_id || msg.client_msg_no,
-        type: msg.payload?.type || 'text',
-        content: msg.payload?.content || '',
-        from: msg.from_uid,
-        to: userIds[0] === msg.from_uid ? userIds[1] : userIds[0],
-        timestamp: msg.timestamp,
-        status: 'sent',
-      }));
+      return (response.messages || []).map((msg: any) => {
+        const payload = typeof msg.payload === 'string'
+          ? WukongIMUtils.decodePayload(msg.payload)
+          : msg.payload || {};
+
+        return {
+          id: msg.message_id || msg.client_msg_no,
+          type: payload?.type || 'text',
+          content: payload?.content || '',
+          from: msg.from_uid,
+          to: userIds[0] === msg.from_uid ? userIds[1] : userIds[0],
+          timestamp: msg.timestamp,
+          status: 'sent',
+        };
+      });
     } catch (error: any) {
       this.logger.error('Error getting message history:', error.message);
       return [];
@@ -166,16 +189,22 @@ export class WukongIMProvider extends IMProviderBase {
         endMessageSeq: before,
       });
 
-      return (response.messages || []).map((msg: any) => ({
-        id: msg.message_id || msg.client_msg_no,
-        type: msg.payload?.type || 'text',
-        content: msg.payload?.content || '',
-        from: msg.from_uid,
-        to: groupId,
-        roomId: groupId,
-        timestamp: msg.timestamp,
-        status: 'sent',
-      }));
+      return (response.messages || []).map((msg: any) => {
+        const payload = typeof msg.payload === 'string'
+          ? WukongIMUtils.decodePayload(msg.payload)
+          : msg.payload || {};
+
+        return {
+          id: msg.message_id || msg.client_msg_no,
+          type: payload?.type || 'text',
+          content: payload?.content || '',
+          from: msg.from_uid,
+          to: groupId,
+          roomId: groupId,
+          timestamp: msg.timestamp,
+          status: 'sent',
+        };
+      });
     } catch (error: any) {
       this.logger.error('Error getting group message history:', error.message);
       return [];
@@ -186,14 +215,20 @@ export class WukongIMProvider extends IMProviderBase {
     this.validateInitialized();
 
     try {
+      const userId = (user as { id?: string; uid?: string }).id || (user as { uid?: string }).uid;
+      if (!userId) {
+        throw new Error('User id is required to create WukongIM user');
+      }
+      const avatarStr = typeof user.avatar === 'string' ? user.avatar : user.avatar?.url;
+
       const response = await this.wukongIMClient.createUser({
-        uid: user.name,
+        uid: userId,
         name: user.name,
-        avatar: user.avatar,
+        avatar: avatarStr,
       });
 
       return {
-        id: response.uid,
+        id: response.uid || userId,
         name: response.name,
         avatar: response.avatar,
         online: false,
@@ -250,23 +285,29 @@ export class WukongIMProvider extends IMProviderBase {
     this.validateInitialized();
 
     try {
+      const groupId = (group as { id?: string; groupId?: string }).id || (group as { groupId?: string }).groupId;
+      if (!groupId) {
+        throw new Error('Group id is required to create WukongIM channel');
+      }
+      const avatarStr = typeof group.avatar === 'string' ? group.avatar : group.avatar?.url;
+
       const response = await this.wukongIMClient.createChannel({
-        channel_id: group.name,
+        channel_id: groupId,
         channel_type: WukongIMChannelType.GROUP,
         name: group.name,
-        avatar: group.avatar,
+        avatar: avatarStr,
       });
 
       if (group.members && group.members.length > 0) {
         await this.wukongIMClient.addSubscribers({
-          channel_id: response.channel_id,
+          channel_id: response.channel_id || groupId,
           channel_type: WukongIMChannelType.GROUP,
           subscribers: group.members.map((uid: string) => ({ uid })),
         });
       }
 
       return {
-        id: response.channel_id,
+        id: response.channel_id || groupId,
         name: response.name,
         avatar: response.avatar,
         members: group.members || [],
@@ -387,13 +428,23 @@ export class WukongIMProvider extends IMProviderBase {
   }
 
   async markMessageAsRead(messageId: string): Promise<boolean> {
-    this.logger.debug(`markMessageAsRead called for message: ${messageId}`);
-    return true;
+    try {
+      await this.wukongIMClient.post('/message/read', { message_id: messageId });
+      return true;
+    } catch (error: any) {
+      this.logger.warn(`markMessageAsRead failed: ${error.message}`);
+      return false;
+    }
   }
 
   async markAllMessagesAsRead(conversationId: string): Promise<boolean> {
-    this.logger.debug(`markAllMessagesAsRead called for conversation: ${conversationId}`);
-    return true;
+    try {
+      await this.wukongIMClient.post('/message/readall', { channel_id: conversationId });
+      return true;
+    } catch (error: any) {
+      this.logger.warn(`markAllMessagesAsRead failed: ${error.message}`);
+      return false;
+    }
   }
 
   async generateToken(userId: string, expiresIn?: number): Promise<string> {
@@ -409,7 +460,8 @@ export class WukongIMProvider extends IMProviderBase {
   }
 
   async validateToken(token: string): Promise<{ userId: string; valid: boolean }> {
-    return { userId: '', valid: true };
+    this.logger.warn('validateToken is not supported by current WukongIM provider implementation');
+    return { userId: '', valid: false };
   }
 
   async healthCheck(): Promise<boolean> {

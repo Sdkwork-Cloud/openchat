@@ -1,10 +1,12 @@
-import { Entity, Column } from 'typeorm';
+import { Check, Column, Entity } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
+import { RTCProviderType } from './rtc.constants';
 
 @Entity('chat_rtc_channels')
+@Check(`"provider" IN ('volcengine', 'tencent', 'alibaba', 'livekit')`)
 export class RTCChannelEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 50, nullable: false, unique: true })
-  provider: string;
+  provider: RTCProviderType;
 
   @Column({ type: 'varchar', length: 100, nullable: false, name: 'app_id' })
   appId: string;

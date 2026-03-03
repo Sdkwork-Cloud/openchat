@@ -113,6 +113,17 @@ Production environments must set a strong password for `JWT_SECRET`, at least 32
 | `BATCH_SIZE` | Batch size | `100` |
 | `CONCURRENCY_MAX` | Max concurrency | `10` |
 
+## Timeline Feed Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TIMELINE_FANOUT_BATCH_SIZE` | Timeline fanout insert batch size per write | `500` |
+| `TIMELINE_FANOUT_THRESHOLD` | Audience threshold to switch from `push` to `hybrid` distribution | `5000` |
+| `TIMELINE_HYBRID_SEED_COUNT` | Number of inbox seed users for `hybrid` distribution | `2000` |
+| `TIMELINE_FEED_SCAN_ROUNDS` | Max feed scan rounds when filtering visibility | `4` |
+| `TIMELINE_FEED_PROFILING_ENABLED` | Enable timeline feed profiling logs | `false` |
+| `TIMELINE_FEED_PROFILING_SAMPLE_RATE` | Profiling log sampling ratio in `[0, 1]` | `1` |
+
 ## Cache Configuration
 
 | Variable | Description | Default |
@@ -172,6 +183,14 @@ SLOW_QUERY_THRESHOLD=1000
 DB_QUERY_TIMEOUT=30000
 BATCH_SIZE=100
 CONCURRENCY_MAX=10
+
+# Timeline feed configuration
+TIMELINE_FANOUT_BATCH_SIZE=500
+TIMELINE_FANOUT_THRESHOLD=5000
+TIMELINE_HYBRID_SEED_COUNT=2000
+TIMELINE_FEED_SCAN_ROUNDS=4
+TIMELINE_FEED_PROFILING_ENABLED=false
+TIMELINE_FEED_PROFILING_SAMPLE_RATE=0.1
 ```
 
 ## Next Steps

@@ -145,9 +145,10 @@ export class MessageSearchService {
       
       // 使用 PostgreSQL 全文搜索（如果可用）或回退到 ILIKE
       // 注意：全文搜索需要预先创建 tsvector 列和 GIN 索引
-      // 详见 database/migrations/001_add_fulltext_search.sql
+      // 详见 database/schema.sql 中 chat_messages.search_vector 定义
       queryBuilder.andWhere(
-        `(message.content->>'text' ILIKE :searchTerm
+        `(message.content->'text'->>'text' ILIKE :searchTerm
+         OR message.content->>'text' ILIKE :searchTerm
          OR message.content->>'title' ILIKE :searchTerm
          OR message.content->>'description' ILIKE :searchTerm)`,
         { searchTerm: `%${searchTerm}%` },
@@ -189,38 +190,64 @@ export class MessageSearchService {
       pageSize = 20,
     } = options;
 
-    // 构建全文搜索查询
-    // 注意：这需要预先在数据库中创建 tsvector 列
-    // ALTER TABLE chat_messages ADD COLUMN search_vector tsvector;
-    // CREATE INDEX idx_messages_search ON chat_messages USING GIN (search_vector);
-    
-    const searchTerm = keyword.trim().replace(/\s+/g, ' & ');
-    
-    const queryBuilder = this.messageRepository.createQueryBuilder('message');
-    
-    // 使用 to_tsquery 进行全文搜索
-    queryBuilder.where(
-      `message.search_vector @@ to_tsquery('chinese', :searchTerm)`,
-      { searchTerm }
-    );
-
-    // 用户权限过滤
-    if (userId) {
-      queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where('message.fromUserId = :userId', { userId })
-            .orWhere('message.toUserId = :userId', { userId });
-        }),
-      );
+    const searchTerm = keyword.trim();
+    if (!searchTerm) {
+      return {
+        messages: [],
+        total: 0,
+        page,
+        pageSize,
+      };
     }
 
-    // 目标过滤
-    if (targetId) {
+    const queryBuilder = this.messageRepository.createQueryBuilder('message');
+
+    queryBuilder.where('message.status = :status', { status: 'sent' });
+    queryBuilder.andWhere(
+      `message.search_vector @@ plainto_tsquery('chinese', :searchTerm)`,
+      { searchTerm },
+    );
+
+    if (targetId && type === 'group' && userId) {
+      const isMember = await this.isUserInGroup(userId, targetId);
+      if (!isMember) {
+        this.logger.warn(`User ${userId} attempted to search group ${targetId} without permission`);
+        throw new ForbiddenException('您没有权限访问该群的消息');
+      }
+    }
+
+    if (userId) {
+      if (type === 'group' && targetId) {
+        queryBuilder.andWhere('message.groupId = :targetId', { targetId });
+      } else {
+        queryBuilder.andWhere(
+          new Brackets((qb) => {
+            qb.where('message.fromUserId = :userId', { userId }).orWhere(
+              'message.toUserId = :userId',
+              { userId },
+            );
+          }),
+        );
+
+        if (targetId && type === 'single') {
+          queryBuilder.andWhere(
+            new Brackets((qb) => {
+              qb.where('message.toUserId = :targetId', { targetId }).orWhere(
+                'message.fromUserId = :targetId',
+                { targetId },
+              );
+            }),
+          );
+        }
+      }
+    } else if (targetId) {
       if (type === 'single') {
         queryBuilder.andWhere(
           new Brackets((qb) => {
-            qb.where('message.toUserId = :targetId', { targetId })
-              .orWhere('message.fromUserId = :targetId', { targetId });
+            qb.where('message.toUserId = :targetId', { targetId }).orWhere(
+              'message.fromUserId = :targetId',
+              { targetId },
+            );
           }),
         );
       } else if (type === 'group') {
@@ -241,7 +268,7 @@ export class MessageSearchService {
 
     // 分页查询，添加相关性排序
     const messages = await queryBuilder
-      .addSelect(`ts_rank(message.search_vector, to_tsquery('chinese', :searchTerm))`, 'rank')
+      .addSelect(`ts_rank(message.search_vector, plainto_tsquery('chinese', :searchTerm))`, 'rank')
       .orderBy('rank', 'DESC')
       .addOrderBy('message.createdAt', 'DESC')
       .skip((page - 1) * pageSize)
@@ -281,7 +308,7 @@ export class MessageSearchService {
       )
       .andWhere('message.type IN (:...types)', { types: ['text', 'system'] })
       .andWhere(
-        `(message.content->>'text' ILIKE :searchTerm)`,
+        `(message.content->'text'->>'text' ILIKE :searchTerm OR message.content->>'text' ILIKE :searchTerm)`,
         { searchTerm },
       );
 

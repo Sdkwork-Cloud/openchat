@@ -3,7 +3,7 @@ import { RTCChannelRoomInfo, RTCChannelToken } from '../rtc-channel.interface';
 import { rtcLogger } from '../../rtc.logger';
 
 export class LiveKitRTCChannel extends RTCChannelBase {
-  getProvider(): string {
+  getProvider(): 'livekit' {
     return 'livekit';
   }
 
@@ -13,12 +13,19 @@ export class LiveKitRTCChannel extends RTCChannelBase {
 
     rtcLogger.debug('LiveKit', 'Creating room', { roomId, roomType, roomName });
 
-    return {
+    const fallback = this.createOrUpdateLocalRoom(roomId, roomName, roomType);
+    const delegated = await this.invokeControlPlaneDelegate('createRoom', {
       roomId,
       roomName,
       type: roomType,
-      participants: [],
-      livekitRoomId: roomId,
+    });
+    const room = this.mergeLocalRoomWithDelegate(fallback, delegated);
+    const resolvedRoomId = room.roomId;
+
+    return {
+      ...room,
+      roomId: resolvedRoomId,
+      livekitRoomId: resolvedRoomId,
     };
   }
 
@@ -26,7 +33,8 @@ export class LiveKitRTCChannel extends RTCChannelBase {
     this.validateInitialized();
 
     rtcLogger.debug('LiveKit', 'Destroying room', { roomId });
-
+    await this.invokeControlPlaneDelegate('destroyRoom', { roomId });
+    this.removeLocalRoom(roomId);
     return true;
   }
 
@@ -35,11 +43,25 @@ export class LiveKitRTCChannel extends RTCChannelBase {
 
     rtcLogger.debug('LiveKit', 'Getting room info', { roomId });
 
+    const delegated = await this.invokeControlPlaneDelegate('getRoomInfo', { roomId });
+    if (delegated?.room) {
+      const merged = this.mergeLocalRoomWithDelegate(
+        this.createOrUpdateLocalRoom(roomId, delegated.room.roomName, delegated.room.type || 'group'),
+        delegated,
+      );
+      return {
+        ...merged,
+        livekitRoomId: merged.roomId,
+      };
+    }
+
+    const localRoom = this.getLocalRoom(roomId);
+    if (!localRoom) {
+      return null;
+    }
     return {
-      roomId,
-      type: 'group',
-      participants: [],
-      livekitRoomId: roomId,
+      ...localRoom,
+      livekitRoomId: localRoom.roomId,
     };
   }
 
@@ -48,31 +70,27 @@ export class LiveKitRTCChannel extends RTCChannelBase {
 
     rtcLogger.debug('LiveKit', 'Generating token', { roomId, userId, role });
 
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + (expireSeconds || 7200) * 1000);
-    const token = `livekit_token_${roomId}_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    return {
-      token,
-      expiresAt,
-      roomId,
-      userId,
-    };
+    return this.issueSignedToken(roomId, userId, role, expireSeconds);
   }
 
   async validateToken(token: string): Promise<boolean> {
     this.validateInitialized();
 
-    rtcLogger.debug('LiveKit', 'Validating token', { token: token.substring(0, 20) + '...' });
-
-    return true;
+    rtcLogger.debug('LiveKit', 'Validating token', { token: token.slice(0, 20) + '...' });
+    return this.verifySignedToken(token, this.getProvider());
   }
 
   async addParticipant(roomId: string, userId: string): Promise<boolean> {
     this.validateInitialized();
 
     rtcLogger.debug('LiveKit', 'Adding participant', { roomId, userId });
-
+    const delegated = await this.invokeControlPlaneDelegate('addParticipant', { roomId, userId });
+    const delegatedParticipants = this.resolveDelegateParticipants(delegated);
+    if (delegatedParticipants) {
+      this.setLocalParticipants(roomId, delegatedParticipants);
+    } else {
+      this.addLocalParticipant(roomId, userId);
+    }
     return true;
   }
 
@@ -80,7 +98,13 @@ export class LiveKitRTCChannel extends RTCChannelBase {
     this.validateInitialized();
 
     rtcLogger.debug('LiveKit', 'Removing participant', { roomId, userId });
-
+    const delegated = await this.invokeControlPlaneDelegate('removeParticipant', { roomId, userId });
+    const delegatedParticipants = this.resolveDelegateParticipants(delegated);
+    if (delegatedParticipants) {
+      this.setLocalParticipants(roomId, delegatedParticipants);
+    } else {
+      this.removeLocalParticipant(roomId, userId);
+    }
     return true;
   }
 
@@ -88,7 +112,12 @@ export class LiveKitRTCChannel extends RTCChannelBase {
     this.validateInitialized();
 
     rtcLogger.debug('LiveKit', 'Getting participants', { roomId });
-
-    return [];
+    const delegated = await this.invokeControlPlaneDelegate('getParticipants', { roomId });
+    const delegatedParticipants = this.resolveDelegateParticipants(delegated);
+    if (delegatedParticipants) {
+      this.setLocalParticipants(roomId, delegatedParticipants);
+      return delegatedParticipants;
+    }
+    return this.getLocalParticipants(roomId);
   }
 }

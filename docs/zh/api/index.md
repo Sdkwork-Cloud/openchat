@@ -193,6 +193,7 @@ Authorization: Bearer <your-access-token>
 |------|------|
 | [群组管理 API](./groups.md) | 群组创建、成员管理、权限设置 |
 | [好友管理 API](./friends.md) | 好友申请、分组管理、黑名单 |
+| [Timeline 朋友圈 API](./timeline.md) | 朋友圈发帖、feed 拉取、点赞与删除 |
 
 ### 实时通讯
 

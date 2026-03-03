@@ -1,788 +1,247 @@
 # 实时音视频 API
 
-实时音视频 API 提供音视频通话的发起、接听、挂断、信令交换等功能。
+本文档对应当前服务端 `RTCController` 的真实接口实现。  
+统一前缀：`/im/api/v1/rtc`，全部接口需 JWT。
 
-## 概述
+## 设计说明
 
-所有实时音视频 API 都需要 JWT 认证，路径前缀为 `/api/v1/rtc`。
+- 默认 provider：`volcengine`（火山引擎）
+- 支持 provider：`tencent`、`alibaba`、`livekit`
+- provider 仅支持 canonical 取值：`volcengine`、`tencent`、`alibaba`、`livekit`
+- Room 粒度支持 AI 扩展 metadata（后续可接入 AI 同传/AI 助手）
 
-| 接口 | 方法 | 路径 | 说明 |
-|------|------|------|------|
-| 发起通话 | POST | `/rtc/call` | 发起音视频通话 |
-| 接听通话 | POST | `/rtc/answer` | 接听通话 |
-| 拒绝通话 | POST | `/rtc/reject` | 拒绝通话 |
-| 挂断通话 | POST | `/rtc/hangup` | 挂断通话 |
-| 取消通话 | POST | `/rtc/cancel` | 取消通话 |
-| 发送信令 | POST | `/rtc/signal` | 发送WebRTC信令 |
-| 获取通话记录 | GET | `/rtc/calls/:userId` | 获取通话记录列表 |
-| 获取通话详情 | GET | `/rtc/call/:id` | 获取通话详情 |
-| 获取正在进行通话 | GET | `/rtc/active/:userId` | 获取正在进行的通话 |
-| 邀请加入通话 | POST | `/rtc/invite` | 邀请用户加入通话 |
-| 加入通话 | POST | `/rtc/join` | 加入现有通话 |
-| 离开通话 | POST | `/rtc/leave` | 离开通话 |
-| 切换媒体设备 | PUT | `/rtc/device` | 切换音视频设备 |
-| 切换静音状态 | PUT | `/rtc/mute` | 切换静音状态 |
-| 切换视频状态 | PUT | `/rtc/video` | 切换视频开关 |
-| 获取通话统计 | GET | `/rtc/stats/:callId` | 获取通话质量统计 |
+## 房间接口
 
----
+### 1) 创建房间
 
-## 发起通话
+`POST /rtc/rooms`
 
-发起一个新的音视频通话。
-
-```http
-POST /api/v1/rtc/call
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
+请求体：
 
 ```json
 {
-  "callerId": "user-001",
-  "calleeIds": ["user-002", "user-003"],
-  "type": "video",
-  "groupId": "group-001",
-  "offer": {
-    "type": "offer",
-    "sdp": "v=0\r\no=- 123456789 2 IN IP4 127.0.0.1..."
+  "type": "group",
+  "participants": ["user-a", "user-b"],
+  "name": "项目评审会议",
+  "provider": "volcengine",
+  "channelId": "190000000000000001",
+  "aiMetadata": {
+    "assistantMode": "cohost",
+    "agentId": "agent-123"
   }
 }
 ```
 
-### 参数说明
+说明：
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callerId | string | 是 | 发起者ID |
-| calleeIds | string[] | 是 | 接收者ID列表 |
-| type | string | 是 | 通话类型：audio=语音，video=视频 |
-| groupId | string | 否 | 群组ID（群聊通话时使用） |
-| offer | object | 否 | WebRTC Offer SDP |
+- `creatorId` 由服务端从 JWT 自动注入。
+- `participants` 会自动补齐创建者本人。
+- `p2p` 必须恰好 2 人，`group` 至少 2 人。
 
-### 响应示例
+### 2) 结束房间
+
+`PUT /rtc/rooms/:id/end`
+
+说明：
+
+- 仅房主可结束。
+
+### 3) 查询房间详情
+
+`GET /rtc/rooms/:id`
+
+说明：
+
+- 仅房间参与者可查看。
+
+### 4) 查询用户房间列表
+
+`GET /rtc/rooms/user/:userId`
+
+说明：
+
+- 仅允许查询当前登录用户自己的房间列表。
+
+### 5) 房间成员管理
+
+- `POST /rtc/rooms/:id/participants`（房主添加）
+- `DELETE /rtc/rooms/:id/participants/:userId`（房主移除或本人退出）
+
+## Token 接口
+
+### 1) 生成通话 Token
+
+`POST /rtc/tokens`
+
+请求体：
 
 ```json
 {
-  "success": true,
-  "call": {
-    "id": "call-uuid",
-    "callerId": "user-001",
-    "calleeIds": ["user-002", "user-003"],
-    "type": "video",
-    "status": "calling",
-    "groupId": "group-001",
-    "createdAt": "2024-01-15T10:30:00Z"
-  }
+  "roomId": "190000000000000010",
+  "provider": "volcengine",
+  "role": "participant",
+  "expireSeconds": 7200
 }
 ```
 
----
+说明：
 
-## 接听通话
+- `userId` 不传时默认当前登录用户。
+- 不允许为其他用户申请 token。
+- 如果未显式指定 provider/channel，会按默认策略自动选择。
+- 当 `RTC_ENABLE_HEALTH_BASED_ROUTING=true` 且请求/房间未显式绑定 `channelId/provider` 时，服务端会优先按健康度选择 provider，再回退默认 provider 策略。
+- 如果显式指定 `provider` 但对应可用 channel 不存在，会返回错误（不再静默降级到默认 provider）。
+- 如果请求中的 `provider/channelId` 与房间已绑定路由冲突，会返回 `400`（禁止跨云覆盖）。
 
-接听一个来电。
+### 2) 校验 Token
 
-```http
-POST /api/v1/rtc/answer
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
+`GET /rtc/tokens/validate?token=...`
 
-### 请求体
+说明：
 
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-002",
-  "answer": {
-    "type": "answer",
-    "sdp": "v=0\r\no=- 987654321 2 IN IP4 127.0.0.1..."
-  }
-}
-```
+- 按 provider 使用原生 token 策略：
+  - `tencent`：TRTC UserSig（兼容 `TLSSigAPIv2`）。
+    - 支持可选 `userbuf/privateMapKey` 房间权限绑定（通过 channel `extra_config` 开启）。
+  - `alibaba`：RTC 鉴权 token（`base64(json)` + `sha256(appid + appkey + channelid + userid + nonce + timestamp)`）。
+  - `volcengine`：
+    - `delegate`：调用外部 token 签发服务。
+    - `openapi`：通过官方 OpenAPI signer 调用 `GetAppToken`。
+    - `local`：本地签名回退（仅建议开发/测试环境）。
 
-### 参数说明
+## Channel 管理接口
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 接听者ID |
-| answer | object | 是 | WebRTC Answer SDP |
+- `POST /rtc/channels`：创建或更新 provider 配置（upsert）
+- `GET /rtc/channels`：查询全部 channel 配置
+- `GET /rtc/channels/:id`：查询单个 channel
+- `PUT /rtc/channels/:id`：更新 channel
+- `DELETE /rtc/channels/:id`：软删除 channel
+- `GET /rtc/providers/stats`：查询 provider 级操作统计（`createRoom`/`generateToken`/`validateToken`）
+- `GET /rtc/providers/health`：查询 provider 健康报告与推荐路由顺序
 
-### 响应示例
+说明：
 
-```json
-{
-  "success": true,
-  "call": {
-    "id": "call-uuid",
-    "status": "connected",
-    "connectedAt": "2024-01-15T10:30:05Z"
-  }
-}
-```
+- 所有 channel 查询接口会对 `appSecret` 做脱敏返回。
+- `channel` 配置管理接口仅允许管理员访问（`admin` 角色或系统管理员账号）。
+- `providers/stats` 仅管理员可访问，返回服务端内存级统计（操作总量、成功失败数、最近错误码/耗时），用于运行观测。
+- `providers/health` 仅管理员可访问，返回窗口内健康状态（healthy/degraded/unknown/unhealthy）与推荐主 provider。
 
----
+`providers/stats` 查询参数：
 
-## 拒绝通话
+- `provider`：按云厂商过滤（仅支持 canonical provider）。
+- `operation`：按操作过滤（`createRoom`/`generateToken`/`validateToken`）。
+- `windowMinutes`：仅统计最近窗口内事件（`1`~`1440` 分钟）。
+- `topErrorLimit`：返回错误码 Top-N（`1`~`10`，默认 `3`）。
 
-拒绝一个来电。
-
-```http
-POST /api/v1/rtc/reject
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
+返回项示例：
 
 ```json
 {
-  "callId": "call-uuid",
-  "userId": "user-002",
-  "reason": "busy"
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 拒绝者ID |
-| reason | string | 否 | 拒绝原因：busy=忙碌, declined=拒绝 |
-
-### 响应示例
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-## 挂断通话
-
-挂断当前通话。
-
-```http
-POST /api/v1/rtc/hangup
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-001"
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 挂断者ID |
-
-### 响应示例
-
-```json
-{
-  "success": true,
-  "call": {
-    "id": "call-uuid",
-    "status": "ended",
-    "endedAt": "2024-01-15T10:45:00Z",
-    "duration": 900
-  }
-}
-```
-
----
-
-## 取消通话
-
-取消一个正在呼叫中的通话。
-
-```http
-POST /api/v1/rtc/cancel
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-001"
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 取消者ID |
-
-### 响应示例
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-## 发送信令
-
-发送WebRTC信令数据（ICE Candidate等）。
-
-```http
-POST /api/v1/rtc/signal
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "fromUserId": "user-001",
-  "toUserId": "user-002",
-  "signal": {
-    "type": "candidate",
-    "candidate": {
-      "candidate": "candidate:1 1 UDP 2122260223 192.168.1.1 54321 typ host",
-      "sdpMid": "0",
-      "sdpMLineIndex": 0
-    }
-  }
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| fromUserId | string | 是 | 发送者ID |
-| toUserId | string | 是 | 接收者ID |
-| signal | object | 是 | 信令数据 |
-
-### 响应示例
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-## 获取通话记录
-
-获取用户的通话记录列表。
-
-```http
-GET /api/v1/rtc/calls/:userId?type=video&status=ended&limit=20&offset=0
-Authorization: Bearer <access-token>
-```
-
-### 路径参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| userId | string | 是 | 用户ID |
-
-### 查询参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| type | string | 否 | 通话类型筛选：audio, video |
-| status | string | 否 | 状态筛选：ended, missed |
-| startTime | string | 否 | 开始时间 |
-| endTime | string | 否 | 结束时间 |
-| limit | number | 否 | 返回数量限制 |
-| offset | number | 否 | 偏移量 |
-
-### 响应示例
-
-```json
-[
-  {
-    "id": "call-001",
-    "type": "video",
-    "callerId": "user-001",
-    "callerName": "张三",
-    "callerAvatar": "https://example.com/avatar1.jpg",
-    "calleeIds": ["user-002"],
-    "status": "ended",
-    "duration": 900,
-    "createdAt": "2024-01-15T10:30:00Z",
-    "endedAt": "2024-01-15T10:45:00Z"
-  },
-  {
-    "id": "call-002",
-    "type": "audio",
-    "callerId": "user-003",
-    "callerName": "李四",
-    "callerAvatar": "https://example.com/avatar2.jpg",
-    "calleeIds": ["user-001"],
-    "status": "missed",
-    "duration": 0,
-    "createdAt": "2024-01-14T15:00:00Z",
-    "endedAt": "2024-01-14T15:00:30Z"
-  }
-]
-```
-
----
-
-## 获取通话详情
-
-获取指定通话的详细信息。
-
-```http
-GET /api/v1/rtc/call/:id
-Authorization: Bearer <access-token>
-```
-
-### 路径参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| id | string | 是 | 通话ID |
-
-### 响应示例
-
-```json
-{
-  "id": "call-uuid",
-  "type": "video",
-  "callerId": "user-001",
-  "callerName": "张三",
-  "callerAvatar": "https://example.com/avatar1.jpg",
-  "calleeIds": ["user-002", "user-003"],
-  "calleeInfo": [
-    {
-      "userId": "user-002",
-      "userName": "李四",
-      "userAvatar": "https://example.com/avatar2.jpg",
-      "status": "connected",
-      "joinedAt": "2024-01-15T10:30:05Z"
-    },
-    {
-      "userId": "user-003",
-      "userName": "王五",
-      "userAvatar": "https://example.com/avatar3.jpg",
-      "status": "rejected",
-      "rejectReason": "busy"
-    }
+  "provider": "tencent",
+  "operation": "generateToken",
+  "total": 18,
+  "success": 12,
+  "failure": 6,
+  "retryableFailure": 5,
+  "avgDurationMs": 38,
+  "controlPlaneInvocations": 20,
+  "controlPlaneRetries": 4,
+  "controlPlaneCircuitOpenShortCircuits": 1,
+  "controlPlaneUnsafeIdempotencyCalls": 0,
+  "lastStatus": "failure",
+  "lastDurationMs": 120,
+  "lastErrorCode": "RequestTimeout",
+  "lastErrorMessage": "upstream timeout",
+  "topErrors": [
+    { "code": "RequestTimeout", "count": 4 },
+    { "code": "RateLimitExceeded", "count": 2 }
   ],
-  "status": "connected",
-  "groupId": "group-001",
-  "duration": 300,
-  "createdAt": "2024-01-15T10:30:00Z",
-  "connectedAt": "2024-01-15T10:30:05Z"
+  "updatedAt": "2026-03-01T14:00:00.000Z"
 }
 ```
 
----
+`providers/health` 查询参数：
 
-## 获取正在进行通话
+- `provider`：按 provider 过滤。
+- `operation`：按操作过滤。
+- `windowMinutes`：统计窗口（`1`~`1440`，默认 `60`）。
+- `topErrorLimit`：错误码 Top-N（`1`~`10`，默认 `3`）。
+- `minSamples`：进入健康分级所需最小样本数（默认 `5`）。
+- `controlPlaneMinSamples`：启用控制面阈值判定前所需最小控制面调用样本数（默认 `5`）。
+- `degradedFailureRate` / `unhealthyFailureRate`：失败率阈值。
+- `degradedLatencyMs` / `unhealthyLatencyMs`：平均耗时阈值。
+- `degradedControlPlaneRetryRate` / `unhealthyControlPlaneRetryRate`：控制面重试率阈值。
+- `degradedControlPlaneCircuitOpenRate` / `unhealthyControlPlaneCircuitOpenRate`：控制面熔断短路率阈值。
 
-获取用户正在进行的通话。
+`providers/health` 响应关键字段：
 
-```http
-GET /api/v1/rtc/active/:userId
-Authorization: Bearer <access-token>
-```
+- `status`：`healthy` / `degraded` / `unknown` / `unhealthy`
+- `healthReasons`：当前状态判定原因（`insufficient_samples` / `high_failure_rate` / `high_latency` / `high_control_plane_retry_rate` / `high_control_plane_circuit_open_rate`）
+- `controlPlaneSignalsEvaluated`：当前 provider 是否启用控制面阈值判定（需满足 `controlPlaneInvocations >= controlPlaneMinSamples`）
+- `recommendedPrimary`：推荐主路由 provider
+- `fallbackOrder`：按健康度排序的回退链路
 
-### 路径参数
+## 观测指标
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| userId | string | 是 | 用户ID |
+Prometheus `/metrics` 端点会导出 RTC provider 指标：
 
-### 响应示例
+- `rtc_provider_operations_total{provider,operation,status,retryable}`
+- `rtc_provider_operation_duration_seconds{provider,operation,status}`
+- `rtc_provider_health_status{provider,status}`（当前状态为 `1`，其余状态为 `0`）
+- `rtc_provider_failure_rate{provider}`
+- `rtc_provider_avg_duration_ms{provider}`
+- `rtc_provider_total_samples{provider}`
+- `rtc_control_plane_signals_total{provider,operation,signal}`
+- `rtc_provider_control_plane_retry_rate{provider}`
+- `rtc_provider_control_plane_circuit_open_rate{provider}`
+- `rtc_provider_control_plane_invocations{provider}`
+- `rtc_provider_control_plane_retries{provider}`
+- `rtc_provider_control_plane_circuit_open_short_circuits{provider}`
+- `rtc_provider_control_plane_unsafe_idempotency_calls{provider}`
+
+## 录像记录接口
+
+- `POST /rtc/video-records`
+- `GET /rtc/video-records/:id`
+- `GET /rtc/rooms/:roomId/video-records`
+- `GET /rtc/users/:userId/video-records`（仅本人）
+- `PUT /rtc/video-records/:id/status`
+- `PUT /rtc/video-records/:id/metadata`
+- `DELETE /rtc/video-records/:id`（软删除）
+- `GET /rtc/video-records?limit=50&offset=0`（当前用户自己的记录分页）
+
+权限说明：
+
+- `GET /rtc/video-records/:id`：仅记录所属用户或房间参与者可读。
+- `GET /rtc/rooms/:roomId/video-records`：仅房间参与者可读。
+- `PUT /rtc/video-records/:id/status|metadata`、`DELETE /rtc/video-records/:id`：仅记录所属用户或房主可写。
+
+## 数据一致性
+
+- 房间、token、录像均采用 `is_deleted` 软删除策略。
+- provider 选路优先级：`channelId` > `provider` > room 绑定 > `RTC_DEFAULT_PROVIDER` > 任意 active channel。
+- 当请求显式绑定 `channelId/provider` 或房间已绑定 `channelId/provider` 时，若无可用 channel 会直接失败，避免跨云静默漂移。
+- Token 记录包含 `provider/channelId/role/metadata`，为多云切换与 AI 扩展提供审计上下文。
+
+## Provider 错误响应规范
+
+当厂商侧调用失败（如 `createRoom`、`generateToken`、`validateToken`），服务端会返回统一结构，便于客户端做重试和熔断：
 
 ```json
 {
-  "hasActiveCall": true,
-  "call": {
-    "id": "call-uuid",
-    "type": "video",
-    "callerId": "user-001",
-    "calleeIds": ["user-002"],
-    "status": "connected",
-    "duration": 300,
-    "createdAt": "2024-01-15T10:30:00Z"
-  }
+  "statusCode": 400,
+  "message": "RTC provider generateToken failed",
+  "provider": "tencent",
+  "operation": "generateToken",
+  "providerStatusCode": 504,
+  "providerErrorCode": "RequestTimeout",
+  "retryable": true,
+  "providerMessage": "upstream timeout"
 }
 ```
 
----
-
-## 邀请加入通话
-
-邀请其他用户加入现有通话。
-
-```http
-POST /api/v1/rtc/invite
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "inviterId": "user-001",
-  "inviteeIds": ["user-004", "user-005"]
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| inviterId | string | 是 | 邀请者ID |
-| inviteeIds | string[] | 是 | 被邀请者ID列表 |
-
-### 响应示例
-
-```json
-{
-  "success": true,
-  "invited": ["user-004", "user-005"]
-}
-```
-
----
-
-## 加入通话
-
-加入一个现有的通话。
-
-```http
-POST /api/v1/rtc/join
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-004",
-  "offer": {
-    "type": "offer",
-    "sdp": "v=0\r\no=- 123456789 2 IN IP4 127.0.0.1..."
-  }
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 加入者ID |
-| offer | object | 否 | WebRTC Offer SDP |
-
-### 响应示例
-
-```json
-{
-  "success": true,
-  "call": {
-    "id": "call-uuid",
-    "participants": ["user-001", "user-002", "user-004"]
-  }
-}
-```
-
----
-
-## 离开通话
-
-离开当前通话。
-
-```http
-POST /api/v1/rtc/leave
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-004"
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 离开者ID |
-
-### 响应示例
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-## 切换媒体设备
-
-切换音视频输入/输出设备。
-
-```http
-PUT /api/v1/rtc/device
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-001",
-  "deviceType": "audioinput",
-  "deviceId": "device-uuid"
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 用户ID |
-| deviceType | string | 是 | 设备类型：audioinput, audiooutput, videoinput |
-| deviceId | string | 是 | 设备ID |
-
-### 响应示例
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-## 切换静音状态
-
-切换麦克风静音状态。
-
-```http
-PUT /api/v1/rtc/mute
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-001",
-  "muted": true
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 用户ID |
-| muted | boolean | 是 | 是否静音 |
-
-### 响应示例
-
-```json
-{
-  "success": true,
-  "muted": true
-}
-```
-
----
-
-## 切换视频状态
-
-切换摄像头开关状态。
-
-```http
-PUT /api/v1/rtc/video
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-### 请求体
-
-```json
-{
-  "callId": "call-uuid",
-  "userId": "user-001",
-  "enabled": false
-}
-```
-
-### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-| userId | string | 是 | 用户ID |
-| enabled | boolean | 是 | 是否启用视频 |
-
-### 响应示例
-
-```json
-{
-  "success": true,
-  "enabled": false
-}
-```
-
----
-
-## 获取通话统计
-
-获取通话质量统计数据。
-
-```http
-GET /api/v1/rtc/stats/:callId
-Authorization: Bearer <access-token>
-```
-
-### 路径参数
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| callId | string | 是 | 通话ID |
-
-### 响应示例
-
-```json
-{
-  "callId": "call-uuid",
-  "stats": {
-    "audio": {
-      "bytesSent": 1048576,
-      "bytesReceived": 2097152,
-      "packetsSent": 1000,
-      "packetsReceived": 2000,
-      "packetsLost": 5,
-      "jitter": 0.02,
-      "roundTripTime": 0.05
-    },
-    "video": {
-      "bytesSent": 10485760,
-      "bytesReceived": 20971520,
-      "packetsSent": 5000,
-      "packetsReceived": 10000,
-      "packetsLost": 10,
-      "frameWidth": 1280,
-      "frameHeight": 720,
-      "frameRate": 30,
-      "bitrate": 2000
-    }
-  },
-  "timestamp": "2024-01-15T10:35:00Z"
-}
-```
-
----
-
-## 通话状态
-
-| 状态 | 说明 |
-|------|------|
-| calling | 呼叫中 |
-| ringing | 响铃中 |
-| connected | 已接通 |
-| ended | 已结束 |
-| missed | 未接来电 |
-| rejected | 已拒绝 |
-| cancelled | 已取消 |
-
----
-
-## 数据类型
-
-```typescript
-interface RTCCall {
-  id: string;                    // 通话ID
-  type: 'audio' | 'video';       // 通话类型
-  callerId: string;              // 发起者ID
-  calleeIds: string[];           // 接收者ID列表
-  status: CallStatus;            // 通话状态
-  groupId?: string;              // 群组ID
-  duration: number;              // 通话时长（秒）
-  createdAt: Date;               // 创建时间
-  connectedAt?: Date;            // 接通时间
-  endedAt?: Date;                // 结束时间
-}
-
-interface RTCSignal {
-  type: 'offer' | 'answer' | 'candidate';
-  sdp?: string;                  // SDP数据
-  candidate?: RTCIceCandidate;   // ICE候选
-}
-
-interface RTCCallStats {
-  audio: {
-    bytesSent: number;
-    bytesReceived: number;
-    packetsSent: number;
-    packetsReceived: number;
-    packetsLost: number;
-    jitter: number;
-    roundTripTime: number;
-  };
-  video: {
-    bytesSent: number;
-    bytesReceived: number;
-    packetsSent: number;
-    packetsReceived: number;
-    packetsLost: number;
-    frameWidth: number;
-    frameHeight: number;
-    frameRate: number;
-    bitrate: number;
-  };
-}
-```
-
----
-
-## 相关链接
-
-- [消息管理 API](./messages.md)
-- [群组管理 API](./groups.md)
+字段说明：
+
+- `providerStatusCode`：服务端观测到的上游厂商状态码。
+- `providerErrorCode`：厂商原生错误码（若无则回退为平台标准码）。
+- `retryable`：是否建议客户端做重试。
+- `providerMessage`：厂商错误消息，便于排查问题。

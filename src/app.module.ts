@@ -49,6 +49,10 @@ import { AgentModule } from './modules/agent/agent.module';
 import { Agent, AgentSession, AgentMessage } from './modules/agent/agent.entity';
 import { WukongIMModule } from './modules/wukongim/wukongim.module';
 import { CrawModule } from './modules/craw/craw.module';
+import { TimelineModule } from './modules/timeline/timeline.module';
+import { TimelinePostEntity } from './modules/timeline/entities/timeline-post.entity';
+import { TimelineFeedItemEntity } from './modules/timeline/entities/timeline-feed-item.entity';
+import { TimelinePostLikeEntity } from './modules/timeline/entities/timeline-post-like.entity';
 import { DataSource } from 'typeorm';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { SnakeNamingStrategy } from './common/config/snake-naming.strategy';
@@ -126,6 +130,9 @@ const logger = new Logger('Database');
             Agent,
             AgentSession,
             AgentMessage,
+            TimelinePostEntity,
+            TimelineFeedItemEntity,
+            TimelinePostLikeEntity,
           ],
           synchronize: false,
           logging: false,
@@ -183,6 +190,7 @@ const logger = new Logger('Database');
     AgentModule,
     WukongIMModule,
     CrawModule,
+    TimelineModule,
   ],
   providers: [
     {

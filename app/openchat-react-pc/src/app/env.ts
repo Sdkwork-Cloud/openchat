@@ -42,11 +42,20 @@ export const LOG_LEVEL = import.meta.env.VITE_LOG_LEVEL || (IS_DEV ? 'debug' : '
 // 服务端点配置
 // ============================================
 
-// OpenChat Server API 地址
-export const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || 'http://localhost:3000';
+// OpenChat Server API 地址 (SDK 接入优先使用 VITE_API_BASE_URL，兼容旧变量)
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_APP_API_BASE_URL ||
+  'http://localhost:3000';
 
-// 悟空IM WebSocket 地址
-export const IM_WS_URL = import.meta.env.VITE_APP_IM_WS_URL || 'ws://localhost:3000/ws';
+// 悟空IM WebSocket 地址 (优先新变量)
+export const IM_WS_URL =
+  import.meta.env.VITE_IM_WS_URL ||
+  import.meta.env.VITE_APP_IM_WS_URL ||
+  'ws://localhost:3000/ws';
+
+// SDK 应用级 Access Token (与 auth token 双 token 体系中的 access token 对应)
+export const SDK_ACCESS_TOKEN = import.meta.env.VITE_ACCESS_TOKEN || "";
 
 // ============================================
 // RTC 配置

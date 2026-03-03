@@ -1,54 +1,107 @@
-import { PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
+import { PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 class SnowflakeIdGenerator {
   private static instance: SnowflakeIdGenerator;
-  private epoch = 1609459200000;
-  private workerId: number;
-  private datacenterId: number;
-  private sequence = 0;
-  private lastTimestamp = -1;
+  private static readonly WORKER_ID_BITS = 5n;
+  private static readonly DATACENTER_ID_BITS = 5n;
+  private static readonly SEQUENCE_BITS = 12n;
+  private static readonly MAX_WORKER_ID = (1n << SnowflakeIdGenerator.WORKER_ID_BITS) - 1n;
+  private static readonly MAX_DATACENTER_ID = (1n << SnowflakeIdGenerator.DATACENTER_ID_BITS) - 1n;
+  private static readonly SEQUENCE_MASK = (1n << SnowflakeIdGenerator.SEQUENCE_BITS) - 1n;
+  private static readonly WORKER_ID_SHIFT = SnowflakeIdGenerator.SEQUENCE_BITS;
+  private static readonly DATACENTER_ID_SHIFT =
+    SnowflakeIdGenerator.SEQUENCE_BITS + SnowflakeIdGenerator.WORKER_ID_BITS;
+  private static readonly TIMESTAMP_LEFT_SHIFT =
+    SnowflakeIdGenerator.SEQUENCE_BITS
+    + SnowflakeIdGenerator.WORKER_ID_BITS
+    + SnowflakeIdGenerator.DATACENTER_ID_BITS;
 
-  private constructor(workerId: number = 1, datacenterId: number = 1) {
+  private readonly epoch = 1609459200000n;
+  private readonly workerId: bigint;
+  private readonly datacenterId: bigint;
+  private sequence = 0n;
+  private lastTimestamp = -1n;
+
+  private constructor(workerId: bigint = 1n, datacenterId: bigint = 1n) {
+    if (workerId < 0n || workerId > SnowflakeIdGenerator.MAX_WORKER_ID) {
+      throw new Error(
+        `Snowflake workerId must be 0~${SnowflakeIdGenerator.MAX_WORKER_ID.toString()}`,
+      );
+    }
+    if (datacenterId < 0n || datacenterId > SnowflakeIdGenerator.MAX_DATACENTER_ID) {
+      throw new Error(
+        `Snowflake datacenterId must be 0~${SnowflakeIdGenerator.MAX_DATACENTER_ID.toString()}`,
+      );
+    }
     this.workerId = workerId;
     this.datacenterId = datacenterId;
   }
 
   public static getInstance(): SnowflakeIdGenerator {
     if (!SnowflakeIdGenerator.instance) {
-      SnowflakeIdGenerator.instance = new SnowflakeIdGenerator();
+      SnowflakeIdGenerator.instance = new SnowflakeIdGenerator(
+        SnowflakeIdGenerator.readNodeId(
+          'SNOWFLAKE_WORKER_ID',
+          1n,
+          SnowflakeIdGenerator.MAX_WORKER_ID,
+        ),
+        SnowflakeIdGenerator.readNodeId(
+          'SNOWFLAKE_DATACENTER_ID',
+          1n,
+          SnowflakeIdGenerator.MAX_DATACENTER_ID,
+        ),
+      );
     }
     return SnowflakeIdGenerator.instance;
   }
 
-  public generate(): number {
-    let timestamp = Date.now();
+  private static readNodeId(name: string, defaultValue: bigint, max: bigint): bigint {
+    const raw = process.env[name];
+    if (!raw || raw.trim().length === 0) {
+      return defaultValue;
+    }
+    const normalized = raw.trim();
+    if (!/^\d+$/.test(normalized)) {
+      throw new Error(`${name} must be an integer in 0~${max.toString()}`);
+    }
+    const parsed = BigInt(normalized);
+    if (parsed < 0n || parsed > max) {
+      throw new Error(`${name} must be in 0~${max.toString()}`);
+    }
+    return parsed;
+  }
+
+  public generate(): string {
+    let timestamp = BigInt(Date.now());
 
     if (timestamp < this.lastTimestamp) {
       throw new Error('Clock moved backwards. Refusing to generate id.');
     }
 
     if (timestamp === this.lastTimestamp) {
-      this.sequence = (this.sequence + 1) & 4095;
-      if (this.sequence === 0) {
+      this.sequence = (this.sequence + 1n) & SnowflakeIdGenerator.SEQUENCE_MASK;
+      if (this.sequence === 0n) {
         timestamp = this.waitNextMillis(this.lastTimestamp);
       }
     } else {
-      this.sequence = 0;
+      this.sequence = 0n;
     }
 
     this.lastTimestamp = timestamp;
 
-    return ((timestamp - this.epoch) << 22) |
-           (this.datacenterId << 17) |
-           (this.workerId << 12) |
-           this.sequence;
+    const id =
+      ((timestamp - this.epoch) << SnowflakeIdGenerator.TIMESTAMP_LEFT_SHIFT)
+      | (this.datacenterId << SnowflakeIdGenerator.DATACENTER_ID_SHIFT)
+      | (this.workerId << SnowflakeIdGenerator.WORKER_ID_SHIFT)
+      | this.sequence;
+    return id.toString();
   }
 
-  private waitNextMillis(lastTimestamp: number): number {
-    let timestamp = Date.now();
+  private waitNextMillis(lastTimestamp: bigint): bigint {
+    let timestamp = BigInt(Date.now());
     while (timestamp <= lastTimestamp) {
-      timestamp = Date.now();
+      timestamp = BigInt(Date.now());
     }
     return timestamp;
   }
@@ -60,7 +113,18 @@ export abstract class BaseEntity {
     nullable: false, 
     transformer: {
       to: (value: string) => value,
-      from: (value: any) => value.toString()
+      from: (value: unknown): string => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (typeof value === 'number' || typeof value === 'bigint') {
+          return value.toString();
+        }
+        if (value === null || value === undefined) {
+          return '';
+        }
+        return String(value);
+      },
     }
   })
   id: string;
@@ -91,7 +155,7 @@ export abstract class BaseEntity {
   updatedAt: Date;
 
   constructor() {
-    this.id = SnowflakeIdGenerator.getInstance().generate().toString();
+    this.id = SnowflakeIdGenerator.getInstance().generate();
     this.uuid = uuidv4();
   }
 

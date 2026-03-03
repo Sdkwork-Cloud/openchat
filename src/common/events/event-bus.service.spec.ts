@@ -1,36 +1,60 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EventBusService, EventType, EventPriority, EventData } from './event-bus.service';
-import { ConfigModule } from '@nestjs/config';
+import { RedisService } from '../redis/redis.service';
+import {
+  EventBusService,
+  EventPriority,
+  EventTypeConstants,
+  type IEvent,
+} from './event-bus.service';
 
-// Mock Redis
-const mockRedis = {
-  publish: jest.fn().mockResolvedValue(1),
-  duplicate: jest.fn().mockReturnValue({
-    connect: jest.fn().mockResolvedValue(undefined),
-    disconnect: jest.fn().mockResolvedValue(undefined),
-    subscribe: jest.fn(),
-    unsubscribe: jest.fn(),
-    on: jest.fn(),
-  }),
+type ConfigServiceMock = {
+  get: jest.Mock;
+};
+
+type RedisServiceMock = {
+  publish: jest.Mock;
+  subscribe: jest.Mock;
+  getClient: jest.Mock;
+};
+
+const flushMicrotasks = async (): Promise<void> => {
+  await new Promise<void>((resolve) => setImmediate(resolve));
 };
 
 describe('EventBusService', () => {
   let service: EventBusService;
+  let configServiceMock: ConfigServiceMock;
+  let redisServiceMock: RedisServiceMock;
 
   beforeEach(async () => {
+    configServiceMock = {
+      get: jest.fn((key, defaultValue) => {
+        if (key === 'EVENTBUS_MAX_STORED_EVENTS') {
+          return 3 as typeof defaultValue;
+        }
+        if (key === 'EVENTBUS_ENABLE_PERSISTENCE') {
+          return true as typeof defaultValue;
+        }
+        if (key === 'EVENTBUS_ENABLE_BROADCAST') {
+          return false as typeof defaultValue;
+        }
+        return defaultValue as typeof defaultValue;
+      }),
+    };
+
+    const clientPublish = jest.fn(async () => 1);
+    redisServiceMock = {
+      publish: jest.fn(async () => undefined),
+      subscribe: jest.fn(async () => undefined),
+      getClient: jest.fn(() => ({ publish: clientPublish })),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          envFilePath: '.env.example',
-        }),
-      ],
       providers: [
         EventBusService,
-        {
-          provide: 'default_IORedisModuleConnectionToken',
-          useValue: mockRedis,
-        },
+        { provide: ConfigService, useValue: configServiceMock },
+        { provide: RedisService, useValue: redisServiceMock },
       ],
     }).compile();
 
@@ -46,154 +70,164 @@ describe('EventBusService', () => {
   });
 
   it('should publish and subscribe to events', async () => {
-    const testEventData = { test: 'data' };
-    const callback = jest.fn();
+    const handler = jest.fn<void, [IEvent<{ test: string }>]>();
+    const unsubscribe = service.subscribe<IEvent<{ test: string }>>(
+      EventTypeConstants.DEVICE_CONNECTED,
+      handler,
+    );
 
-    // 订阅事件
-    const subscription = service.subscribe(EventType.DEVICE_CONNECTED);
-    subscription.subscribe(callback);
+    await service.publish(EventTypeConstants.DEVICE_CONNECTED, { test: 'data' });
+    await flushMicrotasks();
 
-    // 发布事件
-    await service.publish(EventType.DEVICE_CONNECTED, testEventData);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0].eventName).toBe(EventTypeConstants.DEVICE_CONNECTED);
+    expect(handler.mock.calls[0][0].data).toEqual({ test: 'data' });
 
-    // 验证回调被调用
-    expect(mockRedis.publish).toHaveBeenCalled();
+    unsubscribe();
   });
 
-  it('should handle event priorities', async () => {
-    const testEventData = { test: 'data' };
-    const highPriorityCallback = jest.fn();
-    const mediumPriorityCallback = jest.fn();
-    const lowPriorityCallback = jest.fn();
+  it('should support event filters', async () => {
+    const handler = jest.fn<void, [IEvent<{ value: number }>]>();
+    const unsubscribe = service.subscribe<IEvent<{ value: number }>>(
+      EventTypeConstants.DEVICE_CONNECTED,
+      handler,
+      {
+        filter: (event) => (event.data as { value: number }).value === 1,
+      },
+    );
 
-    // 订阅不同优先级的事件
-    service.subscribe(EventType.DEVICE_CONNECTED, {
-      priority: EventPriority.HIGH,
-    }).subscribe(highPriorityCallback);
+    await service.publish(EventTypeConstants.DEVICE_CONNECTED, { value: 1 });
+    await service.publish(EventTypeConstants.DEVICE_CONNECTED, { value: 2 });
+    await flushMicrotasks();
 
-    service.subscribe(EventType.DEVICE_CONNECTED, {
-      priority: EventPriority.MEDIUM,
-    }).subscribe(mediumPriorityCallback);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0].data).toEqual({ value: 1 });
 
-    service.subscribe(EventType.DEVICE_CONNECTED, {
-      priority: EventPriority.LOW,
-    }).subscribe(lowPriorityCallback);
-
-    // 发布事件
-    await service.publish(EventType.DEVICE_CONNECTED, testEventData);
-
-    // 验证回调被调用
-    expect(mockRedis.publish).toHaveBeenCalled();
+    unsubscribe();
   });
 
-  it('should handle event filters', async () => {
-    const testEventData1 = { test: 'data', value: 1 };
-    const testEventData2 = { test: 'data', value: 2 };
-    const callback = jest.fn();
+  it('should unsubscribe with returned unsubscribe function', async () => {
+    const handler = jest.fn<void, [IEvent<{ test: string }>]>();
+    const unsubscribe = service.subscribe<IEvent<{ test: string }>>(
+      EventTypeConstants.DEVICE_DISCONNECTED,
+      handler,
+    );
 
-    // 订阅带过滤器的事件
-    const subscription = service.subscribe(EventType.DEVICE_CONNECTED, {
-      filter: (event) => event.payload.value === 1,
+    unsubscribe();
+
+    await service.publish(EventTypeConstants.DEVICE_DISCONNECTED, { test: 'data' });
+    await flushMicrotasks();
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('should expose event stats', async () => {
+    const handler = jest.fn<void, [IEvent<{ test: string }>]>();
+    const unsubscribe = service.subscribe<IEvent<{ test: string }>>(
+      EventTypeConstants.DEVICE_CONNECTED,
+      handler,
+      { priority: EventPriority.HIGH },
+    );
+
+    await service.publish(EventTypeConstants.DEVICE_CONNECTED, { test: 'a' });
+    await service.publish(EventTypeConstants.DEVICE_CONNECTED, { test: 'b' });
+    await flushMicrotasks();
+
+    const stats = service.getStats();
+    expect(stats.subscriptionCount).toBe(1);
+    expect(stats.totalPublished).toBe(2);
+    expect(stats.totalProcessed).toBeGreaterThanOrEqual(2);
+    expect(stats.totalFailed).toBe(0);
+
+    unsubscribe();
+  });
+
+  it('should count multiple subscriptions on the same event correctly', async () => {
+    const h1 = jest.fn<void, [IEvent<{ ok: boolean }>]>();
+    const h2 = jest.fn<void, [IEvent<{ ok: boolean }>]>();
+    const unsubscribe1 = service.subscribe<IEvent<{ ok: boolean }>>(
+      EventTypeConstants.DEVICE_CONNECTED,
+      h1,
+    );
+    const unsubscribe2 = service.subscribe<IEvent<{ ok: boolean }>>(
+      EventTypeConstants.DEVICE_CONNECTED,
+      h2,
+    );
+
+    expect(service.getStats().subscriptionCount).toBe(2);
+
+    await service.publish(EventTypeConstants.DEVICE_CONNECTED, { ok: true });
+    await flushMicrotasks();
+    expect(h1).toHaveBeenCalledTimes(1);
+    expect(h2).toHaveBeenCalledTimes(1);
+
+    unsubscribe1();
+    expect(service.getStats().subscriptionCount).toBe(1);
+
+    unsubscribe2();
+    expect(service.getStats().subscriptionCount).toBe(0);
+  });
+
+  it('should keep stable source for events published by the same instance', async () => {
+    const handler = jest.fn<void, [IEvent<{ id: number }>]>();
+    const unsubscribe = service.subscribe<IEvent<{ id: number }>>(
+      EventTypeConstants.CUSTOM_EVENT,
+      handler,
+    );
+
+    await service.publish(EventTypeConstants.CUSTOM_EVENT, { id: 1 });
+    await service.publish(EventTypeConstants.CUSTOM_EVENT, { id: 2 });
+    await flushMicrotasks();
+
+    expect(handler).toHaveBeenCalledTimes(2);
+    const sourceA = handler.mock.calls[0][0].source;
+    const sourceB = handler.mock.calls[1][0].source;
+    expect(sourceA).toBeTruthy();
+    expect(sourceA).toBe(sourceB);
+
+    unsubscribe();
+  });
+
+  it('should publishAndWait and resolve with matched response', async () => {
+    const requestEventName = EventTypeConstants.CUSTOM_EVENT;
+    const responseEventName = `${requestEventName}.response`;
+
+    const unsubscribe = service.subscribe<IEvent<{ query: string }>>(
+      requestEventName,
+      async (event) => {
+        const correlationId = event.metadata?.correlationId as string;
+        await service.publish(responseEventName, { ok: true }, { metadata: { correlationId } });
+      },
+    );
+
+    const result = await service.publishAndWait<{ query: string }, { ok: boolean }>(
+      requestEventName,
+      { query: 'ping' },
+      1000,
+    );
+
+    expect(result).toEqual({ ok: true });
+    unsubscribe();
+  });
+
+  it('should publishAndWait timeout when no response arrives', async () => {
+    await expect(
+      service.publishAndWait(EventTypeConstants.DEVICE_STATUS_CHANGED, { ping: true }, 20),
+    ).rejects.toThrow('timeout');
+  });
+
+  it('should respect max stored events when persistence is enabled', async () => {
+    for (let i = 0; i < 6; i++) {
+      await service.publish(EventTypeConstants.CUSTOM_EVENT, { idx: i }, { persistent: true });
+    }
+
+    const events = await service.queryEvents({
+      eventName: EventTypeConstants.CUSTOM_EVENT,
+      sortOrder: 'asc',
     });
-    subscription.subscribe(callback);
+    const stats = service.getStats();
 
-    // 发布符合过滤器的事件
-    await service.publish(EventType.DEVICE_CONNECTED, testEventData1);
-    // 发布不符合过滤器的事件
-    await service.publish(EventType.DEVICE_CONNECTED, testEventData2);
-
-    // 验证Redis发布被调用
-    expect(mockRedis.publish).toHaveBeenCalledTimes(2);
-  });
-
-  it('should unsubscribe from events', async () => {
-    const testEventData = { test: 'data' };
-    const callback = jest.fn();
-
-    // 订阅事件
-    const subscription = service.subscribe(EventType.DEVICE_CONNECTED);
-    subscription.subscribe(callback);
-
-    // 取消订阅
-    service.unsubscribe(EventType.DEVICE_CONNECTED);
-
-    // 发布事件
-    await service.publish(EventType.DEVICE_CONNECTED, testEventData);
-
-    // 验证Redis发布被调用
-    expect(mockRedis.publish).toHaveBeenCalled();
-  });
-
-  it('should subscribe to multiple events', async () => {
-    const testEventData1 = { test: 'data1' };
-    const testEventData2 = { test: 'data2' };
-    const callback = jest.fn();
-
-    // 订阅多个事件
-    const subscription = service.subscribeMultiple([
-      EventType.DEVICE_CONNECTED, 
-      EventType.DEVICE_DISCONNECTED
-    ]);
-    subscription.subscribe(callback);
-
-    // 发布第一个事件
-    await service.publish(EventType.DEVICE_CONNECTED, testEventData1);
-    // 发布第二个事件
-    await service.publish(EventType.DEVICE_DISCONNECTED, testEventData2);
-
-    // 验证Redis发布被调用两次
-    expect(mockRedis.publish).toHaveBeenCalledTimes(2);
-  });
-
-  it('should get event statistics', async () => {
-    // 订阅事件
-    service.subscribe(EventType.DEVICE_CONNECTED);
-    service.subscribe(EventType.DEVICE_DISCONNECTED);
-
-    // 发布几个事件
-    await service.publish(EventType.DEVICE_CONNECTED, { test: 'data1' });
-    await service.publish(EventType.DEVICE_CONNECTED, { test: 'data2' });
-    await service.publish(EventType.DEVICE_DISCONNECTED, { test: 'data3' });
-
-    // 获取统计信息
-    const stats = service.getEventStats();
-
-    // 验证统计信息正确
-    expect(stats.totalSubscriptions).toBe(2);
-    expect(stats.eventTypes).toContain(EventType.DEVICE_CONNECTED);
-    expect(stats.eventTypes).toContain(EventType.DEVICE_DISCONNECTED);
-  });
-
-  it('should clear all subscriptions', () => {
-    // 订阅事件
-    service.subscribe(EventType.DEVICE_CONNECTED);
-    service.subscribe(EventType.DEVICE_DISCONNECTED);
-
-    // 清理所有订阅
-    service.clearAllSubscriptions();
-
-    // 获取统计信息
-    const stats = service.getEventStats();
-
-    // 验证所有订阅已清理
-    expect(stats.totalSubscriptions).toBe(0);
-  });
-
-  it('should unsubscribe from multiple events', () => {
-    // 订阅事件
-    service.subscribe(EventType.DEVICE_CONNECTED);
-    service.subscribe(EventType.DEVICE_DISCONNECTED);
-
-    // 取消订阅多个事件
-    service.unsubscribeMultiple([
-      EventType.DEVICE_CONNECTED, 
-      EventType.DEVICE_DISCONNECTED
-    ]);
-
-    // 获取统计信息
-    const stats = service.getEventStats();
-
-    // 验证所有订阅已取消
-    expect(stats.totalSubscriptions).toBe(0);
+    expect(events).toHaveLength(3);
+    expect(stats.storedEventCount).toBe(3);
   });
 });

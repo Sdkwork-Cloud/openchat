@@ -1,5 +1,7 @@
 import { Module, Global } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
+import { PrometheusService } from './prometheus.service';
+import { MetricsController } from './metrics.controller';
 
 /**
  * 性能监控模块
@@ -7,7 +9,8 @@ import { MetricsService } from './metrics.service';
  */
 @Global()
 @Module({
-  providers: [MetricsService],
-  exports: [MetricsService],
+  providers: [MetricsService, PrometheusService],
+  controllers: [MetricsController],
+  exports: [MetricsService, PrometheusService],
 })
 export class MetricsModule {}

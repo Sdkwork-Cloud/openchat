@@ -49,11 +49,22 @@ Object.defineProperty(window, 'ResizeObserver', {
 });
 
 // Mock localStorage
+const localStorageStore = new Map<string, string>();
 const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
+  getItem: vi.fn((key: string) => (localStorageStore.has(key) ? localStorageStore.get(key)! : null)),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageStore.set(String(key), String(value));
+  }),
+  removeItem: vi.fn((key: string) => {
+    localStorageStore.delete(String(key));
+  }),
+  clear: vi.fn(() => {
+    localStorageStore.clear();
+  }),
+  key: vi.fn((index: number) => Array.from(localStorageStore.keys())[index] ?? null),
+  get length() {
+    return localStorageStore.size;
+  },
 };
 
 Object.defineProperty(window, 'localStorage', {
@@ -108,5 +119,6 @@ export function createMockPlatform() {
 // ==================== 全局清理 ====================
 
 afterEach(() => {
+  localStorageStore.clear();
   vi.clearAllMocks();
 });

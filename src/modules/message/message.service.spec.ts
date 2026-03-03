@@ -12,6 +12,7 @@ import { GroupMember } from '../group/group-member.entity';
 import { GroupMessageBatchService } from '../group/group-message-batch.service';
 import { DataSource } from 'typeorm';
 import { EventBusService } from '../../common/events/event-bus.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('MessageService', () => {
   let service: MessageService;
@@ -56,6 +57,14 @@ describe('MessageService', () => {
   };
 
   const mockEventBus = {};
+  const mockConfigService = {
+    get: jest.fn((key: string, defaultValue?: any) => {
+      if (key === 'MESSAGE_BATCH_SIZE') {
+        return 20;
+      }
+      return defaultValue;
+    }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -104,6 +113,10 @@ describe('MessageService', () => {
         {
           provide: EventBusService,
           useValue: mockEventBus,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();

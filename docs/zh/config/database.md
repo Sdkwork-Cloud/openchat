@@ -82,16 +82,17 @@ DB_POOL_MIN=2
 
 ## 数据库初始化
 
-### 自动迁移
+### 初始化方式
 
-OpenChat 在启动时会自动执行数据库迁移：
+OpenChat 新项目默认使用 `schema.sql + seed.sql` 完成初始化，不依赖迁移脚本。
 
 ```bash
-# 启动服务时自动迁移
-npm run start
+# 方案一：执行初始化脚本（推荐）
+./scripts/init-database.sh dev
 
-# 手动运行迁移
-npm run migration:run
+# 方案二：手动执行 SQL
+psql -U openchat -d openchat -f database/schema.sql
+psql -U openchat -d openchat -f database/seed.sql
 ```
 
 ### 手动初始化
@@ -101,7 +102,8 @@ npm run migration:run
 createdb -U postgres openchat
 
 # 运行初始化脚本
-psql -U openchat -d openchat -f database/init.sql
+psql -U openchat -d openchat -f database/schema.sql
+psql -U openchat -d openchat -f database/seed.sql
 ```
 
 ## 数据库备份

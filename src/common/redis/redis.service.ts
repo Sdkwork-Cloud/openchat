@@ -8,6 +8,13 @@ import Redis, { Pipeline } from 'ioredis';
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
+  private readonly subscriptionListeners: Map<
+    string,
+    Array<{
+      event: 'message' | 'pmessage';
+      listener: (...args: unknown[]) => void;
+    }>
+  > = new Map();
 
   // Redis Key 前缀
   private readonly KEY_PREFIX = 'openchat:';
@@ -18,6 +25,10 @@ export class RedisService implements OnModuleDestroy {
   private readonly USER_HEARTBEAT_PREFIX = 'hb:';
 
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
+
+  private isPatternChannel(channel: string): boolean {
+    return channel.includes('*') || channel.includes('?') || channel.includes('[');
+  }
 
   /**
    * 生成带前缀的 key
@@ -290,8 +301,32 @@ export class RedisService implements OnModuleDestroy {
    * 订阅频道
    */
   async subscribe(channel: string, callback?: (message: string, channel?: string) => void): Promise<void> {
+    const listeners = this.subscriptionListeners.get(channel) || [];
+
     if (callback) {
-      this.redis.on('message', callback);
+      if (this.isPatternChannel(channel)) {
+        const listener = (pattern: string, receivedChannel: string, message: string) => {
+          if (pattern === channel) {
+            callback(message, receivedChannel);
+          }
+        };
+        this.redis.on('pmessage', listener);
+        listeners.push({ event: 'pmessage', listener });
+      } else {
+        const listener = (receivedChannel: string, message: string) => {
+          if (receivedChannel === channel) {
+            callback(message, receivedChannel);
+          }
+        };
+        this.redis.on('message', listener);
+        listeners.push({ event: 'message', listener });
+      }
+      this.subscriptionListeners.set(channel, listeners);
+    }
+
+    if (this.isPatternChannel(channel)) {
+      await this.redis.psubscribe(channel);
+      return;
     }
     await this.redis.subscribe(channel);
   }
@@ -301,9 +336,27 @@ export class RedisService implements OnModuleDestroy {
    */
   async unsubscribe(channel?: string): Promise<void> {
     if (channel) {
+      const listeners = this.subscriptionListeners.get(channel) || [];
+      for (const { event, listener } of listeners) {
+        this.redis.off(event, listener);
+      }
+      this.subscriptionListeners.delete(channel);
+
+      if (this.isPatternChannel(channel)) {
+        await this.redis.punsubscribe(channel);
+        return;
+      }
       await this.redis.unsubscribe(channel);
     } else {
+      for (const listeners of this.subscriptionListeners.values()) {
+        for (const { event, listener } of listeners) {
+          this.redis.off(event, listener);
+        }
+      }
+      this.subscriptionListeners.clear();
+
       await this.redis.unsubscribe();
+      await this.redis.punsubscribe();
     }
   }
 

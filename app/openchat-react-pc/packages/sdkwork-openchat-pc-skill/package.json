@@ -1,0 +1,29 @@
+{
+  "name": "@sdkwork/openchat-pc-skill",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "private": true,
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "dependencies": {
+    "@sdkwork/openchat-pc-contracts": "workspace:*",
+    "@sdkwork/openchat-pc-kernel": "workspace:*",
+    "@sdkwork/openchat-pc-ui": "workspace:*",
+    "react": "^18.2.0",
+    "react-router-dom": "^6.20.0"
+  }
+}

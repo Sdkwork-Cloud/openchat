@@ -1,263 +1,514 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
-import { RTCService } from './rtc.service';
-import { RTCRoom, RTCToken } from './rtc.interface';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { CurrentUser } from '../user/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
+import { UserEntity } from '../user/entities/user.entity';
+import {
+  AddRtcParticipantDto,
+  CreateRtcChannelDto,
+  CreateRtcRoomDto,
+  CreateRtcVideoRecordDto,
+  GenerateRtcTokenDto,
+  ListRtcVideoRecordQueryDto,
+  RtcProviderOperationErrorDto,
+  RtcProviderHealthQueryDto,
+  RtcProviderHealthReportDto,
+  RtcProviderOperationStatDto,
+  RtcProviderOperationStatsQueryDto,
+  StartRtcRecordingDto,
+  StopRtcRecordingDto,
+  SyncRtcVideoRecordDto,
+  UpdateRtcChannelDto,
+  UpdateRtcVideoRecordMetadataDto,
+  UpdateRtcVideoRecordStatusDto,
+} from './dto/rtc.dto';
 import { RTCChannelEntity } from './rtc-channel.entity';
+import { RTCRoom, RTCToken } from './rtc.interface';
+import { RTCService } from './rtc.service';
 import { RTCVideoRecord } from './rtc-video-record.entity';
 
 @ApiTags('rtc')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('rtc')
 export class RTCController {
-  constructor(private rtcService: RTCService) {}
+  constructor(private readonly rtcService: RTCService) {}
 
   @Post('rooms')
-  @ApiOperation({ summary: '创建RTC房间' })
-  @ApiBody({ description: '房间信息', required: true, schema: { type: 'object', properties: { creatorId: { type: 'string' }, type: { type: 'string', enum: ['p2p', 'group'] }, participants: { type: 'array', items: { type: 'string' } }, name: { type: 'string' }, channelId: { type: 'string' } } } })
-  @ApiResponse({ status: 201, description: '成功创建RTC房间', type: RTCRoom })
+  @ApiOperation({ summary: 'Create RTC room' })
+  @ApiBody({ type: CreateRtcRoomDto })
+  @ApiResponse({ status: 201, description: 'Room created', type: RTCRoom })
+  @ApiResponse({ status: 400, description: 'Provider routing conflict or provider failure', type: RtcProviderOperationErrorDto })
   async createRoom(
-    @Body('creatorId') creatorId: string,
-    @Body('type') type: 'p2p' | 'group',
-    @Body('participants') participants: string[],
-    @Body('name') name?: string,
-    @Body('channelId') channelId?: string,
+    @CurrentUser() user: UserEntity,
+    @Body() dto: CreateRtcRoomDto,
   ): Promise<RTCRoom> {
-    return this.rtcService.createRoom(creatorId, type, participants, name, channelId);
+    return this.rtcService.createRoom(
+      user.id,
+      dto.type,
+      dto.participants,
+      dto.name,
+      dto.channelId,
+      dto.provider,
+      dto.aiMetadata,
+    );
   }
 
   @Put('rooms/:id/end')
-  @ApiOperation({ summary: '结束RTC房间' })
-  @ApiParam({ name: 'id', description: '房间ID' })
-  @ApiResponse({ status: 200, description: '成功结束RTC房间' })
-  @ApiResponse({ status: 404, description: '房间不存在或已结束' })
-  async endRoom(@Param('id') id: string): Promise<boolean> {
-    return this.rtcService.endRoom(id);
+  @ApiOperation({ summary: 'End RTC room' })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  async endRoom(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<boolean> {
+    return this.rtcService.endRoom(id, user.id);
   }
 
   @Get('rooms/:id')
-  @ApiOperation({ summary: '获取RTC房间详情' })
-  @ApiParam({ name: 'id', description: '房间ID' })
-  @ApiResponse({ status: 200, description: '成功获取RTC房间详情', type: RTCRoom })
-  @ApiResponse({ status: 404, description: '房间不存在' })
-  async getRoomById(@Param('id') id: string): Promise<RTCRoom | null> {
-    return this.rtcService.getRoomById(id);
+  @ApiOperation({ summary: 'Get RTC room detail' })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  @ApiResponse({ status: 200, type: RTCRoom })
+  async getRoomById(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<RTCRoom | null> {
+    const room = await this.rtcService.getRoomById(id);
+    if (!room) {
+      return null;
+    }
+    if (!room.participants.includes(user.id)) {
+      throw new ForbiddenException('No permission to view this room');
+    }
+    return room;
   }
 
   @Get('rooms/user/:userId')
-  @ApiOperation({ summary: '获取用户的RTC房间列表' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功获取用户的RTC房间列表', type: [RTCRoom] })
-  async getRoomsByUserId(@Param('userId') userId: string): Promise<RTCRoom[]> {
+  @ApiOperation({ summary: 'Get user RTC rooms' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({ status: 200, type: [RTCRoom] })
+  async getRoomsByUserId(
+    @CurrentUser() user: UserEntity,
+    @Param('userId') userId: string,
+  ): Promise<RTCRoom[]> {
+    if (user.id !== userId) {
+      throw new ForbiddenException('No permission to query other user rooms');
+    }
     return this.rtcService.getRoomsByUserId(userId);
   }
 
   @Post('tokens')
-  @ApiOperation({ summary: '生成RTC token' })
-  @ApiBody({ description: 'Token信息', required: true, schema: { type: 'object', properties: { roomId: { type: 'string' }, userId: { type: 'string' }, channelId: { type: 'string' } } } })
-  @ApiResponse({ status: 201, description: '成功生成RTC token', type: RTCToken })
-  @ApiResponse({ status: 400, description: '房间不存在或用户不在房间中' })
+  @ApiOperation({ summary: 'Generate RTC token' })
+  @ApiBody({ type: GenerateRtcTokenDto })
+  @ApiResponse({ status: 201, type: RTCToken })
+  @ApiResponse({ status: 400, description: 'Provider routing conflict or provider failure', type: RtcProviderOperationErrorDto })
   async generateToken(
-    @Body('roomId') roomId: string, 
-    @Body('userId') userId: string,
-    @Body('channelId') channelId?: string
+    @CurrentUser() user: UserEntity,
+    @Body() dto: GenerateRtcTokenDto,
   ): Promise<RTCToken> {
-    return this.rtcService.generateToken(roomId, userId, channelId);
+    const targetUserId = dto.userId || user.id;
+    if (targetUserId !== user.id) {
+      throw new ForbiddenException('No permission to generate token for other users');
+    }
+    return this.rtcService.generateToken(
+      dto.roomId,
+      targetUserId,
+      dto.channelId,
+      dto.provider,
+      dto.role,
+      dto.expireSeconds,
+    );
   }
 
   @Get('tokens/validate')
-  @ApiOperation({ summary: '验证RTC token' })
+  @ApiOperation({ summary: 'Validate RTC token' })
   @ApiQuery({ name: 'token', description: 'RTC token' })
-  @ApiResponse({ status: 200, description: '成功验证RTC token', type: RTCToken })
-  @ApiResponse({ status: 401, description: 'Token无效或已过期' })
+  @ApiResponse({ status: 200, type: RTCToken })
   async validateToken(@Query('token') token: string): Promise<RTCToken | null> {
     return this.rtcService.validateToken(token);
   }
 
   @Post('rooms/:id/participants')
-  @ApiOperation({ summary: '添加RTC房间参与者' })
-  @ApiParam({ name: 'id', description: '房间ID' })
-  @ApiBody({ description: '参与者信息', required: true, schema: { type: 'object', properties: { userId: { type: 'string' } } } })
-  @ApiResponse({ status: 200, description: '成功添加RTC房间参与者' })
-  @ApiResponse({ status: 404, description: '房间不存在或已结束' })
-  async addParticipant(@Param('id') id: string, @Body('userId') userId: string): Promise<boolean> {
-    return this.rtcService.addParticipant(id, userId);
+  @ApiOperation({ summary: 'Add room participant (creator only)' })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  @ApiBody({ type: AddRtcParticipantDto })
+  async addParticipant(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() dto: AddRtcParticipantDto,
+  ): Promise<boolean> {
+    return this.rtcService.addParticipant(id, dto.userId, user.id);
   }
 
   @Delete('rooms/:id/participants/:userId')
-  @ApiOperation({ summary: '移除RTC房间参与者' })
-  @ApiParam({ name: 'id', description: '房间ID' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功移除RTC房间参与者' })
-  @ApiResponse({ status: 404, description: '房间不存在或已结束' })
-  async removeParticipant(@Param('id') id: string, @Param('userId') userId: string): Promise<boolean> {
-    return this.rtcService.removeParticipant(id, userId);
+  @ApiOperation({ summary: 'Remove room participant (creator or self)' })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  @ApiParam({ name: 'userId', description: 'Participant user ID' })
+  async removeParticipant(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+  ): Promise<boolean> {
+    return this.rtcService.removeParticipant(id, userId, user.id);
   }
 
-  // 新增：RTC Channel配置管理接口
-
   @Post('channels')
-  @ApiOperation({ summary: '创建RTC Channel配置' })
-  @ApiBody({ description: 'Channel配置', required: true, schema: { type: 'object', properties: { provider: { type: 'string' }, appId: { type: 'string' }, appKey: { type: 'string' }, appSecret: { type: 'string' }, region: { type: 'string' }, endpoint: { type: 'string' }, extraConfig: { type: 'object' } } } })
-  @ApiResponse({ status: 201, description: '成功创建RTC Channel配置', type: RTCChannelEntity })
+  @ApiOperation({ summary: 'Create or upsert RTC channel config' })
+  @ApiBody({ type: CreateRtcChannelDto })
+  @ApiResponse({ status: 201, type: RTCChannelEntity })
   async createChannel(
-    @Body('provider') provider: string,
-    @Body('appId') appId: string,
-    @Body('appKey') appKey: string,
-    @Body('appSecret') appSecret: string,
-    @Body('region') region?: string,
-    @Body('endpoint') endpoint?: string,
-    @Body('extraConfig') extraConfig?: Record<string, any>
+    @CurrentUser() user: UserEntity,
+    @Body() dto: CreateRtcChannelDto,
   ): Promise<RTCChannelEntity> {
-    return this.rtcService.createChannel({
-      provider,
-      appId,
-      appKey,
-      appSecret,
-      region,
-      endpoint,
-      extraConfig
-    });
+    this.assertAdmin(user);
+    const channel = await this.rtcService.createChannel(dto);
+    return this.maskChannelSecret(channel);
   }
 
   @Get('channels')
-  @ApiOperation({ summary: '获取所有RTC Channel配置' })
-  @ApiResponse({ status: 200, description: '成功获取所有RTC Channel配置', type: [RTCChannelEntity] })
-  async getChannels(): Promise<RTCChannelEntity[]> {
-    return this.rtcService.getChannels();
+  @ApiOperation({ summary: 'Get all RTC channel configs' })
+  @ApiResponse({ status: 200, type: [RTCChannelEntity] })
+  async getChannels(
+    @CurrentUser() user: UserEntity,
+  ): Promise<RTCChannelEntity[]> {
+    this.assertAdmin(user);
+    const channels = await this.rtcService.getChannels();
+    return channels.map((channel) => this.maskChannelSecret(channel));
+  }
+
+  @Get('providers/stats')
+  @ApiOperation({ summary: 'Get RTC provider operation stats (admin only)' })
+  @ApiQuery({ name: 'provider', required: false, description: 'Provider filter' })
+  @ApiQuery({ name: 'operation', required: false, description: 'Operation filter: createRoom/generateToken/validateToken' })
+  @ApiQuery({ name: 'windowMinutes', required: false, description: 'Window minutes, e.g. 60' })
+  @ApiQuery({ name: 'topErrorLimit', required: false, description: 'Top error code size, max 10' })
+  @ApiResponse({ status: 200, type: [RtcProviderOperationStatDto] })
+  async getProviderOperationStats(
+    @CurrentUser() user: UserEntity,
+    @Query() query: RtcProviderOperationStatsQueryDto,
+  ): Promise<RtcProviderOperationStatDto[]> {
+    this.assertAdmin(user);
+    return this.rtcService.getProviderOperationStats(query);
+  }
+
+  @Get('providers/health')
+  @ApiOperation({ summary: 'Get RTC provider health report and routing recommendation (admin only)' })
+  @ApiQuery({ name: 'provider', required: false, description: 'Provider filter' })
+  @ApiQuery({ name: 'operation', required: false, description: 'Operation filter: createRoom/generateToken/validateToken' })
+  @ApiQuery({ name: 'windowMinutes', required: false, description: 'Window minutes, default 60' })
+  @ApiQuery({ name: 'topErrorLimit', required: false, description: 'Top error code size, max 10' })
+  @ApiQuery({ name: 'minSamples', required: false, description: 'Minimum sample size to classify healthy/degraded/unhealthy' })
+  @ApiQuery({ name: 'controlPlaneMinSamples', required: false, description: 'Minimum control-plane invocation samples before applying retry/circuit thresholds' })
+  @ApiQuery({ name: 'degradedFailureRate', required: false, description: 'Failure rate threshold for degraded' })
+  @ApiQuery({ name: 'unhealthyFailureRate', required: false, description: 'Failure rate threshold for unhealthy' })
+  @ApiQuery({ name: 'degradedLatencyMs', required: false, description: 'Average latency threshold for degraded' })
+  @ApiQuery({ name: 'unhealthyLatencyMs', required: false, description: 'Average latency threshold for unhealthy' })
+  @ApiQuery({ name: 'degradedControlPlaneRetryRate', required: false, description: 'Control-plane retry ratio threshold for degraded' })
+  @ApiQuery({ name: 'unhealthyControlPlaneRetryRate', required: false, description: 'Control-plane retry ratio threshold for unhealthy' })
+  @ApiQuery({ name: 'degradedControlPlaneCircuitOpenRate', required: false, description: 'Control-plane circuit-open short-circuit ratio threshold for degraded' })
+  @ApiQuery({ name: 'unhealthyControlPlaneCircuitOpenRate', required: false, description: 'Control-plane circuit-open short-circuit ratio threshold for unhealthy' })
+  @ApiResponse({ status: 200, type: RtcProviderHealthReportDto })
+  async getProviderHealthReport(
+    @CurrentUser() user: UserEntity,
+    @Query() query: RtcProviderHealthQueryDto,
+  ): Promise<RtcProviderHealthReportDto> {
+    this.assertAdmin(user);
+    return this.rtcService.getProviderHealthReport(query);
   }
 
   @Get('channels/:id')
-  @ApiOperation({ summary: '获取单个RTC Channel配置' })
+  @ApiOperation({ summary: 'Get RTC channel config' })
   @ApiParam({ name: 'id', description: 'Channel ID' })
-  @ApiResponse({ status: 200, description: '成功获取单个RTC Channel配置', type: RTCChannelEntity })
-  @ApiResponse({ status: 404, description: 'Channel不存在' })
-  async getChannel(@Param('id') id: string): Promise<RTCChannelEntity | null> {
-    return this.rtcService.getChannel(id);
+  @ApiResponse({ status: 200, type: RTCChannelEntity })
+  async getChannel(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<RTCChannelEntity | null> {
+    this.assertAdmin(user);
+    const channel = await this.rtcService.getChannel(id);
+    if (!channel) {
+      return null;
+    }
+    return this.maskChannelSecret(channel);
   }
 
   @Put('channels/:id')
-  @ApiOperation({ summary: '更新RTC Channel配置' })
+  @ApiOperation({ summary: 'Update RTC channel config' })
   @ApiParam({ name: 'id', description: 'Channel ID' })
-  @ApiBody({ description: 'Channel配置', required: true, schema: { type: 'object', properties: { provider: { type: 'string' }, appId: { type: 'string' }, appKey: { type: 'string' }, appSecret: { type: 'string' }, region: { type: 'string' }, endpoint: { type: 'string' }, extraConfig: { type: 'object' }, isActive: { type: 'boolean' } } } })
-  @ApiResponse({ status: 200, description: '成功更新RTC Channel配置', type: RTCChannelEntity })
-  @ApiResponse({ status: 404, description: 'Channel不存在' })
+  @ApiBody({ type: UpdateRtcChannelDto })
   async updateChannel(
+    @CurrentUser() user: UserEntity,
     @Param('id') id: string,
-    @Body() config: Partial<RTCChannelEntity>
+    @Body() config: UpdateRtcChannelDto,
   ): Promise<RTCChannelEntity | null> {
-    return this.rtcService.updateChannel(id, config);
+    this.assertAdmin(user);
+    const channel = await this.rtcService.updateChannel(id, config);
+    if (!channel) {
+      return null;
+    }
+    return this.maskChannelSecret(channel);
   }
 
   @Delete('channels/:id')
-  @ApiOperation({ summary: '删除RTC Channel配置' })
+  @ApiOperation({ summary: 'Delete RTC channel config (soft delete)' })
   @ApiParam({ name: 'id', description: 'Channel ID' })
-  @ApiResponse({ status: 200, description: '成功删除RTC Channel配置' })
-  @ApiResponse({ status: 404, description: 'Channel不存在' })
-  async deleteChannel(@Param('id') id: string): Promise<boolean> {
+  async deleteChannel(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<boolean> {
+    this.assertAdmin(user);
     return this.rtcService.deleteChannel(id);
   }
 
-  // 新增：视频记录相关API接口
+  @Post('rooms/:roomId/recordings/start')
+  @ApiOperation({ summary: 'Start cloud recording task for a room' })
+  @ApiParam({ name: 'roomId', description: 'Room ID' })
+  @ApiBody({ type: StartRtcRecordingDto })
+  async startRoomRecording(
+    @CurrentUser() user: UserEntity,
+    @Param('roomId') roomId: string,
+    @Body() dto: StartRtcRecordingDto,
+  ): Promise<RTCVideoRecord> {
+    await this.assertRoomParticipant(roomId, user.id);
+    return this.rtcService.startRoomRecording(roomId, user.id, {
+      taskId: dto.taskId,
+      metadata: dto.metadata,
+    });
+  }
+
+  @Post('rooms/:roomId/recordings/stop')
+  @ApiOperation({ summary: 'Stop cloud recording task for a room' })
+  @ApiParam({ name: 'roomId', description: 'Room ID' })
+  @ApiBody({ type: StopRtcRecordingDto })
+  async stopRoomRecording(
+    @CurrentUser() user: UserEntity,
+    @Param('roomId') roomId: string,
+    @Body() dto: StopRtcRecordingDto,
+  ): Promise<RTCVideoRecord | null> {
+    await this.assertRoomParticipant(roomId, user.id);
+    return this.rtcService.stopRoomRecording(roomId, user.id, {
+      recordId: dto.recordId,
+      taskId: dto.taskId,
+      metadata: dto.metadata,
+    });
+  }
 
   @Post('video-records')
-  @ApiOperation({ summary: '创建视频记录' })
-  @ApiBody({ description: '视频记录信息', required: true, schema: { type: 'object', properties: { roomId: { type: 'string' }, userId: { type: 'string' }, fileName: { type: 'string' }, filePath: { type: 'string' }, fileType: { type: 'string' }, fileSize: { type: 'number' }, startTime: { type: 'string', format: 'date-time' }, endTime: { type: 'string', format: 'date-time' }, status: { type: 'string', enum: ['recording', 'completed', 'failed', 'processing'] }, metadata: { type: 'string' } } } })
-  @ApiResponse({ status: 201, description: '成功创建视频记录', type: RTCVideoRecord })
+  @ApiOperation({ summary: 'Create RTC video record' })
+  @ApiBody({ type: CreateRtcVideoRecordDto })
   async createVideoRecord(
-    @Body('roomId') roomId: string,
-    @Body('fileName') fileName: string,
-    @Body('filePath') filePath: string,
-    @Body('fileType') fileType: string,
-    @Body('fileSize') fileSize: number,
-    @Body('startTime') startTime: Date,
-    @Body('endTime') endTime: Date,
-    @Body('userId') userId?: string,
-    @Body('status') status?: 'recording' | 'completed' | 'failed' | 'processing',
-    @Body('metadata') metadata?: string
+    @CurrentUser() user: UserEntity,
+    @Body() dto: CreateRtcVideoRecordDto,
   ): Promise<RTCVideoRecord> {
+    const room = await this.rtcService.getRoomById(dto.roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+    if (!room.participants.includes(user.id)) {
+      throw new ForbiddenException('No permission to create records for this room');
+    }
+
+    const targetUserId = dto.userId || user.id;
+    if (dto.userId && dto.userId !== user.id) {
+      throw new ForbiddenException('No permission to create records for other users');
+    }
     return this.rtcService.createVideoRecord({
-      roomId,
-      userId,
-      fileName,
-      filePath,
-      fileType,
-      fileSize,
-      startTime,
-      endTime,
-      status,
-      metadata
+      ...dto,
+      userId: targetUserId,
     });
   }
 
   @Get('video-records/:id')
-  @ApiOperation({ summary: '获取视频记录详情' })
-  @ApiParam({ name: 'id', description: '视频记录ID' })
-  @ApiResponse({ status: 200, description: '成功获取视频记录详情', type: RTCVideoRecord })
-  @ApiResponse({ status: 404, description: '视频记录不存在' })
-  async getVideoRecord(@Param('id') id: string): Promise<RTCVideoRecord | null> {
-    return this.rtcService.getVideoRecord(id);
+  @ApiOperation({ summary: 'Get RTC video record detail' })
+  @ApiParam({ name: 'id', description: 'Record ID' })
+  async getVideoRecord(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<RTCVideoRecord | null> {
+    const record = await this.rtcService.getVideoRecord(id);
+    if (!record) {
+      return null;
+    }
+    await this.assertCanReadRecord(user.id, record);
+    return record;
   }
 
   @Get('rooms/:roomId/video-records')
-  @ApiOperation({ summary: '获取房间的视频记录列表' })
-  @ApiParam({ name: 'roomId', description: '房间ID' })
-  @ApiResponse({ status: 200, description: '成功获取房间的视频记录列表', type: [RTCVideoRecord] })
-  async getVideoRecordsByRoomId(@Param('roomId') roomId: string): Promise<RTCVideoRecord[]> {
+  @ApiOperation({ summary: 'Get room video records' })
+  @ApiParam({ name: 'roomId', description: 'Room ID' })
+  async getVideoRecordsByRoomId(
+    @CurrentUser() user: UserEntity,
+    @Param('roomId') roomId: string,
+  ): Promise<RTCVideoRecord[]> {
+    await this.assertRoomParticipant(roomId, user.id);
     return this.rtcService.getVideoRecordsByRoomId(roomId);
   }
 
   @Get('users/:userId/video-records')
-  @ApiOperation({ summary: '获取用户的视频记录列表' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功获取用户的视频记录列表', type: [RTCVideoRecord] })
-  async getVideoRecordsByUserId(@Param('userId') userId: string): Promise<RTCVideoRecord[]> {
+  @ApiOperation({ summary: 'Get user video records' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  async getVideoRecordsByUserId(
+    @CurrentUser() user: UserEntity,
+    @Param('userId') userId: string,
+  ): Promise<RTCVideoRecord[]> {
+    if (user.id !== userId) {
+      throw new ForbiddenException('No permission to view other user records');
+    }
     return this.rtcService.getVideoRecordsByUserId(userId);
   }
 
   @Put('video-records/:id/status')
-  @ApiOperation({ summary: '更新视频记录状态' })
-  @ApiParam({ name: 'id', description: '视频记录ID' })
-  @ApiBody({ description: '状态信息', required: true, schema: { type: 'object', properties: { status: { type: 'string', enum: ['recording', 'completed', 'failed', 'processing'] }, errorMessage: { type: 'string' } } } })
-  @ApiResponse({ status: 200, description: '成功更新视频记录状态', type: RTCVideoRecord })
-  @ApiResponse({ status: 404, description: '视频记录不存在' })
+  @ApiOperation({ summary: 'Update video record status' })
+  @ApiParam({ name: 'id', description: 'Record ID' })
+  @ApiBody({ type: UpdateRtcVideoRecordStatusDto })
   async updateVideoRecordStatus(
+    @CurrentUser() user: UserEntity,
     @Param('id') id: string,
-    @Body('status') status: 'recording' | 'completed' | 'failed' | 'processing',
-    @Body('errorMessage') errorMessage?: string
+    @Body() dto: UpdateRtcVideoRecordStatusDto,
   ): Promise<RTCVideoRecord | null> {
-    return this.rtcService.updateVideoRecordStatus(id, status, errorMessage);
+    const record = await this.rtcService.getVideoRecord(id);
+    if (!record) {
+      return null;
+    }
+    await this.assertCanWriteRecord(user.id, record);
+    return this.rtcService.updateVideoRecordStatus(id, dto.status, dto.errorMessage);
   }
 
   @Put('video-records/:id/metadata')
-  @ApiOperation({ summary: '更新视频记录元数据' })
-  @ApiParam({ name: 'id', description: '视频记录ID' })
-  @ApiBody({ description: '元数据信息', required: true, schema: { type: 'object', properties: { metadata: { type: 'string' } } } })
-  @ApiResponse({ status: 200, description: '成功更新视频记录元数据', type: RTCVideoRecord })
-  @ApiResponse({ status: 404, description: '视频记录不存在' })
+  @ApiOperation({ summary: 'Update video record metadata' })
+  @ApiParam({ name: 'id', description: 'Record ID' })
+  @ApiBody({ type: UpdateRtcVideoRecordMetadataDto })
   async updateVideoRecordMetadata(
+    @CurrentUser() user: UserEntity,
     @Param('id') id: string,
-    @Body('metadata') metadata: string
+    @Body() dto: UpdateRtcVideoRecordMetadataDto,
   ): Promise<RTCVideoRecord | null> {
-    return this.rtcService.updateVideoRecordMetadata(id, metadata);
+    const record = await this.rtcService.getVideoRecord(id);
+    if (!record) {
+      return null;
+    }
+    await this.assertCanWriteRecord(user.id, record);
+    return this.rtcService.updateVideoRecordMetadata(id, dto.metadata);
+  }
+
+  @Post('video-records/:id/sync')
+  @ApiOperation({ summary: 'Sync video record state from cloud provider task' })
+  @ApiParam({ name: 'id', description: 'Record ID' })
+  @ApiBody({ type: SyncRtcVideoRecordDto })
+  async syncVideoRecord(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() dto: SyncRtcVideoRecordDto,
+  ): Promise<RTCVideoRecord | null> {
+    const record = await this.rtcService.getVideoRecord(id);
+    if (!record) {
+      return null;
+    }
+    await this.assertCanWriteRecord(user.id, record);
+    return this.rtcService.syncVideoRecord(id, {
+      roomId: dto.roomId,
+      taskId: dto.taskId,
+      operatorId: user.id,
+    });
   }
 
   @Delete('video-records/:id')
-  @ApiOperation({ summary: '删除视频记录' })
-  @ApiParam({ name: 'id', description: '视频记录ID' })
-  @ApiResponse({ status: 200, description: '成功删除视频记录' })
-  @ApiResponse({ status: 404, description: '视频记录不存在' })
-  async deleteVideoRecord(@Param('id') id: string): Promise<boolean> {
+  @ApiOperation({ summary: 'Delete video record (soft delete)' })
+  @ApiParam({ name: 'id', description: 'Record ID' })
+  async deleteVideoRecord(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+  ): Promise<boolean> {
+    const record = await this.rtcService.getVideoRecord(id);
+    if (!record) {
+      return false;
+    }
+    await this.assertCanWriteRecord(user.id, record);
     return this.rtcService.deleteVideoRecord(id);
   }
 
   @Get('video-records')
-  @ApiOperation({ summary: '获取所有视频记录（分页）' })
-  @ApiQuery({ name: 'limit', description: '每页数量', required: false, example: 50 })
-  @ApiQuery({ name: 'offset', description: '偏移量', required: false, example: 0 })
-  @ApiResponse({ status: 200, description: '成功获取所有视频记录', type: [RTCVideoRecord] })
+  @ApiOperation({ summary: 'List all video records' })
+  @ApiQuery({ name: 'limit', required: false, example: 50 })
+  @ApiQuery({ name: 'offset', required: false, example: 0 })
   async getVideoRecords(
-    @Query('limit') limit: number = 50,
-    @Query('offset') offset: number = 0
+    @CurrentUser() user: UserEntity,
+    @Query() query: ListRtcVideoRecordQueryDto,
   ): Promise<RTCVideoRecord[]> {
-    return this.rtcService.getVideoRecords(limit, offset);
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+    return this.rtcService.getVideoRecordsByUserId(user.id, limit, offset, {
+      status: query.status,
+      syncStatus: query.syncStatus,
+    });
+  }
+
+  private maskChannelSecret(channel: RTCChannelEntity): RTCChannelEntity {
+    const secret = channel.appSecret || '';
+    const masked = secret.length <= 6
+      ? '******'
+      : `${secret.slice(0, 3)}******${secret.slice(secret.length - 3)}`;
+
+    return Object.assign(new RTCChannelEntity(), channel, {
+      appSecret: masked,
+    });
+  }
+
+  private assertAdmin(user: UserEntity): void {
+    const roles = (user as unknown as { roles?: string[] }).roles || [];
+    if (roles.includes('admin') || user.username === 'admin') {
+      return;
+    }
+    throw new ForbiddenException('Admin permission required');
+  }
+
+  private async assertRoomParticipant(roomId: string, userId: string): Promise<RTCRoom> {
+    const room = await this.rtcService.getRoomById(roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+    if (!room.participants.includes(userId)) {
+      throw new ForbiddenException('No permission to access room records');
+    }
+    return room;
+  }
+
+  private async assertCanReadRecord(userId: string, record: RTCVideoRecord): Promise<void> {
+    if (record.userId && record.userId === userId) {
+      return;
+    }
+    await this.assertRoomParticipant(record.roomId, userId);
+  }
+
+  private async assertCanWriteRecord(userId: string, record: RTCVideoRecord): Promise<void> {
+    if (record.userId && record.userId === userId) {
+      return;
+    }
+    const room = await this.rtcService.getRoomById(record.roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+    if (room.creatorId !== userId) {
+      throw new ForbiddenException('No permission to modify this record');
+    }
   }
 }

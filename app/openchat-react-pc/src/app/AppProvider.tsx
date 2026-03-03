@@ -11,9 +11,9 @@
 
 import { ReactNode } from 'react';
 import { QueryProvider } from './QueryProvider';
-import { OpenChatProvider } from '../modules/im/OpenChatProvider';
-import { useAuth } from '../modules/auth';
-import { ThemeProvider } from '../contexts/ThemeContext';
+import { OpenChatProvider } from '@sdkwork/openchat-pc-im';
+import { useAuth } from '@sdkwork/openchat-pc-auth';
+import { ThemeProvider } from '@sdkwork/openchat-pc-ui';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -21,7 +21,7 @@ interface AppProviderProps {
 
 // 创建认证上下文
 import { createContext, useContext } from 'react';
-import type { UseAuthReturn } from '../modules/auth';
+import type { UseAuthReturn } from '@sdkwork/openchat-pc-auth';
 
 const AuthContext = createContext<UseAuthReturn | null>(null);
 

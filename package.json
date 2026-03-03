@@ -12,17 +12,15 @@
     "start:prod": "node dist/main",
     "dev": "nest start --watch",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test": "jest --config jest.config.js",
+    "test:watch": "jest --config jest.config.js --watch",
+    "test:cov": "jest --config jest.config.js --coverage",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config jest.config.js --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
-    "db:generate": "npm run typeorm -- migration:generate -d src/data-source.ts",
-    "db:migrate": "npm run typeorm -- migration:run -d src/data-source.ts",
-    "db:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
     "db:drop": "npm run typeorm -- schema:drop",
-    "db:sync": "npm run typeorm -- schema:sync"
+    "db:sync": "npm run typeorm -- schema:sync",
+    "bench:timeline": "node scripts/timeline-benchmark.js"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -96,26 +94,6 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/$1"
-    }
   },
   "engines": {
     "node": ">=18.0.0"

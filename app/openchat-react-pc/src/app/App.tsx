@@ -15,7 +15,7 @@ import { createWebPlatform } from '../platform-impl/web';
 import { AppProvider, useAuthContext } from './AppProvider';
 import { MainLayout } from '../layouts/MainLayout';
 import { AppRouter } from '../router';
-import { AuthPage } from '../modules/auth/pages/AuthPage';
+import { AuthPage } from '@sdkwork/openchat-pc-auth';
 
 /**
  * 检测是否在 Tauri Desktop 环境
@@ -100,7 +100,7 @@ export function App() {
 
   // 正常渲染
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppProvider>
         <AppContent />
       </AppProvider>
