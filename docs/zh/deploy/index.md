@@ -11,6 +11,7 @@
 | [Kubernetes 部署](./kubernetes.md) | 集群部署指南 |
 | [传统部署](./traditional.md) | 非 Docker 部署方式 |
 | [快速部署](./quickstart.md) | 快速体验部署 |
+| [监控与告警](./monitoring.md) | Prometheus/Grafana 与告警模板 |
 
 ## 环境说明
 
@@ -210,7 +211,7 @@ docker compose -f docker-compose.prod.yml up -d
 # .env 配置
 DB_HOST=your-db-host
 DB_PORT=5432
-DB_USER=your-user
+DB_USERNAME=your-user
 DB_PASSWORD=your-password
 DB_NAME=openchat
 
@@ -395,3 +396,4 @@ docker compose logs -f wukongim
 - [Docker 部署详解](./docker.md) - Docker 部署详细说明
 - [配置说明](../config/) - 完整配置参数
 - [API 文档](../api/) - API 接口文档
+- [监控与告警](./monitoring.md) - 指标、告警与仪表盘模板

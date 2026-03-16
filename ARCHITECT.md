@@ -149,7 +149,7 @@ export class ExampleEntity {
   type: 'postgres',
   host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT, 10),
-  username: process.env.DB_USER,
+  username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   entities: [__dirname + '/**/*.entity{.ts,.js}'],
@@ -311,7 +311,7 @@ export class WsGateway {
 | PORT | 服务器端口 | 3000 |
 | DB_HOST | 数据库主机 | localhost |
 | DB_PORT | 数据库端口 | 5432 |
-| DB_USER | 数据库用户 | postgres |
+| DB_USERNAME | 数据库用户 | postgres |
 | DB_PASSWORD | 数据库密码 | - |
 | DB_NAME | 数据库名称 | openchat |
 | REDIS_HOST | Redis 主机 | localhost |

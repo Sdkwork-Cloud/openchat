@@ -1,11 +1,10 @@
 import { Module, Global, OnModuleInit, OnModuleDestroy, Logger, Inject, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
+import { REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT } from './redis.constants';
 import { RedisService } from './redis.service';
 
-export const REDIS_CLIENT = 'REDIS_CLIENT';
-export const REDIS_PUB_CLIENT = 'REDIS_PUB_CLIENT';
-export const REDIS_SUB_CLIENT = 'REDIS_SUB_CLIENT';
+export { REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT } from './redis.constants';
 
 /**
  * Redis 模块配置接口

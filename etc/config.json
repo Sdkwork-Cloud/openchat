@@ -17,7 +17,7 @@
     "port": 5432,
     "username": "${DB_USERNAME:-openchat}",
     "password": "${DB_PASSWORD:-openchat_password}",
-    "database": "${DB_DATABASE:-openchat}",
+    "database": "${DB_NAME:-openchat}",
     "synchronize": false,
     "logging": false,
     "ssl": false,

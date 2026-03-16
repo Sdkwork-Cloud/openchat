@@ -23,7 +23,7 @@
 |----------|-------------|---------|
 | `DB_HOST` | Database host | `localhost` |
 | `DB_PORT` | Database port | `5432` |
-| `DB_USER` | Database user | `openchat` |
+| `DB_USERNAME` | Database user | `openchat` |
 | `DB_PASSWORD` | Database password | - |
 | `DB_NAME` | Database name | `openchat` |
 

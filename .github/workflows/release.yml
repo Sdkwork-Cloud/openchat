@@ -10,9 +10,16 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  sdk-rtc:
+    name: SDK RTC Validation
+    uses: ./.github/workflows/sdk-rtc.yml
+    with:
+      node_version: ${{ env.NODE_VERSION }}
+
   build-and-push:
     name: Build and Push Release
     runs-on: ubuntu-latest
+    needs: sdk-rtc
     permissions:
       contents: read
       packages: write

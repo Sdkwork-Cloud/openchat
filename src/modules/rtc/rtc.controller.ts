@@ -14,6 +14,7 @@ import {
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -30,17 +31,20 @@ import {
   CreateRtcVideoRecordDto,
   GenerateRtcTokenDto,
   ListRtcVideoRecordQueryDto,
+  RtcProviderCapabilitiesResponseDto,
   RtcProviderOperationErrorDto,
   RtcProviderHealthQueryDto,
   RtcProviderHealthReportDto,
   RtcProviderOperationStatDto,
   RtcProviderOperationStatsQueryDto,
+  RtcTokenValidationResultDto,
   StartRtcRecordingDto,
   StopRtcRecordingDto,
   SyncRtcVideoRecordDto,
   UpdateRtcChannelDto,
   UpdateRtcVideoRecordMetadataDto,
   UpdateRtcVideoRecordStatusDto,
+  ValidateRtcTokenDto,
 } from './dto/rtc.dto';
 import { RTCChannelEntity } from './rtc-channel.entity';
 import { RTCRoom, RTCToken } from './rtc.interface';
@@ -139,12 +143,15 @@ export class RTCController {
     );
   }
 
-  @Get('tokens/validate')
-  @ApiOperation({ summary: 'Validate RTC token' })
-  @ApiQuery({ name: 'token', description: 'RTC token' })
-  @ApiResponse({ status: 200, type: RTCToken })
-  async validateToken(@Query('token') token: string): Promise<RTCToken | null> {
-    return this.rtcService.validateToken(token);
+  @Post('tokens/validate')
+  @ApiOperation({ summary: 'Validate RTC token (POST body, standard)' })
+  @ApiBody({ type: ValidateRtcTokenDto })
+  @ApiOkResponse({ type: RtcTokenValidationResultDto })
+  async validateToken(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: ValidateRtcTokenDto,
+  ): Promise<RtcTokenValidationResultDto> {
+    return this.validateTokenForUser(user, dto.token);
   }
 
   @Post('rooms/:id/participants')
@@ -233,6 +240,13 @@ export class RTCController {
   ): Promise<RtcProviderHealthReportDto> {
     this.assertAdmin(user);
     return this.rtcService.getProviderHealthReport(query);
+  }
+
+  @Get('providers/capabilities')
+  @ApiOperation({ summary: 'Get RTC provider capabilities for SDK dynamic integration' })
+  @ApiResponse({ status: 200, type: RtcProviderCapabilitiesResponseDto })
+  async getProviderCapabilities(): Promise<RtcProviderCapabilitiesResponseDto> {
+    return this.rtcService.getProviderCapabilities();
   }
 
   @Get('channels/:id')
@@ -474,11 +488,48 @@ export class RTCController {
   }
 
   private assertAdmin(user: UserEntity): void {
-    const roles = (user as unknown as { roles?: string[] }).roles || [];
-    if (roles.includes('admin') || user.username === 'admin') {
+    if (this.hasAdminRole(user)) {
       return;
     }
     throw new ForbiddenException('Admin permission required');
+  }
+
+  private hasAdminRole(user: UserEntity): boolean {
+    const roles = (user as unknown as { roles?: string[] }).roles || [];
+    return roles.includes('admin') || user.username === 'admin';
+  }
+
+  private async validateTokenForUser(
+    user: UserEntity,
+    token: string | undefined,
+  ): Promise<RtcTokenValidationResultDto> {
+    const normalizedToken = token?.trim();
+    if (!normalizedToken) {
+      return { valid: false };
+    }
+
+    const rtcToken = await this.rtcService.validateToken(normalizedToken);
+    if (!rtcToken) {
+      return { valid: false };
+    }
+
+    if (!this.hasAdminRole(user) && rtcToken.userId !== user.id) {
+      const room = await this.rtcService.getRoomById(rtcToken.roomId);
+      const isRoomParticipant = !!room?.participants.includes(user.id);
+      if (!isRoomParticipant) {
+        throw new ForbiddenException('No permission to validate this RTC token');
+      }
+    }
+
+    return {
+      valid: true,
+      roomId: rtcToken.roomId,
+      userId: rtcToken.userId,
+      provider: rtcToken.provider,
+      channelId: rtcToken.channelId,
+      role: rtcToken.role,
+      expiresAt: rtcToken.expiresAt,
+    };
   }
 
   private async assertRoomParticipant(roomId: string, userId: string): Promise<RTCRoom> {

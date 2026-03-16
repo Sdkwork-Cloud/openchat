@@ -22,6 +22,9 @@ export class Conversation {
   unreadCount: number; // 未读消息数
   isPinned: boolean; // 是否置顶
   isMuted: boolean; // 是否免打扰
+  draft?: string;
+  draftUpdatedAt?: Date;
+  lastReadSeq?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +44,7 @@ export interface CreateConversationRequest {
 export interface UpdateConversationRequest {
   isPinned?: boolean;
   isMuted?: boolean;
+  draft?: string | null;
 }
 
 /**
@@ -52,6 +56,51 @@ export interface ConversationQueryParams {
   isPinned?: boolean;
   limit?: number;
   offset?: number;
+}
+
+/**
+ * 会话同步状态
+ */
+export interface ConversationSyncState {
+  targetId: string;
+  type: ConversationType;
+  unreadCount: number;
+  lastReadSeq: number;
+  userLastReadSeq?: number;
+  deviceId?: string;
+  deviceLastReadSeq?: number;
+  syncScope?: 'user' | 'device';
+  maxSeq: number;
+  pendingSeq: number;
+  isCaughtUp: boolean;
+  serverTime: string;
+}
+
+export interface ConversationSyncStateOptions {
+  deviceId?: string;
+}
+
+export interface ConversationSyncTarget {
+  targetId: string;
+  type: ConversationType;
+}
+
+export interface ConversationSyncStateBatchResult {
+  total: number;
+  found: number;
+  missing: ConversationSyncTarget[];
+  items: ConversationSyncState[];
+}
+
+export interface DeviceReadCursorSummary {
+  deviceId: string;
+  conversationCount: number;
+  lastActiveAt: string;
+}
+
+export interface DeviceReadCursorSummaryResult {
+  total: number;
+  items: DeviceReadCursorSummary[];
 }
 
 /**
@@ -112,4 +161,42 @@ export interface ConversationManager {
    * 设置免打扰
    */
   muteConversation(id: string, isMuted: boolean): Promise<boolean>;
+
+  /**
+   * 获取会话同步状态
+   */
+  getConversationSyncStateForUser(
+    userId: string,
+    targetId: string,
+    type: ConversationType,
+    options?: ConversationSyncStateOptions,
+  ): Promise<ConversationSyncState | null>;
+
+  /**
+   * 批量获取会话同步状态
+   */
+  getConversationSyncStatesForUser(
+    userId: string,
+    targets: ConversationSyncTarget[],
+    options?: ConversationSyncStateOptions,
+  ): Promise<ConversationSyncStateBatchResult>;
+
+  advanceDeviceLastReadSeq(
+    userId: string,
+    deviceId: string,
+    targetId: string,
+    type: ConversationType,
+    seq: number,
+  ): Promise<boolean>;
+
+  deleteDeviceReadCursorsForUser(userId: string, deviceId: string): Promise<number>;
+
+  deleteDeviceReadCursorsForUserExcept(userId: string, keepDeviceId: string): Promise<number>;
+
+  getDeviceReadCursorSummariesForUser(
+    userId: string,
+    limit?: number,
+  ): Promise<DeviceReadCursorSummaryResult>;
+
+  deleteStaleDeviceReadCursorsForUser(userId: string, inactiveDays?: number): Promise<number>;
 }

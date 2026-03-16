@@ -1117,11 +1117,11 @@ export class TimelineService {
         this.logger.warn(`Invalid feed cursor length: ${normalized.length}`);
         return undefined;
       }
-      const legacyBase64 = normalized
-        .replace(/-/g, '+')
-        .replace(/_/g, '/')
-        .padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-      const decoded = JSON.parse(Buffer.from(legacyBase64, 'base64').toString('utf8')) as FeedCursor;
+      if (!/^[A-Za-z0-9_-]+$/.test(normalized)) {
+        this.logger.warn('Invalid feed cursor characters');
+        return undefined;
+      }
+      const decoded = JSON.parse(Buffer.from(normalized, 'base64url').toString('utf8')) as FeedCursor;
       if (
         !decoded.sortScore ||
         !decoded.postId ||

@@ -17,14 +17,14 @@ export class CrawPost {
   url: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'authorId' })
+  @JoinColumn({ name: 'author_id' })
   author: CrawAgent;
 
   @Column()
   authorId: string;
 
   @ManyToOne(() => CrawSubmolt)
-  @JoinColumn({ name: 'submoltId' })
+  @JoinColumn({ name: 'submolt_id' })
   submolt: CrawSubmolt;
 
   @Column()
@@ -64,14 +64,14 @@ export class CrawComment {
   content: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'authorId' })
+  @JoinColumn({ name: 'author_id' })
   author: CrawAgent;
 
   @Column()
   authorId: string;
 
   @ManyToOne(() => CrawPost)
-  @JoinColumn({ name: 'postId' })
+  @JoinColumn({ name: 'post_id' })
   post: CrawPost;
 
   @Column()
@@ -87,7 +87,7 @@ export class CrawComment {
   downvotes: number;
 
   @ManyToOne(() => CrawComment, { nullable: true })
-  @JoinColumn({ name: 'parentId' })
+  @JoinColumn({ name: 'parent_id' })
   parent: CrawComment;
 
   @OneToMany(() => CrawComment, comment => comment.parent)

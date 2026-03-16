@@ -42,8 +42,9 @@ export interface RTCAudioConfig {
 
 export enum RTCProviderType {
   VOLCENGINE = 'volcengine',
-  AGORA = 'agora',
-  TRTC = 'trtc',
+  TENCENT = 'tencent',
+  ALIBABA = 'alibaba',
+  LIVEKIT = 'livekit',
   CUSTOM = 'custom',
 }
 
@@ -270,6 +271,7 @@ export interface IRTCProvider {
 }
 
 export interface RTCRoomOptions {
+  roomId?: string;
   token?: string;
   userName?: string;
   role?: RTCRole;

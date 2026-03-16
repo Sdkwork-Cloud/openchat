@@ -28,7 +28,7 @@ export class DatabaseConfig {
   DB_PASSWORD: string = '';
 
   @IsString()
-  DB_DATABASE: string = 'openchat';
+  DB_NAME: string = 'openchat';
 
   @IsBoolean()
   @IsOptional()
@@ -188,7 +188,7 @@ export class AppConfig {
       DB_PORT: parseInt(process.env.DB_PORT || '5432', 10),
       DB_USERNAME: process.env.DB_USERNAME,
       DB_PASSWORD: process.env.DB_PASSWORD,
-      DB_DATABASE: process.env.DB_DATABASE,
+      DB_NAME: process.env.DB_NAME,
       DB_SSL: process.env.DB_SSL === 'true',
       DB_POOL_SIZE: parseInt(process.env.DB_POOL_SIZE || '20', 10),
       DB_CONNECTION_TIMEOUT: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000', 10),

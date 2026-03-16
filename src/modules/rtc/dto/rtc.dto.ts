@@ -106,6 +106,36 @@ export class GenerateRtcTokenDto {
   expireSeconds?: number;
 }
 
+export class ValidateRtcTokenDto {
+  @ApiProperty({ description: 'RTC token to validate' })
+  @IsString()
+  @MaxLength(4096)
+  token: string;
+}
+
+export class RtcTokenValidationResultDto {
+  @ApiProperty({ description: 'Whether token is valid' })
+  valid: boolean;
+
+  @ApiPropertyOptional({ description: 'Room ID bound in token' })
+  roomId?: string;
+
+  @ApiPropertyOptional({ description: 'User ID bound in token' })
+  userId?: string;
+
+  @ApiPropertyOptional({ enum: RTC_PROVIDER_VALUES, description: 'Resolved RTC provider' })
+  provider?: string;
+
+  @ApiPropertyOptional({ description: 'Bound RTC channel ID' })
+  channelId?: string;
+
+  @ApiPropertyOptional({ description: 'Token role' })
+  role?: string;
+
+  @ApiPropertyOptional({ format: 'date-time', description: 'Token expiration timestamp' })
+  expiresAt?: Date;
+}
+
 export class AddRtcParticipantDto {
   @ApiProperty()
   @IsString()
@@ -467,6 +497,47 @@ export class RtcProviderOperationStatsQueryDto {
   @Min(1)
   @Max(10)
   topErrorLimit?: number;
+}
+
+export class RtcProviderCapabilityDto {
+  @ApiProperty({ enum: RTC_PROVIDER_VALUES })
+  provider: string;
+
+  @ApiProperty({ description: 'Whether provider has active channel config' })
+  configured: boolean;
+
+  @ApiPropertyOptional({ description: 'Active channel ID for this provider' })
+  channelId?: string;
+
+  @ApiProperty({ description: 'Whether cloud recording is supported by current implementation' })
+  supportsRecording: boolean;
+
+  @ApiProperty({
+    type: [String],
+    description: 'Supported token strategy names',
+    example: ['delegate', 'openapi', 'local'],
+  })
+  tokenStrategies: string[];
+
+  @ApiProperty({ description: 'Whether control-plane delegate mode is supported' })
+  supportsControlPlaneDelegate: boolean;
+}
+
+export class RtcProviderCapabilitiesResponseDto {
+  @ApiProperty({ enum: RTC_PROVIDER_VALUES, description: 'Default provider configured on server' })
+  defaultProvider: string;
+
+  @ApiPropertyOptional({ enum: RTC_PROVIDER_VALUES, description: 'Recommended provider from health routing' })
+  recommendedPrimary?: string;
+
+  @ApiProperty({ type: [String], description: 'Fallback order by provider health score' })
+  fallbackOrder: string[];
+
+  @ApiProperty({ type: [String], description: 'Providers that currently have active channel configs' })
+  activeProviders: string[];
+
+  @ApiProperty({ type: () => [RtcProviderCapabilityDto] })
+  providers: RtcProviderCapabilityDto[];
 }
 
 export class RtcProviderHealthItemDto {

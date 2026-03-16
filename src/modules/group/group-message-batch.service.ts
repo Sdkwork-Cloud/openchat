@@ -64,7 +64,7 @@ export class GroupMessageBatchService {
       }
 
       // 2. 使用数据库原生批量操作
-      await this.bulkUpsertConversations(
+      const touchedConversationIds = await this.bulkUpsertConversations(
         targetMembers.map((m) => m.userId),
         groupId,
         'group',
@@ -73,8 +73,8 @@ export class GroupMessageBatchService {
         messageTime,
       );
 
-      // 3. 批量更新 Redis 未读数（Pipeline）
-      await this.batchUpdateUnreadCount(groupId, targetMembers.map((m) => m.userId));
+      // 3. 清理未读缓存，避免 DB 已更新但缓存仍旧值
+      await this.invalidateUnreadCountCache(touchedConversationIds);
 
       const duration = Date.now() - startTime;
       this.logger.log(
@@ -107,65 +107,91 @@ export class GroupMessageBatchService {
     messageId: string,
     content: string,
     messageTime: Date,
-  ): Promise<void> {
+  ): Promise<string[]> {
+    const touchedConversationIds: string[] = [];
+
     // 分批处理避免 SQL 过长
     const batches = this.chunkArray(userIds, this.BATCH_SIZE);
 
     for (const batch of batches) {
+      const entities = batch.map((userId) =>
+        this.conversationRepository.create({
+          userId,
+          targetId,
+          type,
+          lastMessageId: messageId,
+          lastMessageContent: content,
+          lastMessageTime: messageTime,
+          unreadCount: 1,
+          isPinned: false,
+          isMuted: false,
+        }),
+      );
+
       // 构建批量 INSERT ... ON CONFLICT 语句
-      const values = batch
-        .map((userId, index) => {
-          const id = `${userId}_${targetId}_${type}`;
-          return `($${index * 7 + 1}, $${index * 7 + 2}, $${index * 7 + 3}, $${index * 7 + 4}, $${index * 7 + 5}, $${index * 7 + 6}, $${index * 7 + 7})`;
+      const values = entities
+        .map((_, index) => {
+          return `($${index * 11 + 1}, $${index * 11 + 2}, $${index * 11 + 3}, $${index * 11 + 4}, $${index * 11 + 5}, $${index * 11 + 6}, $${index * 11 + 7}, $${index * 11 + 8}, $${index * 11 + 9}, $${index * 11 + 10}, $${index * 11 + 11}, FALSE, NOW(), NOW())`;
         })
         .join(',');
 
       const params: any[] = [];
-      batch.forEach((userId) => {
+      entities.forEach((entity) => {
         params.push(
-          `${userId}_${targetId}_${type}`, // id
-          userId,
-          targetId,
-          type,
-          messageId,
-          content,
-          messageTime,
+          entity.id,
+          entity.uuid,
+          entity.userId,
+          entity.targetId,
+          entity.type,
+          entity.lastMessageId,
+          entity.lastMessageContent,
+          entity.lastMessageTime,
+          entity.unreadCount,
+          entity.isPinned,
+          entity.isMuted,
         );
       });
 
       const query = `
         INSERT INTO chat_conversations 
-          (id, user_id, target_id, type, last_message_id, last_message_content, last_message_time, unread_count, created_at, updated_at)
+          (id, uuid, user_id, target_id, type, last_message_id, last_message_content, last_message_time, unread_count, is_pinned, is_muted, is_deleted, created_at, updated_at)
         VALUES 
           ${values}
-        ON CONFLICT (id) 
+        ON CONFLICT (user_id, target_id, type) 
         DO UPDATE SET
           last_message_id = EXCLUDED.last_message_id,
           last_message_content = EXCLUDED.last_message_content,
           last_message_time = EXCLUDED.last_message_time,
           unread_count = chat_conversations.unread_count + 1,
+          is_deleted = FALSE,
           updated_at = NOW()
+        RETURNING id
       `;
 
-      await this.dataSource.query(query, params);
+      const rows = await this.dataSource.query(query, params);
+      touchedConversationIds.push(
+        ...rows
+          .map((row: { id?: string | number }) => row.id)
+          .filter((id: string | number | undefined): id is string | number => id !== undefined && id !== null)
+          .map((id: string | number) => String(id)),
+      );
     }
+
+    return [...new Set(touchedConversationIds)];
   }
 
   /**
-   * 批量更新 Redis 未读数（Pipeline 优化）
+   * 清理会话未读数缓存，避免与数据库未读值漂移
    */
-  private async batchUpdateUnreadCount(
-    groupId: string,
-    userIds: string[],
-  ): Promise<void> {
+  private async invalidateUnreadCountCache(conversationIds: string[]): Promise<void> {
+    if (conversationIds.length === 0) {
+      return;
+    }
+
     const pipeline = this.redisService.getClient().pipeline();
-
-    userIds.forEach((userId) => {
-      const key = `openchat:unread:${userId}:${groupId}`;
-      pipeline.incr(key);
-      pipeline.expire(key, 86400); // 24小时过期
+    conversationIds.forEach((conversationId) => {
+      pipeline.del(`conversation:unread:${conversationId}`);
     });
-
     await pipeline.exec();
   }
 

@@ -8,7 +8,7 @@ OpenChat provides a complete RESTful API for building instant messaging applicat
 
 | Item | Value |
 |------|-------|
-| Base URL | `http://your-server:3000/api` |
+| Base URL | `http://your-server:3000/im/api/v1` |
 | Protocol | HTTP/HTTPS |
 | Data Format | JSON |
 | Character Encoding | UTF-8 |
@@ -18,25 +18,25 @@ OpenChat provides a complete RESTful API for building instant messaging applicat
 
 | Module | Path Prefix | Description |
 |--------|-------------|-------------|
-| Authentication | `/api/v1/auth` | Login, registration, token management |
-| User Management | `/api/v1/users` | User info, search, settings |
-| Message Management | `/api/v1/messages` | Send messages, history, recall |
-| Message Search | `/api/v1/message-search` | Full-text search, advanced search |
-| Conversation Management | `/api/v1/conversations` | Conversation list, unread management |
-| Group Management | `/api/v1/groups` | Group creation, member management |
-| Friend Management | `/api/v1/friends` | Friend requests, groups |
-| Timeline | `/api/v1/timeline` | Moments posting, feed retrieval, likes |
-| Contact Management | `/api/v1/contacts` | Contact management, groups |
-| Real-time Audio/Video | `/api/v1/rtc` | Audio/video calls, signaling |
-| AI Bots | `/api/v1/ai-bots` | AI bot management, message processing |
-| AI Agents | `/api/v1/agents` | AI Agent management, tool calls |
-| Bot Platform | `/api/v1/bots` | Multi-platform bot integration |
-| Memory Management | `/api/v1/memory` | Conversation memory, knowledge base |
-| IoT | `/iot` | IoT device management, message control |
-| Health Check | `/health` | Service health status check |
-| Metrics | `/metrics` | Prometheus monitoring metrics |
-| Third-party Integration | `/third-party` | Multi-platform message integration |
-| IM Integration | `/api/v1/im` | WukongIM related endpoints |
+| Authentication | `/im/api/v1/auth` | Login, registration, token management |
+| User Management | `/im/api/v1/users` | User info, search, settings |
+| Message Management | `/im/api/v1/messages` | Send messages, history, recall |
+| Message Search | `/im/api/v1/message-search` | Full-text search, advanced search |
+| Conversation Management | `/im/api/v1/conversations` | Conversation list, unread management |
+| Group Management | `/im/api/v1/groups` | Group creation, member management |
+| Friend Management | `/im/api/v1/friends` | Friend requests, groups |
+| Timeline | `/im/api/v1/timeline` | Moments posting, feed retrieval, likes |
+| Contact Management | `/im/api/v1/contacts` | Contact management, groups |
+| Real-time Audio/Video | `/im/api/v1/rtc` | Audio/video calls, signaling |
+| AI Bots | `/im/api/v1/ai-bots` | AI bot management, message processing |
+| AI Agents | `/im/api/v1/agents` | AI Agent management, tool calls |
+| Bot Platform | `/im/api/v1/bots` | Multi-platform bot integration |
+| Memory Management | `/im/api/v1/memory` | Conversation memory, knowledge base |
+| IoT | `/im/api/v1/iot` | IoT device management, message control |
+| Health Check | `/im/api/v1/health` | Service health status check |
+| Metrics | `/im/api/v1/metrics` | Prometheus monitoring metrics |
+| Third-party Integration | `/im/api/v1/third-party` | Multi-platform message integration |
+| IM Integration | `/im/api/v1/im` | WukongIM related endpoints |
 
 ---
 
@@ -47,7 +47,7 @@ OpenChat uses JWT (JSON Web Token) for API authentication.
 ### Get Token
 
 ```http
-POST /api/auth/login
+POST /im/api/v1/auth/login
 Content-Type: application/json
 
 {
@@ -230,6 +230,7 @@ Authorization: Bearer <your-access-token>
 | Documentation | Description |
 |------|------|
 | [Third-party Integration API](./third-party.md) | WhatsApp, Telegram, WeChat and other platform integration |
+| [Open Access Guide](./open-access.md) | External access auth matrix, bot open endpoints, craw endpoints, webhook headers |
 
 ---
 
@@ -238,7 +239,7 @@ Authorization: Bearer <your-access-token>
 ### 1. Register User
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:3000/im/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -250,7 +251,7 @@ curl -X POST http://localhost:3000/api/auth/register \
 ### 2. Login to Get Token
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3000/im/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",

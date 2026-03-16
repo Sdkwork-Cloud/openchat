@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
-import axios, { AxiosError } from 'axios';
-import { BotEntity, BotIntent } from '../entities/bot.entity';
+import axios from 'axios';
+import { BotEntity } from '../entities/bot.entity';
 
 /**
  * Webhook 事件载荷
@@ -12,6 +12,7 @@ export interface WebhookPayload {
   eventId: string;               // 事件唯一标识（幂等性）
   eventType: string;             // 事件类型
   timestamp: number;             // 时间戳（毫秒）
+  nonce: string;                 // 随机串（防重放）
   botId: string;                 // Bot ID
   data: any;                     // 事件数据
 }
@@ -35,6 +36,13 @@ interface WebhookRetryTask {
   payload: WebhookPayload;
   attempt: number;
   nextRetryAt: number;
+  maxRetries: number;
+  retryPolicy: {
+    maxRetries: number;
+    backoffType: 'fixed' | 'exponential';
+    initialDelay: number;
+    maxDelay: number;
+  };
 }
 
 /**
@@ -103,6 +111,7 @@ export class WebhookService {
       eventId: this.generateEventId(),
       eventType,
       timestamp: Date.now(),
+      nonce: this.generateNonce(),
       botId,
       data
     };
@@ -135,10 +144,15 @@ export class WebhookService {
         .update(payload)
         .digest('hex');
 
-      return crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expected)
-      );
+      const normalizedSignature = signature.startsWith('sha256=')
+        ? signature.slice(7)
+        : signature;
+
+      if (normalizedSignature.length !== expected.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(Buffer.from(normalizedSignature), Buffer.from(expected));
     } catch (error) {
       return false;
     }
@@ -170,6 +184,9 @@ export class WebhookService {
           'Content-Type': 'application/json',
           'X-OpenChat-Signature': signature,
           'X-OpenChat-Timestamp': payload.timestamp.toString(),
+          'X-OpenChat-Nonce': payload.nonce,
+          'X-OpenChat-Event-Id': payload.eventId,
+          'Idempotency-Key': payload.eventId,
           'X-OpenChat-Version': 'v1',
           'User-Agent': 'OpenChat-Webhook/1.0'
         },
@@ -214,7 +231,7 @@ export class WebhookService {
       this.logger.error(`Webhook delivery failed: ${bot.username} - ${errorMessage}`);
 
       // 添加到重试队列
-      this.scheduleRetry(bot.id, payload, webhook.retryPolicy.maxRetries);
+      this.scheduleRetry(bot.id, payload, webhook.retryPolicy);
 
       return {
         success: false,
@@ -229,10 +246,11 @@ export class WebhookService {
    * 签名载荷
    */
   private signPayload(payload: string, secret: string): string {
-    return crypto
+    const digest = crypto
       .createHmac('sha256', secret)
       .update(payload)
       .digest('hex');
+    return `sha256=${digest}`;
   }
 
   /**
@@ -240,6 +258,13 @@ export class WebhookService {
    */
   private generateEventId(): string {
     return `${Date.now()}-${crypto.randomBytes(16).toString('hex')}`;
+  }
+
+  /**
+   * 生成 webhook nonce
+   */
+  private generateNonce(): string {
+    return crypto.randomBytes(12).toString('hex');
   }
 
   /**
@@ -296,12 +321,23 @@ export class WebhookService {
   /**
    * 安排重试
    */
-  private scheduleRetry(botId: string, payload: WebhookPayload, maxRetries: number): void {
+  private scheduleRetry(
+    botId: string,
+    payload: WebhookPayload,
+    retryPolicy: {
+      maxRetries: number;
+      backoffType: 'fixed' | 'exponential';
+      initialDelay: number;
+      maxDelay: number;
+    },
+  ): void {
     const task: WebhookRetryTask = {
       botId,
       payload,
       attempt: 1,
-      nextRetryAt: this.calculateNextRetryTime(1)
+      nextRetryAt: this.calculateNextRetryTime(1, retryPolicy),
+      maxRetries: retryPolicy.maxRetries,
+      retryPolicy,
     };
 
     this.retryQueue.push(task);
@@ -311,9 +347,20 @@ export class WebhookService {
   /**
    * 计算下次重试时间
    */
-  private calculateNextRetryTime(attempt: number): number {
-    // 指数退避：1s, 2s, 4s, 8s, 16s...
-    const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
+  private calculateNextRetryTime(
+    attempt: number,
+    retryPolicy: {
+      maxRetries: number;
+      backoffType: 'fixed' | 'exponential';
+      initialDelay: number;
+      maxDelay: number;
+    },
+  ): number {
+    const safeInitialDelay = Math.max(100, retryPolicy.initialDelay || 1000);
+    const safeMaxDelay = Math.max(safeInitialDelay, retryPolicy.maxDelay || 30000);
+    const delay = retryPolicy.backoffType === 'fixed'
+      ? safeInitialDelay
+      : Math.min(safeInitialDelay * Math.pow(2, attempt - 1), safeMaxDelay);
     return Date.now() + delay;
   }
 
@@ -336,22 +383,8 @@ export class WebhookService {
           await this.processRetryTask(task);
         }
 
-        // 移除已处理或超过重试次数的任务
-        const validTasks: typeof this.retryQueue = [];
-        for (const task of this.retryQueue) {
-          try {
-            const bot = await this.botRepository.findOne({ where: { id: task.botId } });
-            const maxRetries = bot?.webhook?.retryPolicy.maxRetries || 3;
-            if (task.attempt < maxRetries) {
-              validTasks.push(task);
-            }
-          } catch (error) {
-            this.logger.error(`Error checking retry task for bot ${task.botId}:`, error);
-            // 出错时保留任务，避免丢失
-            validTasks.push(task);
-          }
-        }
-        this.retryQueue = validTasks;
+        // 移除已完成或达到最大重试次数的任务
+        this.retryQueue = this.retryQueue.filter((task) => task.attempt < task.maxRetries);
 
       } finally {
         this.isProcessingQueue = false;
@@ -366,13 +399,15 @@ export class WebhookService {
     const bot = await this.botRepository.findOne({ where: { id: task.botId } });
 
     if (!bot || bot.status !== 'active' || !bot.webhook) {
+      task.attempt = task.maxRetries;
       return;
     }
 
-    const maxRetries = bot.webhook.retryPolicy.maxRetries;
+    const maxRetries = task.maxRetries;
 
     if (task.attempt >= maxRetries) {
       this.logger.error(`Webhook max retries exceeded: ${bot.username} - ${task.payload.eventType}`);
+      task.attempt = maxRetries;
       return;
     }
 
@@ -384,6 +419,9 @@ export class WebhookService {
           'Content-Type': 'application/json',
           'X-OpenChat-Signature': signature,
           'X-OpenChat-Timestamp': task.payload.timestamp.toString(),
+          'X-OpenChat-Nonce': task.payload.nonce,
+          'X-OpenChat-Event-Id': task.payload.eventId,
+          'Idempotency-Key': task.payload.eventId,
           'X-OpenChat-Version': 'v1',
           'User-Agent': 'OpenChat-Webhook/1.0'
         },
@@ -401,13 +439,13 @@ export class WebhookService {
       } else {
         // 继续重试
         task.attempt++;
-        task.nextRetryAt = this.calculateNextRetryTime(task.attempt);
+        task.nextRetryAt = this.calculateNextRetryTime(task.attempt, task.retryPolicy);
       }
 
     } catch (error) {
       this.logger.error(`Webhook retry failed: ${bot.username} - attempt ${task.attempt}`);
       task.attempt++;
-      task.nextRetryAt = this.calculateNextRetryTime(task.attempt);
+      task.nextRetryAt = this.calculateNextRetryTime(task.attempt, task.retryPolicy);
     }
   }
 

@@ -69,18 +69,10 @@ export class WukongIMClient implements OnModuleInit {
 
   onModuleInit() {
     this.config = {
-      apiUrl: this.configService.get<string>('WUKONGIM_API_URL') ||
-              this.configService.get<string>('im.wukongim.apiUrl') ||
-              WUKONGIM_DEFAULTS.API_URL,
-      tcpAddr: this.configService.get<string>('WUKONGIM_TCP_ADDR') ||
-               this.configService.get<string>('im.wukongim.tcpAddr') ||
-               WUKONGIM_DEFAULTS.TCP_ADDR,
-      wsUrl: this.configService.get<string>('WUKONGIM_WS_URL') ||
-             this.configService.get<string>('im.wukongim.wsUrl') ||
-             WUKONGIM_DEFAULTS.WS_URL,
-      managerUrl: this.configService.get<string>('WUKONGIM_MANAGER_URL') ||
-                  this.configService.get<string>('im.wukongim.managerUrl') ||
-                  WUKONGIM_DEFAULTS.MANAGER_URL,
+      apiUrl: this.configService.get<string>('WUKONGIM_API_URL') || WUKONGIM_DEFAULTS.API_URL,
+      tcpAddr: this.configService.get<string>('WUKONGIM_TCP_ADDR') || WUKONGIM_DEFAULTS.TCP_ADDR,
+      wsUrl: this.configService.get<string>('WUKONGIM_WS_URL') || WUKONGIM_DEFAULTS.WS_URL,
+      managerUrl: this.configService.get<string>('WUKONGIM_MANAGER_URL') || WUKONGIM_DEFAULTS.MANAGER_URL,
       timeout: this.configService.get<number>('WUKONGIM_TIMEOUT') ||
                WUKONGIM_DEFAULTS.TIMEOUT,
     };

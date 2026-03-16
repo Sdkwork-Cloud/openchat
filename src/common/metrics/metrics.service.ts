@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Redis } from 'ioredis';
 import { Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { REDIS_CLIENT } from '../redis/redis.constants';
 
 /**
  * 性能指标接口
@@ -34,7 +35,7 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
   private timers = new Map<string, number>();
 
   constructor(
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   /**

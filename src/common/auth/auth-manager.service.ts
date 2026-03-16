@@ -46,7 +46,10 @@ export class AuthManagerService implements OnModuleInit {
   onModuleInit() {
     // 加载认证配置
     this.config = {
-      enabledStrategies: this.configService.get<string[]>('AUTH_ENABLED_STRATEGIES', ['jwt', 'bot-token', 'api-key']),
+      enabledStrategies: this.configService.get<string[]>(
+        'AUTH_ENABLED_STRATEGIES',
+        ['jwt', 'bot-token', 'craw-agent', 'api-key'],
+      ),
       defaultStrategy: this.configService.get<string>('AUTH_DEFAULT_STRATEGY', 'jwt'),
       allowAnonymous: this.configService.get<boolean>('AUTH_ALLOW_ANONYMOUS', false),
       strategyConfig: this.configService.get<Record<string, unknown>>('AUTH_STRATEGY_CONFIG', {}),

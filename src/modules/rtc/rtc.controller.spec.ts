@@ -11,6 +11,9 @@ describe('RTCController', () => {
     const rtcService = {
       getProviderOperationStats: jest.fn(),
       getProviderHealthReport: jest.fn(),
+      validateToken: jest.fn(),
+      getRoomById: jest.fn(),
+      getProviderCapabilities: jest.fn(),
     } as unknown as RTCService;
 
     return {
@@ -117,5 +120,113 @@ describe('RTCController', () => {
 
     expect(result).toBe(report);
     expect((rtcService.getProviderHealthReport as jest.Mock).mock.calls).toEqual([[query]]);
+  });
+
+  it('should validate rtc token for token owner', async () => {
+    const { controller, rtcService } = createController();
+    const expiresAt = new Date('2026-03-01T00:00:00.000Z');
+    (rtcService.validateToken as jest.Mock).mockResolvedValue({
+      roomId: 'room-1',
+      userId: 'user-1',
+      provider: 'volcengine',
+      channelId: 'channel-1',
+      role: 'participant',
+      expiresAt,
+    });
+
+    const result = await controller.validateToken(
+      {
+        id: 'user-1',
+        username: 'alice',
+        roles: ['user'],
+      } as any,
+      { token: 'valid-token' },
+    );
+
+    expect(result).toEqual({
+      valid: true,
+      roomId: 'room-1',
+      userId: 'user-1',
+      provider: 'volcengine',
+      channelId: 'channel-1',
+      role: 'participant',
+      expiresAt,
+    });
+    expect((rtcService.validateToken as jest.Mock).mock.calls).toEqual([['valid-token']]);
+  });
+
+  it('should validate rtc token for room participant', async () => {
+    const { controller, rtcService } = createController();
+    (rtcService.validateToken as jest.Mock).mockResolvedValue({
+      roomId: 'room-2',
+      userId: 'user-2',
+      provider: 'tencent',
+      expiresAt: new Date('2026-03-01T00:00:00.000Z'),
+    });
+    (rtcService.getRoomById as jest.Mock).mockResolvedValue({
+      id: 'room-2',
+      participants: ['user-1', 'user-2'],
+    });
+
+    const result = await controller.validateToken(
+      {
+        id: 'user-1',
+        username: 'member',
+        roles: ['user'],
+      } as any,
+      { token: 'participant-token' },
+    );
+
+    expect(result.valid).toBe(true);
+    expect((rtcService.getRoomById as jest.Mock).mock.calls).toEqual([['room-2']]);
+  });
+
+  it('should reject rtc token validation for non-owner and non-participant', async () => {
+    const { controller, rtcService } = createController();
+    (rtcService.validateToken as jest.Mock).mockResolvedValue({
+      roomId: 'room-3',
+      userId: 'user-2',
+      provider: 'volcengine',
+      expiresAt: new Date('2026-03-01T00:00:00.000Z'),
+    });
+    (rtcService.getRoomById as jest.Mock).mockResolvedValue({
+      id: 'room-3',
+      participants: ['user-2', 'user-3'],
+    });
+
+    await expect(controller.validateToken(
+      {
+        id: 'user-1',
+        username: 'outsider',
+        roles: ['user'],
+      } as any,
+      { token: 'forbidden-token' },
+    )).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('should return provider capabilities directly', async () => {
+    const { controller, rtcService } = createController();
+    const report = {
+      defaultProvider: 'volcengine',
+      recommendedPrimary: 'volcengine',
+      fallbackOrder: ['volcengine', 'tencent'],
+      activeProviders: ['volcengine'],
+      providers: [
+        {
+          provider: 'volcengine',
+          configured: true,
+          channelId: 'channel-1',
+          supportsRecording: true,
+          tokenStrategies: ['delegate', 'openapi', 'local'],
+          supportsControlPlaneDelegate: true,
+        },
+      ],
+    };
+    (rtcService.getProviderCapabilities as jest.Mock).mockResolvedValue(report);
+
+    const result = await controller.getProviderCapabilities();
+
+    expect(result).toBe(report);
+    expect((rtcService.getProviderCapabilities as jest.Mock).mock.calls).toHaveLength(1);
   });
 });

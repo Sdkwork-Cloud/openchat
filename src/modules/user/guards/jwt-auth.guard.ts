@@ -11,10 +11,40 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any, info: any) {
+  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
     if (err || !user) {
       throw err || new UnauthorizedException('未授权访问');
     }
+
+    const request = context.switchToHttp().getRequest();
+    const deviceId = this.normalizeDeviceIdCandidate(user.deviceId);
+    request.auth = {
+      userId: user.userId,
+      deviceId,
+      scopes: user.permissions || [],
+      metadata: {
+        roles: user.roles || [],
+        permissions: user.permissions || [],
+      },
+    };
+
     return user;
+  }
+
+  private normalizeDeviceIdCandidate(candidate: unknown): string | undefined {
+    if (typeof candidate !== 'string') {
+      return undefined;
+    }
+
+    const normalized = candidate.trim();
+    if (!normalized) {
+      return undefined;
+    }
+
+    if (!/^[A-Za-z0-9._:-]{1,64}$/.test(normalized)) {
+      return undefined;
+    }
+
+    return normalized;
   }
 }

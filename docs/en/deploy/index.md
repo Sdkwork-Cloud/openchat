@@ -11,6 +11,7 @@ OpenChat provides multiple deployment options to meet different scenarios.
 | [Kubernetes Deployment](./kubernetes.md) | Cluster deployment guide |
 | [Traditional Deployment](./traditional.md) | Non-Docker deployment |
 | [Quick Start](./quickstart.md) | Quick experience deployment |
+| [Monitoring and Alerting](./monitoring.md) | Prometheus/Grafana templates and alert rules |
 
 ## Deployment Methods
 
@@ -113,3 +114,4 @@ pnpm run docker:ps      # View status
 - [Kubernetes Deployment](./kubernetes.md) - Cluster deployment
 - [Traditional Deployment](./traditional.md) - Non-Docker deployment
 - [Quick Start](./quickstart.md) - One-click deployment script
+- [Monitoring and Alerting](./monitoring.md) - Metrics, alerts, and dashboard templates

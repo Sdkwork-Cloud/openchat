@@ -544,8 +544,23 @@ interface WebhookEvent {
 
 ---
 
+## Webhook 推送请求头
+
+OpenChat 向你的 Bot webhook 地址推送事件时，会携带以下请求头：
+
+- `X-OpenChat-Signature`
+- `X-OpenChat-Timestamp`
+- `X-OpenChat-Nonce`
+- `X-OpenChat-Event-Id`
+- `Idempotency-Key`
+
+签名验签细节和多语言示例请参考《开放接入指南》。
+
+---
+
 ## 相关链接
 
 - [第三方集成 API](./third-party.md)
+- [开放接入指南](./open-access.md)
 - [消息管理 API](./messages.md)
 - [群组管理 API](./groups.md)

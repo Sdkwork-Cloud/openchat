@@ -6,6 +6,7 @@ import { WukongIMController } from './wukongim.controller';
 import { WukongIMWebhookController } from './wukongim.webhook.controller';
 import { WukongIMClient } from './wukongim.client';
 import { Message } from '../message/message.entity';
+import { MessageReceipt } from '../message/message-receipt.entity';
 import { MetricsModule } from '../../common/metrics/metrics.module';
 
 @Module({
@@ -14,7 +15,7 @@ import { MetricsModule } from '../../common/metrics/metrics.module';
       timeout: 10000,
       maxRedirects: 5,
     }),
-    TypeOrmModule.forFeature([Message]),
+    TypeOrmModule.forFeature([Message, MessageReceipt]),
     MetricsModule,
   ],
   providers: [WukongIMClient, WukongIMService],

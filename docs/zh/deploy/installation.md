@@ -287,7 +287,7 @@ EXTERNAL_IP=your-server-ip
 # 数据库配置
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=openchat
+DB_USERNAME=openchat
 DB_PASSWORD=your-secure-password
 DB_NAME=openchat
 

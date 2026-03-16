@@ -28,6 +28,8 @@ import { UserEntity } from './modules/user/entities/user.entity';
 import { Friend } from './modules/friend/friend.entity';
 import { FriendRequest } from './modules/friend/friend-request.entity';
 import { Message } from './modules/message/message.entity';
+import { MessageReceipt } from './modules/message/message-receipt.entity';
+import { MessageReaction } from './modules/message/message-reaction.entity';
 import { Group } from './modules/group/group.entity';
 import { GroupMember } from './modules/group/group-member.entity';
 import { GroupInvitation } from './modules/group/group-invitation.entity';
@@ -39,6 +41,7 @@ import { ThirdPartyMessage } from './modules/third-party/third-party-message.ent
 import { ThirdPartyContact } from './modules/third-party/third-party-contact.entity';
 import { AIBotEntity, BotMessageEntity } from './modules/ai-bot/ai-bot.entity';
 import { ConversationEntity } from './modules/conversation/conversation.entity';
+import { ConversationReadCursorEntity } from './modules/conversation/conversation-read-cursor.entity';
 import { ContactEntity } from './modules/contact/contact.entity';
 import { BotPlatformModule } from './modules/bot-platform/bot-platform.module';
 import { BotEntity } from './modules/bot-platform/entities/bot.entity';
@@ -46,13 +49,42 @@ import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.en
 import { DeviceEntity } from './modules/iot/entities/device.entity';
 import { DeviceMessageEntity } from './modules/iot/entities/device-message.entity';
 import { AgentModule } from './modules/agent/agent.module';
-import { Agent, AgentSession, AgentMessage } from './modules/agent/agent.entity';
+import {
+  Agent,
+  AgentSession,
+  AgentMessage,
+  AgentTool,
+  AgentSkill,
+  AgentExecution,
+} from './modules/agent/agent.entity';
 import { WukongIMModule } from './modules/wukongim/wukongim.module';
 import { CrawModule } from './modules/craw/craw.module';
 import { TimelineModule } from './modules/timeline/timeline.module';
 import { TimelinePostEntity } from './modules/timeline/entities/timeline-post.entity';
 import { TimelineFeedItemEntity } from './modules/timeline/entities/timeline-feed-item.entity';
 import { TimelinePostLikeEntity } from './modules/timeline/entities/timeline-post-like.entity';
+import { AuditLogEntity } from './common/entities/audit-log.entity';
+import { CrawAgent } from './modules/craw/entities/craw-agent.entity';
+import { CrawPost, CrawComment } from './modules/craw/entities/craw-post.entity';
+import {
+  CrawSubmolt,
+  CrawSubmoltSubscriber,
+  CrawSubmoltModerator,
+  CrawFollow,
+  CrawVote,
+} from './modules/craw/entities/craw-submolt.entity';
+import {
+  CrawDmRequest,
+  CrawDmConversation,
+  CrawDmMessage,
+} from './modules/craw/entities/craw-dm.entity';
+import {
+  AgentMemory,
+  MemorySummary,
+  KnowledgeChunk,
+  KnowledgeDocument,
+  MemoryVector,
+} from './modules/agent/memory/memory.entity';
 import { DataSource } from 'typeorm';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { SnakeNamingStrategy } from './common/config/snake-naming.strategy';
@@ -110,6 +142,8 @@ const logger = new Logger('Database');
             Friend,
             FriendRequest,
             Message,
+            MessageReceipt,
+            MessageReaction,
             Group,
             GroupMember,
             GroupInvitation,
@@ -122,6 +156,7 @@ const logger = new Logger('Database');
             AIBotEntity,
             BotMessageEntity,
             ConversationEntity,
+            ConversationReadCursorEntity,
             ContactEntity,
             BotEntity,
             BotCommandEntity,
@@ -130,6 +165,26 @@ const logger = new Logger('Database');
             Agent,
             AgentSession,
             AgentMessage,
+            AgentTool,
+            AgentSkill,
+            AgentExecution,
+            AgentMemory,
+            MemorySummary,
+            KnowledgeChunk,
+            KnowledgeDocument,
+            MemoryVector,
+            CrawAgent,
+            CrawPost,
+            CrawComment,
+            CrawSubmolt,
+            CrawSubmoltSubscriber,
+            CrawSubmoltModerator,
+            CrawFollow,
+            CrawVote,
+            CrawDmRequest,
+            CrawDmConversation,
+            CrawDmMessage,
+            AuditLogEntity,
             TimelinePostEntity,
             TimelineFeedItemEntity,
             TimelinePostLikeEntity,

@@ -158,16 +158,16 @@ check_database() {
     print_header "数据库连接检查"
     
     echo -n "  PostgreSQL 连接: "
-    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
+    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
         echo -e "${GREEN}正常${NC}"
         
         # 获取数据库信息
         echo ""
         echo "  数据库信息:"
-        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" 2>/dev/null | head -20 | sed 's/^/    /'
+        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" 2>/dev/null | head -20 | sed 's/^/    /'
     else
         echo -e "${RED}异常${NC}"
-        echo -e "  ${YELLOW}提示: 检查 DB_HOST, DB_PORT, DB_USER, DB_PASSWORD 配置${NC}"
+        echo -e "  ${YELLOW}提示: 检查 DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD 配置${NC}"
     fi
 }
 
@@ -261,7 +261,7 @@ check_config() {
     local required_vars=(
         "DB_HOST:数据库主机"
         "DB_PORT:数据库端口"
-        "DB_USER:数据库用户"
+        "DB_USERNAME:数据库用户"
         "DB_PASSWORD:数据库密码"
         "REDIS_HOST:Redis主机"
         "REDIS_PORT:Redis端口"

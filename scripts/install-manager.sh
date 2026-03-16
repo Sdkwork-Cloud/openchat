@@ -162,7 +162,7 @@ check_existing_installation() {
     if [ -f ".env" ]; then
         source .env
         if command_exists psql && [ -n "$DB_HOST" ]; then
-            if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT 1" &>/dev/null; then
+            if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT 1" &>/dev/null; then
                 reasons+=("数据库已存在 OpenChat 表结构")
                 installed=true
             fi
@@ -256,7 +256,7 @@ backup_data() {
     if [ -f ".env" ]; then
         source .env
         if command_exists pg_dump && [ -n "$DB_HOST" ]; then
-            PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" "${DB_NAME:-openchat}" > "$backup_path/database.sql" 2>/dev/null
+            PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" "${DB_NAME:-openchat}" > "$backup_path/database.sql" 2>/dev/null
             if [ $? -eq 0 ]; then
                 log_success "备份数据库"
             fi
@@ -558,13 +558,13 @@ step_database() {
                 sed -i '' "s/DB_HOST=.*/DB_HOST=$db_host/" .env
                 sed -i '' "s/DB_PORT=.*/DB_PORT=$db_port/" .env
                 sed -i '' "s/DB_NAME=.*/DB_NAME=$db_name/" .env
-                sed -i '' "s/DB_USER=.*/DB_USER=$db_user/" .env
+                sed -i '' "s/DB_USERNAME=.*/DB_USERNAME=$db_user/" .env
                 sed -i '' "s/DB_PASSWORD=.*/DB_PASSWORD=$db_password/" .env
             else
                 sed -i "s/DB_HOST=.*/DB_HOST=$db_host/" .env
                 sed -i "s/DB_PORT=.*/DB_PORT=$db_port/" .env
                 sed -i "s/DB_NAME=.*/DB_NAME=$db_name/" .env
-                sed -i "s/DB_USER=.*/DB_USER=$db_user/" .env
+                sed -i "s/DB_USERNAME=.*/DB_USERNAME=$db_user/" .env
                 sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$db_password/" .env
             fi
         else
@@ -696,7 +696,7 @@ step_verify() {
     
     # 检查数据库连接
     source .env
-    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" &>/dev/null; then
+    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1" &>/dev/null; then
         log_success "数据库连接正常"
     else
         errors+=("数据库连接异常")

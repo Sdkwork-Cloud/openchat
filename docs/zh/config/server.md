@@ -32,7 +32,7 @@ vim .env
 |------|------|--------|
 | `DB_HOST` | 数据库主机 | `localhost` |
 | `DB_PORT` | 数据库端口 | `5432` |
-| `DB_USER` | 数据库用户 | `openchat` |
+| `DB_USERNAME` | 数据库用户 | `openchat` |
 | `DB_PASSWORD` | 数据库密码 | `openchat_password` |
 | `DB_NAME` | 数据库名称 | `openchat` |
 | `DB_SYNCHRONIZE` | 自动同步表结构 | 开发环境 `true`，生产环境 `false` |
@@ -142,7 +142,7 @@ HOST=0.0.0.0
 # 数据库配置
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=openchat
+DB_USERNAME=openchat
 DB_PASSWORD=your-secure-password
 DB_NAME=openchat
 DB_LOGGING=false

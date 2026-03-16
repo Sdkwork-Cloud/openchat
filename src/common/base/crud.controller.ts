@@ -98,7 +98,7 @@ export abstract class BaseController<T extends BaseEntity> {
     page: number,
     pageSize: number,
   ): any {
-    return PagedResponseDto.create(list, { page, pageSize, total });
+    return PagedResponseDto.page(list, { page, pageSize, total });
   }
 
   protected async getEntityOrThrow(id: string): Promise<T> {

@@ -23,7 +23,7 @@ services:
       # 数据库配置 - 外部 PostgreSQL
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER:-openchat}
+      DB_USERNAME: ${DB_USERNAME:-openchat}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-openchat}
       DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-false}
@@ -57,7 +57,7 @@ services:
       WUKONGIM_MANAGER_URL: ${WUKONGIM_MANAGER_URL:-http://wukongim:5300}
       WUKONGIM_TOKEN_AUTH: ${WUKONGIM_TOKEN_AUTH:-false}
       WUKONGIM_TIMEOUT: ${WUKONGIM_TIMEOUT:-10000}
-      WUKONGIM_APP_ID: ${WUKONGIM_APP_ID:-}
+      WUKONGIM_APP_KEY: ${WUKONGIM_APP_KEY:-}
       WUKONGIM_APP_SECRET: ${WUKONGIM_APP_SECRET:-}
       
       # 安全配置

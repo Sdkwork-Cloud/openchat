@@ -214,16 +214,6 @@ export class PagedResponseDto<T = any> {
     );
   }
 
-  /**
-   * 创建分页响应（别名，用于兼容）
-   */
-  static create<T>(
-    data: T[],
-    pagination: { page: number; pageSize: number; total: number },
-    options?: { message?: string; meta?: ResponseMeta },
-  ): PagedResponseDto<T> {
-    return this.page(data, pagination, options);
-  }
 }
 
 /**
@@ -288,21 +278,6 @@ export class CursorPagedResponseDto<T = any> {
     return new CursorPagedResponseDto(data, cursor, options);
   }
 
-  /**
-   * 创建游标分页响应（别名，用于兼容）
-   */
-  static create<T>(
-    data: T[],
-    cursor: {
-      current: string | null;
-      next: string | null;
-      previous: string | null;
-      hasMore: boolean;
-    },
-    options?: { message?: string; meta?: ResponseMeta },
-  ): CursorPagedResponseDto<T> {
-    return this.cursor(data, cursor, options);
-  }
 }
 
 /**
@@ -872,11 +847,11 @@ export function ApiResponseDecorator<T>(
 }
 
 /**
- * API 响应 DTO 别名（用于兼容）
+ * API 响应 DTO 类型
  */
 export type ApiResponseDto<T = any> = ApiResponse<T>;
 
 /**
- * 游标响应 DTO 别名（用于兼容）
+ * 游标响应 DTO 类型
  */
 export type CursorResponseDto<T = any> = ApiResponse<T>;

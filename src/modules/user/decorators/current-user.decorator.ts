@@ -14,13 +14,35 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
  */
 export const CurrentUser = createParamDecorator(
   (data: keyof any | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    const user = request.user;
+    const request = ctx.switchToHttp().getRequest<{
+      user?: Record<string, unknown>;
+      auth?: Record<string, unknown>;
+    }>();
+    const requestUser = request.user || {};
+    const auth = request.auth || {};
 
-    if (!user) {
+    const normalizedUser: Record<string, unknown> = {
+      ...requestUser,
+      ...auth,
+    };
+
+    const authUserId = typeof auth.userId === 'string' ? auth.userId : undefined;
+    const userUserId = typeof requestUser.userId === 'string' ? requestUser.userId : undefined;
+    const userId = authUserId || userUserId;
+
+    if (userId) {
+      normalizedUser.userId = userId;
+      normalizedUser.id = userId;
+    } else if (typeof requestUser.id === 'string') {
+      normalizedUser.userId = requestUser.id;
+      normalizedUser.id = requestUser.id;
+    }
+
+    if (!normalizedUser.userId) {
       return null;
     }
 
-    return data ? user[data] : user;
+    const key = typeof data === 'string' ? data : undefined;
+    return key ? normalizedUser[key] : normalizedUser;
   },
 );

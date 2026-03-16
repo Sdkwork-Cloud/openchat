@@ -14,12 +14,13 @@ import {
 import { CacheService } from '../../common/services/cache.service';
 import { buildUserCacheKey, CacheTTL } from '../../common/decorators/cache.decorator';
 import { BaseEntityService } from '../../common/base/entity.service';
-import { EventBusService } from '../../common/events/event-bus.service';
+import { EventBusService, EventPriority, EventTypeConstants } from '../../common/events/event-bus.service';
 
 @Injectable()
 export class FriendService extends BaseEntityService<Friend> implements FriendManager {
   protected readonly logger = new Logger(FriendService.name);
   protected readonly entityName = 'Friend';
+  private static readonly PRESENCE_ACL_CHANGED_EVENT_TYPE = 'presence.acl.changed';
 
   constructor(
     protected readonly dataSource: DataSource,
@@ -161,6 +162,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     ).catch((err) => {
       this.logger.error('Failed to create contacts and conversations:', err);
     });
+    this.publishPresenceAclChanged([requestInfo.fromUserId, requestInfo.toUserId]);
 
     return true;
   }
@@ -207,6 +209,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     if (removed) {
       await this.invalidateFriendsCache(userId);
       await this.invalidateFriendsCache(friendId);
+      this.publishPresenceAclChanged([userId, friendId]);
     }
 
     return removed;
@@ -279,12 +282,14 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
       });
       await this.repository.save(newBlock);
       await this.invalidateFriendsCache(userId);
+      this.publishPresenceAclChanged([userId, friendId]);
       return true;
     }
 
     friendship.status = 'blocked';
     await this.repository.save(friendship);
     await this.invalidateFriendsCache(userId);
+    this.publishPresenceAclChanged([userId, friendId]);
     return true;
   }
 
@@ -297,6 +302,7 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
 
     if ((result.affected || 0) > 0) {
       await this.invalidateFriendsCache(userId);
+      this.publishPresenceAclChanged([userId, friendId]);
       return true;
     }
     return false;
@@ -410,5 +416,32 @@ export class FriendService extends BaseEntityService<Friend> implements FriendMa
     if (this.cacheService) {
       await this.cacheService.delete(cacheKey);
     }
+  }
+
+  private publishPresenceAclChanged(affectedUserIds: string[]): void {
+    const deduplicatedUserIds = [...new Set(affectedUserIds.filter((userId) => typeof userId === 'string' && userId.length > 0))];
+    if (deduplicatedUserIds.length === 0) {
+      return;
+    }
+
+    if (this.eventBus) {
+      this.eventBus.publish(
+        EventTypeConstants.CUSTOM_EVENT,
+        {
+          type: FriendService.PRESENCE_ACL_CHANGED_EVENT_TYPE,
+          affectedUserIds: deduplicatedUserIds,
+        },
+        {
+          source: this.entityName,
+          priority: EventPriority.MEDIUM,
+          broadcast: true,
+        },
+      ).catch((error) => {
+        this.logger.warn(`Failed to publish presence ACL change event: ${error?.message || error}`);
+      });
+      return;
+    }
+
+    this.emitEvent(FriendService.PRESENCE_ACL_CHANGED_EVENT_TYPE, { affectedUserIds: deduplicatedUserIds });
   }
 }

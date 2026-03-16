@@ -27,7 +27,7 @@ set "USE_EXISTING_DB=false"
 set "USE_EXISTING_REDIS=false"
 set "DB_HOST=localhost"
 set "DB_PORT=5432"
-set "DB_USER=openchat"
+set "DB_USERNAME=openchat"
 set "DB_PASSWORD="
 set "DB_NAME=openchat"
 set "REDIS_HOST=localhost"
@@ -143,11 +143,11 @@ if "%DB_PORT%"=="" set "DB_PORT=5432"
 set /p "DB_NAME=数据库名称 [openchat]: "
 if "%DB_NAME%"=="" set "DB_NAME=openchat"
 
-set /p "DB_USER=数据库用户名: "
+set /p "DB_USERNAME=数据库用户名: "
 set /p "DB_PASSWORD=数据库密码: "
 
 call :log_info "测试数据库连接..."
-psql -h "%DB_HOST%" -p "%DB_PORT%" -U "%DB_USER%" -d "%DB_NAME%" -c "SELECT 1" >nul 2>&1
+psql -h "%DB_HOST%" -p "%DB_PORT%" -U "%DB_USERNAME%" -d "%DB_NAME%" -c "SELECT 1" >nul 2>&1
 if %ERRORLEVEL% neq 0 (
     call :log_error "数据库连接失败，请检查配置"
     exit /b 1
@@ -229,7 +229,7 @@ rem 更新配置
 powershell -Command "(Get-Content .env) -replace 'EXTERNAL_IP=.*', 'EXTERNAL_IP=%EXTERNAL_IP%' | Set-Content .env"
 powershell -Command "(Get-Content .env) -replace 'DB_HOST=.*', 'DB_HOST=%DB_HOST%' | Set-Content .env"
 powershell -Command "(Get-Content .env) -replace 'DB_PORT=.*', 'DB_PORT=%DB_PORT%' | Set-Content .env"
-powershell -Command "(Get-Content .env) -replace 'DB_USER=.*', 'DB_USER=%DB_USER%' | Set-Content .env"
+powershell -Command "(Get-Content .env) -replace 'DB_USERNAME=.*', 'DB_USERNAME=%DB_USERNAME%' | Set-Content .env"
 powershell -Command "(Get-Content .env) -replace 'DB_PASSWORD=.*', 'DB_PASSWORD=%DB_PASSWORD%' | Set-Content .env"
 powershell -Command "(Get-Content .env) -replace 'DB_NAME=.*', 'DB_NAME=%DB_NAME%' | Set-Content .env"
 powershell -Command "(Get-Content .env) -replace 'REDIS_HOST=.*', 'REDIS_HOST=%REDIS_HOST%' | Set-Content .env"
@@ -256,7 +256,7 @@ if "%USE_EXISTING_DB%"=="true" if "%USE_EXISTING_REDIS%"=="true" (
         echo     environment:
         echo       - DB_HOST=%DB_HOST%
         echo       - DB_PORT=%DB_PORT%
-        echo       - DB_USER=%DB_USER%
+        echo       - DB_USERNAME=%DB_USERNAME%
         echo       - DB_PASSWORD=%DB_PASSWORD%
         echo       - DB_NAME=%DB_NAME%
         echo       - REDIS_HOST=%REDIS_HOST%
@@ -343,7 +343,7 @@ if "%USE_EXISTING_REDIS%"=="true" (
 rem 设置默认值
 if "%USE_EXISTING_DB%"=="false" (
     set "DB_HOST=postgres"
-    set "DB_USER=openchat"
+    set "DB_USERNAME=openchat"
     call :generate_password DB_PASSWORD
     set "DB_NAME=openchat"
 )

@@ -228,6 +228,7 @@ Authorization: Bearer <your-access-token>
 | 文档 | 说明 |
 |------|------|
 | [第三方集成 API](./third-party.md) | WhatsApp、Telegram、微信等平台集成 |
+| [开放接入指南](./open-access.md) | 外部接入认证矩阵、bots/open 与 craw 端点、Webhook 头规范 |
 
 ---
 

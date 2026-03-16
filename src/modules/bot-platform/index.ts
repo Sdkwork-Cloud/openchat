@@ -29,3 +29,4 @@ export { WebhookService, WebhookPayload, WebhookResult } from './services/webhoo
 
 // Controllers
 export { BotController } from './controllers/bot.controller';
+export { BotOpenController } from './controllers/bot-open.controller';

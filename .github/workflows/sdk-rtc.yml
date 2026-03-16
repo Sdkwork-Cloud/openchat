@@ -1,0 +1,44 @@
+name: SDK RTC Validation
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        description: Node.js version for SDK validation
+        required: false
+        type: string
+        default: '18'
+  workflow_dispatch:
+    inputs:
+      node_version:
+        description: Node.js version for SDK validation
+        required: false
+        default: '18'
+        type: string
+
+jobs:
+  sdk-rtc:
+    name: SDK RTC Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/typescript
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: 'npm'
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run RTC test suite
+        run: npm run test:rtc
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck

@@ -1,7 +1,8 @@
 #!/bin/bash
 # ============================================
 # OpenChat 数据库初始化脚本
-# 用法: ./init-database.sh [dev|test|prod]
+# 用法: ./init-database.sh [development|test|production]
+#      兼容别名: dev -> development, prod -> production
 # ============================================
 
 set -e
@@ -13,8 +14,50 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 默认环境
-ENV=${1:-dev}
+resolve_env_name() {
+    local raw_env="$1"
+    case "${raw_env}" in
+        development|dev)
+            echo "development"
+            ;;
+        test)
+            echo "test"
+            ;;
+        production|prod)
+            echo "production"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+resolve_env_file() {
+    local canonical_env="$1"
+    local env_file=""
+    case "${canonical_env}" in
+        development)
+            [ -f ".env.development" ] && env_file=".env.development"
+            [ -z "$env_file" ] && [ -f ".env.dev" ] && env_file=".env.dev"
+            ;;
+        test)
+            [ -f ".env.test" ] && env_file=".env.test"
+            ;;
+        production)
+            [ -f ".env.production" ] && env_file=".env.production"
+            [ -z "$env_file" ] && [ -f ".env.prod" ] && env_file=".env.prod"
+            ;;
+    esac
+    echo "$env_file"
+}
+
+ENV_INPUT=${1:-development}
+ENV=$(resolve_env_name "$ENV_INPUT")
+if [ -z "$ENV" ]; then
+    echo -e "${RED}错误: 无效环境 ${ENV_INPUT}${NC}"
+    echo -e "${YELLOW}支持环境: development(dev), test, production(prod)${NC}"
+    exit 1
+fi
 
 echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}  OpenChat 数据库初始化脚本${NC}"
@@ -22,18 +65,21 @@ echo -e "${BLUE}  环境: ${ENV}${NC}"
 echo -e "${BLUE}============================================${NC}"
 
 # 检查环境文件
-ENV_FILE=".env.${ENV}"
+ENV_FILE="$(resolve_env_file "$ENV")"
 if [ ! -f "$ENV_FILE" ]; then
-    echo -e "${RED}错误: 找不到环境配置文件 ${ENV_FILE}${NC}"
-    echo -e "${YELLOW}请先复制模板文件:${NC}"
-    echo -e "  cp .env.development .env.dev"
-    echo -e "  cp .env.test .env.test"
-    echo -e "  cp .env.production .env.prod"
+    echo -e "${RED}错误: 找不到环境配置文件${NC}"
+    echo -e "${YELLOW}当前环境: ${ENV}${NC}"
+    echo -e "${YELLOW}期望文件: development=.env.development(.env.dev), test=.env.test, production=.env.production(.env.prod)${NC}"
     exit 1
 fi
 
 # 加载环境变量
 source "$ENV_FILE"
+
+if ! command -v psql > /dev/null 2>&1; then
+    echo -e "${RED}错误: 未找到 psql 命令，请先安装 PostgreSQL 客户端并加入 PATH${NC}"
+    exit 1
+fi
 
 # 显示配置信息
 echo -e "${GREEN}数据库配置:${NC}"
@@ -76,7 +122,7 @@ else
 fi
 
 echo -e "${BLUE}步骤 4/4: 插入种子数据...${NC}"
-if [ "$ENV" != "prod" ]; then
+if [ "$ENV" != "production" ]; then
     if [ -f "database/seed.sql" ]; then
         read -p "是否插入测试数据? (yes/no): " seed_confirm
         if [ "$seed_confirm" == "yes" ]; then
@@ -107,5 +153,9 @@ echo -e "${GREEN}============================================${NC}"
 echo ""
 echo -e "下一步:"
 echo -e "  1. 检查数据库: psql -h ${DB_HOST} -U ${DB_USERNAME} -d ${DB_NAME}"
-echo -e "  2. 启动服务: pnpm start:${ENV}"
+if [ "$ENV" = "production" ]; then
+    echo -e "  2. 启动服务: npm run build && npm run start:prod"
+else
+    echo -e "  2. 启动服务: npm run start:dev"
+fi
 echo ""

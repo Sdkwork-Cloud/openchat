@@ -24,13 +24,7 @@ export class APIKeyAuthStrategy implements AuthStrategy {
    * 检查是否支持该请求
    */
   canHandle(request: Request): boolean {
-    // 检查 X-API-Key 头
     if (request.headers['x-api-key']) {
-      return true;
-    }
-
-    // 检查 Query 参数
-    if (request.query.api_key) {
       return true;
     }
 
@@ -135,15 +129,9 @@ export class APIKeyAuthStrategy implements AuthStrategy {
    * 提取 API Key
    */
   private extractAPIKey(request: Request): string | undefined {
-    // 1. 从 X-API-Key 头提取
     const apiKeyHeader = request.headers['x-api-key'];
     if (typeof apiKeyHeader === 'string') {
       return apiKeyHeader;
-    }
-
-    // 2. 从 Query 参数提取
-    if (typeof request.query.api_key === 'string') {
-      return request.query.api_key;
     }
 
     return undefined;

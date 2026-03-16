@@ -7,6 +7,7 @@ import { BotCommandEntity } from './entities/bot-command.entity';
 import { BotService } from './services/bot.service';
 import { WebhookService } from './services/webhook.service';
 import { BotController } from './controllers/bot.controller';
+import { BotOpenController } from './controllers/bot-open.controller';
 
 /**
  * Bot 平台模块
@@ -28,7 +29,7 @@ import { BotController } from './controllers/bot.controller';
       }),
     }),
   ],
-  controllers: [BotController],
+  controllers: [BotController, BotOpenController],
   providers: [
     BotService,
     WebhookService,

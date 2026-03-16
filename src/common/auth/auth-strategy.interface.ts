@@ -57,12 +57,11 @@ export interface TokenExtractor {
  * JWT 载荷
  */
 export interface JWTPayload {
-  sub: string;
+  userId: string;
   iat: number;
   exp: number;
   iss?: string;
   jti?: string;
-  userId: string;
   username?: string;
   roles?: string[];
   permissions?: string[];

@@ -14,14 +14,14 @@ export class CrawDmRequest {
   id: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'fromAgentId' })
+  @JoinColumn({ name: 'from_agent_id' })
   fromAgent: CrawAgent;
 
   @Column()
   fromAgentId: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'toAgentId' })
+  @JoinColumn({ name: 'to_agent_id' })
   toAgent: CrawAgent;
 
   @Column()
@@ -49,14 +49,14 @@ export class CrawDmConversation {
   id: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'agent1Id' })
+  @JoinColumn({ name: 'agent1_id' })
   agent1: CrawAgent;
 
   @Column()
   agent1Id: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'agent2Id' })
+  @JoinColumn({ name: 'agent2_id' })
   agent2: CrawAgent;
 
   @Column()
@@ -81,14 +81,14 @@ export class CrawDmMessage {
   id: string;
 
   @ManyToOne(() => CrawDmConversation)
-  @JoinColumn({ name: 'conversationId' })
+  @JoinColumn({ name: 'conversation_id' })
   conversation: CrawDmConversation;
 
   @Column()
   conversationId: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'senderId' })
+  @JoinColumn({ name: 'sender_id' })
   sender: CrawAgent;
 
   @Column()

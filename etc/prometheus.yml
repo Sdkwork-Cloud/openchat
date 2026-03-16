@@ -12,6 +12,7 @@ global:
 # 告警规则文件
 rule_files:
   - /etc/prometheus/alerts.yml
+  - /etc/prometheus/alerts.ws-presence-acl.yml
 
 # 抓取配置
 scrape_configs:

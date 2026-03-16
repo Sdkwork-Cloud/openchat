@@ -32,7 +32,7 @@ vim .env
 |----------|-------------|---------|
 | `DB_HOST` | Database host | `localhost` |
 | `DB_PORT` | Database port | `5432` |
-| `DB_USER` | Database user | `openchat` |
+| `DB_USERNAME` | Database user | `openchat` |
 | `DB_PASSWORD` | Database password | `openchat_password` |
 | `DB_NAME` | Database name | `openchat` |
 | `DB_SYNCHRONIZE` | Auto sync schema | `true` for dev, `false` for production |
@@ -142,7 +142,7 @@ HOST=0.0.0.0
 # Database configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=openchat
+DB_USERNAME=openchat
 DB_PASSWORD=your-secure-password
 DB_NAME=openchat
 DB_LOGGING=false

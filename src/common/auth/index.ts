@@ -24,6 +24,9 @@
 // Module
 export { AuthModule } from './auth.module';
 
+// Decorators
+export { CurrentApiKey } from './decorators/current-api-key.decorator';
+
 // Services
 export { AuthManagerService, AuthConfig } from './auth-manager.service';
 
@@ -34,8 +37,10 @@ export {
   AllowAnonymous,
   RequireBotAuth,
   RequireAPIKey,
+  RequireAuthStrategies,
   REQUIRED_SCOPES_KEY,
   ALLOW_ANONYMOUS_KEY,
+  REQUIRED_AUTH_STRATEGIES_KEY,
 } from './guards/multi-auth.guard';
 
 // Interfaces
@@ -52,3 +57,4 @@ export {
 export { JWTAuthStrategy } from './strategies/jwt.strategy';
 export { BotTokenAuthStrategy } from './strategies/bot-token.strategy';
 export { APIKeyAuthStrategy } from './strategies/api-key.strategy';
+export { CrawAgentAuthStrategy } from './strategies/craw-agent.strategy';

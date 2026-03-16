@@ -574,17 +574,17 @@ init_database() {
         read -p "数据库名称 [openchat]: " DB_NAME
         DB_NAME=${DB_NAME:-openchat}
         
-        read -p "数据库用户 [openchat]: " DB_USER
-        DB_USER=${DB_USER:-openchat}
+        read -p "数据库用户 [openchat]: " DB_USERNAME
+        DB_USERNAME=${DB_USERNAME:-openchat}
         
         read -sp "数据库密码: " DB_PASS
         echo
         
         # 创建数据库
         sudo -u postgres psql << EOF
-CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';
-CREATE DATABASE $DB_NAME OWNER $DB_USER;
-GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
+CREATE USER $DB_USERNAME WITH PASSWORD '$DB_PASS';
+CREATE DATABASE $DB_NAME OWNER $DB_USERNAME;
+GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USERNAME;
 EOF
         
         # 执行 DDL

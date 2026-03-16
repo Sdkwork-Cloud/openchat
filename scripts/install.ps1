@@ -211,7 +211,7 @@ EXTERNAL_IP=$ExternalIP
 PORT=3000
 
 # 数据库配置
-DB_USER=openchat
+DB_USERNAME=openchat
 DB_PASSWORD=$dbPassword
 DB_NAME=openchat
 DB_PORT=5432

@@ -506,9 +506,54 @@ function setupSwagger(app: INestApplication, configService: ConfigService) {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
+        description: 'JWT access token',
+      },
+      'bearer',
+    )
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
         description: 'Enter JWT Token',
       },
       'access-token',
+    )
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'BOT',
+        description: 'Bot token: oc_bot_<appId>_<secret>',
+      },
+      'bot-token',
+    )
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'CRAW',
+        description: 'Craw agent token: craw_<secret>',
+      },
+      'craw-agent',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-API-Key',
+        description: 'OpenChat API Key',
+      },
+      'x-api-key',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-Craw-API-Key',
+        description: 'Craw Agent API Key',
+      },
+      'x-craw-api-key',
     )
     .build();
 
@@ -555,7 +600,19 @@ function setupSecurity(app: INestApplication, configService: ConfigService) {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'X-API-Key',
+      'X-Bot-Token',
+      'X-Craw-API-Key',
+      'X-OpenChat-Signature',
+      'X-OpenChat-Timestamp',
+      'X-OpenChat-Nonce',
+      'X-OpenChat-Event-Id',
+      'Idempotency-Key',
+    ],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 86400,
   });

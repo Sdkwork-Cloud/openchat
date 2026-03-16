@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   Req,
+  UseGuards,
   ParseUUIDPipe,
   HttpStatus,
   HttpException,
@@ -16,6 +17,8 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MemoryManagerService } from './memory-manager.service';
 import { KnowledgeService } from './knowledge.service';
+import { AuthenticatedRequest } from '../../../common/auth/interfaces/authenticated-request.interface';
+import { JwtAuthGuard } from '../../user/guards/jwt-auth.guard';
 import {
   StoreMemoryDto,
   AddKnowledgeDocumentDto,
@@ -26,6 +29,7 @@ import { AgentError, AgentErrorCode } from '../errors/agent.errors';
 
 @ApiTags('Agent Memory')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('agents/:agentId/memory')
 export class MemoryController {
   constructor(
@@ -129,9 +133,9 @@ export class MemoryController {
   async storeMemory(
     @Param('agentId', ParseUUIDPipe) agentId: string,
     @Body() data: StoreMemoryDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.id;
+    const userId = req.auth.userId;
 
     if (!data.content || data.content.trim().length === 0) {
       throw new HttpException('Content is required', HttpStatus.BAD_REQUEST);

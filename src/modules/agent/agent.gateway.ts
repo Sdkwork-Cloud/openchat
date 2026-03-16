@@ -10,10 +10,19 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { AgentService } from './agent.service';
 import { AgentRuntimeService } from './services/agent-runtime.service';
 import { AgentEventService } from './agent-event.service';
 import { AgentEventType, ChatRequest } from './agent.interface';
+
+interface AgentGatewayJwtPayload {
+  userId?: string;
+  username?: string;
+  roles?: string[];
+  permissions?: string[];
+  [key: string]: unknown;
+}
 
 @WebSocketGateway({
   namespace: '/agents',
@@ -36,12 +45,19 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private runtimeService: AgentRuntimeService,
     private agentEventService: AgentEventService,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
 
-    const token = client.handshake.auth.token || client.handshake.query.token;
+    const authToken = client.handshake.auth?.token;
+    const queryToken = client.handshake.query?.token;
+    const token = typeof authToken === 'string'
+      ? authToken
+      : Array.isArray(queryToken)
+        ? queryToken[0]
+        : queryToken;
     if (!token) {
       this.logger.warn(`Client ${client.id} connected without token`);
       client.emit('error', { message: 'Authentication token required' });
@@ -50,16 +66,25 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const payload = this.jwtService.verify(token as string);
-      client.data.user = payload;
-      this.userSockets.set(payload.id, client.id);
-      this.logger.log(`User ${payload.id} connected with socket ${client.id}`);
+      const payload = this.jwtService.verify<AgentGatewayJwtPayload>(token as string, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+      const userId = payload.userId;
+      if (!userId) {
+        client.emit('error', { message: 'Authentication payload missing userId' });
+        client.disconnect();
+        return;
+      }
+
+      client.data.user = { ...payload, userId };
+      this.userSockets.set(userId, client.id);
+      this.logger.log(`User ${userId} connected with socket ${client.id}`);
 
       client.emit('connected', {
         message: 'Connected successfully',
-        userId: payload.id,
+        userId,
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`JWT verification failed for client ${client.id}:`, error);
       client.emit('error', { message: 'Authentication failed' });
       client.disconnect();
@@ -69,7 +94,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
 
-    const userId = client.data.user?.id;
+    const userId = this.getClientUserId(client);
     if (userId && this.userSockets.get(userId) === client.id) {
       this.userSockets.delete(userId);
       this.logger.log(`User ${userId} disconnected`);
@@ -82,7 +107,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { agentId } = data;
-    const userId = client.data.user?.id;
+    const userId = this.getClientUserId(client);
 
     if (!userId) {
       client.emit('error', { message: 'Not authenticated' });
@@ -116,7 +141,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     await client.leave(roomId);
 
-    this.logger.log(`User ${client.data.user?.id} left agent room ${agentId}`);
+    this.logger.log(`User ${this.getClientUserId(client)} left agent room ${agentId}`);
 
     client.emit('left_agent', {
       agentId,
@@ -130,7 +155,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { agentId, sessionId, content } = data;
-    const userId = client.data.user?.id;
+    const userId = this.getClientUserId(client);
 
     if (!userId) {
       client.emit('error', { message: 'Not authenticated' });
@@ -203,7 +228,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
           createdAt: new Date(),
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Error sending message:', error);
       client.emit('error', {
         message: error.message || 'Failed to send message',
@@ -218,7 +243,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { agentId, sessionId, content } = data;
-    const userId = client.data.user?.id;
+    const userId = this.getClientUserId(client);
 
     if (!userId) {
       client.emit('error', { message: 'Not authenticated' });
@@ -291,7 +316,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('stream_complete', {
         sessionId: targetSessionId,
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Error in stream message:', error);
       client.emit('error', {
         message: error.message || 'Stream failed',
@@ -306,7 +331,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { sessionId, limit = 50 } = data;
-    const userId = client.data.user?.id;
+    const userId = this.getClientUserId(client);
 
     if (!userId) {
       client.emit('error', { message: 'Not authenticated' });
@@ -326,7 +351,7 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
         sessionId,
         messages,
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Error getting history:', error);
       client.emit('error', {
         message: error.message || 'Failed to get history',
@@ -338,5 +363,10 @@ export class AgentGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('ping')
   handlePing(@ConnectedSocket() client: Socket) {
     client.emit('pong', { timestamp: Date.now() });
+  }
+
+  private getClientUserId(client: Socket): string | null {
+    const userId = (client.data.user as AgentGatewayJwtPayload | undefined)?.userId;
+    return typeof userId === 'string' && userId.length > 0 ? userId : null;
   }
 }

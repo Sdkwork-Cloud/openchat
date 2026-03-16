@@ -19,7 +19,29 @@ This document matches the current backend implementation (`RTCController`).
 ## Token APIs
 
 - `POST /rtc/tokens` - Generate RTC token
-- `GET /rtc/tokens/validate?token=...` - Validate token
+- Standard: `POST /rtc/tokens/validate` - Validate token
+
+Standard request body:
+
+```json
+{
+  "token": "rtc_xxx"
+}
+```
+
+Standard response body (raw token is never returned):
+
+```json
+{
+  "valid": true,
+  "roomId": "190000000000000010",
+  "userId": "user-a",
+  "provider": "volcengine",
+  "channelId": "190000000000000001",
+  "role": "participant",
+  "expiresAt": "2026-03-07T10:00:00.000Z"
+}
+```
 
 Token generation supports provider routing:
 
@@ -76,10 +98,12 @@ Field semantics:
 - `DELETE /rtc/channels/:id` - Soft delete channel config
 - `GET /rtc/providers/stats` - Provider operation stats (`createRoom` / `generateToken` / `validateToken`)
 - `GET /rtc/providers/health` - Provider health report and routing recommendation
+- `GET /rtc/providers/capabilities` - Provider capability matrix for SDK dynamic integration
 
 Channel read APIs return masked `appSecret` values.
 Channel config management endpoints are admin-only.
 Provider stats endpoint is admin-only and returns in-memory operation counters/last error metadata for observability.
+Provider capabilities endpoint is intended for SDK/client integration discovery (default provider, recommended primary, active providers, and capability labels).
 
 Provider stats query options:
 

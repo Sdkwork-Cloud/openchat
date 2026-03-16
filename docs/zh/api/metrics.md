@@ -75,6 +75,49 @@ online_devices 5678
 | `active_users` | gauge | 活跃用户数 |
 | `online_devices` | gauge | 在线设备数 |
 
+## WebSocket Presence ACL 缓存指标
+
+以下指标用于监控 `presenceSubscribe` 访问控制缓存（自己/好友/同群）在高并发下的表现：
+
+| 指标名称 | 类型 | 标签 | 说明 |
+|---------|------|------|------|
+| `ws_presence_acl_cache_access_total` | counter | `result=hit|miss` | ACL 缓存命中/未命中次数 |
+| `ws_presence_acl_cache_invalidations_total` | counter | `trigger` | ACL 缓存失效次数，常见触发器：`event`、`expired_ttl`、`expired_scan`、`capacity` |
+| `ws_presence_acl_cache_entries_current` | gauge | - | 当前 ACL 缓存条目数 |
+
+### PromQL 示例
+
+1. ACL 缓存命中率（5 分钟窗口）
+
+```promql
+sum(rate(ws_presence_acl_cache_access_total{result="hit"}[5m]))
+/
+sum(rate(ws_presence_acl_cache_access_total[5m]))
+```
+
+2. ACL 缓存失效率（事件驱动失效）
+
+```promql
+sum(rate(ws_presence_acl_cache_invalidations_total{trigger="event"}[5m]))
+```
+
+3. ACL 缓存容量利用率
+
+```promql
+ws_presence_acl_cache_entries_current / 50000
+```
+
+### 告警阈值建议（生产环境）
+
+1. `ACLCacheHitRateLow`  
+命中率连续 10 分钟低于 `0.70`，说明缓存收益下降，可能存在关系变更风暴或缓存参数过紧。
+
+2. `ACLCacheCapacityHigh`  
+`ws_presence_acl_cache_entries_current / 50000 > 0.90` 持续 5 分钟，提示缓存接近上限并可能频繁淘汰。
+
+3. `ACLCacheEventInvalidationSpike`  
+`sum(rate(ws_presence_acl_cache_invalidations_total{trigger="event"}[5m]))` 超过基线 3 倍，提示好友/群关系批量变化或异常事件风暴。
+
 **使用说明：**
 
 此端点可直接被 Prometheus 服务器采集。在 Prometheus 配置中添加：

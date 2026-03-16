@@ -13,14 +13,16 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Request } from 'express';
 import { Redis } from 'ioredis';
-import { Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { REDIS_CLIENT } from '../../common/redis/redis.module';
+import { AllowAnonymous } from '../../common/auth/guards/multi-auth.guard';
 import { Message } from '../message/message.entity';
+import { MessageReceipt } from '../message/message-receipt.entity';
 import { MessageStatus } from '../message/message.interface';
-import { WukongIMWebhookEvent } from './wukongim.constants';
+import { WukongIMChannelType, WukongIMWebhookEvent } from './wukongim.constants';
 
 interface WebhookPayload {
   event: string;
@@ -55,9 +57,15 @@ interface UserConnectData {
   timestamp: number;
 }
 
+interface ReceiptScope {
+  channelType: WukongIMChannelType;
+  channelId: string;
+}
+
 type RawBodyRequest = Request & { rawBody?: Buffer };
 
 @ApiTags('wukongim-webhook')
+@AllowAnonymous()
 @Controller('webhook/wukongim')
 export class WukongIMWebhookController {
   private readonly logger = new Logger(WukongIMWebhookController.name);
@@ -66,26 +74,28 @@ export class WukongIMWebhookController {
   private readonly timestampToleranceSeconds: number;
   private readonly replayWindowSeconds: number;
   private readonly requireReplayRedis: boolean;
+  private readonly failOnProcessError: boolean;
 
   constructor(
     private readonly configService: ConfigService,
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
+    @InjectRepository(MessageReceipt)
+    private readonly messageReceiptRepository: Repository<MessageReceipt>,
     @Optional()
     @Inject(REDIS_CLIENT)
     private readonly redis?: Redis,
   ) {
     this.webhookSecret = this.readConfig(
-      ['im.wukongim.webhookSecret', 'WUKONGIM_WEBHOOK_SECRET'],
+      ['WUKONGIM_WEBHOOK_SECRET'],
       '',
     );
     this.enabled = this.readBooleanConfig(
-      ['im.wukongim.webhookEnabled', 'WUKONGIM_WEBHOOK_ENABLED'],
+      ['WUKONGIM_WEBHOOK_ENABLED'],
       true,
     );
     this.timestampToleranceSeconds = this.readNumberConfig(
       [
-        'im.wukongim.webhookTimestampToleranceSeconds',
         'WUKONGIM_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS',
       ],
       300,
@@ -93,7 +103,6 @@ export class WukongIMWebhookController {
     );
     this.replayWindowSeconds = this.readNumberConfig(
       [
-        'im.wukongim.webhookReplayWindowSeconds',
         'WUKONGIM_WEBHOOK_REPLAY_WINDOW_SECONDS',
       ],
       600,
@@ -101,8 +110,13 @@ export class WukongIMWebhookController {
     );
     this.requireReplayRedis = this.readBooleanConfig(
       [
-        'im.wukongim.webhookReplayRequireRedis',
         'WUKONGIM_WEBHOOK_REPLAY_REQUIRE_REDIS',
+      ],
+      false,
+    );
+    this.failOnProcessError = this.readBooleanConfig(
+      [
+        'WUKONGIM_WEBHOOK_FAIL_ON_PROCESS_ERROR',
       ],
       false,
     );
@@ -137,9 +151,9 @@ export class WukongIMWebhookController {
       }
 
       const rawBody = this.extractRawBody(payload, req);
-      const timestampSeconds = this.validateTimestamp(timestampHeader);
-      this.validateSignature(rawBody, signature);
-      await this.ensureRequestNotReplayed(timestampSeconds, nonce);
+      this.validateTimestamp(timestampHeader);
+      const normalizedSignature = this.validateSignature(rawBody, signature);
+      await this.ensureRequestNotReplayed(nonce, normalizedSignature);
     }
 
     this.logger.debug(`Received webhook event: ${payload.event}`);
@@ -172,19 +186,42 @@ export class WukongIMWebhookController {
     } catch (error: unknown) {
       const err = error as Error;
       this.logger.error(`Failed to process webhook: ${err.message}`, err.stack);
+      if (this.failOnProcessError) {
+        throw new BadRequestException('Failed to process webhook event');
+      }
       return { success: true };
     }
   }
 
   private async handleMessageAck(data: MessageAckData): Promise<void> {
+    if (data.channel_type !== WukongIMChannelType.PERSON) {
+      this.logger.debug(`Skip ACK status update for non-person channel: ${data.channel_id}`);
+      return;
+    }
+
     const identifiers = [data.message_id, data.client_msg_no].filter(Boolean) as string[];
     const affected = await this.updateMessageStatusByIdentifiers(
       identifiers,
       MessageStatus.DELIVERED,
+      {
+        fromUid: data.from_uid,
+        toUid: data.to_uid,
+      },
+      [MessageStatus.SENDING, MessageStatus.SENT],
     );
     if (affected === 0) {
       this.logger.warn(`No message matched ACK identifiers: ${identifiers.join(',')}`);
     }
+    await this.upsertReceiptsByIdentifiers(
+      identifiers,
+      data.to_uid,
+      MessageStatus.DELIVERED,
+      'wukongim_webhook_ack',
+      {
+        channelId: data.channel_id,
+        fromUid: data.from_uid,
+      },
+    );
   }
 
   private async handleMessageRead(data: MessageReadData): Promise<void> {
@@ -198,34 +235,185 @@ export class WukongIMWebhookController {
       return;
     }
 
-    const affected = await this.updateMessageStatusByIdentifiers(
+    if (data.channel_type === WukongIMChannelType.PERSON) {
+      const affected = await this.updateMessageStatusByIdentifiers(
+        identifiers,
+        MessageStatus.READ,
+        {
+          readerUid: data.uid,
+        },
+        [MessageStatus.SENDING, MessageStatus.SENT, MessageStatus.DELIVERED],
+      );
+      if (affected === 0) {
+        this.logger.warn(`No message matched READ identifiers: ${identifiers.join(',')}`);
+      }
+    } else if (data.channel_type !== WukongIMChannelType.GROUP) {
+      this.logger.debug(`Skip READ status update for unknown channel type: ${data.channel_type}`);
+      return;
+    }
+
+    const upserted = await this.upsertReceiptsByIdentifiers(
       identifiers,
+      data.uid,
       MessageStatus.READ,
+      data.channel_type === WukongIMChannelType.GROUP
+        ? 'wukongim_webhook_group_read'
+        : 'wukongim_webhook_read',
+      {
+        channelId: data.channel_id,
+      },
+      {
+        channelType: data.channel_type as WukongIMChannelType,
+        channelId: data.channel_id,
+      },
     );
-    if (affected === 0) {
-      this.logger.warn(`No message matched READ identifiers: ${identifiers.join(',')}`);
+
+    if (upserted === 0) {
+      this.logger.warn(`No receipt matched READ identifiers: ${identifiers.join(',')}`);
     }
   }
 
   private async updateMessageStatusByIdentifiers(
     identifiers: string[],
     status: MessageStatus,
+    filters?: {
+      fromUid?: string;
+      toUid?: string;
+      readerUid?: string;
+    },
+    allowedCurrentStatuses?: MessageStatus[],
   ): Promise<number> {
     const uniqueIdentifiers = [...new Set(identifiers.filter(Boolean))];
     if (uniqueIdentifiers.length === 0) {
       return 0;
     }
 
-    const result = await this.messageRepository
+    const updateQuery = this.messageRepository
       .createQueryBuilder()
       .update(Message)
       .set({ status })
-      .where('id IN (:...identifiers)', { identifiers: uniqueIdentifiers })
-      .orWhere("extra->>'imMessageId' IN (:...identifiers)", { identifiers: uniqueIdentifiers })
-      .orWhere("extra->>'imClientMsgNo' IN (:...identifiers)", { identifiers: uniqueIdentifiers })
-      .execute();
+      .where(new Brackets((qb) => {
+        qb.where('id IN (:...identifiers)', { identifiers: uniqueIdentifiers })
+          .orWhere("extra->>'imMessageId' IN (:...identifiers)", { identifiers: uniqueIdentifiers })
+          .orWhere("extra->>'imClientMsgNo' IN (:...identifiers)", { identifiers: uniqueIdentifiers });
+      }));
+
+    if (filters?.fromUid) {
+      updateQuery.andWhere('from_user_id = :fromUid', { fromUid: filters.fromUid });
+    }
+
+    if (filters?.toUid) {
+      updateQuery.andWhere('to_user_id = :toUid', { toUid: filters.toUid });
+    }
+
+    if (filters?.readerUid) {
+      updateQuery.andWhere('to_user_id = :readerUid', { readerUid: filters.readerUid });
+    }
+
+    if (allowedCurrentStatuses && allowedCurrentStatuses.length > 0) {
+      updateQuery.andWhere('status IN (:...allowedStatuses)', {
+        allowedStatuses: allowedCurrentStatuses,
+      });
+    }
+
+    const result = await updateQuery.execute();
 
     return result.affected || 0;
+  }
+
+  private async upsertReceiptsByIdentifiers(
+    identifiers: string[],
+    userId: string,
+    status: MessageStatus.DELIVERED | MessageStatus.READ,
+    source: string,
+    extra?: Record<string, unknown>,
+    scope?: ReceiptScope,
+  ): Promise<number> {
+    const uniqueIdentifiers = [...new Set(identifiers.filter(Boolean))];
+    if (!userId || uniqueIdentifiers.length === 0) {
+      return 0;
+    }
+
+    try {
+      const matchedQuery = this.messageRepository
+        .createQueryBuilder('message')
+        .where(new Brackets((qb) => {
+          qb.where('message.id IN (:...identifiers)', { identifiers: uniqueIdentifiers })
+            .orWhere("message.extra->>'imMessageId' IN (:...identifiers)", { identifiers: uniqueIdentifiers })
+            .orWhere("message.extra->>'imClientMsgNo' IN (:...identifiers)", { identifiers: uniqueIdentifiers });
+        }))
+        .select(['message.id']);
+
+      if (scope?.channelType === WukongIMChannelType.GROUP) {
+        matchedQuery
+          .andWhere('message.group_id = :groupId', { groupId: scope.channelId })
+          .andWhere('message.from_user_id != :readerUid', { readerUid: userId });
+      } else {
+        matchedQuery.andWhere('message.to_user_id = :userId', { userId });
+      }
+
+      const matchedMessages = await matchedQuery.getMany();
+      const matchedMessageIds = matchedMessages.map((message) => message.id);
+      if (matchedMessageIds.length === 0) {
+        return 0;
+      }
+
+      // 已读状态不会被 delivered 回退
+      let targetMessageIds = matchedMessageIds;
+      if (status === MessageStatus.DELIVERED) {
+        const readReceipts = await this.messageReceiptRepository.find({
+          select: ['messageId'],
+          where: {
+            messageId: In(matchedMessageIds),
+            userId,
+            status: MessageStatus.READ,
+          },
+        });
+        if (readReceipts.length > 0) {
+          const readSet = new Set(readReceipts.map((receipt) => receipt.messageId));
+          targetMessageIds = matchedMessageIds.filter((messageId) => !readSet.has(messageId));
+        }
+      }
+
+      if (targetMessageIds.length === 0) {
+        return 0;
+      }
+
+      const now = new Date();
+      const receipts = targetMessageIds.map((messageId) =>
+        this.messageReceiptRepository.create({
+          messageId,
+          userId,
+          status,
+          source,
+          extra,
+          deliveredAt: status === MessageStatus.DELIVERED || status === MessageStatus.READ ? now : undefined,
+          readAt: status === MessageStatus.READ ? now : undefined,
+        }),
+      );
+
+      await this.messageReceiptRepository
+        .createQueryBuilder()
+        .insert()
+        .into(MessageReceipt)
+        .values(receipts as any[])
+        .onConflict(`
+          ("message_id","user_id") DO UPDATE SET
+            status = EXCLUDED.status,
+            source = EXCLUDED.source,
+            extra = EXCLUDED.extra,
+            delivered_at = COALESCE(chat_message_receipts.delivered_at, EXCLUDED.delivered_at),
+            read_at = COALESCE(chat_message_receipts.read_at, EXCLUDED.read_at),
+            updated_at = CURRENT_TIMESTAMP
+        `)
+        .execute();
+
+      return targetMessageIds.length;
+    } catch (error: unknown) {
+      const message = (error as Error)?.message || String(error);
+      this.logger.warn(`Failed to upsert receipts from webhook: ${message}`);
+      return 0;
+    }
   }
 
   private async handleUserConnect(data: UserConnectData): Promise<void> {
@@ -254,7 +442,7 @@ export class WukongIMWebhookController {
     return Buffer.from(JSON.stringify(payload), 'utf8');
   }
 
-  private validateSignature(rawBody: Buffer, signature: string): void {
+  private validateSignature(rawBody: Buffer, signature: string): string {
     const normalizedSignature = signature.replace(/^sha256=/i, '').trim().toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(normalizedSignature)) {
       throw new UnauthorizedException('Invalid signature format');
@@ -270,6 +458,8 @@ export class WukongIMWebhookController {
       this.logger.error('Webhook signature verification failed');
       throw new UnauthorizedException('Invalid signature');
     }
+
+    return normalizedSignature;
   }
 
   private validateTimestamp(headerValue: string): number {
@@ -290,10 +480,7 @@ export class WukongIMWebhookController {
     return timestampSeconds;
   }
 
-  private async ensureRequestNotReplayed(
-    timestampSeconds: number,
-    nonceHeader: string,
-  ): Promise<void> {
+  private async ensureRequestNotReplayed(nonceHeader: string, normalizedSignature: string): Promise<void> {
     const nonce = nonceHeader.trim();
     if (!nonce) {
       throw new UnauthorizedException('Invalid nonce');
@@ -308,10 +495,23 @@ export class WukongIMWebhookController {
       return;
     }
 
-    const replayKey = `wukongim:webhook:nonce:${timestampSeconds}:${nonce}`;
-    const result = await this.redis.set(replayKey, '1', 'EX', this.replayWindowSeconds, 'NX');
+    const nonceKey = `wukongim:webhook:nonce:${nonce}`;
+    const signatureFingerprint = createHash('sha256').update(normalizedSignature).digest('hex');
+    const signatureKey = `wukongim:webhook:signature:${signatureFingerprint}`;
+    const nonceResult = await this.redis.set(nonceKey, '1', 'EX', this.replayWindowSeconds, 'NX');
+    if (nonceResult !== 'OK') {
+      throw new UnauthorizedException('Replay request detected');
+    }
 
-    if (result !== 'OK') {
+    const signatureResult = await this.redis.set(
+      signatureKey,
+      '1',
+      'EX',
+      this.replayWindowSeconds,
+      'NX',
+    );
+    if (signatureResult !== 'OK') {
+      await this.redis.del(nonceKey);
       throw new UnauthorizedException('Replay request detected');
     }
   }

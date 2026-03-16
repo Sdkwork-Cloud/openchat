@@ -274,6 +274,104 @@ client.message.onStatusChange((messageId, status) => {
 });
 ```
 
+### Event Deduplication and State Merge (Recommended)
+
+In production, handle HTTP send responses and WS outbound events with one reducer:
+- Deduplicate by `eventId` first (replay/reconnect/retry safety)
+- For repeated updates of the same message, apply the max `stateVersion` only (no downgrade on out-of-order events)
+- Equivalent reference logic is available in server repo: `src/modules/message/message-event-reducer.util.ts`.
+- The reference utility also supports `applyMany` and `exportSnapshot`/`importSnapshot` for persistence and rehydration.
+- Unified event envelope generation reference: `src/modules/message/message-event-envelope.util.ts`.
+- End-to-end pipeline reference: `src/modules/message/message-event-pipeline.util.ts` (envelope + reducer + snapshot lifecycle).
+
+```typescript
+type MessageEvent = {
+  eventId: string;
+  eventType: string;
+  occurredAt: number;
+  stateVersion?: number;
+  serverMessageId?: string;
+  messageId?: string;
+  clientMessageId?: string;
+  status?: string;
+  content?: unknown;
+};
+
+type MessageView = {
+  messageId: string;
+  stateVersion: number;
+  status?: string;
+  content?: unknown;
+  updatedAt: number;
+};
+
+const DEFAULT_STATE_VERSION = -9999;
+
+function resolveMessageKey(event: MessageEvent): string | undefined {
+  return event.serverMessageId || event.messageId || event.clientMessageId;
+}
+
+class MessageEventReducer {
+  private dedup = new Set<string>();
+  private store = new Map<string, MessageView>();
+
+  apply(event: MessageEvent): { applied: boolean; snapshot?: MessageView } {
+    if (!event.eventId || this.dedup.has(event.eventId)) {
+      return { applied: false };
+    }
+    this.dedup.add(event.eventId);
+
+    const key = resolveMessageKey(event);
+    if (!key) {
+      return { applied: false };
+    }
+
+    const incomingVersion = Number.isFinite(event.stateVersion)
+      ? (event.stateVersion as number)
+      : DEFAULT_STATE_VERSION;
+    const prev = this.store.get(key);
+    const prevVersion = prev?.stateVersion ?? DEFAULT_STATE_VERSION;
+
+    if (prev && incomingVersion < prevVersion) {
+      return { applied: false, snapshot: prev };
+    }
+
+    const next: MessageView = {
+      messageId: key,
+      stateVersion: Math.max(prevVersion, incomingVersion),
+      status: event.status ?? prev?.status,
+      content: event.content ?? prev?.content,
+      updatedAt: event.occurredAt || Date.now(),
+    };
+    this.store.set(key, next);
+    return { applied: true, snapshot: next };
+  }
+
+  get(messageId: string): MessageView | undefined {
+    return this.store.get(messageId);
+  }
+}
+
+const reducer = new MessageEventReducer();
+
+// 1) Handle HTTP send response (messageSent/messageFailed)
+const sendResp = await client.message.send({
+  type: 'text',
+  content: { text: 'hello' },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid',
+});
+reducer.apply(sendResp as MessageEvent);
+
+// 2) Handle WS events (newMessage/messageAcknowledged/...)
+client.on('messageAcknowledged', (evt: MessageEvent) => {
+  const { applied, snapshot } = reducer.apply(evt);
+  if (applied && snapshot) {
+    renderMessage(snapshot);
+  }
+});
+```
+
 ### Message Operations
 
 ```typescript
@@ -377,6 +475,112 @@ await client.group.quit('group-uuid');
 
 ---
 
+## RTC Module
+
+### Initialize and Orchestrate Rooms
+
+```typescript
+import { RTCProviderType } from '@openchat/sdk/rtc';
+
+// 1) Initialize local media provider (built-in: volcengine, extensible via provider registry)
+await client.rtc.init({
+  provider: RTCProviderType.VOLCENGINE,
+  providerConfig: {
+    appId: 'your-volcengine-app-id'
+  }
+});
+
+// 2) Create room on server (multi-cloud routing handled by backend RTC module)
+const room = await client.rtc.createRoom({
+  type: 'group',
+  participants: ['user-a', 'user-b'],
+  provider: 'volcengine'
+});
+
+// 3) Generate RTC token
+const token = await client.rtc.generateToken({
+  roomId: room.id
+});
+
+// 4) Join media room
+await client.rtc.joinRoom(room.id, {
+  token: token.token,
+  autoPublish: true,
+  autoSubscribe: true
+});
+```
+
+```typescript
+// If provider is omitted, SDK calls /rtc/providers/capabilities
+// and selects: recommendedPrimary -> defaultProvider (runtime-available providers only).
+await client.rtc.init({
+  providerConfigs: {
+    volcengine: { appId: 'volc-app-id' },
+    tencent: { appId: 'trtc-sdk-app-id', appKey: 'trtc-secret' },
+    alibaba: { appId: 'ali-app-id', appKey: 'ali-app-key' },
+    livekit: { appId: 'livekit-url', appKey: 'livekit-api-key' }
+  }
+});
+```
+
+Notes:
+- `tencent` is a built-in adapter, but requires runtime `TRTC` to be loaded (for example, load `trtc-js-sdk` before initialization).
+- `alibaba` is a built-in adapter, but requires runtime `AliRTC` or `AliRTCSdk` to be loaded.
+- `livekit` is a built-in adapter, but requires runtime `LivekitClient` to be loaded (for example, load LiveKit browser SDK before initialization).
+
+### Media Controls
+
+```typescript
+// Create and publish local stream
+const localStream = await client.rtc.createLocalStream({ video: true, audio: true });
+await client.rtc.publishStream(localStream.streamId);
+
+// Camera/microphone toggles (aliases: enableCamera / enableMicrophone)
+await client.rtc.enableVideo(true);
+await client.rtc.enableAudio(true);
+await client.rtc.enableCamera(false);
+await client.rtc.enableMicrophone(false);
+
+// Leave room
+await client.rtc.leaveRoom();
+```
+
+### Provider Capability Discovery
+
+```typescript
+const capabilities = await client.rtc.getProviderCapabilities();
+console.log(capabilities.defaultProvider, capabilities.activeProviders);
+```
+
+### Events
+
+```typescript
+import { RTCEvent } from '@openchat/sdk/rtc';
+
+client.rtc.on(RTCEvent.USER_JOINED, (payload) => {
+  console.log('User joined:', payload);
+});
+
+client.rtc.on(RTCEvent.USER_LEFT, (payload) => {
+  console.log('User left:', payload);
+});
+
+client.rtc.on(RTCEvent.ROOM_STATE_CHANGED, (state) => {
+  console.log('Room state:', state);
+});
+```
+
+```typescript
+import { RTCProviderFactory, RTCProviderType } from '@openchat/sdk/rtc';
+
+// Register custom provider adapter to replace placeholder implementation
+RTCProviderFactory.register(RTCProviderType.TENCENT, () => {
+  return new MyTencentProviderAdapter();
+});
+```
+
+---
+
 ## Configuration
 
 ```typescript
@@ -475,6 +679,136 @@ interface Conversation {
   isPinned: boolean;
   isMuted: boolean;
   updatedAt: string;
+}
+```
+
+---
+
+## Best Practices
+
+### React + Zustand Message State Template
+
+Use one reducer path for both HTTP send responses and WS events.
+
+```typescript
+// stores/messageStore.ts
+import { create } from 'zustand';
+import { client } from '../openchat';
+
+type MessageEvent = {
+  eventId: string;
+  eventType: string;
+  occurredAt: number;
+  stateVersion?: number;
+  serverMessageId?: string;
+  messageId?: string;
+  clientMessageId?: string;
+  status?: string;
+  content?: unknown;
+  fromUserId?: string;
+  toUserId?: string;
+  groupId?: string;
+};
+
+type MessageView = {
+  messageId: string;
+  conversationId: string;
+  stateVersion: number;
+  status?: string;
+  content?: unknown;
+  updatedAt: number;
+};
+
+interface MessageStore {
+  eventDedup: Set<string>;
+  messages: Map<string, MessageView>;
+  conversationIndex: Map<string, string[]>;
+  applyEvent: (event: MessageEvent) => { applied: boolean; message?: MessageView };
+}
+
+const DEFAULT_STATE_VERSION = -9999;
+
+function resolveMessageKey(evt: MessageEvent): string | undefined {
+  return evt.serverMessageId || evt.messageId || evt.clientMessageId;
+}
+
+function resolveConversationId(evt: MessageEvent): string {
+  if (evt.groupId) return `group:${evt.groupId}`;
+  const a = evt.fromUserId || '';
+  const b = evt.toUserId || '';
+  return `single:${[a, b].sort().join(':')}`;
+}
+
+export const useMessageStore = create<MessageStore>((set, get) => ({
+  eventDedup: new Set(),
+  messages: new Map(),
+  conversationIndex: new Map(),
+  applyEvent: (evt) => {
+    if (!evt.eventId || get().eventDedup.has(evt.eventId)) {
+      return { applied: false };
+    }
+
+    const messageId = resolveMessageKey(evt);
+    if (!messageId) {
+      return { applied: false };
+    }
+
+    const conversationId = resolveConversationId(evt);
+    const incomingVersion = Number.isFinite(evt.stateVersion)
+      ? (evt.stateVersion as number)
+      : DEFAULT_STATE_VERSION;
+    const prev = get().messages.get(messageId);
+    const prevVersion = prev?.stateVersion ?? DEFAULT_STATE_VERSION;
+    if (prev && incomingVersion < prevVersion) {
+      return { applied: false, message: prev };
+    }
+
+    const next: MessageView = {
+      messageId,
+      conversationId,
+      stateVersion: Math.max(prevVersion, incomingVersion),
+      status: evt.status ?? prev?.status,
+      content: evt.content ?? prev?.content,
+      updatedAt: evt.occurredAt || Date.now(),
+    };
+
+    set((state) => {
+      const nextDedup = new Set(state.eventDedup);
+      nextDedup.add(evt.eventId);
+
+      const nextMessages = new Map(state.messages);
+      nextMessages.set(messageId, next);
+
+      const nextIndex = new Map(state.conversationIndex);
+      const ids = nextIndex.get(conversationId) || [];
+      if (!ids.includes(messageId)) {
+        nextIndex.set(conversationId, [...ids, messageId]);
+      }
+
+      return {
+        eventDedup: nextDedup,
+        messages: nextMessages,
+        conversationIndex: nextIndex,
+      };
+    });
+
+    return { applied: true, message: next };
+  },
+}));
+
+export async function sendAndReduce(input: Record<string, unknown>) {
+  const response = await client.message.send(input as any); // messageSent/messageFailed
+  useMessageStore.getState().applyEvent(response as MessageEvent);
+}
+
+export function bindMessageEvents() {
+  const apply = useMessageStore.getState().applyEvent;
+
+  client.on('newMessage', (evt: MessageEvent) => apply(evt));
+  client.on('newGroupMessage', (evt: MessageEvent) => apply(evt));
+  client.on('messageAcknowledged', (evt: MessageEvent) => apply(evt));
+  client.on('messageRetrying', (evt: MessageEvent) => apply(evt));
+  client.on('messageFailed', (evt: MessageEvent) => apply(evt));
 }
 ```
 

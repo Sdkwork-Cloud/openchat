@@ -166,8 +166,19 @@ export class VolcengineRTCProvider extends EventEmitter implements IRTCProvider 
       this._roomState = RTCRoomState.CONNECTING;
       this.emit(RTCEvent.ROOM_STATE_CHANGED, this._roomState);
 
+      const roomId = options?.roomId || this.config?.roomId;
+      if (!roomId) {
+        throw new RTCError(
+          RTCErrorCode.ROOM_JOIN_FAILED,
+          '房间ID不能为空'
+        );
+      }
+      if (this.config) {
+        this.config.roomId = roomId;
+      }
+
       // 创建房间实例
-      this.room = this.engine.createRoom(this.config!.roomId);
+      this.room = this.engine.createRoom(roomId);
       
       if (!this.room) {
         throw new RTCError(

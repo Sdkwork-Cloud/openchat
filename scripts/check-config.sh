@@ -52,7 +52,7 @@ check_required_vars() {
         "PORT"
         "DB_HOST"
         "DB_PORT"
-        "DB_USER"
+        "DB_USERNAME"
         "DB_PASSWORD"
         "DB_NAME"
         "REDIS_HOST"
@@ -122,7 +122,7 @@ check_database() {
     
     log_check "PostgreSQL 连接"
     if command -v psql &> /dev/null; then
-        if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" &> /dev/null; then
+        if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1" &> /dev/null; then
             check_pass
         else
             check_fail
@@ -136,7 +136,7 @@ check_database() {
     # 检查数据库版本
     log_check "PostgreSQL 版本"
     if command -v psql &> /dev/null; then
-        local version=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT version()" 2>/dev/null | head -1 | tr -d ' ')
+        local version=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -t -c "SELECT version()" 2>/dev/null | head -1 | tr -d ' ')
         if [ -n "$version" ]; then
             echo -e "${GREEN}✓${NC} PostgreSQL ${version:0:20}..."
             PASS=$((PASS + 1))

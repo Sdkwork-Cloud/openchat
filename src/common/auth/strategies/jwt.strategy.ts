@@ -6,7 +6,7 @@ import { AuthStrategy, AuthResult, JWTPayload } from '../auth-strategy.interface
 
 /**
  * JWT 认证策略
- * 支持 Bearer Token 和 Query Token 两种方式
+ * 仅支持 Authorization Bearer Token
  */
 @Injectable()
 export class JWTAuthStrategy implements AuthStrategy {
@@ -23,20 +23,12 @@ export class JWTAuthStrategy implements AuthStrategy {
    * 检查是否支持该请求
    */
   canHandle(request: Request): boolean {
-    // 检查 Authorization 头
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
-      return true;
-    }
-
-    // 检查 Query 参数
-    if (request.query.token) {
-      return true;
-    }
-
-    // 检查 Cookie
-    if (request.cookies?.token) {
-      return true;
+      const token = authHeader.substring(7);
+      if (this.looksLikeJWT(token)) {
+        return true;
+      }
     }
 
     return false;
@@ -60,9 +52,16 @@ export class JWTAuthStrategy implements AuthStrategy {
         secret: this.configService.get('JWT_SECRET'),
       });
 
+      if (!payload.userId) {
+        return {
+          success: false,
+          error: 'Invalid token payload'
+        };
+      }
+
       return {
         success: true,
-        userId: payload.sub || payload.userId,
+        userId: payload.userId,
         scopes: payload.permissions || ['user:basic'],
         metadata: {
           username: payload.username,
@@ -88,22 +87,19 @@ export class JWTAuthStrategy implements AuthStrategy {
    * 提取 Token
    */
   private extractToken(request: Request): string | undefined {
-    // 1. 从 Authorization 头提取
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-
-    // 2. 从 Query 参数提取（WebSocket 场景）
-    if (typeof request.query.token === 'string') {
-      return request.query.token;
-    }
-
-    // 3. 从 Cookie 提取
-    if (request.cookies?.token) {
-      return request.cookies.token;
+      const token = authHeader.substring(7);
+      if (this.looksLikeJWT(token)) {
+        return token;
+      }
     }
 
     return undefined;
+  }
+
+  private looksLikeJWT(token: string): boolean {
+    const parts = token.split('.');
+    return parts.length === 3 && parts.every(part => part.length > 0);
   }
 }

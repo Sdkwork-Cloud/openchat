@@ -42,6 +42,19 @@ yarn add @openchat/typescript-sdk
 pnpm add @openchat/typescript-sdk
 ```
 
+## 开发与测试
+
+```bash
+# 在 SDK 目录执行
+cd sdk/typescript
+
+# RTC 专项回归（provider 可用性、自动选路、编排接口、主流程 smoke）
+npm run test:rtc
+
+# TypeScript 类型检查
+npm run typecheck
+```
+
 ## 快速开始
 
 ### 基础用法

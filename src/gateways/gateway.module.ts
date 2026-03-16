@@ -5,8 +5,20 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { WSGateway } from './ws.gateway';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { WSHeartbeatService } from './services/ws-heartbeat.service';
+import { WsAckRetryService } from './services/ws-ack-retry.service';
+import { WsGroupAuthorizationService } from './services/ws-group-authorization.service';
+import { WsGroupSessionCommandService } from './services/ws-group-session-command.service';
+import { WsMessageAckCommandService } from './services/ws-message-ack-command.service';
+import { WsMessageCommandService } from './services/ws-message-command.service';
+import { WsMessageEventEmitterService } from './services/ws-message-event-emitter.service';
+import { WsMessageTelemetryService } from './services/ws-message-telemetry.service';
+import { WsRtcSessionCommandService } from './services/ws-rtc-session-command.service';
+import { WsSystemMessageService } from './services/ws-system-message.service';
+import { WsTypingIndicatorService } from './services/ws-typing-indicator.service';
 import { RedisModule } from '../common/redis/redis.module';
 import { MessageModule } from '../modules/message/message.module';
+import { FriendModule } from '../modules/friend/friend.module';
+import { GroupModule } from '../modules/group/group.module';
 import { IMProviderModule } from '../modules/im-provider/im-provider.module';
 import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
 
@@ -18,11 +30,23 @@ import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
   imports: [
     RedisModule,
     MessageModule,
+    FriendModule,
+    GroupModule,
     IMProviderModule,
     EventEmitterModule.forRoot(),
   ],
   providers: [
     WSHeartbeatService,
+    WsAckRetryService,
+    WsGroupAuthorizationService,
+    WsGroupSessionCommandService,
+    WsTypingIndicatorService,
+    WsMessageAckCommandService,
+    WsMessageCommandService,
+    WsRtcSessionCommandService,
+    WsMessageEventEmitterService,
+    WsMessageTelemetryService,
+    WsSystemMessageService,
     WsJwtGuard,
     WsThrottlerGuard,
     JwtService,
@@ -31,6 +55,16 @@ import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
   ],
   exports: [
     WSHeartbeatService,
+    WsAckRetryService,
+    WsGroupAuthorizationService,
+    WsGroupSessionCommandService,
+    WsTypingIndicatorService,
+    WsMessageAckCommandService,
+    WsMessageCommandService,
+    WsRtcSessionCommandService,
+    WsMessageEventEmitterService,
+    WsMessageTelemetryService,
+    WsSystemMessageService,
     WSGateway,
   ],
 })

@@ -31,7 +31,7 @@ export class CrawSubmolt {
   themeColor: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'ownerId' })
+  @JoinColumn({ name: 'owner_id' })
   owner: CrawAgent;
 
   @Column({ nullable: true })
@@ -56,14 +56,14 @@ export class CrawSubmoltSubscriber {
   id: string;
 
   @ManyToOne(() => CrawSubmolt)
-  @JoinColumn({ name: 'submoltId' })
+  @JoinColumn({ name: 'submolt_id' })
   submolt: CrawSubmolt;
 
   @Column()
   submoltId: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'agentId' })
+  @JoinColumn({ name: 'agent_id' })
   agent: CrawAgent;
 
   @Column()
@@ -79,14 +79,14 @@ export class CrawSubmoltModerator {
   id: string;
 
   @ManyToOne(() => CrawSubmolt)
-  @JoinColumn({ name: 'submoltId' })
+  @JoinColumn({ name: 'submolt_id' })
   submolt: CrawSubmolt;
 
   @Column()
   submoltId: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'agentId' })
+  @JoinColumn({ name: 'agent_id' })
   agent: CrawAgent;
 
   @Column()
@@ -105,14 +105,14 @@ export class CrawFollow {
   id: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'followerId' })
+  @JoinColumn({ name: 'follower_id' })
   follower: CrawAgent;
 
   @Column()
   followerId: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'followingId' })
+  @JoinColumn({ name: 'following_id' })
   following: CrawAgent;
 
   @Column()
@@ -128,7 +128,7 @@ export class CrawVote {
   id: string;
 
   @ManyToOne(() => CrawAgent)
-  @JoinColumn({ name: 'agentId' })
+  @JoinColumn({ name: 'agent_id' })
   agent: CrawAgent;
 
   @Column()

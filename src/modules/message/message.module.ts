@@ -7,6 +7,11 @@ import { MessageDeduplicationService } from './message-deduplication.service';
 import { MessageSearchService } from './message-search.service';
 import { MessageSearchController } from './message-search.controller';
 import { Message } from './message.entity';
+import { MessageReceipt } from './message-receipt.entity';
+import { MessageReaction } from './message-reaction.entity';
+import { MessageReactionService } from './message-reaction.service';
+import { MessageReceiptService } from './message-receipt.service';
+import { MessageSequenceService } from './services/message-sequence.service';
 import { Friend } from '../friend/friend.entity';
 import { GroupMember } from '../group/group-member.entity';
 import { ConversationModule } from '../conversation/conversation.module';
@@ -17,7 +22,7 @@ import { RedisModule } from '../../common/redis/redis.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Message, Friend, GroupMember]),
+    TypeOrmModule.forFeature([Message, MessageReceipt, MessageReaction, Friend, GroupMember]),
     ConversationModule,
     ContactModule,
     IMProviderModule,
@@ -30,6 +35,9 @@ import { RedisModule } from '../../common/redis/redis.module';
     MessageFilterService,
     MessageDeduplicationService,
     MessageSearchService,
+    MessageReactionService,
+    MessageReceiptService,
+    MessageSequenceService,
   ],
   controllers: [MessageController, MessageSearchController],
   exports: [
@@ -37,6 +45,9 @@ import { RedisModule } from '../../common/redis/redis.module';
     MessageFilterService,
     MessageDeduplicationService,
     MessageSearchService,
+    MessageReactionService,
+    MessageReceiptService,
+    MessageSequenceService,
   ],
 })
 export class MessageModule {}

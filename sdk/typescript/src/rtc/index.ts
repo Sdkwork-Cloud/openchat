@@ -14,10 +14,14 @@ export { RTCSignaling } from './signaling';
 
 // ==================== Provider导出 ====================
 export { VolcengineRTCProvider } from './providers/volcengine-provider';
+export { TencentRTCProvider } from './providers/tencent-provider';
+export { AlibabaRTCProvider } from './providers/alibaba-provider';
+export { LiveKitRTCProvider } from './providers/livekit-provider';
+export { UnsupportedRTCProvider } from './providers/unsupported-provider';
 
 // ==================== Provider工厂 ====================
 import { IRTCProvider, RTCProviderType, RTCError, RTCErrorCode } from './types';
-import { VolcengineRTCProvider } from './providers/volcengine-provider';
+import { RTCManager } from './rtc-manager';
 
 /**
  * RTC Provider工厂
@@ -28,34 +32,28 @@ export class RTCProviderFactory {
    * 创建Provider实例
    */
   static create(type: RTCProviderType): IRTCProvider {
-    switch (type) {
-      case RTCProviderType.VOLCENGINE:
-        return new VolcengineRTCProvider();
-
-      // 可以扩展其他Provider
-      // case RTCProviderType.AGORA:
-      //   return new AgoraRTCProvider();
-
-      // case RTCProviderType.TRTC:
-      //   return new TRTCProvider();
-
-      default:
-        throw new RTCError(
-          RTCErrorCode.INVALID_PARAM,
-          `Unsupported RTC provider: ${type}`
-        );
+    const provider = RTCManager.createProviderInstance(type);
+    if (provider) {
+      return provider;
     }
+    throw new RTCError(
+      RTCErrorCode.INVALID_PARAM,
+      `Unsupported RTC provider: ${type}`
+    );
   }
 
   /**
    * 获取支持的Provider类型列表
    */
   static getSupportedProviders(): RTCProviderType[] {
-    return [
-      RTCProviderType.VOLCENGINE,
-      // RTCProviderType.AGORA,
-      // RTCProviderType.TRTC,
-    ];
+    return RTCManager.getSupportedProviders();
+  }
+
+  /**
+   * 获取当前可直接运行的Provider（不含占位实现）
+   */
+  static getAvailableProviders(): RTCProviderType[] {
+    return RTCManager.getAvailableProviders();
   }
 
   /**
@@ -63,6 +61,31 @@ export class RTCProviderFactory {
    */
   static isSupported(type: RTCProviderType): boolean {
     return this.getSupportedProviders().includes(type);
+  }
+
+  /**
+   * 检查Provider是否可直接运行（占位实现返回false）
+   */
+  static isAvailable(type: RTCProviderType): boolean {
+    return RTCManager.isProviderAvailable(type);
+  }
+
+  /**
+   * 注册自定义Provider工厂
+   */
+  static register(
+    type: RTCProviderType,
+    factory: () => IRTCProvider,
+    options?: { availability?: 'full' | 'placeholder' | 'custom' },
+  ): void {
+    RTCManager.registerProvider(type, factory, options);
+  }
+
+  /**
+   * 注销Provider工厂
+   */
+  static unregister(type: RTCProviderType): void {
+    RTCManager.unregisterProvider(type);
   }
 }
 

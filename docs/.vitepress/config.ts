@@ -132,7 +132,8 @@ const zhConfig = {
         {
           text: '集成功能',
           items: [
-            { text: '第三方集成', link: '/zh/api/third-party' }
+            { text: '第三方集成', link: '/zh/api/third-party' },
+            { text: '开放接入', link: '/zh/api/open-access' }
           ]
         }
       ],
@@ -338,7 +339,8 @@ const enConfig = {
         {
           text: 'Integrations',
           items: [
-            { text: 'Third-party Integration', link: '/en/api/third-party' }
+            { text: 'Third-party Integration', link: '/en/api/third-party' },
+            { text: 'Open Access', link: '/en/api/open-access' }
           ]
         }
       ],

@@ -19,6 +19,8 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Observable, from } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 import { AgentService } from './agent.service';
 import { AgentRuntimeService } from './services/agent-runtime.service';
 import { ToolRegistry } from './tools/tool-registry.service';
@@ -29,6 +31,7 @@ import { AgentError, AgentErrorCode } from './errors/agent.errors';
 
 @ApiTags('Agent')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('agents')
 export class AgentController {
   constructor(
@@ -41,8 +44,8 @@ export class AgentController {
   @Post()
   @ApiOperation({ summary: 'Create a new agent' })
   @ApiResponse({ status: 201, description: 'Agent created successfully' })
-  async createAgent(@Body() data: CreateAgent, @Req() req: any) {
-    const userId = req.user?.id || 'system';
+  async createAgent(@Body() data: CreateAgent, @Req() req: AuthenticatedRequest) {
+    const userId = req.auth.userId;
     return this.agentService.createAgent(userId, {
       name: data.name,
       description: data.description,
@@ -56,8 +59,8 @@ export class AgentController {
   @Get()
   @ApiOperation({ summary: 'Get all agents for current user' })
   @ApiResponse({ status: 200, description: 'List of agents' })
-  async getAgents(@Req() req: any, @Query('public') isPublic?: string) {
-    const userId = req.user?.id || 'system';
+  async getAgents(@Req() req: AuthenticatedRequest, @Query('public') isPublic?: string) {
+    const userId = req.auth.userId;
     
     if (isPublic === 'true') {
       return this.agentService.getPublicAgents();
@@ -84,9 +87,9 @@ export class AgentController {
   async updateAgent(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() data: UpdateAgent,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.id || 'system';
+    const userId = req.auth.userId;
     return this.agentService.updateAgent(id, userId, {
       name: data.name,
       description: data.description,
@@ -101,8 +104,8 @@ export class AgentController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete agent' })
   @ApiResponse({ status: 200, description: 'Agent deleted successfully' })
-  async deleteAgent(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    const userId = req.user?.id || 'system';
+  async deleteAgent(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.auth.userId;
     const success = await this.agentService.deleteAgent(id, userId);
     if (!success) {
       throw AgentError.agentNotFound(id);
@@ -116,9 +119,9 @@ export class AgentController {
   async createSession(
     @Param('id', ParseUUIDPipe) agentId: string,
     @Body() data: CreateSession,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.id || 'system';
+    const userId = req.auth.userId;
     return this.agentService.createSession(agentId, userId, data.title);
   }
 
@@ -127,10 +130,10 @@ export class AgentController {
   @ApiResponse({ status: 200, description: 'List of sessions' })
   async getSessions(
     @Param('id', ParseUUIDPipe) agentId: string,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('limit') limit?: number,
   ) {
-    const userId = req.user?.id || 'system';
+    const userId = req.auth.userId;
     return this.agentService.getSessionsByUser(agentId, userId, limit || 20);
   }
 
@@ -150,9 +153,9 @@ export class AgentController {
   @ApiResponse({ status: 200, description: 'Session deleted successfully' })
   async deleteSession(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.id || 'system';
+    const userId = req.auth.userId;
     const success = await this.agentService.deleteSession(sessionId, userId);
     if (!success) {
       throw AgentError.sessionNotFound(sessionId);
@@ -177,9 +180,9 @@ export class AgentController {
   async sendMessage(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
     @Body() data: SendAgentMessage,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.id || 'system';
+    const userId = req.auth.userId;
     const session = await this.agentService.getSession(sessionId);
     
     if (!session) {
@@ -253,9 +256,9 @@ export class AgentController {
   async streamMessage(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
     @Body() data: SendAgentMessage,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.id || 'system';
+    const userId = req.auth.userId;
     const session = await this.agentService.getSession(sessionId);
     
     if (!session) {

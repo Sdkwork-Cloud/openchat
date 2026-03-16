@@ -219,7 +219,7 @@ export abstract class BaseEntityService<T extends BaseEntity & ObjectLiteral> {
       take: pagination.limit,
     });
 
-    return PagedResponseDto.create(list, { page: pagination.page, pageSize: pagination.pageSize, total });
+    return PagedResponseDto.page(list, { page: pagination.page, pageSize: pagination.pageSize, total });
   }
 
   async findWithCursor(

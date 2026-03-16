@@ -1,9 +1,13 @@
-import { Controller, Post, Get, Put, Delete, Param, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import { Controller, Post, Get, Put, Delete, Param, Body, HttpCode, HttpStatus, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AIBotService } from './ai-bot.service';
 import { AIBot, BotMessage } from './ai-bot.interface';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
 
 @ApiTags('AI Bot')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('ai-bots')
 export class AIBotController {
   constructor(private readonly aiBotService: AIBotService) {}
@@ -111,15 +115,19 @@ export class AIBotController {
         userId: { type: 'string' },
         message: { type: 'string' },
       },
-      required: ['userId', 'message'],
+      required: ['message'],
     },
   })
   @ApiResponse({ status: 200, description: 'Message processed successfully' })
   async processMessage(
     @Param('id') botId: string,
-    @Body('userId') userId: string,
+    @Request() req: AuthenticatedRequest,
     @Body('message') message: string,
+    @Body('userId') userId?: string,
   ): Promise<BotMessage> {
-    return this.aiBotService.processMessage(botId, userId, message);
+    if (userId && userId !== req.auth.userId) {
+      throw new ForbiddenException('Cannot process AI bot message for another user');
+    }
+    return this.aiBotService.processMessage(botId, req.auth.userId, message);
   }
 }

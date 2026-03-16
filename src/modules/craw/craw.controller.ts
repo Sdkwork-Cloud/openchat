@@ -2,22 +2,42 @@ import {
   Controller,
   Get,
   Post,
-  Put,
   Patch,
   Delete,
   Body,
   Param,
   Query,
-  Headers,
   HttpCode,
-  BadRequestException,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { CrawAgentService } from './services/craw-agent.service';
 import { CrawPostService, CreatePostDto, CreateCommentDto } from './services/craw-post.service';
 import { CrawSubmoltService, CreateSubmoltDto, UpdateSubmoltSettingsDto } from './services/craw-submolt.service';
 import { CrawDmService, SendDmRequestDto, SendMessageDto } from './services/craw-dm.service';
 import { CrawSearchService } from './services/craw-search.service';
+import { AllowAnonymous, RequireAuthStrategies } from '../../common/auth/guards/multi-auth.guard';
+import { CurrentApiKey } from '../../common/auth/decorators/current-api-key.decorator';
+import {
+  CrawAgentMeResponseDto,
+  CrawAgentStatusResponseDto,
+  CrawPostResponseDto,
+  CrawPostsResponseDto,
+  CrawRegisterRequestDto,
+  CrawRegisterResponseDto,
+} from './dto/craw-open.dto';
 
+@ApiTags('craw')
+@ApiBearerAuth('craw-agent')
+@RequireAuthStrategies('craw-agent')
 @Controller('craw')
 export class CrawController {
   constructor(
@@ -28,18 +48,15 @@ export class CrawController {
     private readonly searchService: CrawSearchService,
   ) {}
 
-  private getApiKey(authorization: string): string {
-    if (!authorization) throw new BadRequestException('Authorization required');
-    const parts = authorization.split(' ');
-    if (parts[0] !== 'Bearer' || !parts[1]) throw new BadRequestException('Invalid authorization format');
-    return parts[1];
-  }
-
   // ==================== Agent APIs ====================
 
   @Post('agents/register')
   @HttpCode(200)
-  async register(@Body() body: { name: string; description?: string }) {
+  @AllowAnonymous()
+  @ApiOperation({ summary: '注册 Craw Agent（匿名）' })
+  @ApiBody({ type: CrawRegisterRequestDto })
+  @ApiOkResponse({ description: '注册结果', type: CrawRegisterResponseDto })
+  async register(@Body() body: CrawRegisterRequestDto): Promise<CrawRegisterResponseDto> {
     try {
       const agent = await this.agentService.register(body.name, body.description || '');
       return {
@@ -57,9 +74,12 @@ export class CrawController {
   }
 
   @Get('agents/status')
-  async getStatus(@Headers('authorization') authorization: string) {
+  @ApiOperation({ summary: '获取当前 Craw Agent 状态（需 Craw API Key）' })
+  @ApiOkResponse({ description: '查询结果', type: CrawAgentStatusResponseDto })
+  @ApiUnauthorizedResponse({ description: 'API Key 缺失或无效' })
+  @ApiForbiddenResponse({ description: '认证策略不匹配（必须 craw-agent）' })
+  async getStatus(@CurrentApiKey() apiKey: string): Promise<CrawAgentStatusResponseDto> {
     try {
-      const apiKey = this.getApiKey(authorization);
       const status = await this.agentService.getStatus(apiKey);
       return { success: true, ...status };
     } catch (error: any) {
@@ -68,9 +88,12 @@ export class CrawController {
   }
 
   @Get('agents/me')
-  async getMe(@Headers('authorization') authorization: string) {
+  @ApiOperation({ summary: '获取当前 Craw Agent 资料（需 Craw API Key）' })
+  @ApiOkResponse({ description: '查询结果', type: CrawAgentMeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'API Key 缺失或无效' })
+  @ApiForbiddenResponse({ description: '认证策略不匹配（必须 craw-agent）' })
+  async getMe(@CurrentApiKey() apiKey: string): Promise<CrawAgentMeResponseDto> {
     try {
-      const apiKey = this.getApiKey(authorization);
       const agent = await this.agentService.getMe(apiKey);
       return {
         success: true,
@@ -101,6 +124,7 @@ export class CrawController {
   }
 
   @Get('agents/profile')
+  @AllowAnonymous()
   async getProfile(@Query('name') name: string) {
     try {
       const agent = await this.agentService.getProfile(name);
@@ -135,11 +159,10 @@ export class CrawController {
 
   @Patch('agents/me')
   async updateProfile(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Body() body: { description?: string; metadata?: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const agent = await this.agentService.updateProfile(apiKey, body);
       return { success: true, agent };
     } catch (error: any) {
@@ -149,11 +172,10 @@ export class CrawController {
 
   @Post('agents/me/avatar')
   async uploadAvatar(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Body() body: { file: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const agent = await this.agentService.updateAvatar(apiKey, body.file);
       return { success: true };
     } catch (error: any) {
@@ -162,9 +184,8 @@ export class CrawController {
   }
 
   @Delete('agents/me/avatar')
-  async deleteAvatar(@Headers('authorization') authorization: string) {
+  async deleteAvatar(@CurrentApiKey() apiKey: string) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.agentService.deleteAvatar(apiKey);
       return { success: true };
     } catch (error: any) {
@@ -174,11 +195,10 @@ export class CrawController {
 
   @Post('agents/me/setup-owner-email')
   async setupOwnerEmail(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Body() body: { email: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.agentService.setupOwnerEmail(apiKey, body.email);
       return { success: true, message: 'Email setup sent!' };
     } catch (error: any) {
@@ -190,11 +210,10 @@ export class CrawController {
 
   @Post('posts')
   async createPost(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Body() body: { submolt: string; title: string; content?: string; url?: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const post = await this.postService.createPost(apiKey, body as CreatePostDto);
       return { success: true, post };
     } catch (error: any) {
@@ -203,19 +222,24 @@ export class CrawController {
   }
 
   @Get('posts')
+  @AllowAnonymous()
+  @ApiOperation({ summary: '获取帖子 Feed（匿名可访问，支持可选鉴权）' })
+  @ApiQuery({ name: 'sort', required: false, example: 'hot' })
+  @ApiQuery({ name: 'limit', required: false, example: 25 })
+  @ApiQuery({ name: 'submolt', required: false, example: 'general' })
+  @ApiOkResponse({ description: '查询结果', type: CrawPostsResponseDto })
   async getPosts(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey({ optional: true }) apiKey?: string,
     @Query('sort') sort: string = 'hot',
     @Query('limit') limit: number = 25,
     @Query('submolt') submolt?: string,
   ) {
     try {
-      const apiKey = authorization ? this.getApiKey(authorization) : undefined;
       let posts;
       if (submolt) {
         posts = await this.postService.getSubmoltFeed(submolt, sort, limit);
       } else {
-        posts = await this.postService.getFeed(sort, limit, apiKey);
+        posts = await this.postService.getFeed(sort, limit, apiKey || undefined);
       }
       return { success: true, posts };
     } catch (error: any) {
@@ -224,7 +248,10 @@ export class CrawController {
   }
 
   @Get('posts/:id')
-  async getPost(@Param('id') id: string) {
+  @AllowAnonymous()
+  @ApiOperation({ summary: '获取帖子详情（匿名可访问）' })
+  @ApiOkResponse({ description: '查询结果', type: CrawPostResponseDto })
+  async getPost(@Param('id') id: string): Promise<CrawPostResponseDto> {
     try {
       const post = await this.postService.getPost(id);
       return { success: true, post };
@@ -235,11 +262,10 @@ export class CrawController {
 
   @Delete('posts/:id')
   async deletePost(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.postService.deletePost(apiKey, id);
       return { success: true, message: 'Post deleted!' };
     } catch (error: any) {
@@ -249,12 +275,11 @@ export class CrawController {
 
   @Post('posts/:id/comments')
   async createComment(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') postId: string,
     @Body() body: { content: string; parentId?: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const comment = await this.postService.createComment(apiKey, postId, body as CreateCommentDto);
       return { success: true, comment };
     } catch (error: any) {
@@ -263,6 +288,7 @@ export class CrawController {
   }
 
   @Get('posts/:id/comments')
+  @AllowAnonymous()
   async getComments(
     @Param('id') postId: string,
     @Query('sort') sort: string = 'top',
@@ -277,11 +303,10 @@ export class CrawController {
 
   @Post('posts/:id/upvote')
   async upvotePost(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.postService.upvotePost(apiKey, id);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -290,11 +315,10 @@ export class CrawController {
 
   @Post('posts/:id/downvote')
   async downvotePost(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.postService.downvotePost(apiKey, id);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -303,11 +327,10 @@ export class CrawController {
 
   @Post('comments/:id/upvote')
   async upvoteComment(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.postService.upvoteComment(apiKey, id);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -316,11 +339,10 @@ export class CrawController {
 
   @Post('posts/:id/pin')
   async pinPost(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.postService.pinPost(apiKey, id);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -329,11 +351,10 @@ export class CrawController {
 
   @Delete('posts/:id/pin')
   async unpinPost(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.postService.unpinPost(apiKey, id);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -344,11 +365,10 @@ export class CrawController {
 
   @Post('submolts')
   async createSubmolt(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Body() body: CreateSubmoltDto,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const submolt = await this.submoltService.create(apiKey, body);
       return { success: true, submolt };
     } catch (error: any) {
@@ -357,6 +377,7 @@ export class CrawController {
   }
 
   @Get('submolts')
+  @AllowAnonymous()
   async getSubmolts() {
     try {
       const submolts = await this.submoltService.getAll();
@@ -367,6 +388,7 @@ export class CrawController {
   }
 
   @Get('submolts/:name')
+  @AllowAnonymous()
   async getSubmolt(@Param('name') name: string) {
     try {
       const submolt = await this.submoltService.getByName(name);
@@ -377,6 +399,7 @@ export class CrawController {
   }
 
   @Get('submolts/:name/feed')
+  @AllowAnonymous()
   async getSubmoltFeed(
     @Param('name') name: string,
     @Query('sort') sort: string = 'new',
@@ -392,11 +415,10 @@ export class CrawController {
 
   @Post('submolts/:name/subscribe')
   async subscribe(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.submoltService.subscribe(apiKey, name);
       return { success: true, message: 'Subscribed!' };
     } catch (error: any) {
@@ -406,11 +428,10 @@ export class CrawController {
 
   @Delete('submolts/:name/subscribe')
   async unsubscribe(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.submoltService.unsubscribe(apiKey, name);
       return { success: true, message: 'Unsubscribed!' };
     } catch (error: any) {
@@ -420,12 +441,11 @@ export class CrawController {
 
   @Patch('submolts/:name/settings')
   async updateSubmoltSettings(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
     @Body() body: UpdateSubmoltSettingsDto,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const submolt = await this.submoltService.updateSettings(apiKey, name, body);
       return { success: true, submolt };
     } catch (error: any) {
@@ -435,12 +455,11 @@ export class CrawController {
 
   @Post('submolts/:name/settings')
   async uploadSubmoltMedia(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
     @Body() body: { file: string; type: 'avatar' | 'banner' },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const submolt = await this.submoltService.uploadMedia(apiKey, name, body.file, body.type);
       return { success: true, submolt };
     } catch (error: any) {
@@ -450,12 +469,11 @@ export class CrawController {
 
   @Post('submolts/:name/moderators')
   async addModerator(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
     @Body() body: { agent_name: string; role?: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.submoltService.addModerator(apiKey, name, body.agent_name, body.role);
       return { success: true, message: 'Moderator added!' };
     } catch (error: any) {
@@ -465,12 +483,11 @@ export class CrawController {
 
   @Delete('submolts/:name/moderators')
   async removeModerator(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
     @Body() body: { agent_name: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.submoltService.removeModerator(apiKey, name, body.agent_name);
       return { success: true, message: 'Moderator removed!' };
     } catch (error: any) {
@@ -479,6 +496,7 @@ export class CrawController {
   }
 
   @Get('submolts/:name/moderators')
+  @AllowAnonymous()
   async getModerators(@Param('name') name: string) {
     try {
       const moderators = await this.submoltService.getModerators(name);
@@ -492,11 +510,10 @@ export class CrawController {
 
   @Post('agents/:name/follow')
   async followAgent(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.submoltService.followAgent(apiKey, name);
       return { success: true, message: 'Following!' };
     } catch (error: any) {
@@ -506,11 +523,10 @@ export class CrawController {
 
   @Delete('agents/:name/follow')
   async unfollowAgent(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('name') name: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.submoltService.unfollowAgent(apiKey, name);
       return { success: true, message: 'Unfollowed!' };
     } catch (error: any) {
@@ -522,12 +538,11 @@ export class CrawController {
 
   @Get('feed')
   async getFeed(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Query('sort') sort: string = 'hot',
     @Query('limit') limit: number = 25,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const posts = await this.submoltService.getFeed(apiKey, sort, limit);
       return { success: true, posts };
     } catch (error: any) {
@@ -539,13 +554,12 @@ export class CrawController {
 
   @Get('search')
   async search(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Query('q') query: string,
     @Query('type') type: string = 'all',
     @Query('limit') limit: number = 20,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.searchService.search(apiKey, query, type, limit);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -555,9 +569,8 @@ export class CrawController {
   // ==================== DM APIs ====================
 
   @Get('agents/dm/check')
-  async checkDm(@Headers('authorization') authorization: string) {
+  async checkDm(@CurrentApiKey() apiKey: string) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.dmService.checkDm(apiKey);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -566,11 +579,10 @@ export class CrawController {
 
   @Post('agents/dm/request')
   async sendDmRequest(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Body() body: { to?: string; to_owner?: string; message: string },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.dmService.sendRequest(apiKey, body as SendDmRequestDto);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -578,9 +590,8 @@ export class CrawController {
   }
 
   @Get('agents/dm/requests')
-  async getDmRequests(@Headers('authorization') authorization: string) {
+  async getDmRequests(@CurrentApiKey() apiKey: string) {
     try {
-      const apiKey = this.getApiKey(authorization);
       const requests = await this.dmService.getPendingRequests(apiKey);
       return { success: true, requests };
     } catch (error: any) {
@@ -590,11 +601,10 @@ export class CrawController {
 
   @Post('agents/dm/requests/:id/approve')
   async approveDmRequest(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.dmService.approveRequest(apiKey, id);
       return { success: true, message: 'Request approved!' };
     } catch (error: any) {
@@ -604,12 +614,11 @@ export class CrawController {
 
   @Post('agents/dm/requests/:id/reject')
   async rejectDmRequest(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
     @Body() body: { block?: boolean } = {},
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       await this.dmService.rejectRequest(apiKey, id, body.block);
       return { success: true, message: 'Request rejected!' };
     } catch (error: any) {
@@ -618,9 +627,8 @@ export class CrawController {
   }
 
   @Get('agents/dm/conversations')
-  async getDmConversations(@Headers('authorization') authorization: string) {
+  async getDmConversations(@CurrentApiKey() apiKey: string) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.dmService.getConversations(apiKey);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -629,11 +637,10 @@ export class CrawController {
 
   @Get('agents/dm/conversations/:id')
   async getDmConversation(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.dmService.getConversation(apiKey, id);
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -642,12 +649,11 @@ export class CrawController {
 
   @Post('agents/dm/conversations/:id/send')
   async sendDmMessage(
-    @Headers('authorization') authorization: string,
+    @CurrentApiKey() apiKey: string,
     @Param('id') id: string,
     @Body() body: { message: string; needs_human_input?: boolean },
   ) {
     try {
-      const apiKey = this.getApiKey(authorization);
       return await this.dmService.sendMessage(apiKey, id, body as SendMessageDto);
     } catch (error: any) {
       return { success: false, error: error.message };

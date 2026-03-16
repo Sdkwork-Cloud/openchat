@@ -1,0 +1,56 @@
+# ============================================
+# Prometheus 告警规则
+# OpenChat WebSocket Presence ACL Cache
+# ============================================
+
+groups:
+  - name: openchat-ws-presence-acl
+    rules:
+      - alert: WsPresenceAclCacheHitRateLow
+        expr: |
+          (
+            sum(rate(ws_presence_acl_cache_access_total{result="hit"}[10m]))
+            /
+            clamp_min(sum(rate(ws_presence_acl_cache_access_total[10m])), 0.001)
+          ) < 0.70
+          and
+          sum(rate(ws_presence_acl_cache_access_total[10m])) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          component: ws_presence_acl
+        annotations:
+          summary: "Presence ACL 缓存命中率过低"
+          description: "10 分钟窗口命中率低于 70%，可能导致同群 ACL 查库压力上升。"
+
+      - alert: WsPresenceAclCacheCapacityHigh
+        expr: ws_presence_acl_cache_entries_current / 50000 > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          component: ws_presence_acl
+        annotations:
+          summary: "Presence ACL 缓存容量接近上限"
+          description: "缓存条目超过上限的 90%，可能触发频繁容量淘汰。"
+
+      - alert: WsPresenceAclEventInvalidationSpike
+        expr: |
+          sum(rate(ws_presence_acl_cache_invalidations_total{trigger="event"}[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          component: ws_presence_acl
+        annotations:
+          summary: "Presence ACL 事件驱动失效突增"
+          description: "5 分钟窗口事件失效率超过 20/s，可能出现好友/群关系风暴或异常重放。"
+
+      - alert: WsPresenceAclCacheMissQpsHigh
+        expr: |
+          sum(rate(ws_presence_acl_cache_access_total{result="miss"}[5m])) > 50
+        for: 5m
+        labels:
+          severity: critical
+          component: ws_presence_acl
+        annotations:
+          summary: "Presence ACL 缓存未命中 QPS 过高"
+          description: "5 分钟窗口未命中超过 50/s，请检查 ACL 失效策略与关系变更流量。"

@@ -93,10 +93,10 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 
 ```bash
 # Linux / macOS
-pnpm run precheck
+./scripts/precheck.sh
 
 # Windows
-pnpm run precheck:win
+scripts\precheck.bat
 ```
 
 安装前检查脚本将验证：
@@ -112,8 +112,8 @@ pnpm run precheck:win
 # 快速启动（一条命令启动所有服务）
 docker compose -f docker-compose.quick.yml up -d
 
-# 或使用 npm 脚本
-pnpm run docker:quick
+# 或使用部署脚本（会做依赖和端口检查）
+./scripts/docker-deploy.sh install
 
 # 查看服务状态
 docker compose ps
@@ -126,21 +126,24 @@ docker compose logs -f
 
 ```bash
 # 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
+git clone <your-openchat-repo-url> openchat-server
+cd openchat-server
 
 # 安装依赖
-pnpm install
+npm install
 
 # 配置环境
-cp .env.example .env
-vim .env
+cp .env.example .env.development
+vim .env.development
 
-# 使用 Docker 启动
-pnpm run docker:quick
+# 初始化数据库（全新库）
+./scripts/init-database.sh development
+
+# 存量库升级（可重复执行）
+./scripts/apply-db-patches.sh development
 
 # 或开发模式启动
-pnpm run dev
+npm run start:dev
 ```
 
 ### 验证安装
@@ -153,7 +156,7 @@ curl http://localhost:3000/health
 open http://localhost:3000/api/docs
 
 # 运行健康检查脚本
-pnpm run health
+./scripts/health-check.sh
 ```
 
 ### 访问地址
@@ -327,7 +330,9 @@ http://localhost:3000/api/docs
 
 ### 完整 API 文档
 
-详细 API 文档请参考 [API 文档](./docs/api/index.md)
+详细 API 文档请参考 [API 文档](./docs/zh/api/index.md)。
+
+部署与安装命令速查请参考 [命令速查](./docs/COMMANDS_CN.md)。
 
 ---
 
@@ -567,7 +572,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e DB_HOST=your-db-host \
   -e DB_PORT=5432 \
-  -e DB_USER=openchat \
+  -e DB_USERNAME=openchat \
   -e DB_PASSWORD=your-password \
   -e DB_NAME=openchat \
   -e REDIS_HOST=your-redis-host \
@@ -600,29 +605,26 @@ kubectl get pods -n openchat
 
 ```bash
 # 启动开发服务器
-pnpm run start:dev
+npm run start:dev
 
 # 代码格式化
-pnpm run format
+npm run format
 
 # 代码检查
-pnpm run lint
+npm run lint
 
 # 类型检查
-pnpm run typecheck
+npm run lint:types
 ```
 
-### 数据库迁移
+### 数据库初始化与补丁
 
 ```bash
-# 生成迁移文件
-pnpm run migration:generate -- -n MigrationName
+# 全新数据库初始化（schema + 可选 seed）
+./scripts/init-database.sh development
 
-# 运行迁移
-pnpm run migration:run
-
-# 回滚迁移
-pnpm run migration:revert
+# 存量数据库补丁升级（patches）
+./scripts/apply-db-patches.sh development
 ```
 
 ---
@@ -631,16 +633,16 @@ pnpm run migration:revert
 
 ```bash
 # 运行单元测试
-pnpm run test
+npm run test
 
 # 运行测试覆盖率
-pnpm run test:cov
+npm run test:cov
 
 # 运行 E2E 测试
-pnpm run test:e2e
+npm run test:e2e
 
 # 监视模式
-pnpm run test:watch
+npm run test:watch
 ```
 
 ---
@@ -701,7 +703,7 @@ OpenChat 提供了一套完整的诊断和修复工具：
 2. 恢复中断的安装：`./scripts/install-manager.sh resume`
 3. 重置安装：`./scripts/install-manager.sh reset`
 
-详细故障排除指南请参考 [安装文档](./docs/deploy/installation.md)
+详细故障排除指南请参考 [安装文档](./INSTALL_CN.md) 与 [命令速查](./docs/COMMANDS_CN.md)
 
 ---
 

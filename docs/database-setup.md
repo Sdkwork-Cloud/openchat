@@ -170,6 +170,9 @@ DB_CHARSET=utf8
 # 注意：必须使用 -h localhost 强制使用密码认证
 psql -h localhost -U sdkwork_dev -d sdkwork_chat_dev -f database/schema.sql
 
+# 存量库升级：执行在线补丁（建议每次发版前执行）
+./scripts/apply-db-patches.sh dev
+
 # 方式二：使用初始化脚本
 ./scripts/init-database.ps1 -Environment dev
 
@@ -377,6 +380,9 @@ sudo ufw enable
 # 创建数据库架构
 psql -h localhost -U sdkwork_prod -d sdkwork_chat -f database/schema.sql
 
+# 存量生产库补丁（先于应用发布）
+./scripts/apply-db-patches.sh prod
+
 # （可选）执行索引优化
 psql -h localhost -U sdkwork_prod -d sdkwork_chat -f database/indexes-optimization.sql
 
@@ -405,6 +411,9 @@ psql -h localhost -U sdkwork_prod -d sdkwork_chat -f database/indexes-optimizati
 ```bash
 # 使用初始化脚本
 ./scripts/init-database.sh dev
+
+# 执行在线补丁脚本（存量库）
+./scripts/apply-db-patches.sh dev
 
 # 测试环境
 ./scripts/init-database.sh test

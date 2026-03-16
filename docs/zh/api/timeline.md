@@ -84,7 +84,7 @@
   - 点赞/取消点赞（支持显式 `liked` 或 toggle）。
 
 ## Cursor 规范
-- Base64URL JSON（向后兼容 legacy Base64）:
+- Base64URL JSON:
   - `{"sortScore":"1735700000000","postId":"192000000000000001"}`
 - 翻页条件：
   - `(sort_score < cursor.sortScore) OR (sort_score = cursor.sortScore AND post_id < cursor.postId)`

@@ -4,7 +4,7 @@
  */
 
 import { Controller, Get, Post, Body, Query, Logger, UseGuards, Request } from '@nestjs/common';
-import { Request as ExpressRequest } from 'express';
+import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
 import { WukongIMService } from './wukongim.service';
 import { WukongIMChannelType } from './wukongim.constants';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -25,10 +25,10 @@ export class WukongIMController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '获取悟空IM连接配置' })
   @ApiResponse({ status: 200, description: '返回连接配置' })
-  async getConfig(@Request() req: ExpressRequest & { user: { id: string } }) {
-    this.logger.log(`获取悟空IM连接配置: ${req.user.id}`);
+  async getConfig(@Request() req: AuthenticatedRequest) {
+    this.logger.log(`获取悟空IM连接配置: ${req.auth.userId}`);
     
-    const config = this.wukongIMService.getConnectionConfig(req.user.id);
+    const config = this.wukongIMService.getConnectionConfig(req.auth.userId);
     
     return {
       success: true,
@@ -45,10 +45,10 @@ export class WukongIMController {
   @ApiOperation({ summary: '获取悟空IM用户Token' })
   @ApiResponse({ status: 200, description: '返回Token' })
   async getToken(
-    @Request() req: ExpressRequest & { user: { id: string } },
+    @Request() req: AuthenticatedRequest,
   ) {
     try {
-      const token = await this.wukongIMService.getUserToken(req.user.id);
+      const token = await this.wukongIMService.getUserToken(req.auth.userId);
 
       return {
         success: true,
@@ -72,7 +72,7 @@ export class WukongIMController {
   @ApiOperation({ summary: '发送消息' })
   @ApiResponse({ status: 200, description: '消息发送成功' })
   async sendMessage(
-    @Request() req: ExpressRequest & { user: { id: string } },
+    @Request() req: AuthenticatedRequest,
     @Body() body: {
       channelId: string;
       channelType: number;
@@ -84,7 +84,7 @@ export class WukongIMController {
       const result = await this.wukongIMService.sendMessage({
         channelId: body.channelId,
         channelType: body.channelType as WukongIMChannelType,
-        fromUid: req.user.id,
+        fromUid: req.auth.userId,
         payload: body.payload,
         clientMsgNo: body.clientMsgNo,
       });
@@ -111,7 +111,7 @@ export class WukongIMController {
   @ApiOperation({ summary: '批量发送消息' })
   @ApiResponse({ status: 200, description: '批量消息发送成功' })
   async sendBatchMessages(
-    @Request() req: ExpressRequest & { user: { id: string } },
+    @Request() req: AuthenticatedRequest,
     @Body() messages: {
       channelId: string;
       channelType: number;
@@ -123,7 +123,7 @@ export class WukongIMController {
       const options = messages.map(msg => ({
         channelId: msg.channelId,
         channelType: msg.channelType as WukongIMChannelType,
-        fromUid: req.user.id,
+        fromUid: req.auth.userId,
         payload: msg.payload,
         clientMsgNo: msg.clientMsgNo,
       }));
@@ -151,7 +151,7 @@ export class WukongIMController {
   @ApiOperation({ summary: '同步消息' })
   @ApiResponse({ status: 200, description: '返回消息列表' })
   async syncMessages(
-    @Request() req: ExpressRequest & { user: { id: string } },
+    @Request() req: AuthenticatedRequest,
     @Query('channelId') channelId: string,
     @Query('channelType') channelType: number,
     @Query('lastMessageSeq') lastMessageSeq?: number,
@@ -166,7 +166,7 @@ export class WukongIMController {
       }
 
       const result = await this.wukongIMService.syncMessages(
-        req.user.id,
+        req.auth.userId,
         channelId,
         channelType as WukongIMChannelType,
         lastMessageSeq,

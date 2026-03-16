@@ -48,6 +48,24 @@ import {
   ServerConfig,
   WukongIMConfig,
   AuthConfig,
+  RTCRoom,
+  RTCToken,
+  RTCTokenValidationResult,
+  CreateRTCRoomParams,
+  GenerateRTCTokenParams,
+  RTCProviderCapabilitiesResponse,
+  RTCProviderOperationStat,
+  RTCProviderOperationStatsQuery,
+  RTCProviderHealthReport,
+  RTCProviderHealthQuery,
+  RTCVideoRecord,
+  CreateVideoRecordParams,
+  UpdateVideoRecordStatusParams,
+  VideoRecordListQuery,
+  StartRTCRecordingParams,
+  StopRTCRecordingParams,
+  SyncRTCVideoRecordParams,
+  RTCCanonicalProvider,
 } from './types';
 
 import {
@@ -69,7 +87,7 @@ import {
 import { ApiService } from './services/api-service';
 import { WukongIMService } from './services/im-service-wukong';
 import { RTCManager } from './rtc/rtc-manager';
-import { RTCProviderType, RTCManagerConfig } from './rtc/types';
+import { RTCProviderType, RTCManagerConfig, RTCRoomOptions } from './rtc/types';
 import { Logger, LogLevel, createLogger } from './core/logger';
 import { PerformanceMonitor, createPerformanceMonitor } from './core/performance';
 
@@ -346,7 +364,7 @@ export class OpenChatClient extends EventEmitter {
     return this.rtcManager;
   }
 
-  setRTCManager(rtcManager: RTCManager): void {
+  setRTCManager(rtcManager: RTCManager | null): void {
     this.rtcManager = rtcManager;
   }
 
@@ -1220,6 +1238,13 @@ class GroupsModule {
 /**
  * RTC模块
  */
+type RTCProviderConfigMap = Partial<Record<RTCProviderType, RTCManagerConfig['providerConfig']>>;
+
+interface RTCInitOptions extends Partial<RTCManagerConfig> {
+  autoSelectProvider?: boolean;
+  providerConfigs?: RTCProviderConfigMap;
+}
+
 class RTCModule {
   private client: OpenChatClient;
 
@@ -1231,9 +1256,7 @@ class RTCModule {
    * 初始化RTC
    * @param config RTC配置
    */
-  async init(config?: any): Promise<void> {
-    const { RTCManager } = await import('./rtc/rtc-manager');
-    
+  async init(config?: RTCInitOptions): Promise<void> {
     if (this.client.getRTCManager()) {
       await this.client.getRTCManager()?.destroy();
     }
@@ -1243,19 +1266,137 @@ class RTCModule {
       uid: this.client.getConfig().auth.uid,
     });
 
-    // 优先使用客户端配置中的RTC配置
-    const clientRTCConfig = this.client.getConfig().rtc;
-    const defaultConfig = {
-      provider: RTCProviderType.VOLCENGINE,
-      providerConfig: {
-        appId: '', // 需要从配置或服务器获取
-      },
-      ...clientRTCConfig,
-      ...config,
+    const clientRTCConfig = this.client.getConfig().rtc as RTCInitOptions | undefined;
+    const selectedProvider = await this.resolveInitProvider(config, clientRTCConfig);
+    const mergedProviderConfig = {
+      ...(clientRTCConfig?.providerConfig || {}),
+      ...this.pickProviderConfigByType(clientRTCConfig, selectedProvider),
+      ...(config?.providerConfig || {}),
+      ...this.pickProviderConfigByType(config, selectedProvider),
+    };
+    const mergedSignalingConfig = {
+      ...(clientRTCConfig?.signalingConfig || {}),
+      ...(config?.signalingConfig || {}),
     };
 
-    await rtcManager.initialize(defaultConfig);
+    const mergedConfig: RTCManagerConfig = {
+      provider: selectedProvider,
+      providerConfig: {
+        ...mergedProviderConfig,
+        appId: mergedProviderConfig.appId || '',
+      },
+    };
+    if (typeof mergedSignalingConfig.url === 'string' && mergedSignalingConfig.url.length > 0) {
+      mergedConfig.signalingConfig = {
+        url: mergedSignalingConfig.url,
+        reconnectInterval: mergedSignalingConfig.reconnectInterval,
+        maxReconnectAttempts: mergedSignalingConfig.maxReconnectAttempts,
+      };
+    }
+
+    await rtcManager.initialize(mergedConfig);
     this.client.setRTCManager(rtcManager);
+  }
+
+  private pickProviderConfigByType(
+    config: RTCInitOptions | undefined,
+    provider: RTCProviderType,
+  ): Partial<RTCManagerConfig['providerConfig']> {
+    return config?.providerConfigs?.[provider] || {};
+  }
+
+  private async resolveInitProvider(
+    runtimeConfig?: RTCInitOptions,
+    clientRTCConfig?: RTCInitOptions,
+  ): Promise<RTCProviderType> {
+    const explicitProvider = runtimeConfig?.provider || clientRTCConfig?.provider;
+    if (explicitProvider) {
+      if (!RTCManager.isProviderAvailable(explicitProvider)) {
+        this.client.getLogger().warn(
+          `RTC provider ${explicitProvider} is currently a placeholder adapter. Register a custom provider before init.`
+        );
+      }
+      if (!this.isProviderRuntimeReady(explicitProvider)) {
+        this.client.getLogger().warn(
+          `RTC provider ${explicitProvider} runtime dependency is not ready. Check SDK script loading before init.`
+        );
+      }
+      return explicitProvider;
+    }
+
+    const autoSelectProvider = runtimeConfig?.autoSelectProvider ?? true;
+    if (!autoSelectProvider) {
+      return RTCProviderType.VOLCENGINE;
+    }
+
+    try {
+      const capabilities = await this.client.getApiService().getRTCProviderCapabilities();
+      const candidateChain = [
+        capabilities.recommendedPrimary,
+        ...(capabilities.fallbackOrder || []),
+        capabilities.defaultProvider,
+        ...capabilities.activeProviders,
+      ];
+      const candidates = Array.from(new Set(candidateChain.filter(Boolean)));
+
+      for (const candidate of candidates) {
+        const selected = this.toRTCProviderType(candidate);
+        if (
+          selected
+          && RTCManager.isProviderAvailable(selected)
+          && this.isProviderRuntimeReady(selected)
+        ) {
+          return selected;
+        }
+      }
+    } catch (error) {
+      this.client.getLogger().warn(
+        `Failed to auto-select RTC provider from server capabilities: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    if (RTCManager.isProviderAvailable(RTCProviderType.VOLCENGINE)) {
+      return RTCProviderType.VOLCENGINE;
+    }
+    const firstAvailable = RTCManager.getAvailableProviders()[0];
+    if (firstAvailable) {
+      return firstAvailable;
+    }
+
+    this.client.getLogger().warn(
+      'No runtime-available RTC provider found, fallback to default provider enum value.'
+    );
+    return RTCProviderType.VOLCENGINE;
+  }
+
+  private toRTCProviderType(provider?: RTCCanonicalProvider | string): RTCProviderType | null {
+    switch (provider) {
+      case RTCProviderType.VOLCENGINE:
+        return RTCProviderType.VOLCENGINE;
+      case RTCProviderType.TENCENT:
+        return RTCProviderType.TENCENT;
+      case RTCProviderType.ALIBABA:
+        return RTCProviderType.ALIBABA;
+      case RTCProviderType.LIVEKIT:
+        return RTCProviderType.LIVEKIT;
+      case RTCProviderType.CUSTOM:
+        return RTCProviderType.CUSTOM;
+      default:
+        return null;
+    }
+  }
+
+  private isProviderRuntimeReady(provider: RTCProviderType): boolean {
+    if (provider === RTCProviderType.TENCENT) {
+      return !!(globalThis as any).TRTC;
+    }
+    if (provider === RTCProviderType.ALIBABA) {
+      return !!((globalThis as any).AliRTC || (globalThis as any).AliRTCSdk);
+    }
+    if (provider === RTCProviderType.LIVEKIT) {
+      return !!(globalThis as any).LivekitClient;
+    }
+    return true;
   }
 
   /**
@@ -1264,8 +1405,110 @@ class RTCModule {
   async destroy(): Promise<void> {
     if (this.client.getRTCManager()) {
       await this.client.getRTCManager()?.destroy();
-      this.client.setRTCManager(null as any);
+      this.client.setRTCManager(null);
     }
+  }
+
+  // ==================== 服务端RTC编排 ====================
+
+  async createRoom(data: CreateRTCRoomParams): Promise<RTCRoom> {
+    return this.client.getApiService().createRTCRoom(data);
+  }
+
+  async endRoom(roomId: string): Promise<boolean> {
+    return this.client.getApiService().endRTCRoom(roomId);
+  }
+
+  async getRoom(roomId: string): Promise<RTCRoom | null> {
+    return this.client.getApiService().getRTCRoomById(roomId);
+  }
+
+  async getMyRooms(): Promise<RTCRoom[]> {
+    return this.client.getApiService().getRTCRoomsByUserId(this.client.getConfig().auth.uid);
+  }
+
+  async generateToken(data: GenerateRTCTokenParams): Promise<RTCToken> {
+    return this.client.getApiService().generateRTCToken(data);
+  }
+
+  async validateToken(token: string): Promise<RTCTokenValidationResult> {
+    return this.client.getApiService().validateRTCToken(token);
+  }
+
+  async addParticipant(roomId: string, userId: string): Promise<boolean> {
+    return this.client.getApiService().addRTCParticipant(roomId, userId);
+  }
+
+  async removeParticipant(roomId: string, userId: string): Promise<boolean> {
+    return this.client.getApiService().removeRTCParticipant(roomId, userId);
+  }
+
+  async getProviderCapabilities(): Promise<RTCProviderCapabilitiesResponse> {
+    return this.client.getApiService().getRTCProviderCapabilities();
+  }
+
+  async getProviderStats(query?: RTCProviderOperationStatsQuery): Promise<RTCProviderOperationStat[]> {
+    return this.client.getApiService().getRTCProviderStats(query);
+  }
+
+  async getProviderHealth(query?: RTCProviderHealthQuery): Promise<RTCProviderHealthReport> {
+    return this.client.getApiService().getRTCProviderHealth(query);
+  }
+
+  async startRecording(roomId: string, data?: StartRTCRecordingParams): Promise<RTCVideoRecord> {
+    return this.client.getApiService().startRTCRecording(roomId, data);
+  }
+
+  async stopRecording(roomId: string, data?: StopRTCRecordingParams): Promise<RTCVideoRecord | null> {
+    return this.client.getApiService().stopRTCRecording(roomId, data);
+  }
+
+  async createVideoRecord(data: CreateVideoRecordParams): Promise<RTCVideoRecord> {
+    return this.client.getApiService().createVideoRecord(data);
+  }
+
+  async getVideoRecord(recordId: string): Promise<RTCVideoRecord | null> {
+    return this.client.getApiService().getVideoRecord(recordId);
+  }
+
+  async syncVideoRecord(recordId: string, data?: SyncRTCVideoRecordParams): Promise<RTCVideoRecord | null> {
+    return this.client.getApiService().syncRTCVideoRecord(recordId, data);
+  }
+
+  async updateVideoRecordStatus(
+    recordId: string,
+    data: UpdateVideoRecordStatusParams,
+  ): Promise<RTCVideoRecord | null> {
+    return this.client.getApiService().updateVideoRecordStatus(recordId, data);
+  }
+
+  async updateVideoRecordMetadata(
+    recordId: string,
+    metadata: Record<string, any>,
+  ): Promise<RTCVideoRecord | null> {
+    return this.client.getApiService().updateVideoRecordMetadata(recordId, metadata);
+  }
+
+  async deleteVideoRecord(recordId: string): Promise<boolean> {
+    return this.client.getApiService().deleteVideoRecord(recordId);
+  }
+
+  async getRoomVideoRecords(roomId: string): Promise<RTCVideoRecord[]> {
+    return this.client.getApiService().getVideoRecordsByRoomId(roomId);
+  }
+
+  async getMyVideoRecords(query?: VideoRecordListQuery): Promise<RTCVideoRecord[]> {
+    return this.client.getApiService().getVideoRecords(query);
+  }
+
+  // ==================== 媒体通话会话控制 ====================
+
+  async joinRoom(roomId: string, options?: RTCRoomOptions): Promise<void> {
+    return this.startCall(roomId, options);
+  }
+
+  async leaveRoom(): Promise<void> {
+    return this.endCall();
   }
 
   /**
@@ -1273,7 +1516,7 @@ class RTCModule {
    * @param roomId 房间ID
    * @param options 选项
    */
-  async startCall(roomId: string, options?: { autoPublish?: boolean; autoSubscribe?: boolean }): Promise<void> {
+  async startCall(roomId: string, options?: RTCRoomOptions): Promise<void> {
     const rtcManager = this.client.getRTCManager();
     if (!rtcManager) {
       throw new OpenChatError(ErrorCode.RTC_NOT_INITIALIZED, 'RTC not initialized. Call client.rtc.init() first.');
@@ -1345,6 +1588,10 @@ class RTCModule {
     return rtcManager.enableVideo(enabled);
   }
 
+  async enableCamera(enabled: boolean): Promise<void> {
+    return this.enableVideo(enabled);
+  }
+
   /**
    * 启用音频
    * @param enabled 是否启用
@@ -1353,6 +1600,10 @@ class RTCModule {
     const rtcManager = this.client.getRTCManager();
     if (!rtcManager) return;
     return rtcManager.enableAudio(enabled);
+  }
+
+  async enableMicrophone(enabled: boolean): Promise<void> {
+    return this.enableAudio(enabled);
   }
 
   /**

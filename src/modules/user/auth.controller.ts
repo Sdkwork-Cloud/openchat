@@ -1,9 +1,11 @@
-import { Controller, Post, Get, Put, Body, Request, UseGuards, HttpCode, HttpStatus, Param } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Query, Request, UseGuards, HttpCode, HttpStatus, Param, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
+import { AuthService, type DeviceSessionSummaryResult } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserSyncService } from './user-sync.service';
 import { RedisService } from '../../common/redis/redis.service';
+import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
+import { AllowAnonymous } from '../../common/auth/guards/multi-auth.guard';
 import {
   RegisterDto,
   LoginDto,
@@ -27,6 +29,7 @@ export class AuthController {
   ) {}
 
   @Post('login')
+  @AllowAnonymous()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '用户登录' })
   @ApiResponse({
@@ -61,14 +64,47 @@ export class AuthController {
   @ApiOperation({ summary: '用户登出' })
   @ApiResponse({ status: 200, description: '登出成功' })
   @ApiResponse({ status: 401, description: '未授权' })
-  async logout(@Request() req: { user: { userId: string }; headers: { authorization?: string } }, @Body() logoutDto?: LogoutDto): Promise<{ success: boolean }> {
-    const accessToken = req.headers.authorization?.replace('Bearer ', '');
+  async logout(@Request() req: AuthenticatedRequest, @Body() logoutDto?: LogoutDto): Promise<{ success: boolean }> {
+    const accessToken = logoutDto?.token || req.headers.authorization?.replace('Bearer ', '');
     const refreshToken = logoutDto?.refreshToken;
-    await this.authService.logout(req.user.userId, accessToken, refreshToken);
+    await this.authService.logout(req.auth.userId, accessToken, refreshToken);
     return { success: true };
   }
 
+  @Post('logout/device')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '当前设备登出并清理设备游标' })
+  @ApiResponse({ status: 200, description: '设备登出成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async logoutCurrentDevice(
+    @Request() req: AuthenticatedRequest,
+    @Body() logoutDto?: LogoutDto,
+  ): Promise<{ success: boolean; deviceId: string; revokedTokens: number; clearedCursors: number }> {
+    const effectiveDeviceId = this.resolveEffectiveDeviceId(req.auth.deviceId, logoutDto?.deviceId);
+    if (!effectiveDeviceId) {
+      throw new ForbiddenException('deviceId must be bound to authenticated token');
+    }
+
+    const accessToken = logoutDto?.token || req.headers.authorization?.replace('Bearer ', '');
+    const result = await this.authService.logoutDevice(
+      req.auth.userId,
+      effectiveDeviceId,
+      accessToken,
+      logoutDto?.refreshToken,
+    );
+
+    return {
+      success: true,
+      deviceId: result.deviceId,
+      revokedTokens: result.revokedTokens,
+      clearedCursors: result.clearedCursors,
+    };
+  }
+
   @Post('refresh')
+  @AllowAnonymous()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '刷新Token' })
   @ApiResponse({ status: 200, description: '刷新成功', type: AuthResponseDto })
@@ -89,8 +125,8 @@ export class AuthController {
   @ApiOperation({ summary: '获取当前用户信息' })
   @ApiResponse({ status: 200, description: '获取成功' })
   @ApiResponse({ status: 401, description: '未授权' })
-  async getCurrentUser(@Request() req: { user: { userId: string } }): Promise<any> {
-    const user = await this.authService.getUserById(req.user.userId);
+  async getCurrentUser(@Request() req: AuthenticatedRequest): Promise<any> {
+    const user = await this.authService.getUserById(req.auth.userId);
     if (!user) {
       return null;
     }
@@ -106,11 +142,11 @@ export class AuthController {
   @ApiResponse({ status: 400, description: '请求参数错误或旧密码错误' })
   @ApiResponse({ status: 401, description: '未授权' })
   async updatePassword(
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
     @Body() updatePasswordDto: UpdatePasswordDto,
   ): Promise<{ success: boolean }> {
     const success = await this.authService.updatePassword(
-      req.user.userId,
+      req.auth.userId,
       updatePasswordDto.oldPassword,
       updatePasswordDto.newPassword,
     );
@@ -118,6 +154,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @AllowAnonymous()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '忘记密码' })
   @ApiResponse({
@@ -134,6 +171,7 @@ export class AuthController {
   }
 
   @Post('send-code')
+  @AllowAnonymous()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '发送验证码' })
   @ApiResponse({
@@ -150,6 +188,7 @@ export class AuthController {
   }
 
   @Post('verify-code')
+  @AllowAnonymous()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '验证验证码' })
   @ApiResponse({
@@ -166,6 +205,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @AllowAnonymous()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: '用户注册（支持手机号或邮箱）' })
   @ApiResponse({
@@ -215,5 +255,94 @@ export class AuthController {
       })),
     );
     return results;
+  }
+
+  @Get('devices')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '获取当前用户设备会话列表' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  async getDeviceSessions(
+    @Request() req: AuthenticatedRequest,
+    @Query('limit') limit: number = 100,
+  ): Promise<DeviceSessionSummaryResult> {
+    return this.authService.listDeviceSessions(req.auth.userId, req.auth.deviceId, limit);
+  }
+
+  @Post('logout/device/:deviceId')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '指定设备登出并清理设备游标' })
+  @ApiResponse({ status: 200, description: '设备登出成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async logoutDeviceById(
+    @Request() req: AuthenticatedRequest,
+    @Param('deviceId') deviceId: string,
+  ): Promise<{ success: boolean; deviceId: string; revokedTokens: number; clearedCursors: number }> {
+    const result = await this.authService.logoutDevice(req.auth.userId, deviceId);
+    return {
+      success: true,
+      deviceId: result.deviceId,
+      revokedTokens: result.revokedTokens,
+      clearedCursors: result.clearedCursors,
+    };
+  }
+
+  @Post('logout/others')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '登出其它设备（保留当前设备）' })
+  @ApiResponse({ status: 200, description: '其它设备登出成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  async logoutOtherDevices(
+    @Request() req: AuthenticatedRequest,
+    @Body() logoutDto?: LogoutDto,
+  ): Promise<{ success: boolean; currentDeviceId: string; revokedTokens: number; clearedCursors: number }> {
+    const effectiveDeviceId = this.resolveEffectiveDeviceId(req.auth.deviceId, logoutDto?.deviceId);
+    if (!effectiveDeviceId) {
+      throw new ForbiddenException('deviceId must be bound to authenticated token');
+    }
+
+    const result = await this.authService.logoutOtherDevices(req.auth.userId, effectiveDeviceId);
+    return {
+      success: true,
+      currentDeviceId: result.currentDeviceId,
+      revokedTokens: result.revokedTokens,
+      clearedCursors: result.clearedCursors,
+    };
+  }
+
+  private resolveEffectiveDeviceId(
+    authenticatedDeviceId?: string,
+    requestedDeviceId?: string,
+  ): string | undefined {
+    const trusted = this.normalizeDeviceIdCandidate(authenticatedDeviceId);
+    const requested = this.normalizeDeviceIdCandidate(requestedDeviceId);
+
+    if (requested && !trusted) {
+      throw new ForbiddenException('deviceId must be bound to authenticated token');
+    }
+
+    if (trusted && requested && trusted !== requested) {
+      throw new ForbiddenException('deviceId does not match authenticated device');
+    }
+
+    return trusted;
+  }
+
+  private normalizeDeviceIdCandidate(candidate?: string): string | undefined {
+    if (!candidate) {
+      return undefined;
+    }
+    const normalized = candidate.trim();
+    if (!normalized) {
+      return undefined;
+    }
+    if (!/^[A-Za-z0-9._:-]{1,64}$/.test(normalized)) {
+      return undefined;
+    }
+    return normalized;
   }
 }

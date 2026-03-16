@@ -123,7 +123,7 @@ EXTERNAL_IP=${EXTERNAL_IP}
 PORT=3000
 
 # 数据库配置
-DB_USER=openchat
+DB_USERNAME=openchat
 DB_PASSWORD=$(openssl rand -base64 16)
 DB_NAME=openchat
 DB_PORT=5432

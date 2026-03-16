@@ -7,7 +7,7 @@ import { MessageType, MessageStatus, MessageContent } from './message.interface'
 @Index('idx_chat_messages_to_from_created', (m: Message) => [m.toUserId, m.fromUserId, m.createdAt])
 @Index('idx_chat_messages_group_created', (m: Message) => [m.groupId, m.createdAt])
 @Index('idx_chat_messages_status', ['status'])
-@Index('idx_chat_messages_client_seq', (m: Message) => [m.fromUserId, m.clientSeq], { unique: false })
+@Index('idx_chat_messages_client_seq', (m: Message) => [m.fromUserId, m.clientSeq], { unique: true })
 export class Message extends BaseEntity {
   @Column({
     type: 'enum',

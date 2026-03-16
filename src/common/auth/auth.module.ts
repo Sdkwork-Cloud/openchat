@@ -8,7 +8,9 @@ import { MultiAuthGuard } from './guards/multi-auth.guard';
 import { JWTAuthStrategy } from './strategies/jwt.strategy';
 import { BotTokenAuthStrategy } from './strategies/bot-token.strategy';
 import { APIKeyAuthStrategy } from './strategies/api-key.strategy';
+import { CrawAgentAuthStrategy } from './strategies/craw-agent.strategy';
 import { BotEntity } from '../../modules/bot-platform/entities/bot.entity';
+import { CrawAgent } from '../../modules/craw/entities/craw-agent.entity';
 
 /**
  * 认证模块
@@ -27,13 +29,14 @@ import { BotEntity } from '../../modules/bot-platform/entities/bot.entity';
         },
       }),
     }),
-    TypeOrmModule.forFeature([BotEntity]),
+    TypeOrmModule.forFeature([BotEntity, CrawAgent]),
   ],
   providers: [
     AuthManagerService,
     JWTAuthStrategy,
     BotTokenAuthStrategy,
     APIKeyAuthStrategy,
+    CrawAgentAuthStrategy,
     {
       provide: APP_GUARD,
       useClass: MultiAuthGuard,
@@ -44,6 +47,7 @@ import { BotEntity } from '../../modules/bot-platform/entities/bot.entity';
     JWTAuthStrategy,
     BotTokenAuthStrategy,
     APIKeyAuthStrategy,
+    CrawAgentAuthStrategy,
     JwtModule,
   ],
 })
@@ -53,6 +57,7 @@ export class AuthModule implements OnModuleInit {
     private jwtStrategy: JWTAuthStrategy,
     private botTokenStrategy: BotTokenAuthStrategy,
     private apiKeyStrategy: APIKeyAuthStrategy,
+    private crawAgentStrategy: CrawAgentAuthStrategy,
   ) {}
 
   /**
@@ -63,5 +68,6 @@ export class AuthModule implements OnModuleInit {
     this.authManager.registerStrategy(this.jwtStrategy);
     this.authManager.registerStrategy(this.botTokenStrategy);
     this.authManager.registerStrategy(this.apiKeyStrategy);
+    this.authManager.registerStrategy(this.crawAgentStrategy);
   }
 }

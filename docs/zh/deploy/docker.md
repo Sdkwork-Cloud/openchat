@@ -133,7 +133,7 @@ docker compose --profile database --profile cache --profile im --profile monitor
 |---------|------|-------|
 | `DB_HOST` | 数据库主机 | `localhost` |
 | `DB_PORT` | 数据库端口 | `5432` |
-| `DB_USER` | 数据库用户名 | `openchat` |
+| `DB_USERNAME` | 数据库用户名 | `openchat` |
 | `DB_PASSWORD` | 数据库密码 | - |
 | `DB_NAME` | 数据库名称 | `openchat` |
 | `USE_EXTERNAL_DB` | 使用外部数据库 | `false` |
@@ -160,7 +160,7 @@ docker compose --profile database --profile cache --profile im --profile monitor
 | `WUKONGIM_MANAGER_URL` | 管理地址 | `http://localhost:5300` |
 | `WUKONGIM_TOKEN_AUTH` | Token 认证 | `false` |
 | `WUKONGIM_TIMEOUT` | 请求超时 | `10000` |
-| `WUKONGIM_APP_ID` | 应用ID | - |
+| `WUKONGIM_APP_KEY` | 应用标识 | - |
 | `WUKONGIM_APP_SECRET` | 应用密钥 | - |
 | `USE_EXTERNAL_WK` | 使用外部 IM | `false` |
 
@@ -209,7 +209,7 @@ WUKONGIM_TOKEN_AUTH=true
 WK_TOKEN_SECRET=your-secret-key
 
 # 在应用端配置
-WUKONGIM_APP_ID=your-app-id
+WUKONGIM_APP_KEY=your-app-key
 WUKONGIM_APP_SECRET=your-app-secret
 ```
 
@@ -282,7 +282,7 @@ docker compose logs -f redis
 USE_EXTERNAL_DB=true
 DB_HOST=your-db-host
 DB_PORT=5432
-DB_USER=your-user
+DB_USERNAME=your-user
 DB_PASSWORD=your-password
 
 USE_EXTERNAL_REDIS=false

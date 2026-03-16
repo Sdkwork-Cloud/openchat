@@ -310,7 +310,13 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
           secret: this.remoteConfig.localJwtSecret,
         });
 
-        const userId = payload.sub || payload.userId;
+        const userId = payload.userId;
+        if (!userId) {
+          return {
+            success: false,
+            error: '刷新令牌无效',
+          };
+        }
         const user = await this.getUserById(userId);
         if (!user) {
           return {
@@ -358,7 +364,10 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
           secret: this.remoteConfig.localJwtSecret,
         });
 
-        const userId = payload.sub || payload.userId;
+        const userId = payload.userId;
+        if (!userId) {
+          return null;
+        }
         return this.getUserById(userId);
       }
 
@@ -510,7 +519,6 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
   private async generateLocalTokens(user: { id: string; username?: string }): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
     const accessToken = this.jwtService.sign(
       {
-        sub: user.id,
         userId: user.id,
         username: user.username,
         jti: randomUUID(),
@@ -520,7 +528,6 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
 
     const refreshToken = this.jwtService.sign(
       {
-        sub: user.id,
         userId: user.id,
         username: user.username,
         jti: randomUUID(),
@@ -537,7 +544,7 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
 
   private async generateIMToken(userId: string): Promise<string> {
     return this.jwtService.sign(
-      { sub: userId, userId: userId, jti: randomUUID() },
+      { userId, jti: randomUUID() },
       { secret: this.remoteConfig.localJwtSecret, expiresIn: '7d' },
     );
   }

@@ -9,17 +9,30 @@
  */
 
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Redis } from 'ioredis';
+import { Brackets, Repository } from 'typeorm';
 import { REDIS_CLIENT } from '../../../common/redis/redis.module';
+import { Message } from '../message.entity';
+
+export interface MissingSequenceScanResult {
+  missingSequences: number[];
+  scanFrom: number;
+  scanTo: number;
+  requestedTo: number;
+  truncated: boolean;
+}
 
 @Injectable()
 export class MessageSequenceService {
   private readonly logger = new Logger(MessageSequenceService.name);
   private readonly SEQUENCE_KEY_PREFIX = 'msg:seq:';
   private readonly SEQUENCE_EXPIRE_DAYS = 30; // 序列号保留30天
+  private readonly MISSING_SEQUENCE_SCAN_MAX_WINDOW = 20000;
 
   constructor(
     @Inject(REDIS_CLIENT) private redis: Redis,
+    @InjectRepository(Message) private readonly messageRepository: Repository<Message>,
   ) {}
 
   /**
@@ -55,28 +68,16 @@ export class MessageSequenceService {
     }
 
     const key = this.getSequenceKey(conversationId);
-    const pipeline = this.redis.pipeline();
-
-    for (let i = 0; i < count; i++) {
-      pipeline.incr(key);
+    const endSequence = await this.redis.incrby(key, count);
+    if (!Number.isFinite(endSequence) || endSequence < count) {
+      throw new Error(`Invalid sequence range generated for ${conversationId}`);
     }
 
-    const results = await pipeline.exec();
-
-    if (!results) {
-      throw new Error('Failed to execute pipeline');
-    }
-
-    const sequences = results.map(([err, val]) => {
-      if (err) {
-        throw err;
-      }
-      return val as number;
-    });
+    const startSequence = endSequence - count + 1;
+    const sequences = Array.from({ length: count }, (_, index) => startSequence + index);
 
     // 设置过期时间（第一次设置时）
-    const firstSeq = sequences[0];
-    if (firstSeq <= count) {
+    if (endSequence === count) {
       await this.redis.expire(key, this.SEQUENCE_EXPIRE_DAYS * 24 * 60 * 60);
     }
 
@@ -93,7 +94,15 @@ export class MessageSequenceService {
   async getCurrentSequence(conversationId: string): Promise<number> {
     const key = this.getSequenceKey(conversationId);
     const value = await this.redis.get(key);
-    return value ? parseInt(value, 10) : 0;
+    if (value) {
+      const parsed = parseInt(value, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    const dbMaxSeq = await this.getConversationMaxSeq(conversationId);
+    return dbMaxSeq > 0 ? dbMaxSeq : 0;
   }
 
   /**
@@ -136,17 +145,101 @@ export class MessageSequenceService {
     fromSequence: number,
     toSequence: number,
   ): Promise<number[]> {
-    // 这里需要配合消息存储来检查哪些序列号缺失
-    // 简化实现：假设所有序列号都存在
-    const currentSeq = await this.getCurrentSequence(conversationId);
+    const result = await this.getMissingSequencesWithMeta(conversationId, fromSequence, toSequence);
+    return result.missingSequences;
+  }
 
-    if (toSequence > currentSeq) {
-      // 请求的序列号超出了当前范围
-      return [];
+  async getMissingSequencesWithMeta(
+    conversationId: string,
+    fromSequence: number,
+    toSequence: number,
+  ): Promise<MissingSequenceScanResult> {
+    const normalizedFrom = Math.max(1, Math.floor(fromSequence));
+    const normalizedTo = Math.max(0, Math.floor(toSequence));
+    if (!Number.isFinite(normalizedFrom) || !Number.isFinite(normalizedTo) || normalizedTo < normalizedFrom) {
+      return {
+        missingSequences: [],
+        scanFrom: normalizedFrom,
+        scanTo: normalizedFrom - 1,
+        requestedTo: normalizedTo,
+        truncated: false,
+      };
     }
 
-    // 实际实现中需要查询数据库
-    return [];
+    const currentSeq = await this.getCurrentSequence(conversationId);
+    if (currentSeq <= 0) {
+      return {
+        missingSequences: [],
+        scanFrom: normalizedFrom,
+        scanTo: normalizedFrom - 1,
+        requestedTo: normalizedTo,
+        truncated: false,
+      };
+    }
+
+    const effectiveTo = Math.min(normalizedTo, currentSeq);
+    if (effectiveTo < normalizedFrom) {
+      return {
+        missingSequences: [],
+        scanFrom: normalizedFrom,
+        scanTo: normalizedFrom - 1,
+        requestedTo: effectiveTo,
+        truncated: false,
+      };
+    }
+
+    const maxWindowTo = normalizedFrom + this.MISSING_SEQUENCE_SCAN_MAX_WINDOW - 1;
+    const scanTo = Math.min(effectiveTo, maxWindowTo);
+    const truncated = scanTo < effectiveTo;
+    if (truncated) {
+      this.logger.warn(
+        `Missing sequence scan window truncated for ${conversationId}: requested [${normalizedFrom}, ${effectiveTo}], scanned to ${scanTo}`,
+      );
+    }
+
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .select('message.seq', 'seq')
+      .where('message.isDeleted = false')
+      .andWhere('message.seq IS NOT NULL')
+      .andWhere('message.seq >= :fromSeq', { fromSeq: normalizedFrom })
+      .andWhere('message.seq <= :toSeq', { toSeq: scanTo });
+
+    if (!this.applyConversationFilter(queryBuilder, conversationId)) {
+      this.logger.warn(`Invalid conversation sequence key: ${conversationId}`);
+      return {
+        missingSequences: [],
+        scanFrom: normalizedFrom,
+        scanTo,
+        requestedTo: effectiveTo,
+        truncated,
+      };
+    }
+
+    const rows = await queryBuilder.getRawMany<{ seq?: string | number | null }>();
+    const existingSequences = new Set<number>();
+    rows.forEach((row) => {
+      const value = row?.seq;
+      const parsed = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+      if (Number.isFinite(parsed) && parsed >= normalizedFrom && parsed <= scanTo) {
+        existingSequences.add(parsed);
+      }
+    });
+
+    const missing: number[] = [];
+    for (let seq = normalizedFrom; seq <= scanTo; seq += 1) {
+      if (!existingSequences.has(seq)) {
+        missing.push(seq);
+      }
+    }
+
+    return {
+      missingSequences: missing,
+      scanFrom: normalizedFrom,
+      scanTo,
+      requestedTo: effectiveTo,
+      truncated,
+    };
   }
 
   /**
@@ -163,5 +256,62 @@ export class MessageSequenceService {
 
   private getSequenceKey(conversationId: string): string {
     return `${this.SEQUENCE_KEY_PREFIX}${conversationId}`;
+  }
+
+  private async getConversationMaxSeq(conversationId: string): Promise<number> {
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .select('MAX(message.seq)', 'maxSeq')
+      .where('message.isDeleted = false')
+      .andWhere('message.seq IS NOT NULL');
+
+    if (!this.applyConversationFilter(queryBuilder, conversationId)) {
+      return 0;
+    }
+
+    const raw = await queryBuilder.getRawOne<{ maxSeq?: string | number | null }>();
+    const maxSeq = typeof raw?.maxSeq === 'string' ? parseInt(raw.maxSeq, 10) : Number(raw?.maxSeq || 0);
+    return Number.isFinite(maxSeq) && maxSeq > 0 ? maxSeq : 0;
+  }
+
+  private applyConversationFilter(
+    queryBuilder: ReturnType<Repository<Message>['createQueryBuilder']>,
+    conversationId: string,
+  ): boolean {
+    if (!conversationId || typeof conversationId !== 'string') {
+      return false;
+    }
+
+    if (conversationId.startsWith('group:')) {
+      const groupId = conversationId.slice('group:'.length);
+      if (!groupId) {
+        return false;
+      }
+      queryBuilder.andWhere('message.groupId = :groupId', { groupId });
+      return true;
+    }
+
+    if (conversationId.startsWith('single:')) {
+      const payload = conversationId.slice('single:'.length);
+      const delimiterIndex = payload.indexOf(':');
+      if (delimiterIndex <= 0 || delimiterIndex >= payload.length - 1) {
+        return false;
+      }
+      const userA = payload.slice(0, delimiterIndex);
+      const userB = payload.slice(delimiterIndex + 1);
+      if (!userA || !userB) {
+        return false;
+      }
+
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('(message.fromUserId = :userA AND message.toUserId = :userB)', { userA, userB })
+            .orWhere('(message.fromUserId = :userB AND message.toUserId = :userA)', { userA, userB });
+        }),
+      );
+      return true;
+    }
+
+    return false;
   }
 }

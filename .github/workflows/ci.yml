@@ -15,6 +15,12 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: changes
+    if: >-
+      ${{
+        needs.changes.outputs.backend == 'true' ||
+        needs.changes.outputs.sdk_typescript == 'true'
+      }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,17 +30,41 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            sdk/typescript/package-lock.json
 
-      - name: Install dependencies
+      - name: Install root dependencies
+        if: needs.changes.outputs.backend == 'true'
         run: npm ci
 
-      - name: Run ESLint
+      - name: Run compatibility regression guard
+        if: needs.changes.outputs.backend == 'true'
+        run: bash scripts/check-compat-regression.sh
+
+      - name: Run root ESLint
+        if: needs.changes.outputs.backend == 'true'
+        run: npm run lint
+
+      - name: Install SDK dependencies
+        if: needs.changes.outputs.sdk_typescript == 'true'
+        working-directory: sdk/typescript
+        run: npm ci
+
+      - name: Run SDK ESLint
+        if: needs.changes.outputs.sdk_typescript == 'true'
+        working-directory: sdk/typescript
         run: npm run lint
 
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, changes]
+    if: >-
+      ${{
+        needs.changes.outputs.backend == 'true' &&
+        (needs.lint.result == 'success' || needs.lint.result == 'skipped')
+      }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,10 +87,88 @@ jobs:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
 
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      sdk_typescript: ${{ steps.filter.outputs.sdk_typescript }}
+      backend: ${{ steps.filter.outputs.backend }}
+      security_root: ${{ steps.filter.outputs.security_root }}
+      security_sdk: ${{ steps.filter.outputs.security_sdk }}
+      build_required: ${{ steps.filter.outputs.build_required }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect SDK changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            sdk_typescript:
+              - 'sdk/typescript/**'
+              - '.github/workflows/sdk-rtc.yml'
+            backend:
+              - 'src/**'
+              - 'test/**'
+              - 'apps/**'
+              - 'libs/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'jest.config.js'
+              - 'tsconfig.json'
+              - 'tsconfig-*.json'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
+              - 'Dockerfile'
+              - 'docker-compose*.yml'
+            security_root:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'npm-shrinkwrap.json'
+              - '.github/workflows/ci.yml'
+            security_sdk:
+              - 'sdk/typescript/package.json'
+              - 'sdk/typescript/package-lock.json'
+              - 'sdk/typescript/npm-shrinkwrap.json'
+              - '.github/workflows/sdk-rtc.yml'
+            build_required:
+              - 'src/**'
+              - 'apps/**'
+              - 'libs/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'tsconfig-*.json'
+              - 'Dockerfile'
+              - 'docker-compose*.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
+
+  sdk-rtc:
+    name: SDK RTC
+    needs: [lint, changes]
+    if: >-
+      ${{
+        needs.changes.outputs.sdk_typescript == 'true' &&
+        (needs.lint.result == 'success' || needs.lint.result == 'skipped')
+      }}
+    uses: ./.github/workflows/sdk-rtc.yml
+    with:
+      node_version: ${{ env.NODE_VERSION }}
+
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: test
+    needs: [changes, test, sdk-rtc]
+    if: >-
+      ${{
+        needs.changes.outputs.build_required == 'true' &&
+        (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+        (needs.sdk-rtc.result == 'success' || needs.sdk-rtc.result == 'skipped')
+      }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -129,7 +237,12 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    needs: lint
+    needs: changes
+    if: >-
+      ${{
+        needs.changes.outputs.security_root == 'true' ||
+        needs.changes.outputs.security_sdk == 'true'
+      }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -140,15 +253,29 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install root dependencies
+        if: needs.changes.outputs.security_root == 'true'
         run: npm ci
 
-      - name: Run npm audit
+      - name: Run root npm audit
+        if: needs.changes.outputs.security_root == 'true'
         run: npm audit --audit-level=high
         continue-on-error: true
 
       - name: Run Snyk security scan
+        if: needs.changes.outputs.security_root == 'true'
         uses: snyk/actions/node@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Install SDK dependencies
+        if: needs.changes.outputs.security_sdk == 'true'
+        working-directory: sdk/typescript
+        run: npm ci
+
+      - name: Run SDK npm audit
+        if: needs.changes.outputs.security_sdk == 'true'
+        working-directory: sdk/typescript
+        run: npm audit --audit-level=high
+        continue-on-error: true

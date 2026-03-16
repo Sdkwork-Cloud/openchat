@@ -19,6 +19,95 @@
 | 撤回消息 | POST | `/messages/:id/recall` | 撤回已发送的消息 |
 | 转发消息 | POST | `/messages/:id/forward` | 转发消息给用户或群组 |
 | 重试发送失败消息 | POST | `/messages/:id/retry` | 重试发送失败的消息 |
+| 获取消息回执详情 | GET | `/messages/:id/receipts` | 按成员查看回执明细（分页） |
+| 获取消息回执统计 | GET | `/messages/:id/receipt-summary` | 查看 sent/delivered/read 汇总 |
+| 获取群消息未读成员 | GET | `/messages/:id/unread-members` | 群消息未读成员列表 |
+| 获取群消息已读成员 | GET | `/messages/:id/read-members` | 群消息已读成员列表 |
+| 标记群消息已读 | POST | `/messages/group/:groupId/read` | 群成员批量上报已读 |
+
+---
+
+## 消息回执 API（新增）
+
+### 获取消息回执详情
+
+```http
+GET /api/v1/messages/:id/receipts?limit=50&offset=0&status=read
+Authorization: Bearer <access-token>
+```
+
+说明：
+- `status` 可选：`sent | delivered | read`
+- 单聊：发送者/接收者可查看
+- 群聊：发送者可查看，群管理员可查看明细
+
+### 获取消息回执统计
+
+```http
+GET /api/v1/messages/:id/receipt-summary
+Authorization: Bearer <access-token>
+```
+
+响应示例：
+
+```json
+{
+  "messageId": "1900000000000000001",
+  "conversationType": "group",
+  "expectedRecipientCount": 12,
+  "trackedRecipientCount": 12,
+  "sentCount": 12,
+  "deliveredCount": 10,
+  "readCount": 8,
+  "unreadCount": 4,
+  "pendingDeliveryCount": 2
+}
+```
+
+### 获取群消息未读成员
+
+```http
+GET /api/v1/messages/:id/unread-members?limit=50&offset=0
+Authorization: Bearer <access-token>
+```
+
+支持 `cursor` 分页（推荐）：
+
+```http
+GET /api/v1/messages/:id/unread-members?limit=50&cursor=<nextCursor>
+```
+
+### 获取群消息已读成员
+
+```http
+GET /api/v1/messages/:id/read-members?limit=50&offset=0
+Authorization: Bearer <access-token>
+```
+
+支持 `cursor` 分页（推荐）：
+
+```http
+GET /api/v1/messages/:id/read-members?limit=50&cursor=<nextCursor>
+```
+
+### 标记群消息已读
+
+```http
+POST /api/v1/messages/group/:groupId/read
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+```json
+{
+  "messageIds": ["1900000000000000001", "1900000000000000002"]
+}
+```
+
+说明：
+- 仅群成员可调用；
+- 该接口写入成员级回执，不会直接修改群消息全局 `status` 字段。
+- `unread-members` / `read-members` 响应包含 `nextCursor`，用于无偏移翻页。
 
 ---
 
@@ -29,6 +118,7 @@
 ```http
 POST /api/v1/messages
 Authorization: Bearer <access-token>
+Idempotency-Key: <optional-idempotency-key>
 Content-Type: application/json
 ```
 
@@ -45,8 +135,18 @@ Content-Type: application/json
 | replyToId | string | 否 | 回复的消息ID |
 | forwardFromId | string | 否 | 转发来源消息ID |
 | clientSeq | number | 否 | 客户端序列号，用于消息去重 |
+| idempotencyKey | string | 否 | 幂等键（推荐，格式 `[A-Za-z0-9._:-]{1,128}`，可稳定映射为 clientSeq） |
 | extra | object | 否 | 扩展数据 |
 | needReadReceipt | boolean | 否 | 是否需要已读回执，默认true |
+
+幂等建议：
+- 显式传 `clientSeq` 时，以 `clientSeq` 为准。
+- 未传 `clientSeq` 时，服务端会优先使用 body 的 `idempotencyKey`，其次使用请求头 `Idempotency-Key` / `X-Idempotency-Key`，稳定推导 `clientSeq`。
+- 批量发送若只传请求头幂等键，服务端会按消息下标自动派生子键，避免同批消息相互冲突。
+
+状态流转约束：
+- 投递状态遵循单向升级：`sending -> sent -> delivered -> read`。
+- 迟到 ACK 不会导致状态回退（例如 `read` 不会被后续 `delivered` 覆盖）。
 
 ### 响应示例
 
@@ -72,6 +172,15 @@ Content-Type: application/json
   }
 }
 ```
+
+发送响应事件字段（与 WS 契约对齐）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| eventId | string | 本次发送响应的事件ID，可用于幂等记录 |
+| eventType | string | `messageSent` 或 `messageFailed` |
+| occurredAt | number | 事件时间戳（毫秒） |
+| stateVersion | number | 状态版本（`messageSent=1`，`messageFailed=-1`） |
 
 ### 请求示例 - 所有消息类型
 

@@ -17,7 +17,7 @@ services:
     profiles:
       - database
     environment:
-      POSTGRES_USER: ${DB_USER:-openchat}
+      POSTGRES_USER: ${DB_USERNAME:-openchat}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-openchat_password}
       POSTGRES_DB: ${DB_NAME:-openchat}
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -41,7 +41,7 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-openchat} -d ${DB_NAME:-openchat}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-openchat} -d ${DB_NAME:-openchat}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -242,7 +242,7 @@ services:
       # 数据库配置 - 支持外部数据库
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER:-openchat}
+      DB_USERNAME: ${DB_USERNAME:-openchat}
       DB_PASSWORD: ${DB_PASSWORD:-openchat_password}
       DB_NAME: ${DB_NAME:-openchat}
       DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-true}
@@ -274,7 +274,7 @@ services:
       WUKONGIM_MANAGER_URL: ${WUKONGIM_MANAGER_URL:-http://wukongim:5300}
       WUKONGIM_TOKEN_AUTH: ${WUKONGIM_TOKEN_AUTH:-false}
       WUKONGIM_TIMEOUT: ${WUKONGIM_TIMEOUT:-10000}
-      WUKONGIM_APP_ID: ${WUKONGIM_APP_ID:-}
+      WUKONGIM_APP_KEY: ${WUKONGIM_APP_KEY:-}
       WUKONGIM_APP_SECRET: ${WUKONGIM_APP_SECRET:-}
       
       # 队列配置

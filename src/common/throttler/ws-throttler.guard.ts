@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { REDIS_CLIENT } from '../redis/redis.constants';
 
 /**
  * WebSocket 限流配置
@@ -31,7 +32,7 @@ export class WsThrottlerGuard implements CanActivate {
   };
 
   constructor(
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   /**

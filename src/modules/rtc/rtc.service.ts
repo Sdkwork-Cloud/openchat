@@ -213,6 +213,49 @@ export interface RTCProviderHealthReport {
   providers: RTCProviderHealthItem[];
 }
 
+export interface RTCProviderCapabilityItem {
+  provider: RTCProviderType;
+  configured: boolean;
+  channelId?: string;
+  supportsRecording: boolean;
+  tokenStrategies: string[];
+  supportsControlPlaneDelegate: boolean;
+}
+
+export interface RTCProviderCapabilitiesReport {
+  defaultProvider: RTCProviderType;
+  recommendedPrimary?: RTCProviderType;
+  fallbackOrder: RTCProviderType[];
+  activeProviders: RTCProviderType[];
+  providers: RTCProviderCapabilityItem[];
+}
+
+const RTC_PROVIDER_STATIC_CAPABILITIES: Record<
+  RTCProviderType,
+  Pick<RTCProviderCapabilityItem, 'supportsRecording' | 'tokenStrategies' | 'supportsControlPlaneDelegate'>
+> = {
+  volcengine: {
+    supportsRecording: true,
+    tokenStrategies: ['delegate', 'openapi', 'local'],
+    supportsControlPlaneDelegate: true,
+  },
+  tencent: {
+    supportsRecording: false,
+    tokenStrategies: ['usersig'],
+    supportsControlPlaneDelegate: true,
+  },
+  alibaba: {
+    supportsRecording: false,
+    tokenStrategies: ['app-auth'],
+    supportsControlPlaneDelegate: true,
+  },
+  livekit: {
+    supportsRecording: false,
+    tokenStrategies: ['signed-token'],
+    supportsControlPlaneDelegate: true,
+  },
+};
+
 @Injectable()
 export class RTCService implements RTCManager {
   private readonly logger = new Logger(RTCService.name);
@@ -1694,6 +1737,66 @@ export class RTCService implements RTCManager {
 
   getProviderHealthReport(query?: RTCProviderHealthQuery): RTCProviderHealthReport {
     return this.buildProviderHealthReport(query, true);
+  }
+
+  async getProviderCapabilities(): Promise<RTCProviderCapabilitiesReport> {
+    const activeChannels = await this.rtcChannelRepository.find({
+      where: {
+        isActive: true,
+        isDeleted: false,
+      },
+      order: {
+        updatedAt: 'DESC',
+      },
+    });
+
+    const channelByProvider = new Map<RTCProviderType, RTCChannelEntity>();
+    for (const channel of activeChannels) {
+      const provider = this.safeNormalizeProvider(channel.provider);
+      if (!channelByProvider.has(provider)) {
+        channelByProvider.set(provider, channel);
+      }
+    }
+
+    const health = this.getProviderHealthReport({
+      operation: 'generateToken',
+      windowMinutes: this.providerHealthDefaults.windowMinutes,
+      topErrorLimit: this.providerHealthDefaults.topErrorLimit,
+      minSamples: this.healthRoutingMinSamples,
+      controlPlaneMinSamples: this.providerHealthDefaults.controlPlaneMinSamples,
+      degradedFailureRate: this.providerHealthDefaults.degradedFailureRate,
+      unhealthyFailureRate: this.providerHealthDefaults.unhealthyFailureRate,
+      degradedLatencyMs: this.providerHealthDefaults.degradedLatencyMs,
+      unhealthyLatencyMs: this.providerHealthDefaults.unhealthyLatencyMs,
+      degradedControlPlaneRetryRate: this.providerHealthDefaults.degradedControlPlaneRetryRate,
+      unhealthyControlPlaneRetryRate: this.providerHealthDefaults.unhealthyControlPlaneRetryRate,
+      degradedControlPlaneCircuitOpenRate: this.providerHealthDefaults.degradedControlPlaneCircuitOpenRate,
+      unhealthyControlPlaneCircuitOpenRate: this.providerHealthDefaults.unhealthyControlPlaneCircuitOpenRate,
+    });
+
+    const providers = this.getCandidateProvidersForHealth(new Map())
+      .map((provider): RTCProviderCapabilityItem => {
+        const channel = channelByProvider.get(provider);
+        const staticCapability = RTC_PROVIDER_STATIC_CAPABILITIES[provider];
+        return {
+          provider,
+          configured: !!channel,
+          channelId: channel?.id,
+          supportsRecording: staticCapability.supportsRecording,
+          tokenStrategies: [...staticCapability.tokenStrategies],
+          supportsControlPlaneDelegate: staticCapability.supportsControlPlaneDelegate,
+        };
+      });
+
+    return {
+      defaultProvider: this.defaultProvider,
+      recommendedPrimary: health.recommendedPrimary,
+      fallbackOrder: health.fallbackOrder,
+      activeProviders: providers
+        .filter((item) => item.configured)
+        .map((item) => item.provider),
+      providers,
+    };
   }
 
   private buildProviderHealthReport(

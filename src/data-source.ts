@@ -3,6 +3,7 @@ import { UserEntity } from './modules/user/entities/user.entity';
 import { Friend } from './modules/friend/friend.entity';
 import { FriendRequest } from './modules/friend/friend-request.entity';
 import { Message } from './modules/message/message.entity';
+import { MessageReaction } from './modules/message/message-reaction.entity';
 import { Group } from './modules/group/group.entity';
 import { GroupMember } from './modules/group/group-member.entity';
 import { GroupInvitation } from './modules/group/group-invitation.entity';
@@ -23,7 +24,7 @@ export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USERNAME || process.env.DB_USER || 'openchat',
+  username: process.env.DB_USERNAME || 'openchat',
   password: process.env.DB_PASSWORD || 'openchat_password',
   database: process.env.DB_NAME || 'openchat',
   entities: [
@@ -31,6 +32,7 @@ export const AppDataSource = new DataSource({
     Friend,
     FriendRequest,
     Message,
+    MessageReaction,
     Group,
     GroupMember,
     GroupInvitation,

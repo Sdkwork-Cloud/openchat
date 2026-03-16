@@ -16,7 +16,15 @@ import {
 } from '../../common/constants';
 import { TokenBlacklistService } from '../../common/auth/token-blacklist.service';
 import { PermissionService } from '../../common/services/permission.service';
+import { RedisService } from '../../common/redis/redis.service';
+import { ConversationService } from '../conversation/conversation.service';
 import { randomUUID } from 'crypto';
+
+interface JwtTokenPayload {
+  userId?: string;
+  deviceId?: string;
+  exp?: number;
+}
 
 // 认证响应类型
 export class AuthResponse {
@@ -31,6 +39,19 @@ export class AuthResponse {
     this.refreshToken = refreshToken;
     this.expiresIn = expiresIn;
   }
+}
+
+export interface DeviceSessionSummary {
+  deviceId: string;
+  tokenCount: number;
+  conversationCount: number;
+  lastActiveAt: string | null;
+  isCurrentDevice: boolean;
+}
+
+export interface DeviceSessionSummaryResult {
+  total: number;
+  items: DeviceSessionSummary[];
 }
 
 /**
@@ -53,6 +74,8 @@ export class AuthService {
     private verificationCodeService: VerificationCodeService,
     private tokenBlacklistService: TokenBlacklistService,
     private permissionService: PermissionService,
+    private redisService: RedisService,
+    private conversationService: ConversationService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') || JWT_CONFIG.DEFAULT_SECRET;
     this.jwtExpiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || JWT_CONFIG.DEFAULT_EXPIRES_IN;
@@ -79,8 +102,9 @@ export class AuthService {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    const token = await this.generateToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
+    const deviceId = this.normalizeDeviceId(loginData.deviceId);
+    const token = await this.generateToken(user, deviceId);
+    const refreshToken = await this.generateRefreshToken(user, deviceId);
 
     this.userSyncService.syncUserOnLogin(user.id).catch(error => {
       this.logger.error('Failed to sync user login to IM:', error);
@@ -112,11 +136,14 @@ export class AuthService {
         throw new UnauthorizedException('刷新令牌已失效');
       }
 
-      const payload = this.jwtService.verify(refreshToken, {
+      const payload = this.jwtService.verify<JwtTokenPayload>(refreshToken, {
         secret: this.jwtSecret,
       });
 
-      const userId = payload.sub || payload.userId;
+      const userId = payload.userId;
+      if (!userId) {
+        throw new UnauthorizedException('刷新令牌缺少用户标识');
+      }
 
       const user = await this.localUserManager.getUserById(userId);
       if (!user) {
@@ -125,8 +152,9 @@ export class AuthService {
 
       await this.tokenBlacklistService.addToBlacklist(refreshToken, 'refresh_token_used');
 
-      const newToken = await this.generateToken(user);
-      const newRefreshToken = await this.generateRefreshToken(user);
+      const deviceId = this.extractDeviceIdFromTokenPayload(payload);
+      const newToken = await this.generateToken(user, deviceId);
+      const newRefreshToken = await this.generateRefreshToken(user, deviceId);
 
       const { password, ...userWithoutPassword } = user;
 
@@ -149,9 +177,15 @@ export class AuthService {
 
     // 将accessToken和refreshToken加入黑名单
     if (accessToken) {
+      if (!this.isTokenOwnedByUser(accessToken, userId)) {
+        throw new UnauthorizedException('访问令牌与当前用户不匹配');
+      }
       await this.tokenBlacklistService.addToBlacklist(accessToken, 'logout');
     }
     if (refreshToken) {
+      if (!this.isTokenOwnedByUser(refreshToken, userId)) {
+        throw new UnauthorizedException('刷新令牌与当前用户不匹配');
+      }
       await this.tokenBlacklistService.addToBlacklist(refreshToken, 'logout');
     }
 
@@ -161,45 +195,228 @@ export class AuthService {
     }
   }
 
+  async logoutOtherDevices(
+    userId: string,
+    currentDeviceId: string,
+  ): Promise<{ currentDeviceId: string; revokedTokens: number; clearedCursors: number }> {
+    const normalizedCurrentDeviceId = this.normalizeDeviceId(currentDeviceId);
+    if (!normalizedCurrentDeviceId) {
+      throw new BadRequestException('无效的设备ID');
+    }
+
+    const revokedTokens = await this.tokenBlacklistService.blacklistUserTokensExceptDevice(
+      userId,
+      normalizedCurrentDeviceId,
+      `logout_others:${normalizedCurrentDeviceId}`,
+    );
+    const clearedCursors = await this.conversationService.deleteDeviceReadCursorsForUserExcept(
+      userId,
+      normalizedCurrentDeviceId,
+    );
+
+    await this.redisService.publish('openchat:system', {
+      type: 'kickUserExceptDevice',
+      userId,
+      keepDeviceId: normalizedCurrentDeviceId,
+      reason: 'logout_others',
+      kickedAt: new Date().toISOString(),
+    });
+
+    return {
+      currentDeviceId: normalizedCurrentDeviceId,
+      revokedTokens: revokedTokens.length,
+      clearedCursors,
+    };
+  }
+
+  async listDeviceSessions(
+    userId: string,
+    currentDeviceId?: string,
+    limit: number = 100,
+  ): Promise<DeviceSessionSummaryResult> {
+    if (!userId) {
+      return { total: 0, items: [] };
+    }
+
+    const safeLimit = this.normalizeLimit(limit, 100, 1, 200);
+    const normalizedCurrentDeviceId = this.normalizeDeviceId(currentDeviceId);
+
+    const [tokenStats, cursorSummary] = await Promise.all([
+      this.tokenBlacklistService.getUserDeviceTokenStats(userId, safeLimit),
+      this.conversationService.getDeviceReadCursorSummariesForUser(userId, safeLimit),
+    ]);
+
+    const merged = new Map<string, DeviceSessionSummary>();
+
+    tokenStats.forEach((tokenStat) => {
+      const normalizedDeviceId = this.normalizeDeviceId(tokenStat.deviceId);
+      if (!normalizedDeviceId) {
+        return;
+      }
+
+      merged.set(normalizedDeviceId, {
+        deviceId: normalizedDeviceId,
+        tokenCount: Math.max(Math.floor(tokenStat.tokenCount), 0),
+        conversationCount: 0,
+        lastActiveAt: null,
+        isCurrentDevice: normalizedCurrentDeviceId === normalizedDeviceId,
+      });
+    });
+
+    cursorSummary.items.forEach((cursorStat) => {
+      const normalizedDeviceId = this.normalizeDeviceId(cursorStat.deviceId);
+      if (!normalizedDeviceId) {
+        return;
+      }
+
+      const existing = merged.get(normalizedDeviceId);
+      const lastActiveAt = cursorStat.lastActiveAt || null;
+      if (existing) {
+        existing.conversationCount = Math.max(Math.floor(cursorStat.conversationCount), 0);
+        existing.lastActiveAt = lastActiveAt;
+      } else {
+        merged.set(normalizedDeviceId, {
+          deviceId: normalizedDeviceId,
+          tokenCount: 0,
+          conversationCount: Math.max(Math.floor(cursorStat.conversationCount), 0),
+          lastActiveAt,
+          isCurrentDevice: normalizedCurrentDeviceId === normalizedDeviceId,
+        });
+      }
+    });
+
+    if (normalizedCurrentDeviceId && !merged.has(normalizedCurrentDeviceId)) {
+      merged.set(normalizedCurrentDeviceId, {
+        deviceId: normalizedCurrentDeviceId,
+        tokenCount: 0,
+        conversationCount: 0,
+        lastActiveAt: null,
+        isCurrentDevice: true,
+      });
+    }
+
+    const items = Array.from(merged.values())
+      .sort((a, b) => {
+        const aTs = a.lastActiveAt ? Date.parse(a.lastActiveAt) : 0;
+        const bTs = b.lastActiveAt ? Date.parse(b.lastActiveAt) : 0;
+        if (bTs !== aTs) {
+          return bTs - aTs;
+        }
+        if (b.tokenCount !== a.tokenCount) {
+          return b.tokenCount - a.tokenCount;
+        }
+        return a.deviceId.localeCompare(b.deviceId);
+      })
+      .slice(0, safeLimit);
+
+    return {
+      total: items.length,
+      items,
+    };
+  }
+
+  async logoutDevice(
+    userId: string,
+    deviceId: string,
+    accessToken?: string,
+    refreshToken?: string,
+  ): Promise<{ deviceId: string; revokedTokens: number; clearedCursors: number }> {
+    const normalizedDeviceId = this.normalizeDeviceId(deviceId);
+    if (!normalizedDeviceId) {
+      throw new BadRequestException('无效的设备ID');
+    }
+
+    const explicitTokens = new Set<string>();
+    if (accessToken) {
+      explicitTokens.add(accessToken);
+    }
+    if (refreshToken) {
+      explicitTokens.add(refreshToken);
+    }
+
+    for (const token of explicitTokens) {
+      if (!this.isTokenOwnedByDevice(token, userId, normalizedDeviceId)) {
+        throw new UnauthorizedException('令牌与当前设备不匹配');
+      }
+      await this.tokenBlacklistService.addToBlacklist(token, `logout_device:${normalizedDeviceId}`);
+    }
+
+    const revokedTokens = new Set<string>(explicitTokens);
+    const revokedByDeviceTokens = await this.tokenBlacklistService.blacklistUserTokensByDevice(
+      userId,
+      normalizedDeviceId,
+      `logout_device:${normalizedDeviceId}`,
+    );
+    revokedByDeviceTokens.forEach((token) => revokedTokens.add(token));
+    const clearedCursors = await this.conversationService.deleteDeviceReadCursorsForUser(
+      userId,
+      normalizedDeviceId,
+    );
+
+    await this.redisService.publish('openchat:system', {
+      type: 'kickDevice',
+      userId,
+      deviceId: normalizedDeviceId,
+      reason: 'logout_device',
+      kickedAt: new Date().toISOString(),
+    });
+
+    return {
+      deviceId: normalizedDeviceId,
+      revokedTokens: revokedTokens.size,
+      clearedCursors,
+    };
+  }
+
   /**
    * 生成JWT访问令牌
    */
-  private async generateToken(user: UserEntity): Promise<string> {
+  private async generateToken(user: UserEntity, deviceId?: string): Promise<string> {
     const roles = await this.permissionService.getUserRoles(user.id);
     const permissions = await this.permissionService.getUserPermissions(user.id);
     
-    const payload = {
-      sub: user.id,
+    const payload: Record<string, unknown> = {
       userId: user.id,
       username: user.username,
       roles,
       permissions,
       jti: randomUUID(),
     };
+
+    if (deviceId) {
+      payload.deviceId = deviceId;
+    }
     
-    return this.jwtService.sign(payload, {
+    const token = this.jwtService.sign(payload, {
       secret: this.jwtSecret,
       expiresIn: this.jwtExpiresIn as any,
       issuer: this.jwtIssuer,
     });
+    await this.tokenBlacklistService.registerIssuedToken(token);
+    return token;
   }
 
   /**
    * 生成JWT刷新令牌
    */
-  private async generateRefreshToken(user: UserEntity): Promise<string> {
-    const payload = {
-      sub: user.id,
+  private async generateRefreshToken(user: UserEntity, deviceId?: string): Promise<string> {
+    const payload: Record<string, unknown> = {
       userId: user.id,
       username: user.username,
       jti: randomUUID(),
     };
+
+    if (deviceId) {
+      payload.deviceId = deviceId;
+    }
     
-    return this.jwtService.sign(payload, {
+    const token = this.jwtService.sign(payload, {
       secret: this.jwtSecret,
       expiresIn: this.refreshTokenExpiresIn as any,
       issuer: this.jwtIssuer,
     });
+    await this.tokenBlacklistService.registerIssuedToken(token);
+    return token;
   }
 
   /**
@@ -226,10 +443,10 @@ export class AuthService {
    */
   async validateToken(token: string): Promise<string | null> {
     try {
-      const payload = this.jwtService.verify(token, {
+      const payload = this.jwtService.verify<JwtTokenPayload>(token, {
         secret: this.jwtSecret,
       });
-      return payload.sub;
+      return payload.userId || null;
     } catch (error: any) {
       this.logger.debug(`Token validation failed: ${error.message}`);
       return null;
@@ -494,5 +711,52 @@ export class AuthService {
       success: true,
       message,
     };
+  }
+
+  private extractDeviceIdFromTokenPayload(payload: JwtTokenPayload): string | undefined {
+    return this.normalizeDeviceId(payload.deviceId);
+  }
+
+  private normalizeDeviceId(deviceId?: string): string | undefined {
+    if (!deviceId) {
+      return undefined;
+    }
+
+    const normalized = deviceId.trim();
+    if (!normalized) {
+      return undefined;
+    }
+
+    if (!/^[A-Za-z0-9._:-]{1,64}$/.test(normalized)) {
+      return undefined;
+    }
+
+    return normalized;
+  }
+
+  private normalizeLimit(
+    value: number,
+    fallback: number,
+    min: number,
+    max: number,
+  ): number {
+    const numericValue = Number(value);
+    const resolved = Number.isFinite(numericValue) ? Math.floor(numericValue) : fallback;
+    return Math.min(Math.max(resolved, min), max);
+  }
+
+  private isTokenOwnedByDevice(token: string, userId: string, deviceId: string): boolean {
+    const decoded = this.jwtService.decode(token) as JwtTokenPayload | null;
+    if (!decoded || decoded.userId !== userId) {
+      return false;
+    }
+
+    const tokenDeviceId = this.extractDeviceIdFromTokenPayload(decoded);
+    return tokenDeviceId === deviceId;
+  }
+
+  private isTokenOwnedByUser(token: string, userId: string): boolean {
+    const decoded = this.jwtService.decode(token) as JwtTokenPayload | null;
+    return !!decoded && decoded.userId === userId;
   }
 }

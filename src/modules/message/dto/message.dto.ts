@@ -13,8 +13,10 @@ import {
   IsBoolean,
   IsUUID,
   ArrayMaxSize,
+  IsIn,
+  Matches,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   ImageMediaResource,
   VideoMediaResource,
@@ -320,6 +322,17 @@ export class SendMessage {
   clientSeq?: number;
 
   @ApiPropertyOptional({
+    description: '幂等键（推荐，支持通过幂等键稳定推导 clientSeq）',
+    example: 'msg-send-20260308-0001',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9._:-]{1,128}$/, {
+    message: 'idempotencyKey 格式无效',
+  })
+  idempotencyKey?: string;
+
+  @ApiPropertyOptional({
     description: '扩展数据',
   })
   @IsOptional()
@@ -355,6 +368,42 @@ export class UpdateMessageStatus {
   })
   @IsEnum(MessageStatus)
   status: MessageStatus;
+}
+
+export class EditMessage {
+  @ApiProperty({
+    description: '更新后的消息内容',
+    type: MessageContent,
+  })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => MessageContent)
+  content: MessageContent;
+
+  @ApiPropertyOptional({
+    description: '编辑时附带的扩展数据',
+  })
+  @IsOptional()
+  @IsObject()
+  extra?: Record<string, unknown>;
+}
+
+export class SetMessageReaction {
+  @ApiProperty({
+    description: '表情内容',
+    example: '👍',
+  })
+  @IsString()
+  @IsNotEmpty()
+  emoji: string;
+
+  @ApiPropertyOptional({
+    description: '是否激活该反应，默认 true；false 时移除当前用户的该反应',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean = true;
 }
 
 export class MarkMessagesRead {
@@ -393,6 +442,294 @@ export class GetMessagesQuery {
   @IsOptional()
   @IsString()
   cursor?: string;
+
+  @ApiPropertyOptional({
+    description: '起始序列号（大于该值）',
+    example: 1024,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  fromSeq?: number;
+
+  @ApiPropertyOptional({
+    description: '结束序列号（小于等于该值）',
+    example: 2048,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  toSeq?: number;
+
+  @ApiPropertyOptional({
+    description: '拉取方向（默认 before，若传 fromSeq 建议使用 after）',
+    enum: ['before', 'after'],
+    default: 'before',
+  })
+  @IsOptional()
+  @IsIn(['before', 'after'])
+  direction?: 'before' | 'after' = 'before';
+}
+
+export class GetMessageReceiptsQuery {
+  @ApiPropertyOptional({
+    description: '限制数量',
+    default: 50,
+    maximum: 200,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  limit?: number = 50;
+
+  @ApiPropertyOptional({
+    description: '偏移量',
+    default: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  offset?: number = 0;
+
+  @ApiPropertyOptional({
+    description: '回执状态过滤',
+    enum: [MessageStatus.SENT, MessageStatus.DELIVERED, MessageStatus.READ],
+  })
+  @IsOptional()
+  @IsIn([MessageStatus.SENT, MessageStatus.DELIVERED, MessageStatus.READ])
+  status?: MessageStatus;
+}
+
+export class GetMessageUnreadMembersQuery {
+  @ApiPropertyOptional({
+    description: '限制数量',
+    default: 50,
+    maximum: 200,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  limit?: number = 50;
+
+  @ApiPropertyOptional({
+    description: '偏移量',
+    default: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  offset?: number = 0;
+
+  @ApiPropertyOptional({
+    description: '游标（优先于 offset）',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+}
+
+export class GetMessageReadMembersQuery {
+  @ApiPropertyOptional({
+    description: '限制数量',
+    default: 50,
+    maximum: 200,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  limit?: number = 50;
+
+  @ApiPropertyOptional({
+    description: '偏移量',
+    default: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  offset?: number = 0;
+
+  @ApiPropertyOptional({
+    description: '游标（优先于 offset）',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+}
+
+export class MessageUnreadMemberItemResponse {
+  @ApiProperty({
+    description: '用户ID',
+    example: 'user-123',
+  })
+  userId: string;
+
+  @ApiProperty({
+    description: '群角色',
+    enum: ['owner', 'admin', 'member'],
+    example: 'member',
+  })
+  role: 'owner' | 'admin' | 'member';
+
+  @ApiPropertyOptional({
+    description: '回执状态（未读列表中可能为空）',
+    enum: [MessageStatus.SENT, MessageStatus.DELIVERED],
+    nullable: true,
+    example: MessageStatus.DELIVERED,
+  })
+  receiptStatus: MessageStatus.SENT | MessageStatus.DELIVERED | null;
+
+  @ApiPropertyOptional({
+    description: '投递时间',
+    type: String,
+    format: 'date-time',
+    nullable: true,
+  })
+  deliveredAt: Date | null;
+
+  @ApiPropertyOptional({
+    description: '已读时间（未读成员通常为空）',
+    type: String,
+    format: 'date-time',
+    nullable: true,
+  })
+  readAt: Date | null;
+}
+
+export class MessageUnreadMembersResponse {
+  @ApiProperty({
+    description: '消息ID',
+    example: 'msg-001',
+  })
+  messageId: string;
+
+  @ApiProperty({
+    description: '群组ID',
+    example: 'group-001',
+  })
+  groupId: string;
+
+  @ApiProperty({
+    description: '总数量（全量统计）',
+    example: 120,
+  })
+  total: number;
+
+  @ApiProperty({
+    description: '当前分页大小',
+    example: 50,
+  })
+  limit: number;
+
+  @ApiProperty({
+    description: 'offset 分页偏移（使用 cursor 时仅回显）',
+    example: 0,
+  })
+  offset: number;
+
+  @ApiPropertyOptional({
+    description: '下一页游标，不存在表示到达末页',
+    example: 'eyJ0IjoiMjAyNi0wMy0wNVQxMDowMDowMC4wMDBaIiwidSI6InVzZXItMTAwMSJ9',
+  })
+  nextCursor?: string;
+
+  @ApiProperty({
+    description: '成员列表',
+    type: [MessageUnreadMemberItemResponse],
+  })
+  items: MessageUnreadMemberItemResponse[];
+}
+
+export class MessageReadMemberItemResponse {
+  @ApiProperty({
+    description: '用户ID',
+    example: 'user-123',
+  })
+  userId: string;
+
+  @ApiProperty({
+    description: '群角色',
+    enum: ['owner', 'admin', 'member'],
+    example: 'member',
+  })
+  role: 'owner' | 'admin' | 'member';
+
+  @ApiProperty({
+    description: '回执状态（已读列表固定为 read）',
+    enum: [MessageStatus.READ],
+    example: MessageStatus.READ,
+  })
+  receiptStatus: MessageStatus.READ;
+
+  @ApiPropertyOptional({
+    description: '投递时间',
+    type: String,
+    format: 'date-time',
+    nullable: true,
+  })
+  deliveredAt: Date | null;
+
+  @ApiPropertyOptional({
+    description: '已读时间',
+    type: String,
+    format: 'date-time',
+    nullable: true,
+  })
+  readAt: Date | null;
+}
+
+export class MessageReadMembersResponse {
+  @ApiProperty({
+    description: '消息ID',
+    example: 'msg-001',
+  })
+  messageId: string;
+
+  @ApiProperty({
+    description: '群组ID',
+    example: 'group-001',
+  })
+  groupId: string;
+
+  @ApiProperty({
+    description: '总数量（全量统计）',
+    example: 85,
+  })
+  total: number;
+
+  @ApiProperty({
+    description: '当前分页大小',
+    example: 50,
+  })
+  limit: number;
+
+  @ApiProperty({
+    description: 'offset 分页偏移（使用 cursor 时仅回显）',
+    example: 0,
+  })
+  offset: number;
+
+  @ApiPropertyOptional({
+    description: '下一页游标，不存在表示到达末页',
+    example: 'eyJ0IjoiMjAyNi0wMy0wNVQxMDowMDowMC4wMDBaIiwidSI6InVzZXItMTAwMSJ9',
+  })
+  nextCursor?: string;
+
+  @ApiProperty({
+    description: '成员列表',
+    type: [MessageReadMemberItemResponse],
+  })
+  items: MessageReadMemberItemResponse[];
 }
 
 export class GetMessageHistory {
@@ -435,6 +772,155 @@ export class GetMessageHistory {
   @IsOptional()
   @IsEnum(MessageType)
   messageType?: MessageType;
+}
+
+export class GetMessageHistoryBySeqQuery {
+  @ApiProperty({
+    description: '目标ID（用户ID或群组ID）',
+    example: 'user-456',
+  })
+  @IsString()
+  @IsNotEmpty()
+  targetId: string;
+
+  @ApiProperty({
+    description: '会话类型',
+    enum: ConversationType,
+    example: ConversationType.SINGLE,
+  })
+  @IsEnum(ConversationType)
+  type: ConversationType;
+
+  @ApiPropertyOptional({
+    description: '起始序列号（仅返回 seq > fromSeq）',
+    example: 1024,
+    default: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  fromSeq?: number = 0;
+
+  @ApiPropertyOptional({
+    description: '结束序列号（仅返回 seq <= toSeq）',
+    example: 2048,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  toSeq?: number;
+
+  @ApiPropertyOptional({
+    description: '分页大小',
+    example: 50,
+    default: 50,
+    maximum: 200,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  limit?: number = 50;
+
+  @ApiPropertyOptional({
+    description: '拉取方向（after 常用于增量同步，before 常用于向前翻页）',
+    enum: ['after', 'before'],
+    default: 'after',
+  })
+  @IsOptional()
+  @IsIn(['after', 'before'])
+  direction?: 'after' | 'before' = 'after';
+
+  @ApiPropertyOptional({
+    description: '是否返回缺失序列号列表（用于消息补洞）',
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true') {
+        return true;
+      }
+      if (normalized === 'false') {
+        return false;
+      }
+    }
+    return value;
+  })
+  @IsBoolean()
+  includeMissingSeqs?: boolean;
+}
+
+export class AckConversationSeqItemRequest {
+  @ApiProperty({
+    description: '目标ID（用户ID或群组ID）',
+    example: 'user-456',
+  })
+  @IsString()
+  @IsNotEmpty()
+  targetId: string;
+
+  @ApiProperty({
+    description: '会话类型',
+    enum: ConversationType,
+    example: ConversationType.SINGLE,
+  })
+  @IsEnum(ConversationType)
+  type: ConversationType;
+
+  @ApiProperty({
+    description: '确认到的序列号',
+    example: 1024,
+    minimum: 1,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  ackSeq: number;
+}
+
+export class AckConversationSeqRequest extends AckConversationSeqItemRequest {
+  @ApiPropertyOptional({
+    description: '设备ID（用于多端独立同步游标）',
+    example: 'ios-iphone15-001',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[A-Za-z0-9._:-]{1,64}$/)
+  deviceId?: string;
+}
+
+export class AckConversationSeqBatchRequest {
+  @ApiProperty({
+    description: '会话 ACK 列表',
+    type: [AckConversationSeqItemRequest],
+  })
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => AckConversationSeqItemRequest)
+  items: AckConversationSeqItemRequest[];
+
+  @ApiPropertyOptional({
+    description: '设备ID（用于多端独立同步游标）',
+    example: 'android-pixel9-001',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[A-Za-z0-9._:-]{1,64}$/)
+  deviceId?: string;
 }
 
 export class RecallMessage {

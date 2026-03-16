@@ -275,7 +275,7 @@ JWT_SECRET=your-jwt-secret-at-least-32-characters-long
 ```bash
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=openchat
+DB_USERNAME=openchat
 DB_PASSWORD=your-password
 DB_NAME=openchat
 ```

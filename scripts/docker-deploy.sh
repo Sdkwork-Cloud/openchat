@@ -50,6 +50,8 @@ show_help() {
     echo "  external         使用外部数据库/Redis启动"
     echo "  quick            快速启动（仅应用）"
     echo "  profiles         启动指定的服务"
+    echo "  patch-db         执行数据库在线补丁（database/patches）"
+    echo "  prod:deploy      生产部署（先补丁，再启动 docker-compose.prod.yml）"
     echo ""
     echo "选项:"
     echo "  -f, --file       指定 docker-compose 文件"
@@ -63,6 +65,197 @@ show_help() {
     echo "  $0 external                   # 使用外部数据库启动"
     echo "  $0 profiles -p database,im    # 只启动数据库和IM"
     echo "  $0 logs -f app               # 查看应用日志"
+}
+
+# 执行数据库补丁
+apply_db_patches() {
+    local patch_dir="$PROJECT_ROOT/database/patches"
+    local migration_table="chat_schema_migrations"
+    local checksum_tool=""
+
+    if command -v sha256sum &> /dev/null; then
+        checksum_tool="sha256sum"
+    elif command -v shasum &> /dev/null; then
+        checksum_tool="shasum"
+    elif command -v openssl &> /dev/null; then
+        checksum_tool="openssl"
+    fi
+
+    if [ ! -d "$patch_dir" ]; then
+        echo -e "${YELLOW}⚠ 未找到补丁目录: $patch_dir，跳过${NC}"
+        return 0
+    fi
+
+    if ! command -v psql &> /dev/null; then
+        echo -e "${RED}✗ 错误: psql 未安装，无法执行数据库补丁${NC}"
+        return 1
+    fi
+
+    if [ -z "${DB_HOST:-}" ] || [ -z "${DB_USERNAME:-}" ] || [ -z "${DB_NAME:-}" ]; then
+        echo -e "${RED}✗ 错误: 数据库连接信息不完整，请检查环境变量 DB_HOST/DB_USERNAME/DB_NAME${NC}"
+        return 1
+    fi
+
+    echo -e "${BLUE}执行数据库在线补丁...${NC}"
+    export PGPASSWORD="${DB_PASSWORD:-}"
+
+    if [ -z "$checksum_tool" ]; then
+        echo -e "${RED}✗ 错误: 找不到 SHA256 工具 (sha256sum/shasum/openssl)${NC}"
+        unset PGPASSWORD
+        return 1
+    fi
+
+    psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c "
+CREATE TABLE IF NOT EXISTS ${migration_table} (
+    filename TEXT PRIMARY KEY,
+    version TEXT,
+    checksum TEXT,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);" > /dev/null
+    psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c "
+ALTER TABLE ${migration_table}
+    ADD COLUMN IF NOT EXISTS version TEXT,
+    ADD COLUMN IF NOT EXISTS checksum TEXT;" > /dev/null
+    psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c "
+UPDATE ${migration_table}
+SET version = substring(filename from '^([0-9]{8})_')
+WHERE version IS NULL
+  AND filename ~ '^[0-9]{8}_.+\.sql$';" > /dev/null
+    psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c "
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_schema_migrations_version_uniq
+    ON ${migration_table}(version)
+    WHERE version IS NOT NULL;" > /dev/null
+
+    local patch_count=0
+    local applied_count=0
+    local skipped_count=0
+    local backfilled_count=0
+    local last_patch_version=""
+    for patch in $(find "$patch_dir" -maxdepth 1 -type f -name "*.sql" | sort); do
+        patch_count=$((patch_count + 1))
+        local patch_name
+        patch_name="$(basename "$patch")"
+        local patch_name_sql="${patch_name//\'/\'\'}"
+        local patch_version="${patch_name%%_*}"
+        if [[ ! "${patch_name}" =~ ^[0-9]{8}_.+\.sql$ ]]; then
+            echo -e "${RED}✗ 错误: 补丁命名不符合标准 (YYYYMMDD_name.sql): ${patch_name}${NC}"
+            unset PGPASSWORD
+            return 1
+        fi
+        if [ -n "${last_patch_version}" ] && [[ "${patch_version}" < "${last_patch_version}" ]]; then
+            echo -e "${RED}✗ 错误: 补丁顺序异常 ${patch_name} < ${last_patch_version}${NC}"
+            unset PGPASSWORD
+            return 1
+        fi
+        last_patch_version="${patch_version}"
+        local patch_checksum
+        case "$checksum_tool" in
+            sha256sum)
+                patch_checksum="$(sha256sum "$patch" | awk '{print $1}')"
+                ;;
+            shasum)
+                patch_checksum="$(shasum -a 256 "$patch" | awk '{print $1}')"
+                ;;
+            openssl)
+                patch_checksum="$(openssl dgst -sha256 "$patch" | awk '{print $NF}')"
+                ;;
+        esac
+        if [ -z "${patch_checksum}" ]; then
+            echo -e "${RED}✗ 错误: 无法计算补丁摘要 ${patch_name}${NC}"
+            unset PGPASSWORD
+            return 1
+        fi
+
+        local version_row
+        version_row="$(psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -tA -F '|' -c "SELECT filename, checksum FROM ${migration_table} WHERE version='${patch_version}' LIMIT 1;")"
+        if [ -n "${version_row}" ]; then
+            local stored_filename
+            stored_filename="${version_row%%|*}"
+            local stored_checksum
+            stored_checksum="${version_row#*|}"
+            local normalized_stored_filename
+            normalized_stored_filename="$(echo "${stored_filename}" | tr -d '[:space:]')"
+            local normalized_stored_checksum
+            normalized_stored_checksum="$(echo "${stored_checksum}" | tr -d '[:space:]')"
+            if [ "${normalized_stored_filename}" != "${patch_name}" ]; then
+                echo -e "${RED}✗ 错误: 补丁版本冲突 version=${patch_version}${NC}"
+                echo -e "${RED}    已登记文件: ${normalized_stored_filename}${NC}"
+                echo -e "${RED}    当前文件:   ${patch_name}${NC}"
+                unset PGPASSWORD
+                return 1
+            fi
+            if [ "${normalized_stored_checksum}" != "${patch_checksum}" ]; then
+                echo -e "${RED}✗ 错误: 补丁摘要不匹配 ${patch_name}${NC}"
+                echo -e "${RED}    记录摘要: ${normalized_stored_checksum}${NC}"
+                echo -e "${RED}    当前摘要: ${patch_checksum}${NC}"
+                unset PGPASSWORD
+                return 1
+            fi
+            skipped_count=$((skipped_count + 1))
+            echo -e "${YELLOW}  [${patch_count}] 跳过 ${patch_name} (已执行)${NC}"
+            continue
+        fi
+
+        local filename_row
+        filename_row="$(psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -tA -F '|' -c "SELECT version, checksum FROM ${migration_table} WHERE filename='${patch_name_sql}' LIMIT 1;")"
+        if [ -n "${filename_row}" ]; then
+            local stored_version
+            stored_version="${filename_row%%|*}"
+            local stored_checksum
+            stored_checksum="${filename_row#*|}"
+            local normalized_stored_version
+            normalized_stored_version="$(echo "${stored_version}" | tr -d '[:space:]')"
+            local normalized_stored_checksum
+            normalized_stored_checksum="$(echo "${stored_checksum}" | tr -d '[:space:]')"
+            if [ -n "${normalized_stored_version}" ] && [ "${normalized_stored_version}" != "${patch_version}" ]; then
+                echo -e "${RED}✗ 错误: 补丁版本冲突 ${patch_name} 已绑定 version=${normalized_stored_version}${NC}"
+                unset PGPASSWORD
+                return 1
+            fi
+            if [ -n "${normalized_stored_checksum}" ] && [ "${normalized_stored_checksum}" != "${patch_checksum}" ]; then
+                echo -e "${RED}✗ 错误: 补丁摘要不匹配 ${patch_name}${NC}"
+                echo -e "${RED}    记录摘要: ${normalized_stored_checksum}${NC}"
+                echo -e "${RED}    当前摘要: ${patch_checksum}${NC}"
+                unset PGPASSWORD
+                return 1
+            fi
+            psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c "UPDATE ${migration_table} SET version='${patch_version}', checksum='${patch_checksum}' WHERE filename='${patch_name_sql}';" > /dev/null
+            skipped_count=$((skipped_count + 1))
+            backfilled_count=$((backfilled_count + 1))
+            echo -e "${YELLOW}  [${patch_count}] 已回填版本/摘要 ${patch_name}${NC}"
+            continue
+        fi
+
+        echo -e "${BLUE}  [${patch_count}] 执行 ${patch_name}${NC}"
+        psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$patch"
+        psql -h "${DB_HOST}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c "INSERT INTO ${migration_table} (filename, version, checksum) VALUES ('${patch_name_sql}', '${patch_version}', '${patch_checksum}');" > /dev/null
+        applied_count=$((applied_count + 1))
+    done
+
+    unset PGPASSWORD
+
+    if [ "$patch_count" -eq 0 ]; then
+        echo -e "${YELLOW}⚠ 补丁目录为空，跳过${NC}"
+    else
+        echo -e "${GREEN}✓ 数据库补丁执行完成：总计 ${patch_count}，执行 ${applied_count}，跳过 ${skipped_count}，回填摘要 ${backfilled_count}${NC}"
+    fi
+}
+
+# 生产部署（补丁前置）
+deploy_production() {
+    local compose_file="$PROJECT_ROOT/docker-compose.prod.yml"
+
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}✗ 错误: 生产 compose 文件不存在: $compose_file${NC}"
+        return 1
+    fi
+
+    apply_db_patches
+
+    echo -e "${BLUE}启动生产环境服务...${NC}"
+    docker compose -f "$compose_file" up -d --build
+    wait_for_services "$compose_file"
+    echo -e "${GREEN}✓ 生产部署完成${NC}"
 }
 
 # 检查依赖
@@ -374,7 +567,7 @@ PROFILES_ARG=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        install|start|stop|restart|status|clean|update|external|quick|reload)
+        install|start|stop|restart|status|clean|update|external|quick|reload|patch-db|patch:db|prod-deploy|prod:deploy)
             COMMAND="$1"
             shift
             ;;
@@ -455,6 +648,13 @@ case "$COMMAND" in
     reload)
         check_dependencies
         reload_services "$COMPOSE_FILE_ARG"
+        ;;
+    patch-db|patch:db)
+        apply_db_patches
+        ;;
+    prod-deploy|prod:deploy)
+        check_dependencies
+        deploy_production
         ;;
     profiles)
         check_dependencies

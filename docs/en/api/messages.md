@@ -6,14 +6,103 @@ The Message Management API provides functionality for sending, querying, recalli
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
-| Send Message | POST | `/api/messages` | Send a message |
-| Get Message List | GET | `/api/messages` | Get conversation messages |
+| Send Message | POST | `/api/v1/messages` | Send a message |
+| Get Message List | GET | `/api/v1/messages/user/:userId` | Get conversation messages |
 | Get Conversation List | GET | `/api/conversations` | Get conversation list |
-| Mark as Read | PUT | `/api/messages/read` | Mark messages as read |
-| Recall Message | POST | `/api/messages/:id/recall` | Recall a message |
-| Delete Message | DELETE | `/api/messages/:id` | Delete a message |
-| Forward Message | POST | `/api/messages/:id/forward` | Forward a message |
-| Search Messages | GET | `/api/messages/search` | Search messages |
+| Mark as Read | POST | `/api/v1/messages/:userId/read` | Mark messages as read |
+| Recall Message | POST | `/api/v1/messages/:id/recall` | Recall a message |
+| Delete Message | DELETE | `/api/v1/messages/:id` | Delete a message |
+| Forward Message | POST | `/api/v1/messages/:id/forward` | Forward a message |
+| Search Messages | GET | `/api/v1/messages/search` | Search messages |
+| Get Message Receipts | GET | `/api/v1/messages/:id/receipts` | Paginated recipient receipt details |
+| Get Receipt Summary | GET | `/api/v1/messages/:id/receipt-summary` | sent/delivered/read summary |
+| Get Group Unread Members | GET | `/api/v1/messages/:id/unread-members` | Group unread member list |
+| Get Group Read Members | GET | `/api/v1/messages/:id/read-members` | Group read member list |
+| Mark Group Messages Read | POST | `/api/v1/messages/group/:groupId/read` | Batch read report for group members |
+
+---
+
+## Read Receipt APIs (New)
+
+### Get Message Receipts
+
+```http
+GET /api/v1/messages/:id/receipts?limit=50&offset=0&status=read
+Authorization: Bearer <access-token>
+```
+
+Notes:
+- `status` is optional: `sent | delivered | read`
+- Direct message: sender/receiver can query
+- Group message: sender and group admins can query detailed list
+
+### Get Receipt Summary
+
+```http
+GET /api/v1/messages/:id/receipt-summary
+Authorization: Bearer <access-token>
+```
+
+Sample response:
+
+```json
+{
+  "messageId": "1900000000000000001",
+  "conversationType": "group",
+  "expectedRecipientCount": 12,
+  "trackedRecipientCount": 12,
+  "sentCount": 12,
+  "deliveredCount": 10,
+  "readCount": 8,
+  "unreadCount": 4,
+  "pendingDeliveryCount": 2
+}
+```
+
+### Get Group Unread Members
+
+```http
+GET /api/v1/messages/:id/unread-members?limit=50&offset=0
+Authorization: Bearer <access-token>
+```
+
+Cursor pagination (recommended):
+
+```http
+GET /api/v1/messages/:id/unread-members?limit=50&cursor=<nextCursor>
+```
+
+### Get Group Read Members
+
+```http
+GET /api/v1/messages/:id/read-members?limit=50&offset=0
+Authorization: Bearer <access-token>
+```
+
+Cursor pagination (recommended):
+
+```http
+GET /api/v1/messages/:id/read-members?limit=50&cursor=<nextCursor>
+```
+
+### Mark Group Messages as Read
+
+```http
+POST /api/v1/messages/group/:groupId/read
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+```json
+{
+  "messageIds": ["1900000000000000001", "1900000000000000002"]
+}
+```
+
+Notes:
+- Only group members can call this endpoint.
+- This endpoint writes member-level receipts and does not directly overwrite group message global `status`.
+- `unread-members` / `read-members` responses include `nextCursor` for keyset paging.
 
 ---
 
@@ -22,8 +111,9 @@ The Message Management API provides functionality for sending, querying, recalli
 Send a message to a specified user or group.
 
 ```http
-POST /api/messages
+POST /api/v1/messages
 Authorization: Bearer <access-token>
+Idempotency-Key: <optional-idempotency-key>
 Content-Type: application/json
 ```
 
@@ -40,6 +130,7 @@ Content-Type: application/json
   "replyToId": "string",         // Optional, ID of the message being replied to
   "forwardFromId": "string",     // Optional, ID of the original message being forwarded
   "clientSeq": 12345,            // Optional, client sequence number (for deduplication)
+  "idempotencyKey": "string",    // Optional, idempotency key (recommended)
   "extra": {},                   // Optional, extended data
   "needReadReceipt": true        // Optional, whether read receipt is needed, default true
 }
@@ -58,8 +149,27 @@ Content-Type: application/json
 | replyToId | string | No | ID of the message being replied to |
 | forwardFromId | string | No | ID of the original message being forwarded |
 | clientSeq | number | No | Client sequence number, for deduplication |
+| idempotencyKey | string | No | Idempotency key (`[A-Za-z0-9._:-]{1,128}`), mapped to stable `clientSeq` |
 | extra | object | No | Extended data |
 | needReadReceipt | boolean | No | Whether read receipt is needed, default true |
+
+Idempotency behavior:
+- If `clientSeq` is provided, it takes precedence.
+- If `clientSeq` is missing, the server uses `idempotencyKey` in body first, then `Idempotency-Key` / `X-Idempotency-Key` header to derive a stable `clientSeq`.
+- For batch send with header-only idempotency key, server auto-derives per-item keys by index to avoid intra-batch conflicts.
+
+Status transition constraints:
+- Delivery status is monotonic: `sending -> sent -> delivered -> read`.
+- Late ACKs will not downgrade message state (for example, `read` will not be overwritten by a later `delivered` event).
+
+Send response event fields (aligned with WS contract):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| eventId | string | Event ID for this send response, useful for idempotent bookkeeping |
+| eventType | string | `messageSent` or `messageFailed` |
+| occurredAt | number | Event timestamp in milliseconds |
+| stateVersion | number | State version (`messageSent=1`, `messageFailed=-1`) |
 
 ---
 
@@ -602,7 +712,7 @@ interface MediaResource {
 
 ```bash
 # Send text message
-curl -X POST http://localhost:3000/api/messages \
+curl -X POST http://localhost:3000/api/v1/messages \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -H "Content-Type: application/json" \
   -d '{

@@ -16,6 +16,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { JwtAuthGuard } from '../../user/guards/jwt-auth.guard';
 import { BotService, CreateBotParams, UpdateBotParams, BotResponse } from '../services/bot.service';
 import { WebhookConfig, BotScope } from '../entities/bot.entity';
+import { AuthenticatedRequest } from '../../../common/auth/interfaces/authenticated-request.interface';
 
 /**
  * 创建 Bot DTO
@@ -88,11 +89,11 @@ export class BotController {
   @ApiResponse({ status: 409, description: '用户名已存在' })
   async createBot(
     @Body() dto: CreateBotDto,
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
   ): Promise<{ bot: BotResponse; token: string }> {
     const params: CreateBotParams = {
       ...dto,
-      createdBy: req.user.userId,
+      createdBy: req.auth.userId,
     };
     return this.botService.createBot(params);
   }
@@ -104,13 +105,13 @@ export class BotController {
   @ApiOperation({ summary: '获取 Bot 列表' })
   @ApiResponse({ status: 200, description: '获取成功' })
   async getBots(
+    @Request() req: AuthenticatedRequest,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
-    @Request() req?: { user: { userId: string } },
   ): Promise<{ bots: BotResponse[]; total: number }> {
     return this.botService.getBots({
-      createdBy: req!.user.userId,
+      createdBy: req.auth.userId,
       status: status as any,
       page: page ? parseInt(page as any, 10) : 1,
       limit: limit ? parseInt(limit as any, 10) : 20,
@@ -139,9 +140,9 @@ export class BotController {
   async updateBot(
     @Param('id') id: string,
     @Body() dto: UpdateBotDto,
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
   ): Promise<BotResponse> {
-    return this.botService.updateBot(id, req.user.userId, dto);
+    return this.botService.updateBot(id, req.auth.userId, dto);
   }
 
   /**
@@ -154,9 +155,9 @@ export class BotController {
   @ApiResponse({ status: 403, description: '无权限' })
   async regenerateToken(
     @Param('id') id: string,
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
   ): Promise<{ token: string }> {
-    return this.botService.regenerateToken(id, req.user.userId);
+    return this.botService.regenerateToken(id, req.auth.userId);
   }
 
   /**
@@ -170,9 +171,9 @@ export class BotController {
   @ApiResponse({ status: 403, description: '无权限' })
   async deleteBot(
     @Param('id') id: string,
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
   ): Promise<void> {
-    await this.botService.deleteBot(id, req.user.userId);
+    await this.botService.deleteBot(id, req.auth.userId);
   }
 
   /**
@@ -186,7 +187,7 @@ export class BotController {
   async setWebhook(
     @Param('id') id: string,
     @Body() dto: SetWebhookDto,
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
   ): Promise<BotResponse> {
     // 生成签名密钥
     const secret = require('crypto').randomBytes(32).toString('hex');
@@ -205,7 +206,7 @@ export class BotController {
       timeout: dto.timeout || 30000,
     };
 
-    return this.botService.setWebhook(id, req.user.userId, config);
+    return this.botService.setWebhook(id, req.auth.userId, config);
   }
 
   /**
@@ -219,8 +220,8 @@ export class BotController {
   @ApiResponse({ status: 403, description: '无权限' })
   async deleteWebhook(
     @Param('id') id: string,
-    @Request() req: { user: { userId: string } },
+    @Request() req: AuthenticatedRequest,
   ): Promise<void> {
-    await this.botService.deleteWebhook(id, req.user.userId);
+    await this.botService.deleteWebhook(id, req.auth.userId);
   }
 }

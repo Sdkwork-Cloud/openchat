@@ -148,7 +148,7 @@ test_env_configuration() {
         "DB_PORT"
         "DB_USERNAME"
         "DB_PASSWORD"
-        "DB_DATABASE"
+        "DB_NAME"
         "REDIS_HOST"
         "REDIS_PORT"
         "JWT_SECRET"
@@ -235,7 +235,7 @@ test_database_connection() {
     
     local env_file="${PROJECT_ROOT}/.env"
     local db_name
-    db_name=$(grep "^DB_DATABASE=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+    db_name=$(grep "^DB_NAME=" "$env_file" 2>/dev/null | cut -d'=' -f2)
     db_name="${db_name:-openchat}"
     
     if docker exec "${db_container}" psql -U postgres -d "$db_name" -c "SELECT 1" &>/dev/null; then

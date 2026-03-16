@@ -55,7 +55,22 @@ Content-Type: application/json
 
 ---
 
+## Webhook Delivery Headers
+
+When OpenChat pushes events to your bot webhook URL, these headers are included:
+
+- `X-OpenChat-Signature`
+- `X-OpenChat-Timestamp`
+- `X-OpenChat-Nonce`
+- `X-OpenChat-Event-Id`
+- `Idempotency-Key`
+
+For signature verification details and language examples, see the Open Access guide.
+
+---
+
 ## Related Links
 
 - [AI Bots API](./ai-bots.md)
 - [AI Agents API](./agents.md)
+- [Open Access Guide](./open-access.md)

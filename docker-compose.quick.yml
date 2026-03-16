@@ -100,7 +100,7 @@ services:
       # 数据库配置
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: openchat
+      DB_USERNAME: openchat
       DB_PASSWORD: openchat_password
       DB_NAME: openchat
       DB_SYNCHRONIZE: "true"

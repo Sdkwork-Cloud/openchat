@@ -26,6 +26,7 @@ describe('EventBusService', () => {
   let service: EventBusService;
   let configServiceMock: ConfigServiceMock;
   let redisServiceMock: RedisServiceMock;
+  let distributedMessageHandler: ((message: string, channel?: string) => void) | undefined;
 
   beforeEach(async () => {
     configServiceMock = {
@@ -46,7 +47,9 @@ describe('EventBusService', () => {
     const clientPublish = jest.fn(async () => 1);
     redisServiceMock = {
       publish: jest.fn(async () => undefined),
-      subscribe: jest.fn(async () => undefined),
+      subscribe: jest.fn(async (_channel: string, callback?: (message: string, channel?: string) => void) => {
+        distributedMessageHandler = callback;
+      }),
       getClient: jest.fn(() => ({ publish: clientPublish })),
     };
 
@@ -214,6 +217,43 @@ describe('EventBusService', () => {
     await expect(
       service.publishAndWait(EventTypeConstants.DEVICE_STATUS_CHANGED, { ping: true }, 20),
     ).rejects.toThrow('timeout');
+  });
+
+  it('should setup distributed subscription on first subscribe even when global broadcast is disabled', async () => {
+    const handler = jest.fn<void, [IEvent<{ from: string }>]>();
+    service.subscribe<IEvent<{ from: string }>>(EventTypeConstants.CUSTOM_EVENT, handler);
+    await flushMicrotasks();
+
+    expect(redisServiceMock.subscribe).toHaveBeenCalledWith('event:broadcast:*', expect.any(Function));
+
+    distributedMessageHandler?.(
+      JSON.stringify({
+        eventName: EventTypeConstants.CUSTOM_EVENT,
+        data: { from: 'remote-node' },
+        timestamp: Date.now(),
+        eventId: 'evt_remote_1',
+        source: 'remote-node',
+      }),
+      'event:broadcast:custom.event',
+    );
+    await flushMicrotasks();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0].data).toEqual({ from: 'remote-node' });
+  });
+
+  it('should publish with explicit broadcast option even when global broadcast is disabled', async () => {
+    await service.publish(EventTypeConstants.CUSTOM_EVENT, { value: 1 }, { broadcast: true });
+    await flushMicrotasks();
+
+    expect(redisServiceMock.subscribe).toHaveBeenCalledWith('event:broadcast:*', expect.any(Function));
+    expect(redisServiceMock.publish).toHaveBeenCalledWith(
+      'event:broadcast:custom.event',
+      expect.objectContaining({
+        eventName: EventTypeConstants.CUSTOM_EVENT,
+        data: { value: 1 },
+      }),
+    );
   });
 
   it('should respect max stored events when persistence is enabled', async () => {

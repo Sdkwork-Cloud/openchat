@@ -84,7 +84,7 @@ Auth: all endpoints require JWT.
   - Like/unlike (supports explicit `liked` or toggle).
 
 ## Cursor Format
-- Base64URL JSON (legacy Base64 compatible):
+- Base64URL JSON:
   - `{"sortScore":"1735700000000","postId":"192000000000000001"}`
 - Pagination predicate:
   - `(sort_score < cursor.sortScore) OR (sort_score = cursor.sortScore AND post_id < cursor.postId)`

@@ -18,7 +18,6 @@ export class BotTokenAuthStrategy implements AuthStrategy {
    * 检查是否支持该请求
    */
   canHandle(request: Request): boolean {
-    // 检查 Authorization 头
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
@@ -27,13 +26,7 @@ export class BotTokenAuthStrategy implements AuthStrategy {
       }
     }
 
-    // 检查 X-Bot-Token 头
     if (request.headers['x-bot-token']) {
-      return true;
-    }
-
-    // 检查 Query 参数
-    if (request.query.bot_token) {
       return true;
     }
 
@@ -133,7 +126,6 @@ export class BotTokenAuthStrategy implements AuthStrategy {
    * 提取 Token
    */
   private extractToken(request: Request): string | undefined {
-    // 1. 从 Authorization 头提取
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
@@ -142,15 +134,9 @@ export class BotTokenAuthStrategy implements AuthStrategy {
       }
     }
 
-    // 2. 从 X-Bot-Token 头提取
     const botTokenHeader = request.headers['x-bot-token'];
     if (typeof botTokenHeader === 'string') {
       return botTokenHeader;
-    }
-
-    // 3. 从 Query 参数提取
-    if (typeof request.query.bot_token === 'string') {
-      return request.query.bot_token;
     }
 
     return undefined;

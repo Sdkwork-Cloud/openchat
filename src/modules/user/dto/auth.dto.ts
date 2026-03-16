@@ -187,6 +187,18 @@ export class LoginDto {
   @IsString({ message: '密码必须是字符串' })
   @IsNotEmpty({ message: '密码不能为空' })
   password: string;
+
+  @ApiProperty({
+    description: '设备ID（可选，建议携带以启用多端独立同步游标）',
+    example: 'ios-iphone15-001',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: '设备ID必须是字符串' })
+  @Matches(/^[A-Za-z0-9._:-]{1,64}$/, {
+    message: '设备ID格式无效',
+  })
+  deviceId?: string;
 }
 
 /**
@@ -325,6 +337,18 @@ export class LogoutDto {
   @IsOptional()
   @IsString()
   refreshToken?: string;
+
+  @ApiProperty({
+    description: '设备ID（可选，用于设备级登出，需与认证设备一致）',
+    required: false,
+    example: 'ios-iphone15-001',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9._:-]{1,64}$/, {
+    message: '设备ID格式无效',
+  })
+  deviceId?: string;
 }
 
 /**

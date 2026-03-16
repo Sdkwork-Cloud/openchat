@@ -62,6 +62,7 @@ import {
   RTCRoom,
   RTCRoomType,
   RTCToken,
+  RTCTokenValidationResult,
   RTCChannelEntity,
   RTCVideoRecord,
   CreateRTCRoomParams,
@@ -69,7 +70,16 @@ import {
   CreateRTCChannelParams,
   UpdateRTCChannelParams,
   CreateVideoRecordParams,
+  StartRTCRecordingParams,
+  StopRTCRecordingParams,
+  SyncRTCVideoRecordParams,
   UpdateVideoRecordStatusParams,
+  VideoRecordListQuery,
+  RTCProviderCapabilitiesResponse,
+  RTCProviderOperationStat,
+  RTCProviderOperationStatsQuery,
+  RTCProviderHealthReport,
+  RTCProviderHealthQuery,
   Device,
   DeviceType,
   DeviceStatus,
@@ -1484,12 +1494,12 @@ export class ApiService {
     return this.unwrapResponse(response);
   }
 
-  // 验证RTC token
-  async validateRTCToken(token: string): Promise<RTCToken | null> {
-    const response = await this.request<RTCToken | null>({
-      method: 'GET',
+  // 验证RTC token（标准POST body）
+  async validateRTCToken(token: string): Promise<RTCTokenValidationResult> {
+    const response = await this.request<RTCTokenValidationResult>({
+      method: 'POST',
       url: '/rtc/tokens/validate',
-      params: { token },
+      data: { token },
     });
     return this.unwrapResponse(response);
   }
@@ -1560,6 +1570,35 @@ export class ApiService {
     return this.unwrapResponse(response);
   }
 
+  // 获取RTC provider能力矩阵（用于动态集成）
+  async getRTCProviderCapabilities(): Promise<RTCProviderCapabilitiesResponse> {
+    const response = await this.request<RTCProviderCapabilitiesResponse>({
+      method: 'GET',
+      url: '/rtc/providers/capabilities',
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 获取RTC provider统计（管理员）
+  async getRTCProviderStats(query?: RTCProviderOperationStatsQuery): Promise<RTCProviderOperationStat[]> {
+    const response = await this.request<RTCProviderOperationStat[]>({
+      method: 'GET',
+      url: '/rtc/providers/stats',
+      params: query,
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 获取RTC provider健康报告（管理员）
+  async getRTCProviderHealth(query?: RTCProviderHealthQuery): Promise<RTCProviderHealthReport> {
+    const response = await this.request<RTCProviderHealthReport>({
+      method: 'GET',
+      url: '/rtc/providers/health',
+      params: query,
+    });
+    return this.unwrapResponse(response);
+  }
+
   // 创建视频记录
   async createVideoRecord(data: CreateVideoRecordParams): Promise<RTCVideoRecord> {
     const response = await this.request<RTCVideoRecord>({
@@ -1588,6 +1627,26 @@ export class ApiService {
     return this.unwrapResponse(response);
   }
 
+  // 启动房间录制
+  async startRTCRecording(roomId: string, data?: StartRTCRecordingParams): Promise<RTCVideoRecord> {
+    const response = await this.request<RTCVideoRecord>({
+      method: 'POST',
+      url: `/rtc/rooms/${roomId}/recordings/start`,
+      data,
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 停止房间录制
+  async stopRTCRecording(roomId: string, data?: StopRTCRecordingParams): Promise<RTCVideoRecord | null> {
+    const response = await this.request<RTCVideoRecord | null>({
+      method: 'POST',
+      url: `/rtc/rooms/${roomId}/recordings/stop`,
+      data,
+    });
+    return this.unwrapResponse(response);
+  }
+
   // 获取用户的视频记录列表
   async getVideoRecordsByUserId(userId: string): Promise<RTCVideoRecord[]> {
     const response = await this.request<RTCVideoRecord[]>({
@@ -1608,11 +1667,21 @@ export class ApiService {
   }
 
   // 更新视频记录元数据
-  async updateVideoRecordMetadata(id: string, metadata: string): Promise<RTCVideoRecord | null> {
+  async updateVideoRecordMetadata(id: string, metadata: Record<string, any>): Promise<RTCVideoRecord | null> {
     const response = await this.request<RTCVideoRecord | null>({
       method: 'PUT',
       url: `/rtc/video-records/${id}/metadata`,
       data: { metadata },
+    });
+    return this.unwrapResponse(response);
+  }
+
+  // 同步录制记录状态
+  async syncRTCVideoRecord(id: string, data?: SyncRTCVideoRecordParams): Promise<RTCVideoRecord | null> {
+    const response = await this.request<RTCVideoRecord | null>({
+      method: 'POST',
+      url: `/rtc/video-records/${id}/sync`,
+      data,
     });
     return this.unwrapResponse(response);
   }
@@ -1627,11 +1696,11 @@ export class ApiService {
   }
 
   // 获取所有视频记录（分页）
-  async getVideoRecords(limit?: number, offset?: number): Promise<RTCVideoRecord[]> {
+  async getVideoRecords(query?: VideoRecordListQuery): Promise<RTCVideoRecord[]> {
     const response = await this.request<RTCVideoRecord[]>({
       method: 'GET',
       url: '/rtc/video-records',
-      params: { limit, offset },
+      params: query,
     });
     return this.unwrapResponse(response);
   }

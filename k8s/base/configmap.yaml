@@ -13,7 +13,7 @@ data:
   HOST: "0.0.0.0"
   DB_HOST: "postgres"
   DB_PORT: "5432"
-  DB_DATABASE: "openchat"
+  DB_NAME: "openchat"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
   LOG_LEVEL: "info"

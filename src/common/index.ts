@@ -59,7 +59,6 @@ export { RateLimitService, RateLimitAlgorithm, RateLimitResult, RateLimitPolicy 
 export * from './services/distributed-lock.service';
 export * from './services/feature-flag.service';
 export * from './services/metrics.service';
-export * from './services/config-validation.service';
 export * from './services/data-sync.service';
 export * from './services/security-audit.service';
 export * from './services/request-tracing.service';

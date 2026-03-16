@@ -276,7 +276,7 @@ export class TencentRTCChannel extends RTCChannelBase {
 
   private shouldAttachUserBuf(): boolean {
     this.validateInitialized();
-    const value = this.config?.tencentEnableUserBuf ?? this.config?.tencentEnablePrivateMapKey;
+    const value = this.config?.tencentEnableUserBuf;
     return value === true;
   }
 

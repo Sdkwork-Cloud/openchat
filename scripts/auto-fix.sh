@@ -233,7 +233,7 @@ fix_env_file() {
         fi
     fi
     
-    local required_vars=("DB_HOST" "DB_PORT" "DB_USERNAME" "DB_PASSWORD" "DB_DATABASE" "REDIS_HOST" "REDIS_PORT" "JWT_SECRET")
+    local required_vars=("DB_HOST" "DB_PORT" "DB_USERNAME" "DB_PASSWORD" "DB_NAME" "REDIS_HOST" "REDIS_PORT" "JWT_SECRET")
     local missing_vars=()
     
     for var in "${required_vars[@]}"; do

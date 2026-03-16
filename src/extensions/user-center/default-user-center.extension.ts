@@ -299,7 +299,14 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         secret: this.pluginConfig.jwtSecret,
       });
 
-      const userId = payload.sub || payload.userId;
+      const userId = payload.userId;
+      if (!userId) {
+        return {
+          success: false,
+          error: '刷新令牌无效',
+          errorCode: UserCenterErrorCode.INVALID_TOKEN,
+        };
+      }
 
       const user = await this.userRepository.findOne({
         where: { id: userId, isDeleted: false },
@@ -337,7 +344,10 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         secret: this.pluginConfig.jwtSecret,
       });
 
-      const userId = payload.sub || payload.userId;
+      const userId = payload.userId;
+      if (!userId) {
+        return null;
+      }
       const user = await this.getUserById(userId);
       return user;
     } catch {
@@ -569,7 +579,6 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
 
     const accessToken = this.jwtService.sign(
       {
-        sub: user.id,
         userId: user.id,
         username: user.username,
         roles,
@@ -581,7 +590,6 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
 
     const refreshToken = this.jwtService.sign(
       {
-        sub: user.id,
         userId: user.id,
         username: user.username,
         jti: randomUUID(),

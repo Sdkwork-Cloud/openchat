@@ -3,7 +3,7 @@
  * 
  * 设计原则：
  * 1. 完全封装Provider细节，对外提供统一的RTC接口
- * 2. 支持多Provider扩展（火山引擎、Agora、TRTC等）
+ * 2. 支持多Provider扩展（火山引擎、腾讯云、阿里云、LiveKit等）
  * 3. 完整的生命周期管理：初始化 -> 加入房间 -> 发布/订阅 -> 离开房间 -> 销毁
  * 4. 信令通过IM服务传输，实现信令与媒体分离
  * 5. 状态机管理，确保状态转换的正确性
@@ -54,6 +54,9 @@ import {
 } from './types';
 
 import { VolcengineRTCProvider } from './providers/volcengine-provider';
+import { TencentRTCProvider } from './providers/tencent-provider';
+import { AlibabaRTCProvider } from './providers/alibaba-provider';
+import { LiveKitRTCProvider } from './providers/livekit-provider';
 import { RTCSignaling } from './signaling';
 import { IIMService } from '../services/im-service';
 
@@ -71,6 +74,13 @@ enum RTCManagerState {
   ERROR = 'error',
 }
 
+type RTCProviderAvailability = 'full' | 'placeholder' | 'custom';
+
+interface RTCProviderRegistration {
+  factory: () => IRTCProvider;
+  availability: RTCProviderAvailability;
+}
+
 /**
  * RTC管理器
  * 
@@ -82,6 +92,13 @@ enum RTCManagerState {
  * 5. 事件转发，将Provider事件转发给上层
  */
 export class RTCManager extends EventEmitter {
+  private static providerFactories: Map<RTCProviderType, RTCProviderRegistration> = new Map<RTCProviderType, RTCProviderRegistration>([
+    [RTCProviderType.VOLCENGINE, { factory: () => new VolcengineRTCProvider(), availability: 'full' }],
+    [RTCProviderType.TENCENT, { factory: () => new TencentRTCProvider(), availability: 'full' }],
+    [RTCProviderType.ALIBABA, { factory: () => new AlibabaRTCProvider(), availability: 'full' }],
+    [RTCProviderType.LIVEKIT, { factory: () => new LiveKitRTCProvider(), availability: 'full' }],
+  ]);
+
   // Provider实例
   private provider: IRTCProvider | null = null;
   
@@ -110,6 +127,41 @@ export class RTCManager extends EventEmitter {
     super();
     this.imService = options.imService;
     this.uid = options.uid;
+  }
+
+  static registerProvider(
+    type: RTCProviderType,
+    factory: () => IRTCProvider,
+    options?: { availability?: RTCProviderAvailability },
+  ): void {
+    this.providerFactories.set(type, {
+      factory,
+      availability: options?.availability || 'custom',
+    });
+  }
+
+  static unregisterProvider(type: RTCProviderType): void {
+    this.providerFactories.delete(type);
+  }
+
+  static getSupportedProviders(): RTCProviderType[] {
+    return Array.from(this.providerFactories.keys());
+  }
+
+  static getAvailableProviders(): RTCProviderType[] {
+    return Array.from(this.providerFactories.entries())
+      .filter(([, registration]) => registration.availability !== 'placeholder')
+      .map(([provider]) => provider);
+  }
+
+  static isProviderAvailable(type: RTCProviderType): boolean {
+    const registration = this.providerFactories.get(type);
+    return !!registration && registration.availability !== 'placeholder';
+  }
+
+  static createProviderInstance(type: RTCProviderType): IRTCProvider | null {
+    const registration = this.providerFactories.get(type);
+    return registration ? registration.factory() : null;
   }
 
   // ==================== 状态查询 ====================
@@ -291,7 +343,10 @@ export class RTCManager extends EventEmitter {
 
       // 2. 调用Provider加入房间
       if (this.provider) {
-        await this.provider.joinRoom(options);
+        await this.provider.joinRoom({
+          ...(options || {}),
+          roomId,
+        });
       }
 
       this._state = RTCManagerState.JOINED;
@@ -613,17 +668,7 @@ export class RTCManager extends EventEmitter {
    * 创建Provider实例
    */
   private createProvider(type: RTCProviderType): IRTCProvider | null {
-    switch (type) {
-      case RTCProviderType.VOLCENGINE:
-        return new VolcengineRTCProvider();
-      // 未来可以扩展其他Provider
-      // case RTCProviderType.AGORA:
-      //   return new AgoraRTCProvider();
-      // case RTCProviderType.TRTC:
-      //   return new TrtcRTCProvider();
-      default:
-        return null;
-    }
+    return RTCManager.createProviderInstance(type);
   }
 
   /**

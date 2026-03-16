@@ -218,7 +218,7 @@ export abstract class CrudService<T extends BaseEntity & ObjectLiteral> implemen
       take: pagination.limit,
     });
 
-    return PagedResponseDto.create(list, { page: pagination.page, pageSize: pagination.pageSize, total });
+    return PagedResponseDto.page(list, { page: pagination.page, pageSize: pagination.pageSize, total });
   }
 
   async findWithCursor(

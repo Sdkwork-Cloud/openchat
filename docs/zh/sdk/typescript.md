@@ -319,6 +319,105 @@ client.message.onStatusChange((messageId, status) => {
 });
 ```
 
+### 事件去重与状态归并（推荐）
+
+生产环境建议将 HTTP 发送响应与 WS 推送统一走同一个 reducer，规则为：
+- 先按 `eventId` 去重（防止重放、重连补发、弱网重试重复处理）
+- 同一消息多次状态更新时，按 `stateVersion` 取最大值（防止乱序回退）
+- 服务端仓库提供了同等语义的参考实现：`src/modules/message/message-event-reducer.util.ts`。
+- 参考实现还支持：`applyMany`（批量归并）、`exportSnapshot`/`importSnapshot`（本地持久化恢复）。
+- 事件信封（`eventId/eventType/occurredAt/stateVersion`）统一生成参考：`src/modules/message/message-event-envelope.util.ts`。
+- 一体化处理管线参考：`src/modules/message/message-event-pipeline.util.ts`（信封生成 + 去重归并 + 快照恢复）。
+
+```typescript
+type MessageEvent = {
+  eventId: string;
+  eventType: string;
+  occurredAt: number;
+  stateVersion?: number;
+  serverMessageId?: string;
+  messageId?: string;
+  clientMessageId?: string;
+  status?: string;
+  content?: unknown;
+};
+
+type MessageView = {
+  messageId: string;
+  stateVersion: number;
+  status?: string;
+  content?: unknown;
+  updatedAt: number;
+};
+
+const DEFAULT_STATE_VERSION = -9999;
+
+function resolveMessageKey(event: MessageEvent): string | undefined {
+  return event.serverMessageId || event.messageId || event.clientMessageId;
+}
+
+class MessageEventReducer {
+  private dedup = new Set<string>();
+  private store = new Map<string, MessageView>();
+
+  apply(event: MessageEvent): { applied: boolean; snapshot?: MessageView } {
+    if (!event.eventId || this.dedup.has(event.eventId)) {
+      return { applied: false };
+    }
+    this.dedup.add(event.eventId);
+
+    const key = resolveMessageKey(event);
+    if (!key) {
+      return { applied: false };
+    }
+
+    const incomingVersion = Number.isFinite(event.stateVersion)
+      ? (event.stateVersion as number)
+      : DEFAULT_STATE_VERSION;
+    const prev = this.store.get(key);
+    const prevVersion = prev?.stateVersion ?? DEFAULT_STATE_VERSION;
+
+    // 只允许状态前进，不允许回退
+    if (prev && incomingVersion < prevVersion) {
+      return { applied: false, snapshot: prev };
+    }
+
+    const next: MessageView = {
+      messageId: key,
+      stateVersion: Math.max(prevVersion, incomingVersion),
+      status: event.status ?? prev?.status,
+      content: event.content ?? prev?.content,
+      updatedAt: event.occurredAt || Date.now(),
+    };
+    this.store.set(key, next);
+    return { applied: true, snapshot: next };
+  }
+
+  get(messageId: string): MessageView | undefined {
+    return this.store.get(messageId);
+  }
+}
+
+const reducer = new MessageEventReducer();
+
+// 1) 处理 HTTP 发送响应（messageSent/messageFailed）
+const sendResp = await client.message.send({
+  type: 'text',
+  content: { text: 'hello' },
+  fromUserId: 'sender-uuid',
+  toUserId: 'receiver-uuid',
+});
+reducer.apply(sendResp as MessageEvent);
+
+// 2) 处理 WS 推送（newMessage/messageAcknowledged/...）
+client.on('messageAcknowledged', (evt: MessageEvent) => {
+  const { applied, snapshot } = reducer.apply(evt);
+  if (applied && snapshot) {
+    renderMessage(snapshot);
+  }
+});
+```
+
 ### 获取历史消息
 
 ```typescript
@@ -574,74 +673,106 @@ await client.group.muteAll('group-uuid', true);
 
 ## 实时音视频模块
 
-### 创建房间
+### 初始化与房间编排
 
 ```typescript
-// 创建 P2P 通话房间
+import { RTCProviderType } from '@openchat/sdk/rtc';
+
+// 1) 初始化本地媒体引擎（当前内置 volcengine provider，可扩展）
+await client.rtc.init({
+  provider: RTCProviderType.VOLCENGINE,
+  providerConfig: {
+    appId: 'your-volcengine-app-id'
+  }
+});
+
+// 2) 服务端创建房间（多云路由由服务端RTC模块决定）
 const room = await client.rtc.createRoom({
-  type: 'p2p',
-  userId: 'callee-uuid'
-});
-
-// 创建群组通话房间
-const groupRoom = await client.rtc.createRoom({
   type: 'group',
-  groupId: 'group-uuid'
+  participants: ['user-a', 'user-b'],
+  provider: 'volcengine'
+});
+
+// 3) 生成 token（POST /rtc/tokens）
+const token = await client.rtc.generateToken({
+  roomId: room.id
+});
+
+// 4) 加入房间媒体会话
+await client.rtc.joinRoom(room.id, {
+  token: token.token,
+  autoPublish: true,
+  autoSubscribe: true
 });
 ```
 
-### 加入/离开房间
-
 ```typescript
-// 加入房间
-await client.rtc.joinRoom(room.id);
-
-// 离开房间
-await client.rtc.leaveRoom(room.id);
+// 不显式传 provider 时，SDK 默认会调用 /rtc/providers/capabilities
+// 按 recommendedPrimary -> defaultProvider 自动选路（仅选择可运行 provider）
+await client.rtc.init({
+  providerConfigs: {
+    volcengine: { appId: 'volc-app-id' },
+    tencent: { appId: 'trtc-sdk-app-id', appKey: 'trtc-secret' },
+    alibaba: { appId: 'ali-app-id', appKey: 'ali-app-key' },
+    livekit: { appId: 'livekit-url', appKey: 'livekit-api-key' }
+  }
+});
 ```
 
-### 音视频控制
+说明：
+- `tencent` 为内置适配器，但依赖运行时已加载 `TRTC`（例如页面先引入 `trtc-js-sdk`）。
+- `alibaba` 为内置适配器，但依赖运行时已加载 `AliRTC` 或 `AliRTCSdk`。
+- `livekit` 为内置适配器，但依赖运行时已加载 `LivekitClient`（例如页面先引入 `livekit-client` 浏览器 SDK）。
+
+### 媒体控制
 
 ```typescript
-// 开启/关闭摄像头
-await client.rtc.enableCamera(true);
-await client.rtc.enableCamera(false);
+// 创建并发布本地流
+const localStream = await client.rtc.createLocalStream({ video: true, audio: true });
+await client.rtc.publishStream(localStream.streamId);
 
-// 开启/关闭麦克风
-await client.rtc.enableMicrophone(true);
+// 开关摄像头/麦克风（enableCamera/enableMicrophone 为语义别名）
+await client.rtc.enableVideo(true);
+await client.rtc.enableAudio(true);
+await client.rtc.enableCamera(false);
 await client.rtc.enableMicrophone(false);
 
-// 切换前后摄像头
-await client.rtc.switchCamera();
+// 结束通话并离开房间
+await client.rtc.leaveRoom();
+```
 
-// 开启屏幕共享
-await client.rtc.startScreenShare();
+### Provider 能力发现
 
-// 停止屏幕共享
-await client.rtc.stopScreenShare();
+```typescript
+// 读取服务端多云RTC能力矩阵（默认provider、推荐主路由、可用provider）
+const capabilities = await client.rtc.getProviderCapabilities();
+console.log(capabilities.defaultProvider, capabilities.activeProviders);
 ```
 
 ### 事件监听
 
 ```typescript
-// 用户加入
-client.rtc.onParticipantJoined((participant) => {
-  console.log('用户加入:', participant);
+import { RTCEvent } from '@openchat/sdk/rtc';
+
+client.rtc.on(RTCEvent.USER_JOINED, (payload) => {
+  console.log('用户加入:', payload);
 });
 
-// 用户离开
-client.rtc.onParticipantLeft((participant) => {
-  console.log('用户离开:', participant);
+client.rtc.on(RTCEvent.USER_LEFT, (payload) => {
+  console.log('用户离开:', payload);
 });
 
-// 用户开启/关闭摄像头
-client.rtc.onCameraStateChanged((userId, enabled) => {
-  console.log(`用户 ${userId} 摄像头: ${enabled ? '开启' : '关闭'}`);
+client.rtc.on(RTCEvent.ROOM_STATE_CHANGED, (state) => {
+  console.log('房间状态变化:', state);
 });
+```
 
-// 用户开启/关闭麦克风
-client.rtc.onMicrophoneStateChanged((userId, enabled) => {
-  console.log(`用户 ${userId} 麦克风: ${enabled ? '开启' : '关闭'}`);
+```typescript
+import { RTCProviderFactory, RTCProviderType } from '@openchat/sdk/rtc';
+
+// 注入自定义 provider（替换占位实现）
+RTCProviderFactory.register(RTCProviderType.TENCENT, () => {
+  return new MyTencentProviderAdapter();
 });
 ```
 
@@ -919,35 +1050,132 @@ export function useOpenChat() {
 }
 ```
 
-### 3. 消息状态管理
+### 3. React + Zustand 消息状态管理（推荐模板）
 
 ```typescript
 // stores/messageStore.ts
 import { create } from 'zustand';
 import { client } from '../openchat';
 
+type MessageEvent = {
+  eventId: string;
+  eventType: string;
+  occurredAt: number;
+  stateVersion?: number;
+  serverMessageId?: string;
+  messageId?: string;
+  clientMessageId?: string;
+  status?: string;
+  content?: unknown;
+  fromUserId?: string;
+  toUserId?: string;
+  groupId?: string;
+};
+
+type MessageView = {
+  messageId: string;
+  conversationId: string;
+  stateVersion: number;
+  status?: string;
+  content?: unknown;
+  updatedAt: number;
+};
+
 interface MessageStore {
-  messages: Map<string, Message[]>;
-  addMessage: (conversationId: string, message: Message) => void;
+  eventDedup: Set<string>;
+  messages: Map<string, MessageView>; // key = messageId
+  conversationIndex: Map<string, string[]>; // key = conversationId, value = messageId[]
+  applyEvent: (event: MessageEvent) => { applied: boolean; message?: MessageView };
 }
 
-export const useMessageStore = create<MessageStore>((set) => ({
+const DEFAULT_STATE_VERSION = -9999;
+
+function resolveMessageKey(evt: MessageEvent): string | undefined {
+  return evt.serverMessageId || evt.messageId || evt.clientMessageId;
+}
+
+function resolveConversationId(evt: MessageEvent): string {
+  if (evt.groupId) {
+    return `group:${evt.groupId}`;
+  }
+  const a = evt.fromUserId || '';
+  const b = evt.toUserId || '';
+  return `single:${[a, b].sort().join(':')}`;
+}
+
+export const useMessageStore = create<MessageStore>((set, get) => ({
+  eventDedup: new Set(),
   messages: new Map(),
-  addMessage: (conversationId, message) => set((state) => {
-    const messages = new Map(state.messages);
-    const convMessages = messages.get(conversationId) || [];
-    messages.set(conversationId, [...convMessages, message]);
-    return { messages };
-  })
+  conversationIndex: new Map(),
+  applyEvent: (evt) => {
+    if (!evt.eventId || get().eventDedup.has(evt.eventId)) {
+      return { applied: false };
+    }
+
+    const messageId = resolveMessageKey(evt);
+    if (!messageId) {
+      return { applied: false };
+    }
+
+    const conversationId = resolveConversationId(evt);
+    const incomingVersion = Number.isFinite(evt.stateVersion)
+      ? (evt.stateVersion as number)
+      : DEFAULT_STATE_VERSION;
+
+    const prev = get().messages.get(messageId);
+    const prevVersion = prev?.stateVersion ?? DEFAULT_STATE_VERSION;
+    if (prev && incomingVersion < prevVersion) {
+      return { applied: false, message: prev };
+    }
+
+    const next: MessageView = {
+      messageId,
+      conversationId,
+      stateVersion: Math.max(prevVersion, incomingVersion),
+      status: evt.status ?? prev?.status,
+      content: evt.content ?? prev?.content,
+      updatedAt: evt.occurredAt || Date.now(),
+    };
+
+    set((state) => {
+      const nextDedup = new Set(state.eventDedup);
+      nextDedup.add(evt.eventId);
+
+      const nextMessages = new Map(state.messages);
+      nextMessages.set(messageId, next);
+
+      const nextIndex = new Map(state.conversationIndex);
+      const ids = nextIndex.get(conversationId) || [];
+      if (!ids.includes(messageId)) {
+        nextIndex.set(conversationId, [...ids, messageId]);
+      }
+
+      return {
+        eventDedup: nextDedup,
+        messages: nextMessages,
+        conversationIndex: nextIndex,
+      };
+    });
+
+    return { applied: true, message: next };
+  },
 }));
 
-// 监听消息
-client.message.onMessage((message) => {
-  const conversationId = message.channelType === 1 
-    ? [message.from, message.to].sort().join('_')
-    : message.to;
-  useMessageStore.getState().addMessage(conversationId, message);
-});
+// HTTP 发送响应与 WS 推送统一入库
+export async function sendAndReduce(input: Record<string, unknown>) {
+  const response = await client.message.send(input as any); // messageSent/messageFailed
+  useMessageStore.getState().applyEvent(response as MessageEvent);
+}
+
+export function bindMessageEvents() {
+  const apply = useMessageStore.getState().applyEvent;
+
+  client.on('newMessage', (evt: MessageEvent) => apply(evt));
+  client.on('newGroupMessage', (evt: MessageEvent) => apply(evt));
+  client.on('messageAcknowledged', (evt: MessageEvent) => apply(evt));
+  client.on('messageRetrying', (evt: MessageEvent) => apply(evt));
+  client.on('messageFailed', (evt: MessageEvent) => apply(evt));
+}
 ```
 
 ---

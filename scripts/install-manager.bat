@@ -151,7 +151,7 @@ if %ERRORLEVEL% equ 0 (
 
 if exist ".env" (
     call :load_env
-    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -c "SELECT 1" >nul 2>&1
+    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USERNAME% -d %DB_NAME% -c "SELECT 1" >nul 2>&1
     if %ERRORLEVEL% equ 0 (
         call :log_warn "数据库已存在 OpenChat 表结构"
         set "INSTALLED=true"

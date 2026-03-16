@@ -182,7 +182,7 @@ describe('TimelineService', () => {
     expect(page.items).toHaveLength(0);
     expect(page.nextCursor).toBeDefined();
 
-    const decoded = JSON.parse(Buffer.from(page.nextCursor!, 'base64').toString('utf8'));
+    const decoded = JSON.parse(Buffer.from(page.nextCursor!, 'base64url').toString('utf8'));
     expect(decoded).toEqual(batch[batch.length - 1]);
   });
 
@@ -323,7 +323,7 @@ describe('TimelineService', () => {
     expect(result.audienceCount).toBe(2);
   });
 
-  it('should encode cursor as base64url and decode both base64url and legacy base64', async () => {
+  it('should encode cursor as base64url and only decode canonical base64url cursor', async () => {
     const { service } = await setup(2);
     const cursor = {
       sortScore: '123456789',
@@ -338,9 +338,9 @@ describe('TimelineService', () => {
     const decodedFromBase64url = (service as any).decodeCursor(encoded);
     expect(decodedFromBase64url).toEqual(cursor);
 
-    const legacyBase64 = Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64');
-    const decodedFromLegacy = (service as any).decodeCursor(legacyBase64);
-    expect(decodedFromLegacy).toEqual(cursor);
+    const nonCanonicalCursor = `${encoded}=`;
+    const decodedFromNonCanonical = (service as any).decodeCursor(nonCanonicalCursor);
+    expect(decodedFromNonCanonical).toBeUndefined();
   });
 
   it('should reject overlong cursor payload defensively', async () => {

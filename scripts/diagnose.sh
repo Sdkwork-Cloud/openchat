@@ -213,26 +213,26 @@ diagnose_database() {
     # 检查数据库认证
     if command -v psql &>/dev/null; then
         log_diag "检查数据库认证..."
-        if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT 1" &>/dev/null; then
+        if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT 1" &>/dev/null; then
             log_error "数据库认证失败"
-            add_issue "数据库认证失败" "检查 DB_USER 和 DB_PASSWORD 配置"
+            add_issue "数据库认证失败" "检查 DB_USERNAME 和 DB_PASSWORD 配置"
             return 1
         fi
         log_success "数据库认证成功"
         
         # 检查数据库大小
         log_diag "检查数据库大小..."
-        local db_size=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT pg_size_pretty(pg_database_size('${DB_NAME:-openchat}'))" -t 2>/dev/null | tr -d ' ')
+        local db_size=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT pg_size_pretty(pg_database_size('${DB_NAME:-openchat}'))" -t 2>/dev/null | tr -d ' ')
         log_info "数据库大小: $db_size"
         
         # 检查连接数
         log_diag "检查数据库连接数..."
-        local connections=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT count(*) FROM pg_stat_activity" -t 2>/dev/null | tr -d ' ')
+        local connections=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT count(*) FROM pg_stat_activity" -t 2>/dev/null | tr -d ' ')
         log_info "当前连接数: $connections"
         
         # 检查表是否存在
         log_diag "检查必要表是否存在..."
-        local table_count=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" -t 2>/dev/null | tr -d ' ')
+        local table_count=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d "${DB_NAME:-openchat}" -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" -t 2>/dev/null | tr -d ' ')
         if [ "$table_count" -lt 5 ]; then
             log_warn "数据库表数量较少 ($table_count)，可能未完成初始化"
             add_warning "数据库可能未完成初始化"
@@ -384,7 +384,7 @@ diagnose_config() {
     
     # 检查必要配置
     log_diag "检查必要配置项..."
-    local required_vars=("DB_HOST" "DB_USER" "DB_PASSWORD" "DB_NAME" "REDIS_HOST" "JWT_SECRET" "EXTERNAL_IP")
+    local required_vars=("DB_HOST" "DB_USERNAME" "DB_PASSWORD" "DB_NAME" "REDIS_HOST" "JWT_SECRET" "EXTERNAL_IP")
     local missing_vars=()
     
     for var in "${required_vars[@]}"; do

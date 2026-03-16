@@ -158,6 +158,15 @@ export interface PerformanceAlertOptions {
   alertInterval?: number;
 }
 
+interface WsMessageTelemetrySpikeEvent {
+  type: 'command' | 'ack';
+  minuteEpoch: number;
+  total: number;
+  failed: number;
+  failRatio: number;
+  errorCode?: string;
+}
+
 /**
  * 性能监控服务
  */
@@ -181,6 +190,9 @@ export class PerformanceMonitorService implements OnModuleInit, OnModuleDestroy 
   
   private readonly options: Required<PerformanceAlertOptions>;
   private lastAlertTime = 0;
+  private readonly eventAlertLastSentAt = new Map<string, number>();
+  private requestCompletedListener?: (trace: RequestTrace) => void;
+  private wsMessageSpikeListener?: (payload: WsMessageTelemetrySpikeEvent) => void;
 
   constructor(
     private readonly configService: ConfigService,
@@ -203,6 +215,7 @@ export class PerformanceMonitorService implements OnModuleInit, OnModuleDestroy 
 
   onModuleDestroy() {
     this.stopMonitoring();
+    this.teardownEventListeners();
   }
 
   /**
@@ -513,11 +526,60 @@ export class PerformanceMonitorService implements OnModuleInit, OnModuleDestroy 
    * 设置事件监听
    */
   private setupEventListeners(): void {
-    this.eventEmitter.on('request.completed', (trace: RequestTrace) => {
+    this.requestCompletedListener = (trace: RequestTrace) => {
       if (trace.duration) {
         this.endRequestTrace(trace.requestId, trace.statusCode);
       }
+    };
+    this.eventEmitter.on('request.completed', this.requestCompletedListener);
+
+    this.wsMessageSpikeListener = (payload: WsMessageTelemetrySpikeEvent) => {
+      this.handleWsMessageTelemetrySpike(payload);
+    };
+    this.eventEmitter.on('ws.message.telemetry.spike', this.wsMessageSpikeListener);
+  }
+
+  private teardownEventListeners(): void {
+    if (this.requestCompletedListener) {
+      this.eventEmitter.off('request.completed', this.requestCompletedListener);
+    }
+    if (this.wsMessageSpikeListener) {
+      this.eventEmitter.off('ws.message.telemetry.spike', this.wsMessageSpikeListener);
+    }
+  }
+
+  private handleWsMessageTelemetrySpike(payload: WsMessageTelemetrySpikeEvent): void {
+    const category = payload.type === 'ack' ? 'ack' : 'command';
+    const total = Math.max(0, payload.total);
+    const failed = Math.max(0, Math.min(payload.failed, total));
+    if (total === 0) {
+      return;
+    }
+
+    const suppressionKey = `ws_message_spike:${category}:${payload.errorCode || 'unknown'}`;
+    if (!this.shouldEmitEventAlert(suppressionKey)) {
+      return;
+    }
+
+    this.emitAlert('ws_message_spike', {
+      alertCode: `ws_message_spike_${category}`,
+      category,
+      minuteEpoch: payload.minuteEpoch,
+      total,
+      failed,
+      failRatio: Number((failed / total).toFixed(4)),
+      ...(payload.errorCode ? { errorCode: payload.errorCode } : {}),
     });
+  }
+
+  private shouldEmitEventAlert(key: string): boolean {
+    const now = Date.now();
+    const lastSentAt = this.eventAlertLastSentAt.get(key) || 0;
+    if (now - lastSentAt < this.options.alertInterval * 1000) {
+      return false;
+    }
+    this.eventAlertLastSentAt.set(key, now);
+    return true;
   }
 
   /**

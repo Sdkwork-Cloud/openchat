@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { REDIS_CLIENT } from '../../common/redis/redis.constants';
 
 /**
  * 消息去重服务
@@ -13,13 +14,13 @@ export class MessageDeduplicationService {
   private readonly BLOOM_FILTER_KEY = 'message:bloom:filter';
 
   // 已确认消息集合（处理 Bloom Filter 误判）
-  private readonly CONFIRMED_SET_KEY = 'message:confirmed:set';
+  private readonly CONFIRMED_SET_KEY_PREFIX = 'message:confirmed:set';
 
   // 客户端序列号过期时间（24小时）
   private readonly CLIENT_SEQ_TTL = 86400;
 
   constructor(
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   /**
@@ -46,7 +47,7 @@ export class MessageDeduplicationService {
     }
 
     // 2. 可能存在（Bloom Filter 误判），二次确认
-    const exists = await this.redis.sismember(this.CONFIRMED_SET_KEY, messageId);
+    const exists = await this.redis.sismember(this.getConfirmedSetKey(userId), String(clientSeq));
     return exists === 1;
   }
 
@@ -92,11 +93,25 @@ export class MessageDeduplicationService {
 
       if (!mightExist) {
         results.set(seq, false);
+      }
+    }
+
+    const pendingConfirmedChecks = clientSeqs.filter((seq) => !results.has(seq));
+    if (pendingConfirmedChecks.length > 0) {
+      const confirmPipeline = this.redis.pipeline();
+      const confirmedSetKey = this.getConfirmedSetKey(userId);
+      pendingConfirmedChecks.forEach((seq) => {
+        confirmPipeline.sismember(confirmedSetKey, String(seq));
+      });
+      const confirmedResults = await confirmPipeline.exec();
+
+      if (confirmedResults) {
+        pendingConfirmedChecks.forEach((seq, index) => {
+          const [error, exists] = confirmedResults[index];
+          results.set(seq, !error && exists === 1);
+        });
       } else {
-        // 需要二次确认
-        const messageId = this.generateMessageId(seq, userId);
-        const exists = await this.redis.sismember(this.CONFIRMED_SET_KEY, messageId);
-        results.set(seq, exists === 1);
+        pendingConfirmedChecks.forEach((seq) => results.set(seq, false));
       }
     }
 
@@ -108,13 +123,14 @@ export class MessageDeduplicationService {
    */
   async markAsProcessed(clientSeq: number, userId: string): Promise<void> {
     const messageId = this.generateMessageId(clientSeq, userId);
+    const confirmedSetKey = this.getConfirmedSetKey(userId);
 
     // 1. 添加到 Bloom Filter
     await this.bloomFilterAdd(messageId);
 
     // 2. 添加到确认集合（带过期时间）
-    await this.redis.sadd(this.CONFIRMED_SET_KEY, messageId);
-    await this.redis.expire(this.CONFIRMED_SET_KEY, this.CLIENT_SEQ_TTL);
+    await this.redis.sadd(confirmedSetKey, String(clientSeq));
+    await this.redis.expire(confirmedSetKey, this.CLIENT_SEQ_TTL);
   }
 
   /**
@@ -125,6 +141,7 @@ export class MessageDeduplicationService {
     if (clientSeqs.length === 0) return;
 
     const pipeline = this.redis.pipeline();
+    const confirmedSetKey = this.getConfirmedSetKey(userId);
 
     for (const clientSeq of clientSeqs) {
       const messageId = this.generateMessageId(clientSeq, userId);
@@ -136,11 +153,11 @@ export class MessageDeduplicationService {
       }
 
       // 添加到确认集合
-      pipeline.sadd(this.CONFIRMED_SET_KEY, messageId);
+      pipeline.sadd(confirmedSetKey, String(clientSeq));
     }
 
     // 更新过期时间
-    pipeline.expire(this.CONFIRMED_SET_KEY, this.CLIENT_SEQ_TTL);
+    pipeline.expire(confirmedSetKey, this.CLIENT_SEQ_TTL);
 
     await pipeline.exec();
   }
@@ -156,6 +173,7 @@ export class MessageDeduplicationService {
   ): Promise<void> {
     const messageId = this.generateMessageId(clientSeq, userId);
     const txKey = `message:tx:${transactionId}`;
+    const confirmedSetKey = this.getConfirmedSetKey(userId);
 
     // 1. 记录到事务临时集合
     await this.redis.sadd(txKey, messageId);
@@ -165,8 +183,8 @@ export class MessageDeduplicationService {
     await this.bloomFilterAdd(messageId);
 
     // 3. 添加到确认集合
-    await this.redis.sadd(this.CONFIRMED_SET_KEY, messageId);
-    await this.redis.expire(this.CONFIRMED_SET_KEY, this.CLIENT_SEQ_TTL);
+    await this.redis.sadd(confirmedSetKey, String(clientSeq));
+    await this.redis.expire(confirmedSetKey, this.CLIENT_SEQ_TTL);
   }
 
   /**
@@ -180,8 +198,25 @@ export class MessageDeduplicationService {
     const messageIds = await this.redis.smembers(txKey);
 
     if (messageIds.length > 0) {
-      // 从确认集合中移除
-      await this.redis.srem(this.CONFIRMED_SET_KEY, ...messageIds);
+      const groupedClientSeqs = new Map<string, string[]>();
+      messageIds.forEach((messageId) => {
+        const parsed = this.parseMessageId(messageId);
+        if (!parsed) {
+          return;
+        }
+        const key = this.getConfirmedSetKey(parsed.userId);
+        const existing = groupedClientSeqs.get(key) || [];
+        existing.push(parsed.clientSeq);
+        groupedClientSeqs.set(key, existing);
+      });
+
+      if (groupedClientSeqs.size > 0) {
+        const pipeline = this.redis.pipeline();
+        groupedClientSeqs.forEach((clientSeqs, key) => {
+          pipeline.srem(key, ...clientSeqs);
+        });
+        await pipeline.exec();
+      }
     }
 
     // 删除事务记录
@@ -275,11 +310,8 @@ export class MessageDeduplicationService {
    * 定期调用以释放内存
    */
   async cleanup(): Promise<void> {
-    // 清理确认集合中的过期成员
-    // Bloom Filter 不支持删除，需要定期重建
-    const members = await this.redis.smembers(this.CONFIRMED_SET_KEY);
-
-    if (members.length === 0) {
+    const confirmedCount = await this.countConfirmedMembers();
+    if (confirmedCount === 0) {
       // 如果确认集合为空，可以重建 Bloom Filter
       await this.rebuildBloomFilter();
     }
@@ -293,11 +325,23 @@ export class MessageDeduplicationService {
     // 删除旧的 Bloom Filter
     await this.redis.del(this.BLOOM_FILTER_KEY);
 
-    // 重新添加所有已确认的消息
-    const members = await this.redis.smembers(this.CONFIRMED_SET_KEY);
+    const confirmedSetKeys = await this.scanConfirmedSetKeys();
+    for (const confirmedSetKey of confirmedSetKeys) {
+      const userId = this.resolveUserIdFromConfirmedSetKey(confirmedSetKey);
+      if (!userId) {
+        continue;
+      }
 
-    for (const member of members) {
-      await this.bloomFilterAdd(member);
+      let cursor = '0';
+      do {
+        const [nextCursor, members] = await this.redis.sscan(confirmedSetKey, cursor, 'COUNT', 1000);
+        cursor = nextCursor;
+        if (members.length === 0) {
+          continue;
+        }
+
+        await this.bloomFilterAddBatch(members.map((member) => `${userId}:${member}`));
+      } while (cursor !== '0');
     }
   }
 
@@ -309,7 +353,7 @@ export class MessageDeduplicationService {
     confirmedCount: number;
     estimatedFalsePositiveRate: number;
   }> {
-    const confirmedCount = await this.redis.scard(this.CONFIRMED_SET_KEY);
+    const confirmedCount = await this.countConfirmedMembers();
 
     // 计算估计的误判率
     // P ≈ (1 - e^(-kn/m))^k
@@ -327,5 +371,82 @@ export class MessageDeduplicationService {
       confirmedCount,
       estimatedFalsePositiveRate,
     };
+  }
+
+  private getConfirmedSetKey(userId: string): string {
+    return `${this.CONFIRMED_SET_KEY_PREFIX}:${userId}`;
+  }
+
+  private parseMessageId(messageId: string): { userId: string; clientSeq: string } | null {
+    const delimiterIndex = messageId.lastIndexOf(':');
+    if (delimiterIndex <= 0 || delimiterIndex >= messageId.length - 1) {
+      return null;
+    }
+
+    return {
+      userId: messageId.slice(0, delimiterIndex),
+      clientSeq: messageId.slice(delimiterIndex + 1),
+    };
+  }
+
+  private resolveUserIdFromConfirmedSetKey(confirmedSetKey: string): string | null {
+    const prefix = `${this.CONFIRMED_SET_KEY_PREFIX}:`;
+    if (!confirmedSetKey.startsWith(prefix) || confirmedSetKey.length <= prefix.length) {
+      return null;
+    }
+    return confirmedSetKey.slice(prefix.length);
+  }
+
+  private async scanConfirmedSetKeys(): Promise<string[]> {
+    const pattern = `${this.CONFIRMED_SET_KEY_PREFIX}:*`;
+    const keys: string[] = [];
+    let cursor = '0';
+
+    do {
+      const [nextCursor, batchKeys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
+      cursor = nextCursor;
+      if (batchKeys.length > 0) {
+        keys.push(...batchKeys);
+      }
+    } while (cursor !== '0');
+
+    return keys;
+  }
+
+  private async countConfirmedMembers(): Promise<number> {
+    const confirmedSetKeys = await this.scanConfirmedSetKeys();
+    if (confirmedSetKeys.length === 0) {
+      return 0;
+    }
+
+    const pipeline = this.redis.pipeline();
+    confirmedSetKeys.forEach((key) => pipeline.scard(key));
+    const results = await pipeline.exec();
+    if (!results) {
+      return 0;
+    }
+
+    let total = 0;
+    results.forEach(([error, count]) => {
+      if (!error) {
+        total += Number(count) || 0;
+      }
+    });
+    return total;
+  }
+
+  private async bloomFilterAddBatch(messageIds: string[]): Promise<void> {
+    if (messageIds.length === 0) {
+      return;
+    }
+
+    const pipeline = this.redis.pipeline();
+    messageIds.forEach((messageId) => {
+      const positions = this.getHashPositions(messageId);
+      positions.forEach((pos) => {
+        pipeline.setbit(this.BLOOM_FILTER_KEY, pos, 1);
+      });
+    });
+    await pipeline.exec();
   }
 }

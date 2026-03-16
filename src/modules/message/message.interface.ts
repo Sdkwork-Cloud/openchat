@@ -114,10 +114,13 @@ export interface Message {
   groupId?: string;
   replyToId?: string;
   forwardFromId?: string;
+  seq?: number;
   status: MessageStatus;
   clientSeq?: number;
   extra?: Record<string, any>;
   needReadReceipt?: boolean;
+  recalledAt?: Date;
+  editedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -128,6 +131,10 @@ export interface SendMessageResult {
   error?: string;
   errorCode?: string;
   isDuplicate?: boolean;
+  eventId?: string;
+  eventType?: 'messageSent' | 'messageFailed';
+  occurredAt?: number;
+  stateVersion?: number;
 }
 
 export interface MessageQueryOptions {
@@ -135,6 +142,9 @@ export interface MessageQueryOptions {
   offset?: number;
   cursor?: string;
   messageType?: MessageType;
+  fromSeq?: number;
+  toSeq?: number;
+  direction?: 'before' | 'after';
 }
 
 export interface MessageSearchOptions {
@@ -150,9 +160,44 @@ export interface MessageSearchOptions {
 
 export interface MessageManager {
   sendMessage(message: Omit<Message, 'id' | 'uuid' | 'status' | 'createdAt' | 'updatedAt'> & { clientSeq?: number }): Promise<SendMessageResult>;
+  editMessage(
+    messageId: string,
+    operatorId: string,
+    update: {
+      content: MessageContent;
+      extra?: Record<string, unknown>;
+    },
+  ): Promise<SendMessageResult>;
   getMessageById(id: string): Promise<Message | null>;
   getMessagesByUserId(userId: string, options?: MessageQueryOptions): Promise<Message[]>;
   getMessagesByGroupId(groupId: string, options?: MessageQueryOptions): Promise<Message[]>;
+  getMessageHistoryBySeq(
+    userId: string,
+    targetId: string,
+    type: 'single' | 'group',
+    options?: {
+      fromSeq?: number;
+      toSeq?: number;
+      limit?: number;
+      direction?: 'before' | 'after';
+      includeMissingSeqs?: boolean;
+    },
+  ): Promise<{
+    targetId: string;
+    type: 'single' | 'group';
+    direction: 'before' | 'after';
+    fromSeq: number;
+    toSeq?: number;
+    maxSeq: number;
+    hasMore: boolean;
+    nextSeq?: number;
+    missingSeqFrom?: number;
+    missingSeqTo?: number;
+    missingSeqRequestedTo?: number;
+    missingSeqTruncated?: boolean;
+    missingSeqs?: number[];
+    messages: Message[];
+  }>;
   updateMessageStatus(id: string, status: MessageStatus): Promise<boolean>;
   deleteMessage(id: string): Promise<boolean>;
   markMessagesAsRead(userId: string, messageIds: string[]): Promise<boolean>;

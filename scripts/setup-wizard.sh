@@ -27,7 +27,7 @@ USE_EXISTING_DB=false
 USE_EXISTING_REDIS=false
 DB_HOST=""
 DB_PORT=5432
-DB_USER=""
+DB_USERNAME=""
 DB_PASSWORD=""
 DB_NAME="openchat"
 REDIS_HOST=""
@@ -222,7 +222,7 @@ configure_existing_database() {
     DB_NAME=${DB_NAME:-openchat}
     
     log_ask "数据库用户名: "
-    read -r DB_USER
+    read -r DB_USERNAME
     
     log_ask "数据库密码: "
     read -rs DB_PASSWORD
@@ -230,7 +230,7 @@ configure_existing_database() {
     
     # 测试连接
     log_info "测试数据库连接..."
-    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" &> /dev/null; then
+    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1" &> /dev/null; then
         log_success "数据库连接成功"
     else
         log_error "数据库连接失败，请检查配置"
@@ -327,7 +327,7 @@ create_env_file() {
         sed -i '' "s/EXTERNAL_IP=.*/EXTERNAL_IP=$EXTERNAL_IP/" "$env_file"
         sed -i '' "s/DB_HOST=.*/DB_HOST=$DB_HOST/" "$env_file"
         sed -i '' "s/DB_PORT=.*/DB_PORT=$DB_PORT/" "$env_file"
-        sed -i '' "s/DB_USER=.*/DB_USER=$DB_USER/" "$env_file"
+        sed -i '' "s/DB_USERNAME=.*/DB_USERNAME=$DB_USERNAME/" "$env_file"
         sed -i '' "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" "$env_file"
         sed -i '' "s/DB_NAME=.*/DB_NAME=$DB_NAME/" "$env_file"
         sed -i '' "s/REDIS_HOST=.*/REDIS_HOST=$REDIS_HOST/" "$env_file"
@@ -338,7 +338,7 @@ create_env_file() {
         sed -i "s/EXTERNAL_IP=.*/EXTERNAL_IP=$EXTERNAL_IP/" "$env_file"
         sed -i "s/DB_HOST=.*/DB_HOST=$DB_HOST/" "$env_file"
         sed -i "s/DB_PORT=.*/DB_PORT=$DB_PORT/" "$env_file"
-        sed -i "s/DB_USER=.*/DB_USER=$DB_USER/" "$env_file"
+        sed -i "s/DB_USERNAME=.*/DB_USERNAME=$DB_USERNAME/" "$env_file"
         sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" "$env_file"
         sed -i "s/DB_NAME=.*/DB_NAME=$DB_NAME/" "$env_file"
         sed -i "s/REDIS_HOST=.*/REDIS_HOST=$REDIS_HOST/" "$env_file"
@@ -369,7 +369,7 @@ services:
     environment:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
+      - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - REDIS_HOST=${REDIS_HOST}
@@ -390,7 +390,7 @@ services:
     environment:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
+      - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
     extra_hosts:
@@ -429,7 +429,7 @@ initialize_database() {
         log_info "使用已有数据库，检查表结构..."
         
         # 检查表是否存在
-        local table_count=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'")
+        local table_count=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'")
         
         if [ "$table_count" -gt 0 ]; then
             log_warn "数据库中已有表结构"
@@ -446,7 +446,7 @@ initialize_database() {
     if [ -f "database/schema.sql" ]; then
         log_info "执行数据库初始化脚本..."
         if [ "$USE_EXISTING_DB" = true ]; then
-            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/schema.sql
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -f database/schema.sql
         else
             docker compose exec -T postgres psql -U openchat -d openchat -f /docker-entrypoint-initdb.d/01-schema.sql
         fi
@@ -580,7 +580,7 @@ main() {
     # 设置默认值
     if [ "$USE_EXISTING_DB" = false ]; then
         DB_HOST="postgres"
-        DB_USER="openchat"
+        DB_USERNAME="openchat"
         DB_PASSWORD=$(generate_password)
         DB_NAME="openchat"
     fi

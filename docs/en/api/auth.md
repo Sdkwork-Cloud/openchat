@@ -44,7 +44,6 @@ The Access Token payload structure is as follows:
 
 ```json
 {
-  "sub": "user-uuid",
   "iat": 1708123456,
   "exp": 1708127056,
   "iss": "openchat",
@@ -62,7 +61,6 @@ The Access Token payload structure is as follows:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| sub | string | User ID (standard JWT field) |
 | iat | number | Issued at timestamp |
 | exp | number | Expiration timestamp |
 | iss | string | Issuer (default: openchat) |
@@ -83,7 +81,7 @@ The Access Token payload structure is as follows:
 Register a new user account.
 
 ```http
-POST /api/auth/register
+POST /im/api/v1/auth/register
 Content-Type: application/json
 ```
 
@@ -130,7 +128,7 @@ Content-Type: application/json
 Login with username and password to get access token.
 
 ```http
-POST /api/auth/login
+POST /im/api/v1/auth/login
 Content-Type: application/json
 ```
 
@@ -139,7 +137,8 @@ Content-Type: application/json
 ```json
 {
   "username": "string",    // Required
-  "password": "string"     // Required
+  "password": "string",    // Required
+  "deviceId": "string"     // Optional, recommended for device-bound sessions
 }
 ```
 
@@ -180,7 +179,7 @@ Content-Type: application/json
 Use refresh token to get a new access token.
 
 ```http
-POST /api/auth/refresh
+POST /im/api/v1/auth/refresh
 Content-Type: application/json
 ```
 
@@ -214,7 +213,7 @@ Content-Type: application/json
 Logout and invalidate the current session.
 
 ```http
-POST /api/auth/logout
+POST /im/api/v1/auth/logout
 Authorization: Bearer <access-token>
 ```
 
@@ -229,12 +228,112 @@ Authorization: Bearer <access-token>
 
 ---
 
+### Device Session Management (Recommended)
+
+Use these endpoints for multi-device governance (WeChat/Telegram-style session control).
+
+#### Device Binding Rules
+
+- If the JWT is not bound with `deviceId`, do not send `deviceId` in device-level operations.
+- If the JWT is bound with `deviceId`, request `deviceId` (if provided) must match the JWT claim.
+- Device ID format: `[A-Za-z0-9._:-]{1,64}`.
+
+#### 1) List device sessions
+
+```http
+GET /im/api/v1/auth/devices?limit=100
+Authorization: Bearer <access-token>
+```
+
+Response example:
+
+```json
+{
+  "total": 2,
+  "items": [
+    {
+      "deviceId": "ios-001",
+      "tokenCount": 2,
+      "conversationCount": 16,
+      "lastActiveAt": "2026-03-08T10:00:00.000Z",
+      "isCurrentDevice": true
+    },
+    {
+      "deviceId": "web-001",
+      "tokenCount": 1,
+      "conversationCount": 4,
+      "lastActiveAt": "2026-03-08T09:00:00.000Z",
+      "isCurrentDevice": false
+    }
+  ]
+}
+```
+
+#### 2) Logout current device
+
+```http
+POST /im/api/v1/auth/logout/device
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+Request body (optional):
+
+```json
+{
+  "token": "<access-token>",
+  "refreshToken": "<refresh-token>",
+  "deviceId": "ios-001"
+}
+```
+
+Response example:
+
+```json
+{
+  "success": true,
+  "deviceId": "ios-001",
+  "revokedTokens": 2,
+  "clearedCursors": 8
+}
+```
+
+#### 3) Logout a specific device
+
+```http
+POST /im/api/v1/auth/logout/device/{deviceId}
+Authorization: Bearer <access-token>
+```
+
+#### 4) Logout other devices (keep current)
+
+```http
+POST /im/api/v1/auth/logout/others
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+Request body (optional):
+
+```json
+{
+  "deviceId": "ios-001"
+}
+```
+
+Common errors:
+- `400`: Invalid device ID format
+- `401`: Missing/invalid/expired token
+- `403`: Device mismatch with authenticated JWT context
+
+---
+
 ### Get Current User
 
 Get the current logged-in user's information.
 
 ```http
-GET /api/auth/me
+GET /im/api/v1/auth/me
 Authorization: Bearer <access-token>
 ```
 
@@ -265,12 +364,12 @@ Authorization: Bearer <access-token>
 
 ```bash
 # User login
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3000/im/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "johndoe", "password": "password123"}'
 
 # Get user info
-curl -X GET http://localhost:3000/api/auth/me \
+curl -X GET http://localhost:3000/im/api/v1/auth/me \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
@@ -278,7 +377,7 @@ curl -X GET http://localhost:3000/api/auth/me \
 
 ```javascript
 // Login
-const response = await fetch('http://localhost:3000/api/auth/login', {
+const response = await fetch('http://localhost:3000/im/api/v1/auth/login', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -296,7 +395,7 @@ const { accessToken, user } = data;
 localStorage.setItem('accessToken', accessToken);
 
 // Use Token for API requests
-const userResponse = await fetch('http://localhost:3000/api/auth/me', {
+const userResponse = await fetch('http://localhost:3000/im/api/v1/auth/me', {
   headers: {
     'Authorization': `Bearer ${accessToken}`
   }
@@ -340,7 +439,7 @@ let accessToken = localStorage.getItem('accessToken');
 
 async function refreshAccessToken() {
   const refreshToken = localStorage.getItem('refreshToken');
-  const response = await fetch('/api/auth/refresh', {
+  const response = await fetch('/im/api/v1/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken })

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { ConversationService } from './conversation.service';
+import { REDIS_CLIENT } from '../../common/redis/redis.constants';
 
 /**
  * 会话未读数服务
@@ -14,7 +15,7 @@ export class ConversationUnreadService {
   private readonly REDIS_KEY_PREFIX = 'conversation:unread:';
 
   constructor(
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly conversationService: ConversationService,
   ) {}
 
@@ -137,15 +138,10 @@ export class ConversationUnreadService {
       
       const missingIds = conversationIds.filter(id => !result.has(id));
       if (missingIds.length > 0) {
-        const conversations = await this.conversationService['repository']
-          .createQueryBuilder('conversation')
-          .select(['conversation.id', 'conversation.unreadCount'])
-          .where('conversation.id IN (:...ids)', { ids: missingIds })
-          .getMany();
-
-        for (const conv of conversations) {
-          result.set(conv.id, conv.unreadCount || 0);
-        }
+        const fallbackUnreadCounts = await this.conversationService.getUnreadCountsByConversationIds(missingIds);
+        fallbackUnreadCounts.forEach((count, conversationId) => {
+          result.set(conversationId, count);
+        });
       }
       
     } catch (error) {
@@ -172,15 +168,7 @@ export class ConversationUnreadService {
       // 简化实现：直接更新数据库
       const conversation = await this.conversationService.getConversationById(conversationId);
       if (conversation && conversation.unreadCount !== count) {
-        // 这里需要修改ConversationService，添加更新未读数的方法
-        // 暂时使用现有的方法，通过获取实体后更新
-        const entity = await this.conversationService['repository'].findOne({
-          where: { id: conversationId },
-        });
-        if (entity) {
-          entity.unreadCount = count;
-          await this.conversationService['repository'].save(entity);
-        }
+        await this.conversationService.setUnreadCount(conversationId, count);
       }
     } catch (error) {
       this.logger.error(`Failed to sync unread count to database:`, error);

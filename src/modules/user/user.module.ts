@@ -1,9 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PassportModule } from '@nestjs/passport';
 import { UserEntity } from './entities/user.entity';
 import { UserService } from './services/user.service';
 import { UserController } from './controllers/user.controller';
 import { UserSyncService } from './user-sync.service';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { LocalUserManagerService } from './local-user-manager.service';
+import { VerificationCodeService } from './verification-code.service';
+import { JwtPassportStrategy } from './strategies/jwt-passport.strategy';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ConversationModule } from '../conversation/conversation.module';
 
 /**
  * 用户模块
@@ -13,9 +21,19 @@ import { UserSyncService } from './user-sync.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity]),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    ConversationModule,
   ],
-  controllers: [UserController],
-  providers: [UserService, UserSyncService],
-  exports: [UserService, UserSyncService],
+  controllers: [UserController, AuthController],
+  providers: [
+    UserService,
+    UserSyncService,
+    AuthService,
+    LocalUserManagerService,
+    VerificationCodeService,
+    JwtPassportStrategy,
+    JwtAuthGuard,
+  ],
+  exports: [UserService, UserSyncService, AuthService, LocalUserManagerService],
 })
 export class UserModule {}

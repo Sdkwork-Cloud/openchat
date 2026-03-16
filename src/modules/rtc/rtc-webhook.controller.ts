@@ -13,10 +13,12 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Request } from 'express';
 import { RTCService } from './rtc.service';
+import { AllowAnonymous } from '../../common/auth/guards/multi-auth.guard';
 
 type RawBodyRequest = Request & { rawBody?: Buffer };
 
 @ApiTags('rtc-webhook')
+@AllowAnonymous()
 @Controller('webhook/rtc/volcengine')
 export class RTCWebhookController {
   private readonly logger = new Logger(RTCWebhookController.name);
@@ -29,15 +31,15 @@ export class RTCWebhookController {
     private readonly configService: ConfigService,
   ) {
     this.enabled = this.readBooleanConfig(
-      ['rtc.volcengine.webhookEnabled', 'RTC_VOLCENGINE_WEBHOOK_ENABLED'],
+      ['RTC_VOLCENGINE_WEBHOOK_ENABLED'],
       true,
     );
     this.webhookSecret = this.readConfig(
-      ['rtc.volcengine.webhookSecret', 'RTC_VOLCENGINE_WEBHOOK_SECRET'],
+      ['RTC_VOLCENGINE_WEBHOOK_SECRET'],
       '',
     );
     this.timestampToleranceSeconds = this.readNumberConfig(
-      ['rtc.volcengine.webhookTimestampToleranceSeconds', 'RTC_VOLCENGINE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS'],
+      ['RTC_VOLCENGINE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS'],
       300,
       30,
     );

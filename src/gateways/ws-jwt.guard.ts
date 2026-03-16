@@ -3,6 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Socket } from 'socket.io';
 
+interface WsJwtPayload {
+  userId?: string;
+  username?: string;
+  roles?: string[];
+  permissions?: string[];
+  [key: string]: unknown;
+}
+
 /**
  * WebSocket JWT 认证 Guard
  * 验证 WebSocket 连接的 JWT Token
@@ -28,12 +36,22 @@ export class WsJwtGuard implements CanActivate {
       }
 
       // 验证 JWT Token
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = await this.jwtService.verifyAsync<WsJwtPayload>(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
 
+      const userId = payload.userId;
+      if (!userId) {
+        this.logger.warn('WebSocket JWT payload missing userId');
+        client.disconnect(true);
+        return false;
+      }
+
       // 将用户信息附加到 socket 对象
-      (client as any).user = payload;
+      (client as any).user = {
+        ...payload,
+        userId,
+      };
 
       return true;
     } catch (error) {
@@ -48,18 +66,12 @@ export class WsJwtGuard implements CanActivate {
    * 从 WebSocket 连接中提取 JWT Token
    */
   private extractToken(client: Socket): string | null {
-    // 1. 从 auth 对象中获取
+    // 1. 从 auth 对象中获取（推荐）
     if (client.handshake.auth?.token) {
       return client.handshake.auth.token;
     }
 
-    // 2. 从查询参数中获取
-    if (client.handshake.query?.token) {
-      const token = client.handshake.query.token;
-      return Array.isArray(token) ? token[0] : token;
-    }
-
-    // 3. 从 headers 中获取
+    // 2. 从 Authorization 头中获取
     const authHeader = client.handshake.headers.authorization;
     if (authHeader) {
       const parts = authHeader.split(' ');
@@ -67,15 +79,6 @@ export class WsJwtGuard implements CanActivate {
         return parts[1];
       }
       return authHeader;
-    }
-
-    // 4. 从 cookies 中获取
-    if (client.handshake.headers.cookie) {
-      const cookies = client.handshake.headers.cookie.split(';');
-      const tokenCookie = cookies.find((c) => c.trim().startsWith('token='));
-      if (tokenCookie) {
-        return tokenCookie.split('=')[1];
-      }
     }
 
     return null;

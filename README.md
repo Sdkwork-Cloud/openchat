@@ -1,159 +1,138 @@
 # OpenChat Server
 
-Enterprise-grade Real-time Communication Platform built with NestJS.
+OpenChat Server is an enterprise-grade real-time communication backend built with NestJS, PostgreSQL, Redis, and WukongIM.
 
-## 🚀 Features
+## Features
 
-- 🔐 **Authentication & Authorization** - JWT-based authentication with role-based access control
-- 💬 **Real-time Messaging** - WebSocket-based real-time communication
-- 👥 **Group Chat** - Full-featured group chat functionality
-- 🤖 **AI Integration** - Built-in AI agent and bot support
-- 📱 **Multi-platform** - Support for Telegram, WhatsApp, and more
-- 🏢 **Enterprise Ready** - Scalable architecture with Redis, PostgreSQL
+- Real-time messaging (single chat, group chat, receipts, sync cursor)
+- WukongIM-based connection and message routing
+- RTC module with multi-provider abstraction
+- AI agent / bot platform and third-party integration modules
+- Production-oriented observability, health checks, and patch-based DB evolution
 
-## 📦 Project Structure
+## Tech Stack
 
-```
-src/
-├── common/                 # Shared utilities, decorators, filters
-│   ├── auth/              # Authentication module
-│   ├── base/              # Base classes and services
-│   ├── cache/             # Caching module
-│   ├── config/            # Configuration
-│   ├── decorators/        # Custom decorators
-│   ├── dto/               # Base DTOs
-│   ├── entities/          # Base entities
-│   ├── events/            # Event bus
-│   ├── exceptions/        # Exception handling
-│   ├── filters/           # Exception filters
-│   ├── guards/            # Auth guards
-│   ├── interceptors/      # Request/response interceptors
-│   ├── logger/            # Logging module
-│   ├── middleware/        # Custom middleware
-│   ├── pipes/             # Validation pipes
-│   ├── queue/             # Message queue
-│   ├── redis/             # Redis module
-│   ├── services/          # Shared services
-│   └── utils/             # Utility functions
-├── modules/               # Business modules
-│   ├── user/             # User management
-│   ├── message/          # Message handling
-│   ├── group/            # Group chat
-│   ├── friend/           # Friend system
-│   ├── contact/          # Contact management
-│   ├── conversation/     # Conversation management
-│   ├── agent/            # AI Agent
-│   ├── ai-bot/           # AI Bot
-│   ├── bot-platform/     # Bot platform
-│   ├── im-provider/      # IM provider
-│   ├── iot/              # IoT device support
-│   ├── rtc/              # Real-time communication
-│   ├── third-party/      # Third-party integrations
-│   ├── wukongim/         # WuKongIM integration
-│   └── craw/             # Crawler module
-├── extensions/           # Extension modules
-│   ├── core/             # Extension core
-│   └── user-center/      # User center extension
-├── gateways/             # WebSocket gateways
-├── app.module.ts         # Main application module
-└── main.ts               # Application entry point
-```
+- NestJS 11
+- TypeScript 5
+- PostgreSQL 15+
+- Redis 7+
+- Socket.IO + WukongIM
+- TypeORM 0.3
 
-## 🛠️ Tech Stack
+## Quick Start (Fresh Environment)
 
-- **Framework**: NestJS 10
-- **Database**: PostgreSQL with TypeORM
-- **Cache**: Redis
-- **Message Queue**: BullMQ
-- **WebSocket**: Socket.IO
-- **Authentication**: JWT + Passport
-- **Logging**: Winston
-- **Validation**: class-validator
+### 1. Prerequisites
 
-## 🚀 Quick Start
+- Node.js >= 18
+- PostgreSQL >= 15
+- Redis >= 7
+- `psql` command available in PATH
 
-### Prerequisites
-
-- Node.js >= 18.0.0
-- PostgreSQL >= 14
-- Redis >= 6
-
-### Installation
+### 2. Install dependencies
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment file
-cp .env.example .env
-
-# Run database migrations
-npm run db:migrate
-
-# Start development server
-npm run dev
 ```
 
-### Development
+### 3. Configure environment
 
 ```bash
-# Start development server
-npm run dev
+# Linux / macOS
+cp .env.example .env.development
 
-# Build for production
-npm run build
-
-# Run tests
-npm run test
-
-# Run linting
-npm run lint
+# then edit .env.development
 ```
 
-## 📝 Scripts
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env.development
+# then edit .env.development
+```
+
+### 4. Initialize database schema
+
+Linux / macOS:
+
+```bash
+chmod +x scripts/init-database.sh
+./scripts/init-database.sh development
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\init-database.ps1 -Environment development
+```
+
+### 5. Start server
+
+```bash
+npm run start:dev
+```
+
+## Existing Environment Upgrade (Patch Flow)
+
+For existing databases, apply online patches before starting a new release:
+
+Linux / macOS:
+
+```bash
+./scripts/apply-db-patches.sh production
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\apply-db-patches.ps1 -Environment production
+```
+
+## Script Reference
+
+### npm scripts
 
 | Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start:prod` | Start production server |
-| `npm run test` | Run tests |
-| `npm run lint` | Run ESLint |
-| `npm run db:migrate` | Run database migrations |
-| `npm run db:generate` | Generate migrations |
+|---|---|
+| `npm run start:dev` | Start in watch mode |
+| `npm run start:prod` | Start compiled app |
+| `npm run build` | Build app to `dist/` |
+| `npm run test` | Run unit tests |
+| `npm run test:e2e` | Run e2e tests |
+| `npm run lint` | Run lint pipeline |
+| `npm run lint:eslint` | Run ESLint only |
+| `npm run lint:types` | Type check (`tsc --noEmit`) |
+| `npm run db:drop` | Drop schema via TypeORM CLI |
+| `npm run db:sync` | Sync schema via TypeORM CLI |
 
-## 🔧 Configuration
+### operational scripts
 
-Create a `.env` file in the root directory:
+| Script | Description |
+|---|---|
+| `./scripts/init-database.sh` | Fresh DB initialization (`schema.sql`, optional `seed.sql`) |
+| `./scripts/apply-db-patches.sh` | Apply `database/patches/*.sql` with migration tracking |
+| `./scripts/docker-deploy.sh` | Docker lifecycle (`install/start/quick/prod:deploy/...`) |
+| `./scripts/precheck.sh` | Environment precheck |
+| `./scripts/health-check.sh` | Runtime health diagnostics |
+| `./scripts/check-compat-regression.sh` | Guard against removed compatibility regressions |
 
-```env
-# Server
-PORT=3000
-NODE_ENV=development
+## Database Baseline
 
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_DATABASE=openchat
+- Baseline schema: `database/schema.sql`
+- Optional seed: `database/seed.sql`
+- Optional index optimization: `database/indexes-optimization.sql`
+- Online patches: `database/patches/*.sql`
+- Migration tracking table: `chat_schema_migrations`
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+## Documentation
 
-# JWT
-JWT_SECRET=your-secret-key-min-32-characters
-JWT_EXPIRES_IN=1h
-JWT_REFRESH_EXPIRES_IN=7d
-```
+- Chinese installation guide: [INSTALL_CN.md](./INSTALL_CN.md)
+- English installation guide: [INSTALL_EN.md](./INSTALL_EN.md)
+- Deployment guide: [DEPLOYMENT.md](./DEPLOYMENT.md)
+- Database guide: [database/README.md](./database/README.md)
+- Command handbook (CN): [docs/COMMANDS_CN.md](./docs/COMMANDS_CN.md)
+- API docs index (CN): [docs/zh/api/index.md](./docs/zh/api/index.md)
+- API docs index (EN): [docs/en/api/index.md](./docs/en/api/index.md)
 
-## 📚 Documentation
+## License
 
-- [API Documentation](./docs/zh/api/index.md)
-- [Architecture Guide](./docs/zh/guide/architecture.md)
-- [Deployment Guide](./docs/zh/deploy/index.md)
-
-## 📄 License
-
-MIT License
+AGPL-3.0

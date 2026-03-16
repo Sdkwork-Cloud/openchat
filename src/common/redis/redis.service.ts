@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger, OnModuleDestroy } from '@nestjs/common';
 import Redis, { Pipeline } from 'ioredis';
+import { REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT } from './redis.constants';
 
 /**
  * Redis 服务封装
@@ -23,8 +24,14 @@ export class RedisService implements OnModuleDestroy {
   private readonly WS_SERVER_PREFIX = 'ws:server:';
   private readonly ONLINE_USERS_KEY = 'online:users';
   private readonly USER_HEARTBEAT_PREFIX = 'hb:';
+  private readonly USER_PRESENCE_VERSION_PREFIX = 'presence:version:';
+  private readonly CLEANUP_SCAN_COUNT = 1000;
 
-  constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @Inject(REDIS_PUB_CLIENT) private readonly pubRedis: Redis,
+    @Inject(REDIS_SUB_CLIENT) private readonly subRedis: Redis,
+  ) {}
 
   private isPatternChannel(channel: string): boolean {
     return channel.includes('*') || channel.includes('?') || channel.includes('[');
@@ -40,19 +47,23 @@ export class RedisService implements OnModuleDestroy {
   /**
    * WebSocket 状态管理 - 用户连接
    */
-  async addUserSocket(userId: string, socketId: string, serverId: string): Promise<void> {
+  async addUserSocket(userId: string, socketId: string, serverId: string): Promise<boolean> {
     const key = this.prefixKey(`${this.WS_USER_PREFIX}${userId}`);
     await this.redis.hset(key, socketId, serverId);
     await this.redis.expire(key, 86400); // 24小时过期
 
-    // 添加到在线用户集合
-    await this.redis.zadd(this.prefixKey(this.ONLINE_USERS_KEY), Date.now(), userId);
+    const onlineUsersKey = this.prefixKey(this.ONLINE_USERS_KEY);
+    const becameOnline = (await this.redis.zadd(onlineUsersKey, 'NX', Date.now(), userId)) > 0;
+    // 刷新在线用户最新活动时间
+    await this.redis.zadd(onlineUsersKey, Date.now(), userId);
+
+    return becameOnline;
   }
 
   /**
    * 移除用户 socket 连接
    */
-  async removeUserSocket(userId: string, socketId: string): Promise<void> {
+  async removeUserSocket(userId: string, socketId: string): Promise<boolean> {
     const key = this.prefixKey(`${this.WS_USER_PREFIX}${userId}`);
     await this.redis.hdel(key, socketId);
 
@@ -61,8 +72,11 @@ export class RedisService implements OnModuleDestroy {
     if (remaining === 0) {
       await this.redis.del(key);
       // 从在线用户集合移除
-      await this.redis.zrem(this.prefixKey(this.ONLINE_USERS_KEY), userId);
+      const removed = await this.redis.zrem(this.prefixKey(this.ONLINE_USERS_KEY), userId);
+      return removed > 0;
     }
+
+    return false;
   }
 
   /**
@@ -126,19 +140,61 @@ export class RedisService implements OnModuleDestroy {
    */
   async cleanupOfflineUsers(): Promise<string[]> {
     const offlineUsers: string[] = [];
-    const onlineUsers = await this.getOnlineUsers(10000);
+    const now = Date.now();
+    const onlineUsersKey = this.prefixKey(this.ONLINE_USERS_KEY);
+    let cursor = '0';
 
-    for (const userId of onlineUsers) {
-      const lastHeartbeat = await this.getUserLastHeartbeat(userId);
-      if (!lastHeartbeat || Date.now() - lastHeartbeat > 300000) {
-        // 5分钟无心跳视为离线
-        offlineUsers.push(userId);
-        // 清理用户 socket 数据
-        const key = this.prefixKey(`${this.WS_USER_PREFIX}${userId}`);
-        await this.redis.del(key);
-        await this.redis.zrem(this.prefixKey(this.ONLINE_USERS_KEY), userId);
+    do {
+      const [nextCursor, entries] = await this.redis.zscan(
+        onlineUsersKey,
+        cursor,
+        'COUNT',
+        this.CLEANUP_SCAN_COUNT,
+      );
+      cursor = nextCursor;
+
+      const userIds: string[] = [];
+      for (let i = 0; i < entries.length; i += 2) {
+        const userId = entries[i];
+        if (userId) {
+          userIds.push(userId);
+        }
       }
-    }
+
+      if (userIds.length === 0) {
+        continue;
+      }
+
+      const heartbeatPipeline = this.redis.pipeline();
+      userIds.forEach((userId) => {
+        heartbeatPipeline.get(this.prefixKey(`${this.USER_HEARTBEAT_PREFIX}${userId}`));
+      });
+      const heartbeatResults = await heartbeatPipeline.exec();
+
+      if (!heartbeatResults) {
+        continue;
+      }
+
+      const cleanupPipeline = this.redis.pipeline();
+      userIds.forEach((userId, index) => {
+        const [heartbeatError, heartbeatValue] = heartbeatResults[index];
+        if (heartbeatError) {
+          return;
+        }
+
+        const lastHeartbeat = typeof heartbeatValue === 'string' ? parseInt(heartbeatValue, 10) : null;
+        if (!lastHeartbeat || now - lastHeartbeat > 300000) {
+          // 5分钟无心跳视为离线
+          offlineUsers.push(userId);
+          cleanupPipeline.del(this.prefixKey(`${this.WS_USER_PREFIX}${userId}`));
+          cleanupPipeline.zrem(onlineUsersKey, userId);
+        }
+      });
+
+      if (cleanupPipeline.length > 0) {
+        await cleanupPipeline.exec();
+      }
+    } while (cursor !== '0');
 
     return offlineUsers;
   }
@@ -225,7 +281,7 @@ export class RedisService implements OnModuleDestroy {
    * 发布消息到频道（用于跨服务器广播）
    */
   async publish(channel: string, message: any): Promise<void> {
-    await this.redis.publish(channel, JSON.stringify(message));
+    await this.pubRedis.publish(channel, JSON.stringify(message));
   }
 
   /**
@@ -248,9 +304,58 @@ export class RedisService implements OnModuleDestroy {
     await this.redis.del(this.prefixKey(key));
   }
 
+  async setJson(key: string, value: unknown, ttl?: number): Promise<void> {
+    await this.set(key, JSON.stringify(value), ttl);
+  }
+
+  async getJson<T>(key: string): Promise<T | null> {
+    const value = await this.get(key);
+    if (!value) {
+      return null;
+    }
+    try {
+      return JSON.parse(value) as T;
+    } catch (error) {
+      this.logger.warn(`Failed to parse JSON for key ${key}: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
   async exists(key: string): Promise<boolean> {
     const result = await this.redis.exists(this.prefixKey(key));
     return result === 1;
+  }
+
+  async setIfNotExists(key: string, value: string, ttlMs?: number): Promise<boolean> {
+    const fullKey = this.prefixKey(key);
+    const result = ttlMs
+      ? await this.redis.set(fullKey, value, 'PX', ttlMs, 'NX')
+      : await this.redis.set(fullKey, value, 'NX');
+    return result === 'OK';
+  }
+
+  async zadd(key: string, score: number, member: string): Promise<void> {
+    await this.redis.zadd(this.prefixKey(key), score, member);
+  }
+
+  async zrem(key: string, ...members: string[]): Promise<number> {
+    if (members.length === 0) {
+      return 0;
+    }
+    return this.redis.zrem(this.prefixKey(key), ...members);
+  }
+
+  async zrangeByScore(
+    key: string,
+    min: number | string,
+    max: number | string,
+    limit?: { offset: number; count: number },
+  ): Promise<string[]> {
+    const fullKey = this.prefixKey(key);
+    if (limit) {
+      return this.redis.zrangebyscore(fullKey, min, max, 'LIMIT', limit.offset, limit.count);
+    }
+    return this.redis.zrangebyscore(fullKey, min, max);
   }
 
   /**
@@ -286,6 +391,10 @@ export class RedisService implements OnModuleDestroy {
     return result;
   }
 
+  async nextUserPresenceVersion(userId: string): Promise<number> {
+    return this.increment(`${this.USER_PRESENCE_VERSION_PREFIX}${userId}`, 30 * 24 * 60 * 60);
+  }
+
   async acquireLock(key: string, ttlMs: number): Promise<boolean> {
     const prefixedKey = this.prefixKey(`lock:${key}`);
     const result = await this.redis.set(prefixedKey, '1', 'PX', ttlMs, 'NX');
@@ -310,7 +419,7 @@ export class RedisService implements OnModuleDestroy {
             callback(message, receivedChannel);
           }
         };
-        this.redis.on('pmessage', listener);
+        this.subRedis.on('pmessage', listener);
         listeners.push({ event: 'pmessage', listener });
       } else {
         const listener = (receivedChannel: string, message: string) => {
@@ -318,17 +427,17 @@ export class RedisService implements OnModuleDestroy {
             callback(message, receivedChannel);
           }
         };
-        this.redis.on('message', listener);
+        this.subRedis.on('message', listener);
         listeners.push({ event: 'message', listener });
       }
       this.subscriptionListeners.set(channel, listeners);
     }
 
     if (this.isPatternChannel(channel)) {
-      await this.redis.psubscribe(channel);
+      await this.subRedis.psubscribe(channel);
       return;
     }
-    await this.redis.subscribe(channel);
+    await this.subRedis.subscribe(channel);
   }
 
   /**
@@ -338,25 +447,25 @@ export class RedisService implements OnModuleDestroy {
     if (channel) {
       const listeners = this.subscriptionListeners.get(channel) || [];
       for (const { event, listener } of listeners) {
-        this.redis.off(event, listener);
+        this.subRedis.off(event, listener);
       }
       this.subscriptionListeners.delete(channel);
 
       if (this.isPatternChannel(channel)) {
-        await this.redis.punsubscribe(channel);
+        await this.subRedis.punsubscribe(channel);
         return;
       }
-      await this.redis.unsubscribe(channel);
+      await this.subRedis.unsubscribe(channel);
     } else {
       for (const listeners of this.subscriptionListeners.values()) {
         for (const { event, listener } of listeners) {
-          this.redis.off(event, listener);
+          this.subRedis.off(event, listener);
         }
       }
       this.subscriptionListeners.clear();
 
-      await this.redis.unsubscribe();
-      await this.redis.punsubscribe();
+      await this.subRedis.unsubscribe();
+      await this.subRedis.punsubscribe();
     }
   }
 

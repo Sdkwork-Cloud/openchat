@@ -95,7 +95,29 @@
 
 ### 2) 校验 Token
 
-`GET /rtc/tokens/validate?token=...`
+- 标准接口：`POST /rtc/tokens/validate`
+
+标准请求体：
+
+```json
+{
+  "token": "rtc_xxx"
+}
+```
+
+标准响应体（不返回原始 token）：
+
+```json
+{
+  "valid": true,
+  "roomId": "190000000000000010",
+  "userId": "user-a",
+  "provider": "volcengine",
+  "channelId": "190000000000000001",
+  "role": "participant",
+  "expiresAt": "2026-03-07T10:00:00.000Z"
+}
+```
 
 说明：
 
@@ -117,6 +139,7 @@
 - `DELETE /rtc/channels/:id`：软删除 channel
 - `GET /rtc/providers/stats`：查询 provider 级操作统计（`createRoom`/`generateToken`/`validateToken`）
 - `GET /rtc/providers/health`：查询 provider 健康报告与推荐路由顺序
+- `GET /rtc/providers/capabilities`：查询 provider 能力矩阵（供 SDK 动态接入）
 
 说明：
 
@@ -124,6 +147,7 @@
 - `channel` 配置管理接口仅允许管理员访问（`admin` 角色或系统管理员账号）。
 - `providers/stats` 仅管理员可访问，返回服务端内存级统计（操作总量、成功失败数、最近错误码/耗时），用于运行观测。
 - `providers/health` 仅管理员可访问，返回窗口内健康状态（healthy/degraded/unknown/unhealthy）与推荐主 provider。
+- `providers/capabilities` 供客户端和 SDK 读取当前可用 provider、默认 provider、推荐主路由以及能力标签（录制能力、token 策略、控制面代理能力）。
 
 `providers/stats` 查询参数：
 

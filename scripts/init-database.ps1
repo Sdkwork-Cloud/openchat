@@ -1,12 +1,12 @@
 # ============================================
 # OpenChat 数据库初始化脚本 (Windows PowerShell)
-# 用法: .\init-database.ps1 -Environment [dev|test|prod]
+# 用法: .\init-database.ps1 -Environment [development|test|production]
+# 兼容别名: dev -> development, prod -> production
 # ============================================
 
 param(
     [Parameter(Mandatory=$false)]
-    [ValidateSet("dev", "test", "prod")]
-    [string]$Environment = "dev"
+    [string]$Environment = "development"
 )
 
 # 错误时停止
@@ -21,20 +21,58 @@ function Write-ColorOutput {
     Write-Host $Message -ForegroundColor $Color
 }
 
+function Resolve-EnvironmentName {
+    param([string]$InputEnv)
+    switch ($InputEnv.ToLower()) {
+        "dev" { return "development" }
+        "development" { return "development" }
+        "test" { return "test" }
+        "prod" { return "production" }
+        "production" { return "production" }
+        default { return $null }
+    }
+}
+
+function Resolve-EnvironmentFile {
+    param([string]$CanonicalEnv)
+    switch ($CanonicalEnv) {
+        "development" {
+            if (Test-Path ".env.development") { return ".env.development" }
+            if (Test-Path ".env.dev") { return ".env.dev" }
+            return $null
+        }
+        "test" {
+            if (Test-Path ".env.test") { return ".env.test" }
+            return $null
+        }
+        "production" {
+            if (Test-Path ".env.production") { return ".env.production" }
+            if (Test-Path ".env.prod") { return ".env.prod" }
+            return $null
+        }
+        default { return $null }
+    }
+}
+
+$canonicalEnvironment = Resolve-EnvironmentName -InputEnv $Environment
+if (-not $canonicalEnvironment) {
+    Write-ColorOutput "错误: 无效环境 '$Environment'" "Red"
+    Write-ColorOutput "支持环境: development(dev), test, production(prod)" "Yellow"
+    exit 1
+}
+
 # 显示标题
 Write-ColorOutput "============================================" "Cyan"
 Write-ColorOutput "  OpenChat 数据库初始化脚本" "Cyan"
-Write-ColorOutput "  环境: $Environment" "Cyan"
+Write-ColorOutput "  环境: $canonicalEnvironment" "Cyan"
 Write-ColorOutput "============================================" "Cyan"
 
 # 检查环境文件
-$envFile = ".env.$Environment"
+$envFile = Resolve-EnvironmentFile -CanonicalEnv $canonicalEnvironment
 if (-not (Test-Path $envFile)) {
-    Write-ColorOutput "错误: 找不到环境配置文件 $envFile" "Red"
-    Write-ColorOutput "请先复制模板文件:" "Yellow"
-    Write-ColorOutput "  Copy-Item .env.development .env.dev"
-    Write-ColorOutput "  Copy-Item .env.test .env.test"
-    Write-ColorOutput "  Copy-Item .env.production .env.prod"
+    Write-ColorOutput "错误: 找不到环境配置文件" "Red"
+    Write-ColorOutput "当前环境: $canonicalEnvironment" "Yellow"
+    Write-ColorOutput "期望文件: development=.env.development(.env.dev), test=.env.test, production=.env.production(.env.prod)" "Yellow"
     exit 1
 }
 
@@ -125,7 +163,7 @@ if (Test-Path "database\schema.sql") {
 
 # 步骤 4: 插入种子数据
 Write-ColorOutput "步骤 4/4: 插入种子数据..." "Blue"
-if ($Environment -ne "prod") {
+if ($canonicalEnvironment -ne "production") {
     if (Test-Path "database\seed.sql") {
         $seedConfirm = Read-Host "是否插入测试数据? (yes/no)"
         if ($seedConfirm -eq "yes") {
@@ -156,5 +194,9 @@ Write-ColorOutput "============================================" "Green"
 Write-Host ""
 Write-Host "下一步:"
 Write-Host "  1. 检查数据库: psql -h $dbHost -U $dbUser -d $dbName"
-Write-Host "  2. 启动服务: pnpm start:$Environment"
+if ($canonicalEnvironment -eq "production") {
+    Write-Host "  2. 启动服务: npm run build; npm run start:prod"
+} else {
+    Write-Host "  2. 启动服务: npm run start:dev"
+}
 Write-Host ""

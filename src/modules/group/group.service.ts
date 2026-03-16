@@ -9,13 +9,14 @@ import { ContactService } from '../contact/contact.service';
 import { ConversationService } from '../conversation/conversation.service';
 import { GroupSyncService } from './group-sync.service';
 import { BaseEntityService } from '../../common/base/entity.service';
-import { EventBusService } from '../../common/events/event-bus.service';
+import { EventBusService, EventPriority, EventTypeConstants } from '../../common/events/event-bus.service';
 import { CacheService } from '../../common/services/cache.service';
 
 @Injectable()
 export class GroupService extends BaseEntityService<Group> implements GroupManager {
   protected readonly logger = new Logger(GroupService.name);
   protected readonly entityName = 'Group';
+  private static readonly PRESENCE_ACL_CHANGED_EVENT_TYPE = 'presence.acl.changed';
 
   constructor(
     protected readonly dataSource: DataSource,
@@ -77,19 +78,27 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
 
   async deleteGroup(id: string): Promise<boolean> {
     return this.dataSource.transaction(async (manager) => {
+      const joinedMembers = await manager.find(GroupMember, {
+        where: { groupId: id, status: 'joined', isDeleted: false },
+        select: ['userId'],
+      });
       await manager.delete(GroupMember, { groupId: id });
       await manager.delete(GroupInvitation, { groupId: id });
 
       const result = await manager.delete(Group, id);
-      return (result.affected || 0) > 0;
+      return {
+        success: (result.affected || 0) > 0,
+        affectedUserIds: joinedMembers.map((member) => member.userId),
+      };
     }).then(async (success) => {
       // 事务成功提交后才执行同步操作
-      if (success) {
+      if (success.success) {
         this.groupSyncService.syncGroupOnDelete(id).catch(error => {
           this.logger.error('Failed to sync group delete to WukongIM:', error);
         });
+        this.publishPresenceAclChanged(success.affectedUserIds);
       }
-      return success;
+      return success.success;
     });
   }
 
@@ -115,6 +124,7 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
     this.groupSyncService.syncMemberOnJoin(groupId, userId).catch(error => {
       this.logger.error('Failed to sync member join to WukongIM:', error);
     });
+    this.publishPresenceAclChanged([userId]);
 
     return savedMember;
   }
@@ -126,6 +136,7 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
       this.groupSyncService.syncMemberOnLeave(groupId, userId).catch(error => {
         this.logger.error('Failed to sync member leave to WukongIM:', error);
       });
+      this.publishPresenceAclChanged([userId]);
     }
 
     return (result.affected || 0) > 0;
@@ -151,8 +162,40 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
     
     const groupIds = members.map(member => member.groupId);
     if (groupIds.length === 0) return [];
-    
+
     return this.repository.find({ where: { id: In(groupIds), isDeleted: false } });
+  }
+
+  async getUsersWithSharedJoinedGroups(userId: string, targetUserIds: string[]): Promise<string[]> {
+    const deduplicatedTargetUserIds = [...new Set(targetUserIds)];
+    if (deduplicatedTargetUserIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.groupMemberRepository
+      .createQueryBuilder('requester_member')
+      .innerJoin(
+        GroupMember,
+        'target_member',
+        `target_member.groupId = requester_member.groupId
+          AND target_member.status = :joinedStatus
+          AND target_member.isDeleted = :isDeleted
+          AND target_member.userId IN (:...targetUserIds)`,
+        {
+          joinedStatus: 'joined',
+          isDeleted: false,
+          targetUserIds: deduplicatedTargetUserIds,
+        },
+      )
+      .where('requester_member.userId = :userId', { userId })
+      .andWhere('requester_member.status = :joinedStatus', { joinedStatus: 'joined' })
+      .andWhere('requester_member.isDeleted = :isDeleted', { isDeleted: false })
+      .select('DISTINCT target_member.userId', 'userId')
+      .getRawMany<{ userId: string }>();
+
+    return rows
+      .map((row) => row.userId)
+      .filter((targetUserId) => typeof targetUserId === 'string' && targetUserId.length > 0);
   }
 
   async sendGroupInvitation(groupId: string, inviterId: string, inviteeId: string, message?: string): Promise<GroupInvitation> {
@@ -207,6 +250,7 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
     if (group) {
       await this.createGroupContactAndConversation(invitation.inviteeId, group);
     }
+    this.publishPresenceAclChanged([invitation.inviteeId]);
 
     return true;
   }
@@ -267,6 +311,7 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
 
     member.status = 'quit';
     await this.groupMemberRepository.save(member);
+    this.publishPresenceAclChanged([userId]);
     return true;
   }
 
@@ -324,5 +369,32 @@ export class GroupService extends BaseEntityService<Group> implements GroupManag
 
     group.ownerId = newOwnerId;
     return this.repository.save(group);
+  }
+
+  private publishPresenceAclChanged(affectedUserIds: string[]): void {
+    const deduplicatedUserIds = [...new Set(affectedUserIds.filter((userId) => typeof userId === 'string' && userId.length > 0))];
+    if (deduplicatedUserIds.length === 0) {
+      return;
+    }
+
+    if (this.eventBus) {
+      this.eventBus.publish(
+        EventTypeConstants.CUSTOM_EVENT,
+        {
+          type: GroupService.PRESENCE_ACL_CHANGED_EVENT_TYPE,
+          affectedUserIds: deduplicatedUserIds,
+        },
+        {
+          source: this.entityName,
+          priority: EventPriority.MEDIUM,
+          broadcast: true,
+        },
+      ).catch((error) => {
+        this.logger.warn(`Failed to publish presence ACL change event: ${error?.message || error}`);
+      });
+      return;
+    }
+
+    this.emitEvent(GroupService.PRESENCE_ACL_CHANGED_EVENT_TYPE, { affectedUserIds: deduplicatedUserIds });
   }
 }

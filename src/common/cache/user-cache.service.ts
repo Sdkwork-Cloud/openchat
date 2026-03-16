@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject, OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { UserEntity } from '../../modules/user/entities/user.entity';
+import { REDIS_CLIENT } from '../redis/redis.constants';
 
 @Injectable()
 export class UserCacheService implements OnModuleDestroy {
@@ -30,7 +31,7 @@ export class UserCacheService implements OnModuleDestroy {
   private statsResetIntervalRef: NodeJS.Timeout | null = null;
 
   constructor(
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     this.startLocalCacheCleanup();
     this.startStatsResetTask();

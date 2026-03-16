@@ -294,6 +294,9 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
   private readonly enableBroadcast: boolean;
   private readonly maxStoredEvents: number;
   private readonly sourceId: string;
+  private distributedEventsReady = false;
+  private distributedEventsSetupPromise?: Promise<void>;
+  private distributedEventsChannel?: string;
 
   constructor(
     @Optional() private readonly redisService?: RedisService,
@@ -317,13 +320,24 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     this.logger.log('EventBusService initialized');
-    
-    if (this.enableBroadcast && this.redisService) {
-      this.setupDistributedEvents();
+
+    if (this.enableBroadcast) {
+      void this.ensureDistributedEventsSetup('module_init').catch(() => undefined);
     }
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
+    if (this.redisService && this.distributedEventsChannel) {
+      try {
+        await this.redisService.unsubscribe(this.distributedEventsChannel);
+      } catch (error) {
+        this.logger.error(`Failed to unsubscribe distributed event channel ${this.distributedEventsChannel}:`, error);
+      }
+    }
+    this.distributedEventsReady = false;
+    this.distributedEventsSetupPromise = undefined;
+    this.distributedEventsChannel = undefined;
+
     this.eventEmitter.removeAllListeners();
     for (const subject of this.eventSubjects.values()) {
       subject.complete();
@@ -347,7 +361,9 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
       await this.publishLocal(event, options);
 
       // 婵°倗濮烽崑鐐碘偓绗涘洤绠伴梺顒€绉寸粈鍡涙煛婢跺﹦浠㈢€电増鎸搁湁闁绘ê纾晶鍐测攽閳藉棗寮柟?
-      if (options?.broadcast || (this.enableBroadcast && !options?.localOnly)) {
+      const shouldBroadcast = Boolean(options?.broadcast || (this.enableBroadcast && !options?.localOnly));
+      if (shouldBroadcast) {
+        await this.ensureDistributedEventsSetup('publish');
         await this.broadcastEvent(event, options);
       }
 
@@ -478,6 +494,7 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
     this.eventEmitter.on(eventName, wrappedHandler);
     this.subscriptions.set(subscriptionId, eventName);
     this.stats.subscriptionCount = this.subscriptions.size;
+    void this.ensureDistributedEventsSetup(`subscribe:${eventName}`).catch(() => undefined);
 
     // 闂佸搫顦弲婊堝蓟閵娿儍娲冀椤撶偟鐓戦梺鍝勭Р閸斿骸鏆╅梺鑽ゅС闂勫秹宕归挊澹╋綁宕熼娑樺壄闂佸憡娲﹂崑鍕掗幇鐗堢厸?
     return () => {
@@ -505,6 +522,8 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
     eventName: string,
     options?: { filter?: (event: IEvent) => boolean },
   ): Observable<T> {
+    void this.ensureDistributedEventsSetup(`observable:${eventName}`).catch(() => undefined);
+
     if (!this.eventSubjects.has(eventName)) {
       const subject = new Subject<IEvent>();
       this.eventSubjects.set(eventName, subject);
@@ -712,12 +731,13 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
   /**
    * 闂佽崵濮崇粈浣规櫠娴犲鍋柛鈩冪☉缁€鍡涙煕閳╁喚娈樻い蹇擃嚟閳ь剚顔栭崰鏍崲鐎ｎ剝濮抽柕濠忓椤╃兘鏌熼鐐蹭喊闁告艾鍊垮?
    */
-  protected setupDistributedEvents(): void {
+  protected async setupDistributedEvents(): Promise<void> {
     if (!this.redisService) return;
 
     const channel = `${this.prefix}:broadcast:*`;
-    
-    this.redisService.subscribe(channel, async (message) => {
+    this.distributedEventsChannel = channel;
+
+    await this.redisService.subscribe(channel, async (message) => {
       try {
         const event = JSON.parse(message) as IEvent;
         // 闂傚倷绶￠崜娆撴倶濠靛鍌ㄩ柕鍫濐槹閻撳倻鈧箍鍎遍幏瀣ｇ拠宸唵閻犲搫鎼顐︽煙椤旂》韬€殿喚鏁婚、妤呭焵椤掆偓閿曘垻鈧稒顭囬々鏌ユ倵閿濆倹娅嗘い?
@@ -729,6 +749,32 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
         this.logger.error(`Failed to process distributed event:`, error);
       }
     });
+  }
+
+  private async ensureDistributedEventsSetup(reason: string): Promise<void> {
+    if (!this.redisService || this.distributedEventsReady) {
+      return;
+    }
+
+    if (this.distributedEventsSetupPromise) {
+      await this.distributedEventsSetupPromise;
+      return;
+    }
+
+    this.distributedEventsSetupPromise = (async () => {
+      try {
+        await this.setupDistributedEvents();
+        this.distributedEventsReady = true;
+        this.logger.log(`Distributed event subscription ready (${reason})`);
+      } catch (error) {
+        this.logger.error(`Failed to initialize distributed event subscription (${reason}):`, error);
+        throw error;
+      } finally {
+        this.distributedEventsSetupPromise = undefined;
+      }
+    })();
+
+    await this.distributedEventsSetupPromise;
   }
 
   /**

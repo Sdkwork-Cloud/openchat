@@ -208,7 +208,7 @@ backup_data() {
     if [ -f ".env" ] && [ "$REMOVE_DATABASE" = true ]; then
         source .env
         if command -v pg_dump &> /dev/null && [ -n "$DB_HOST" ]; then
-            PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" "${DB_NAME:-openchat}" > "$backup_dir/database.sql" 2>/dev/null
+            PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" "${DB_NAME:-openchat}" > "$backup_dir/database.sql" 2>/dev/null
             if [ $? -eq 0 ]; then
                 log_success "备份数据库"
             fi
@@ -370,7 +370,7 @@ remove_database() {
     log_info "删除数据库..."
     
     # 删除数据库
-    PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null
+    PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null
     
     if [ $? -eq 0 ]; then
         log_success "数据库已删除"
@@ -379,9 +379,9 @@ remove_database() {
     fi
     
     # 询问是否删除用户
-    read -p "是否删除数据库用户 ${DB_USER}? (y/N): " del_user
+    read -p "是否删除数据库用户 ${DB_USERNAME}? (y/N): " del_user
     if [[ $del_user =~ ^[Yy]$ ]]; then
-        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-openchat}" -d postgres -c "DROP USER IF EXISTS ${DB_USER};" 2>/dev/null
+        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-openchat}" -d postgres -c "DROP USER IF EXISTS ${DB_USERNAME};" 2>/dev/null
         log_success "数据库用户已删除"
     fi
 }
