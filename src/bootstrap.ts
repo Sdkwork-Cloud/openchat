@@ -9,7 +9,12 @@
  */
 
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger, INestApplication } from '@nestjs/common';
+import {
+  ValidationPipe,
+  Logger,
+  INestApplication,
+  Type,
+} from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
@@ -19,7 +24,30 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis, RedisOptions } from 'ioredis';
 import * as net from 'net';
 import { AppModule } from './app.module';
+import { ImAdminApiModule } from './api/im-admin-api.module';
+import { ImAppApiModule } from './api/im-app-api.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import {
+  IM_ADMIN_API_DOCS_PATH,
+  IM_ADMIN_API_DOCS_ROUTE,
+  IM_ADMIN_API_OPENAPI_JSON_PATH,
+  IM_ADMIN_API_OPENAPI_JSON_ROUTE,
+  IM_ADMIN_API_PREFIX,
+  IM_APP_API_DOCS_PATH,
+  IM_APP_API_DOCS_ROUTE,
+  IM_APP_API_OPENAPI_JSON_PATH,
+  IM_APP_API_OPENAPI_JSON_ROUTE,
+  IM_APP_API_PREFIX,
+} from './common/http/im-api-surface.constants';
+import {
+  finalizeImOpenApiDocument,
+  IM_OPENAPI_API_VERSION,
+} from './common/http/im-openapi-document.util';
+import {
+  ImOpenApiSchemaAdminModule,
+  ImOpenApiSchemaAppModule,
+  ImOpenApiSchemaRuntimeModule,
+} from './common/http/im-openapi-schema.module';
 import {
   ErrorCode,
   ErrorModule,
@@ -47,6 +75,20 @@ interface HealthCheckResult {
     port: number | string;
     database?: string;
   };
+}
+
+interface SwaggerSetupOptions {
+  appModule: Type<unknown>;
+  adminModule: Type<unknown>;
+  readOnly?: boolean;
+}
+
+function resolveBooleanEnv(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
 /**
@@ -481,26 +523,21 @@ class RedisIoAdapter extends IoAdapter {
   }
 }
 
-function setupSwagger(app: INestApplication, configService: ConfigService) {
-  const isProduction = configService.get('NODE_ENV') === 'production';
+function createSwaggerConfig(
+  title: string,
+  description: string,
+  tags: Array<{ name: string; description: string }>,
+) {
+  const builder = new DocumentBuilder()
+    .setTitle(title)
+    .setDescription(description)
+    .setVersion(IM_OPENAPI_API_VERSION);
 
-  if (isProduction) {
-    return;
+  for (const tag of tags) {
+    builder.addTag(tag.name, tag.description);
   }
 
-  const config = new DocumentBuilder()
-    .setTitle('OpenChat API')
-    .setDescription('OpenChat Instant Messaging Server API Documentation')
-    .setVersion('1.0.0')
-    .addTag('auth', 'Authentication APIs')
-    .addTag('users', 'User Management APIs')
-    .addTag('friends', 'Friend Relationship APIs')
-    .addTag('messages', 'Message Management APIs')
-    .addTag('groups', 'Group Management APIs')
-    .addTag('conversations', 'Conversation Management APIs')
-    .addTag('contacts', 'Contact Management APIs')
-    .addTag('rtc', 'Real-time Audio/Video APIs')
-    .addTag('iot', 'IoT Device Management APIs')
+  return builder
     .addBearerAuth(
       {
         type: 'http',
@@ -556,20 +593,88 @@ function setupSwagger(app: INestApplication, configService: ConfigService) {
       'x-craw-api-key',
     )
     .build();
+}
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
+function setupSwagger(
+  app: INestApplication,
+  _configService: ConfigService,
+  options?: SwaggerSetupOptions,
+) {
+  const appModule = options?.appModule || ImAppApiModule;
+  const adminModule = options?.adminModule || ImAdminApiModule;
+  const readOnly = options?.readOnly === true;
+  const appConfig = createSwaggerConfig(
+    'OpenChat IM App API',
+    'Frontend-facing IM APIs for OpenChat applications and SDK generation.',
+    [
+      { name: 'auth', description: 'Authentication APIs' },
+      { name: 'users', description: 'User Management APIs' },
+      { name: 'friends', description: 'Friend Relationship APIs' },
+      { name: 'messages', description: 'Message Management APIs' },
+      { name: 'groups', description: 'Group Management APIs' },
+      { name: 'conversations', description: 'Conversation Management APIs' },
+      { name: 'contacts', description: 'Contact Management APIs' },
+      { name: 'rtc', description: 'Real-time Audio/Video APIs' },
+      { name: 'iot', description: 'IoT Device Management APIs' },
+      { name: 'wukongim', description: 'WuKongIM client bootstrap APIs' },
+    ],
+  );
+  const adminConfig = createSwaggerConfig(
+    'OpenChat IM Admin API',
+    'Admin-facing IM control-plane APIs for WuKongIM and RTC operations.',
+    [
+      { name: 'rtc-admin', description: 'RTC control-plane management APIs' },
+      {
+        name: 'wukongim-admin',
+        description: 'WuKongIM control-plane management APIs',
+      },
+    ],
+  );
+
+  const appDocument = finalizeImOpenApiDocument(
+    SwaggerModule.createDocument(app, appConfig, {
+      include: [appModule],
+      deepScanRoutes: true,
+    }),
+    IM_APP_API_PREFIX,
+  );
+  const adminDocument = finalizeImOpenApiDocument(
+    SwaggerModule.createDocument(app, adminConfig, {
+      include: [adminModule],
+      deepScanRoutes: true,
+    }),
+    IM_ADMIN_API_PREFIX,
+  );
+
+  SwaggerModule.setup(IM_APP_API_DOCS_ROUTE, app, appDocument, {
+    jsonDocumentUrl: IM_APP_API_OPENAPI_JSON_ROUTE,
     swaggerOptions: {
       persistAuthorization: true,
       docExpansion: 'none',
       filter: true,
       showRequestDuration: true,
+      supportedSubmitMethods: readOnly ? [] : undefined,
     },
-    customSiteTitle: 'OpenChat API Documentation',
+    customSiteTitle: 'OpenChat IM App API Documentation',
+  });
+
+  SwaggerModule.setup(IM_ADMIN_API_DOCS_ROUTE, app, adminDocument, {
+    jsonDocumentUrl: IM_ADMIN_API_OPENAPI_JSON_ROUTE,
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      showRequestDuration: true,
+      supportedSubmitMethods: readOnly ? [] : undefined,
+    },
+    customSiteTitle: 'OpenChat IM Admin API Documentation',
   });
 
   printModuleSuccess('Swagger', 'API documentation initialized', {
-    URL: '/api/docs',
+    AppDocs: IM_APP_API_DOCS_PATH,
+    AppOpenAPI: IM_APP_API_OPENAPI_JSON_PATH,
+    AdminDocs: IM_ADMIN_API_DOCS_PATH,
+    AdminOpenAPI: IM_ADMIN_API_OPENAPI_JSON_PATH,
   });
 }
 
@@ -737,8 +842,12 @@ function printStartupInfo(config: BootstrapConfig, startupTime: number) {
   output += `\n${green}╠════════════════════════════════════════════════════════════╣${reset}`;
   output += `\n${green}║${reset}  ${cyan}Environment:${reset}  ${nodeEnv.padEnd(42)}${green}║${reset}`;
   output += `\n${green}║${reset}  ${cyan}Server URL:${reset}   http://${host}:${port.toString().padEnd(30)}${green}║${reset}`;
-  output += `\n${green}║${reset}  ${cyan}API Docs:${reset}     http://${host}:${port}/api/docs${' '.repeat(17)}${green}║${reset}`;
-  output += `\n${green}║${reset}  ${cyan}API Prefix:${reset}   /im/api/v1${' '.repeat(27)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}App Docs:${reset}     http://${host}:${port}${IM_APP_API_DOCS_PATH}${' '.repeat(10)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}App OpenAPI:${reset}  http://${host}:${port}${IM_APP_API_OPENAPI_JSON_PATH}${' '.repeat(3)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}Admin Docs:${reset}   http://${host}:${port}${IM_ADMIN_API_DOCS_PATH}${' '.repeat(3)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}Admin OpenAPI:${reset} http://${host}:${port}${IM_ADMIN_API_OPENAPI_JSON_PATH}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}App Prefix:${reset}   ${IM_APP_API_PREFIX.padEnd(38)}${green}║${reset}`;
+  output += `\n${green}║${reset}  ${cyan}Admin Prefix:${reset} ${IM_ADMIN_API_PREFIX.padEnd(38)}${green}║${reset}`;
   output += `\n${green}║${reset}  ${cyan}WebSocket:${reset}    ws://${host}:${port}/chat-v2${' '.repeat(20)}${green}║${reset}`;
   output += `\n${green}║${reset}  ${cyan}Startup Time:${reset} ${startupTime}ms${' '.repeat(36)}${green}║${reset}`;
   output += `\n${green}║${reset}                                                            ${green}║${reset}`;
@@ -747,8 +856,44 @@ function printStartupInfo(config: BootstrapConfig, startupTime: number) {
   process.stdout.write(output);
 }
 
+function printStartupInfoByMode(
+  config: BootstrapConfig,
+  startupTime: number,
+  schemaOnlyMode: boolean,
+) {
+  if (!schemaOnlyMode) {
+    printStartupInfo(config, startupTime);
+    return;
+  }
+
+  const { port, host, nodeEnv } = config;
+
+  const green = '\x1b[32m';
+  const reset = '\x1b[0m';
+  const bold = '\x1b[1m';
+  const cyan = '\x1b[36m';
+
+  let output = `\n${green}========================================================================${reset}`;
+  output += `\n${green}|${reset} ${bold}OpenChat Schema Runtime Started${reset}`;
+  output += `\n${green}|${reset} ${cyan}Environment:${reset}  ${nodeEnv}`;
+  output += `\n${green}|${reset} ${cyan}Server URL:${reset}   http://${host}:${port}`;
+  output += `\n${green}|${reset} ${cyan}App Docs:${reset}     http://${host}:${port}${IM_APP_API_DOCS_PATH}`;
+  output += `\n${green}|${reset} ${cyan}App OpenAPI:${reset}  http://${host}:${port}${IM_APP_API_OPENAPI_JSON_PATH}`;
+  output += `\n${green}|${reset} ${cyan}Admin Docs:${reset}   http://${host}:${port}${IM_ADMIN_API_DOCS_PATH}`;
+  output += `\n${green}|${reset} ${cyan}Admin OpenAPI:${reset} http://${host}:${port}${IM_ADMIN_API_OPENAPI_JSON_PATH}`;
+  output += `\n${green}|${reset} ${cyan}Runtime Mode:${reset} schema-only`;
+  output += `\n${green}|${reset} ${cyan}Startup Time:${reset} ${startupTime}ms`;
+  output += `\n${green}========================================================================${reset}\n`;
+
+  process.stdout.write(output);
+}
+
 export async function bootstrap() {
   const startTime = Date.now();
+  const schemaOnlyMode = resolveBooleanEnv(process.env.OPENAPI_SCHEMA_ONLY);
+  const rootModule = schemaOnlyMode
+    ? ImOpenApiSchemaRuntimeModule
+    : AppModule;
 
   logger.log('');
   logger.log('═══════════════════════════════════════════════════════════');
@@ -756,13 +901,20 @@ export async function bootstrap() {
   logger.log('═══════════════════════════════════════════════════════════');
   logger.log('');
 
-  if (!validateEnvironment()) {
+  if (!schemaOnlyMode && !validateEnvironment()) {
     throw new Error('Environment validation failed');
   }
 
-  printModuleSuccess('Environment', 'Validation passed');
+  if (schemaOnlyMode) {
+    printModuleSuccess('OpenAPI', 'Schema-only runtime mode enabled', {
+      AppOpenAPI: IM_APP_API_OPENAPI_JSON_PATH,
+      AdminOpenAPI: IM_ADMIN_API_OPENAPI_JSON_PATH,
+    });
+  } else {
+    printModuleSuccess('Environment', 'Validation passed');
+  }
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create(rootModule, {
     logger: ['log', 'error', 'warn', 'debug', 'verbose'],
     abortOnError: false,
     rawBody: true,
@@ -781,30 +933,38 @@ export async function bootstrap() {
   const availablePort = await findAvailablePort(config.port, config.host);
   config.port = availablePort;
 
-  const healthResults = await performHealthChecks(configService);
-  const allHealthy = healthResults.every(r => r.status === 'healthy');
+  if (!schemaOnlyMode) {
+    const healthResults = await performHealthChecks(configService);
+    const allHealthy = healthResults.every((r) => r.status === 'healthy');
 
-  if (!allHealthy && config.isProduction) {
-    throw new Error('Health check failed, cannot start in production');
+    if (!allHealthy && config.isProduction) {
+      throw new Error('Health check failed, cannot start in production');
+    }
   }
 
   setupSecurity(app, configService);
   setupGlobalPipes(app, configService);
-  setupSwagger(app, configService);
-
-  app.setGlobalPrefix('im/api/v1', {
-    exclude: ['/health', '/ws', '/chat', '/chat-v2', '/metrics'],
+  setupSwagger(app, configService, {
+    appModule: schemaOnlyMode ? ImOpenApiSchemaAppModule : ImAppApiModule,
+    adminModule: schemaOnlyMode
+      ? ImOpenApiSchemaAdminModule
+      : ImAdminApiModule,
+    readOnly: schemaOnlyMode,
   });
 
-  await setupWebSocketAdapter(app, configService);
+  if (!schemaOnlyMode) {
+    await setupWebSocketAdapter(app, configService);
+  }
   setupGracefulShutdown(app);
 
   await app.listen(config.port, config.host);
 
-  await initializeIMProvider(app, configService);
+  if (!schemaOnlyMode) {
+    await initializeIMProvider(app, configService);
+  }
 
   const startupTime = Date.now() - startTime;
-  printStartupInfo(config, startupTime);
+  printStartupInfoByMode(config, startupTime, schemaOnlyMode);
 
   return app;
 }

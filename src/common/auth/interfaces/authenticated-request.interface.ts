@@ -5,6 +5,7 @@ export interface AuthContext {
   deviceId?: string;
   botId?: string;
   authStrategy?: string;
+  roles?: string[];
   scopes?: string[];
   metadata?: Record<string, unknown>;
 }

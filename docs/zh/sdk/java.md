@@ -1,52 +1,31 @@
 # Java SDK
 
-## 安装
+## 工作区
 
-### Maven
+- 工作区：`sdkwork-im-sdk/sdkwork-im-sdk-java`
+- 生成产物：`com.sdkwork:backend-sdk`
+- 契约来源：`/im/v3/openapi.json`
 
-```xml
-<dependency>
-    <groupId>io.openchat</groupId>
-    <artifactId>sdk</artifactId>
-    <version>1.0.0</version>
-</dependency>
+## 当前形态
+
+- 仅包含生成的 HTTP SDK
+- 当前没有手写 WuKongIM adapter
+- 如未来增加实时层，必须放在 `generated/server-openapi` 之外
+
+## 命令
+
+```bash
+./bin/sdk-gen.sh
+./bin/sdk-assemble.sh
 ```
 
-### Gradle
-
-```groovy
-implementation 'io.openchat:sdk:1.0.0'
+```powershell
+.\bin\sdk-gen.ps1
+.\bin\sdk-assemble.ps1
 ```
 
-## 快速开始
+## 规则
 
-```java
-import io.openchat.sdk.OpenChatClient;
-
-OpenChatClient client = new OpenChatClient.Builder()
-    .serverUrl("http://localhost:3000")
-    .imConfig(new ImConfig.Builder()
-        .tcpAddr("localhost:5100")
-        .wsUrl("ws://localhost:5200")
-        .build())
-    .build();
-
-// 初始化
-client.init();
-
-// 登录
-AuthResponse response = client.auth().login(
-    new LoginRequest("username", "password")
-);
-
-// 发送消息
-client.messages().send(new MessageRequest()
-    .to("user2")
-    .type(MessageType.TEXT)
-    .content("Hello, OpenChat!")
-);
-```
-
-## 更多示例
-
-请参考 [GitHub 示例项目](https://github.com/openchat-team/sdk-java-examples)。
+- 只有 `generated/server-openapi` 属于生成器托管
+- 不包含 admin API
+- 重复生成时必须保护未来手写扩展层

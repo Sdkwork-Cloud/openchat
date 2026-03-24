@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /* eslint-disable no-console */
 
 const axios = require('axios');
 
-const BASE_URL = process.env.TIMELINE_BENCH_BASE_URL || 'http://localhost:3000/im/api/v1';
+const BASE_URL = process.env.TIMELINE_BENCH_BASE_URL || 'http://localhost:3000/im/v3';
 const TOKEN = process.env.TIMELINE_BENCH_TOKEN || '';
 const POSTS = Number(process.env.TIMELINE_BENCH_POSTS || 200);
 const CONCURRENCY = Number(process.env.TIMELINE_BENCH_CONCURRENCY || 20);
@@ -131,3 +131,4 @@ main().catch((err) => {
   console.error('Benchmark failed:', err?.response?.status, err?.response?.data || err.message);
   process.exit(1);
 });
+

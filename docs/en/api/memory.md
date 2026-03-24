@@ -1,10 +1,10 @@
-# Memory Management API
+﻿# Memory Management API
 
 Memory Management API provides AI agent memory storage and retrieval capabilities.
 
 ## Overview
 
-All Memory APIs require JWT authentication. Path prefix: `/im/api/v1/memory`.
+All Memory APIs require JWT authentication. Path prefix: `/im/v3/memory`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -21,7 +21,7 @@ All Memory APIs require JWT authentication. Path prefix: `/im/api/v1/memory`.
 Store a new memory for an agent.
 
 ```http
-POST /im/api/v1/memory
+POST /im/v3/memory
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -91,3 +91,4 @@ const results = await client.api.memory.search({
 
 - [AI Agents API](./agents.md)
 - [AI Bots API](./ai-bots.md)
+

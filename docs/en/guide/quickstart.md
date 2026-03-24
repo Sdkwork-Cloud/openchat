@@ -233,7 +233,7 @@ Invoke-WebRequest -Uri http://localhost:3000/health
 | Service | URL | Description |
 |---------|-----|-------------|
 | OpenChat API | http://localhost:3000 | Main API |
-| API Docs | http://localhost:3000/api/docs | Swagger docs |
+| API Docs | http://localhost:3000/im/v3/docs | Swagger docs |
 | WukongIM Demo | http://localhost:5172 | IM demo page |
 | WukongIM Admin | http://localhost:5300/web | IM admin panel |
 | Prometheus | http://localhost:9090 | Monitoring |
@@ -245,7 +245,7 @@ Invoke-WebRequest -Uri http://localhost:3000/health
 ::: code-group
 
 ```bash [Linux/macOS]
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:3000/im/v3/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user1",
@@ -262,7 +262,7 @@ $body = @{
     nickname = "User 1"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri http://localhost:3000/api/auth/register `
+Invoke-RestMethod -Uri http://localhost:3000/im/v3/auth/register `
     -Method POST -Headers $headers -Body $body
 ```
 
@@ -273,7 +273,7 @@ Invoke-RestMethod -Uri http://localhost:3000/api/auth/register `
 ::: code-group
 
 ```bash [Linux/macOS]
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3000/im/v3/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user1",
@@ -288,7 +288,7 @@ $body = @{
     password = "password123"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri http://localhost:3000/api/auth/login `
+Invoke-RestMethod -Uri http://localhost:3000/im/v3/auth/login `
     -Method POST -Headers $headers -Body $body
 ```
 

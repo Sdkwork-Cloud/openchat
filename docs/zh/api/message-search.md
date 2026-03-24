@@ -4,7 +4,7 @@
 
 ## 概述
 
-所有消息搜索 API 都需要 JWT 认证，路径前缀为 `/api/v1/message-search`。
+所有消息搜索 API 都需要 JWT 认证，路径前缀为 `/im/v3/message-search`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -27,7 +27,7 @@
 全文搜索消息内容。
 
 ```http
-GET /api/v1/message-search?keyword=你好&userId=user-001&limit=20&offset=0
+GET /im/v3/message-search?keyword=你好&userId=user-001&limit=20&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -92,7 +92,7 @@ Authorization: Bearer <access-token>
 搜索与指定用户的消息记录。
 
 ```http
-GET /api/v1/message-search/user/:userId?keyword=项目&targetUserId=user-002&limit=20
+GET /im/v3/message-search/user/:userId?keyword=项目&targetUserId=user-002&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -148,7 +148,7 @@ Authorization: Bearer <access-token>
 搜索群组内的消息记录。
 
 ```http
-GET /api/v1/message-search/group/:groupId?keyword=会议&userId=user-001&limit=20
+GET /im/v3/message-search/group/:groupId?keyword=会议&userId=user-001&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -206,7 +206,7 @@ Authorization: Bearer <access-token>
 使用复杂条件进行高级搜索。
 
 ```http
-POST /api/v1/message-search/advanced
+POST /im/v3/message-search/advanced
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -285,7 +285,7 @@ Content-Type: application/json
 按消息类型搜索消息。
 
 ```http
-GET /api/v1/message-search/type/:type?userId=user-001&keyword=报告&limit=20
+GET /im/v3/message-search/type/:type?userId=user-001&keyword=报告&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -337,7 +337,7 @@ Authorization: Bearer <access-token>
 搜索图片类型的消息。
 
 ```http
-GET /api/v1/message-search/images?userId=user-001&limit=20
+GET /im/v3/message-search/images?userId=user-001&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -385,7 +385,7 @@ Authorization: Bearer <access-token>
 搜索文件类型的消息。
 
 ```http
-GET /api/v1/message-search/files?userId=user-001&extension=pdf&limit=20
+GET /im/v3/message-search/files?userId=user-001&extension=pdf&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -433,7 +433,7 @@ Authorization: Bearer <access-token>
 搜索包含链接的消息。
 
 ```http
-GET /api/v1/message-search/links?userId=user-001&domain=github.com&limit=20
+GET /im/v3/message-search/links?userId=user-001&domain=github.com&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -480,7 +480,7 @@ Authorization: Bearer <access-token>
 获取搜索关键词建议。
 
 ```http
-GET /api/v1/message-search/suggestions?userId=user-001&prefix=项
+GET /im/v3/message-search/suggestions?userId=user-001&prefix=项
 Authorization: Bearer <access-token>
 ```
 
@@ -520,7 +520,7 @@ Authorization: Bearer <access-token>
 获取用户的搜索历史记录。
 
 ```http
-GET /api/v1/message-search/history?userId=user-001&limit=20
+GET /im/v3/message-search/history?userId=user-001&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -559,7 +559,7 @@ Authorization: Bearer <access-token>
 清除用户的搜索历史记录。
 
 ```http
-DELETE /api/v1/message-search/history?userId=user-001
+DELETE /im/v3/message-search/history?userId=user-001
 Authorization: Bearer <access-token>
 ```
 

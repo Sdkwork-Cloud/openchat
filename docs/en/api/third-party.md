@@ -1,10 +1,10 @@
-# Third-party Integration API
+﻿# Third-party Integration API
 
 Third-party Integration API provides integration capabilities with external services.
 
 ## Overview
 
-All Integration APIs require JWT authentication. Path prefix: `/im/api/v1/integrations`.
+All Integration APIs require JWT authentication. Path prefix: `/im/v3/integrations`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -22,7 +22,7 @@ All Integration APIs require JWT authentication. Path prefix: `/im/api/v1/integr
 Create a new third-party integration.
 
 ```http
-POST /im/api/v1/integrations
+POST /im/v3/integrations
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -58,3 +58,4 @@ Content-Type: application/json
 
 - [AI Agents API](./agents.md)
 - [Bot Platform API](./bots.md)
+

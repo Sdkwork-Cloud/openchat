@@ -1,21 +1,19 @@
 /**
- * 悟空IM 模块
- * 提供与悟空IM的完整集成
+ * WuKongIM module exports
  */
 
-// 服务
 export { WukongIMService } from './wukongim.service';
-
-// 控制器
-export { WukongIMController } from './wukongim.controller';
+export { WukongIMAppController } from './wukongim-app.controller';
+export { WukongIMAdminController } from './wukongim-admin.controller';
 export { WukongIMWebhookController } from './wukongim.webhook.controller';
 
-// 常量
 export {
   WUKONGIM_ENDPOINTS,
   WukongIMChannelType,
   WukongIMMessageType,
 } from './wukongim.constants';
 
-// 模块
 export { WukongIMModule } from './wukongim.module';
+export { WukongIMAppApiModule } from './wukongim-app-api.module';
+export { WukongIMAdminApiModule } from './wukongim-admin-api.module';
+export { WukongIMWebhookModule } from './wukongim-webhook.module';

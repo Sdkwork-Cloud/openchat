@@ -1,64 +1,31 @@
 # Go SDK
 
-## Installation
+## Workspace
+
+- workspace: `sdkwork-im-sdk/sdkwork-im-sdk-go`
+- generated module: `github.com/sdkwork/backend-sdk`
+- app schema source: `/im/v3/openapi.json`
+
+## Current Shape
+
+- generated HTTP client only
+- no handwritten WuKongIM adapter layer
+- suitable for backend services and automation that only need app-facing HTTP APIs
+
+## Commands
 
 ```bash
-go get github.com/openchat-team/sdk-go
+./bin/sdk-gen.sh
+./bin/sdk-assemble.sh
 ```
 
-## Quick Start
-
-```go
-package main
-
-import (
-    "log"
-    "github.com/openchat-team/sdk-go"
-)
-
-func main() {
-    client, err := openchat.NewClient(&openchat.Config{
-        ServerURL: "http://localhost:3000",
-        IMConfig: &openchat.IMConfig{
-            TCPAddr: "localhost:5100",
-            WSURL:   "ws://localhost:5200",
-        },
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Initialize
-    if err := client.Init(); err != nil {
-        log.Fatal(err)
-    }
-
-    // Login
-    resp, err := client.Auth.Login(&openchat.LoginRequest{
-        Username: "user1",
-        Password: "password123",
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Send message
-    _, err = client.Messages.Send(&openchat.MessageRequest{
-        To:      "user2",
-        Type:    openchat.MessageTypeText,
-        Content: "Hello, OpenChat!",
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-}
+```powershell
+.\bin\sdk-gen.ps1
+.\bin\sdk-assemble.ps1
 ```
 
-## More Examples
+## Rules
 
-See [GitHub Examples](https://github.com/openchat-team/sdk-go-examples).
-
-## Next Steps
-
-- [TypeScript SDK](./typescript.md) - TypeScript SDK
-- [API Documentation](../api/) - Complete API reference
+- only `generated/server-openapi` is generator-owned
+- admin APIs are excluded
+- future realtime layers must remain outside the generated directory

@@ -4,7 +4,7 @@
 
 ## 概述
 
-所有群组管理 API 都需要 JWT 认证，路径前缀为 `/api/v1/groups`。
+所有群组管理 API 都需要 JWT 认证，路径前缀为 `/im/v3/groups`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -41,7 +41,7 @@
 创建一个新的群组。
 
 ```http
-POST /api/v1/groups
+POST /im/v3/groups
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -76,7 +76,7 @@ Content-Type: application/json
 获取群组的详细信息。
 
 ```http
-GET /api/v1/groups/:id
+GET /im/v3/groups/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -110,7 +110,7 @@ Authorization: Bearer &lt;access-token&gt;
 更新群组的基本信息。
 
 ```http
-PUT /api/v1/groups/:id
+PUT /im/v3/groups/:id
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -152,7 +152,7 @@ Content-Type: application/json
 删除群组。
 
 ```http
-DELETE /api/v1/groups/:id
+DELETE /im/v3/groups/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -179,7 +179,7 @@ true
 向群组添加新成员。
 
 ```http
-POST /api/v1/groups/:groupId/members
+POST /im/v3/groups/:groupId/members
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -228,7 +228,7 @@ Content-Type: application/json
 从群组移除成员。
 
 ```http
-DELETE /api/v1/groups/:groupId/members/:userId
+DELETE /im/v3/groups/:groupId/members/:userId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -252,7 +252,7 @@ true
 更新群成员的角色。
 
 ```http
-PUT /api/v1/groups/:groupId/members/:userId/role
+PUT /im/v3/groups/:groupId/members/:userId/role
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -285,7 +285,7 @@ true
 获取群组的成员列表。
 
 ```http
-GET /api/v1/groups/:groupId/members
+GET /im/v3/groups/:groupId/members
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -315,7 +315,7 @@ Authorization: Bearer &lt;access-token&gt;
 获取用户加入的所有群组列表。
 
 ```http
-GET /api/v1/groups/user/:userId
+GET /im/v3/groups/user/:userId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -347,7 +347,7 @@ Authorization: Bearer &lt;access-token&gt;
 向用户发送群组邀请。
 
 ```http
-POST /api/v1/groups/invitation
+POST /im/v3/groups/invitation
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -397,7 +397,7 @@ Content-Type: application/json
 接受群组邀请。
 
 ```http
-POST /api/v1/groups/invitation/:id/accept
+POST /im/v3/groups/invitation/:id/accept
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -424,7 +424,7 @@ true
 拒绝群组邀请。
 
 ```http
-POST /api/v1/groups/invitation/:id/reject
+POST /im/v3/groups/invitation/:id/reject
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -451,7 +451,7 @@ true
 取消群组邀请。
 
 ```http
-DELETE /api/v1/groups/invitation/:id
+DELETE /im/v3/groups/invitation/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -478,7 +478,7 @@ true
 将用户添加到群黑名单。
 
 ```http
-POST /api/v1/groups/:groupId/blacklist
+POST /im/v3/groups/:groupId/blacklist
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -510,7 +510,7 @@ true
 将用户从群黑名单中移除。
 
 ```http
-DELETE /api/v1/groups/:groupId/blacklist/:userId
+DELETE /im/v3/groups/:groupId/blacklist/:userId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -534,7 +534,7 @@ true
 获取群组的黑名单列表。
 
 ```http
-GET /api/v1/groups/:groupId/blacklist
+GET /im/v3/groups/:groupId/blacklist
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -557,7 +557,7 @@ Authorization: Bearer &lt;access-token&gt;
 将用户添加到群白名单。
 
 ```http
-POST /api/v1/groups/:groupId/whitelist
+POST /im/v3/groups/:groupId/whitelist
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -589,7 +589,7 @@ true
 将用户从群白名单中移除。
 
 ```http
-DELETE /api/v1/groups/:groupId/whitelist/:userId
+DELETE /im/v3/groups/:groupId/whitelist/:userId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -613,7 +613,7 @@ true
 获取群组的白名单列表。
 
 ```http
-GET /api/v1/groups/:groupId/whitelist
+GET /im/v3/groups/:groupId/whitelist
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -636,7 +636,7 @@ Authorization: Bearer &lt;access-token&gt;
 踢出群成员并将其加入黑名单。
 
 ```http
-POST /api/v1/groups/:groupId/kick/:userId
+POST /im/v3/groups/:groupId/kick/:userId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -660,7 +660,7 @@ true
 退出当前群组。
 
 ```http
-POST /api/v1/groups/:groupId/quit
+POST /im/v3/groups/:groupId/quit
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -696,7 +696,7 @@ true
 更新群组的公告。
 
 ```http
-PUT /api/v1/groups/:groupId/announcement
+PUT /im/v3/groups/:groupId/announcement
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -732,7 +732,7 @@ Content-Type: application/json
 设置或取消全员禁言。
 
 ```http
-PUT /api/v1/groups/:groupId/mute-all
+PUT /im/v3/groups/:groupId/mute-all
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -768,7 +768,7 @@ Content-Type: application/json
 对群成员进行禁言或解禁。
 
 ```http
-PUT /api/v1/groups/:groupId/members/:userId/mute
+PUT /im/v3/groups/:groupId/members/:userId/mute
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -807,7 +807,7 @@ true
 将群主身份转让给其他成员。
 
 ```http
-POST /api/v1/groups/:groupId/transfer
+POST /im/v3/groups/:groupId/transfer
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```

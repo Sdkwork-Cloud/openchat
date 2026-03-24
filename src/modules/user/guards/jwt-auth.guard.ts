@@ -21,6 +21,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     request.auth = {
       userId: user.userId,
       deviceId,
+      roles: user.roles || [],
       scopes: user.permissions || [],
       metadata: {
         roles: user.roles || [],

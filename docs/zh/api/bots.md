@@ -4,7 +4,7 @@
 
 ## 概述
 
-所有机器人平台 API 都需要 JWT 认证，路径前缀为 `/api/v1/bots`。
+所有机器人平台 API 都需要 JWT 认证，路径前缀为 `/im/v3/bots`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -24,7 +24,7 @@
 创建一个新的机器人。
 
 ```http
-POST /api/v1/bots
+POST /im/v3/bots
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -94,7 +94,7 @@ Content-Type: application/json
 获取用户创建的所有机器人列表。
 
 ```http
-GET /api/v1/bots?page=1&amp;limit=20&amp;status=active
+GET /im/v3/bots?page=1&amp;limit=20&amp;status=active
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -139,7 +139,7 @@ Authorization: Bearer &lt;access-token&gt;
 根据ID获取机器人详情。
 
 ```http
-GET /api/v1/bots/:id
+GET /im/v3/bots/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -194,7 +194,7 @@ Authorization: Bearer &lt;access-token&gt;
 更新机器人信息。
 
 ```http
-PUT /api/v1/bots/:id
+PUT /im/v3/bots/:id
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -243,7 +243,7 @@ Content-Type: application/json
 重新生成机器人的访问Token。
 
 ```http
-POST /api/v1/bots/:id/regenerate-token
+POST /im/v3/bots/:id/regenerate-token
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -273,7 +273,7 @@ Authorization: Bearer &lt;access-token&gt;
 删除指定的机器人。
 
 ```http
-DELETE /api/v1/bots/:id
+DELETE /im/v3/bots/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -299,7 +299,7 @@ Authorization: Bearer &lt;access-token&gt;
 为机器人设置Webhook，用于接收事件通知。
 
 ```http
-POST /api/v1/bots/:id/webhook
+POST /im/v3/bots/:id/webhook
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -401,7 +401,7 @@ Content-Type: application/json
 删除机器人的Webhook配置。
 
 ```http
-DELETE /api/v1/bots/:id/webhook
+DELETE /im/v3/bots/:id/webhook
 Authorization: Bearer &lt;access-token&gt;
 ```
 

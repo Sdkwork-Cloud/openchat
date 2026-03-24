@@ -26,8 +26,8 @@ GET /metrics
 ```text
 # HELP http_requests_total Total number of HTTP requests
 # TYPE http_requests_total counter
-http_requests_total{method="GET",path="/api/v1/messages",status="200"} 100
-http_requests_total{method="POST",path="/api/v1/messages",status="201"} 50
+http_requests_total{method="GET",path="/im/v3/messages",status="200"} 100
+http_requests_total{method="POST",path="/im/v3/messages",status="201"} 50
 
 # HELP http_request_duration_seconds Duration of HTTP requests
 # TYPE http_request_duration_seconds histogram
@@ -129,4 +129,3 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:3000']
 ```
-

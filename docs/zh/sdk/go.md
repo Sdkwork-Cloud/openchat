@@ -1,59 +1,31 @@
 # Go SDK
 
-## 安装
+## 工作区
+
+- 工作区：`sdkwork-im-sdk/sdkwork-im-sdk-go`
+- 生成模块：`github.com/sdkwork/backend-sdk`
+- 契约来源：`/im/v3/openapi.json`
+
+## 当前形态
+
+- 仅包含生成的 HTTP SDK
+- 当前没有手写 WuKongIM adapter
+- 适用于只消费前端 HTTP API 的后端服务与自动化程序
+
+## 命令
 
 ```bash
-go get github.com/openchat-team/sdk-go
+./bin/sdk-gen.sh
+./bin/sdk-assemble.sh
 ```
 
-## 快速开始
-
-```go
-package main
-
-import (
-    "log"
-    "github.com/openchat-team/sdk-go"
-)
-
-func main() {
-    client, err := openchat.NewClient(&openchat.Config{
-        ServerURL: "http://localhost:3000",
-        IMConfig: &openchat.IMConfig{
-            TCPAddr: "localhost:5100",
-            WSURL:   "ws://localhost:5200",
-        },
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // 初始化
-    if err := client.Init(); err != nil {
-        log.Fatal(err)
-    }
-
-    // 登录
-    resp, err := client.Auth.Login(&openchat.LoginRequest{
-        Username: "user1",
-        Password: "password123",
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // 发送消息
-    _, err = client.Messages.Send(&openchat.MessageRequest{
-        To:      "user2",
-        Type:    openchat.MessageTypeText,
-        Content: "Hello, OpenChat!",
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-}
+```powershell
+.\bin\sdk-gen.ps1
+.\bin\sdk-assemble.ps1
 ```
 
-## 更多示例
+## 规则
 
-请参考 [GitHub 示例项目](https://github.com/openchat-team/sdk-go-examples)。
+- 只有 `generated/server-openapi` 属于生成器托管
+- 不包含 admin API
+- 未来实时层必须放在生成目录之外

@@ -1,10 +1,10 @@
-# Message Search API
+﻿# Message Search API
 
 Message Search API provides message search capabilities.
 
 ## Overview
 
-All Message Search APIs require JWT authentication. Path prefix: `/im/api/v1/search`.
+All Message Search APIs require JWT authentication. Path prefix: `/im/v3/search`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -19,7 +19,7 @@ All Message Search APIs require JWT authentication. Path prefix: `/im/api/v1/sea
 Search messages by keyword.
 
 ```http
-GET /im/api/v1/search/messages?keyword=hello&userId=user-001&limit=20
+GET /im/v3/search/messages?keyword=hello&userId=user-001&limit=20
 Authorization: Bearer <access-token>
 ```
 
@@ -85,3 +85,4 @@ const filtered = await client.api.messageSearch.search({
 
 - [Message Management API](./messages.md)
 - [Conversation Management API](./conversations.md)
+

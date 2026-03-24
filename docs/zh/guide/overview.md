@@ -1,4 +1,4 @@
-# 项目概览
+﻿# 项目概览
 
 OpenChat 是一个**开源即时通讯解决方案**，提供从服务端到客户端的完整技术栈，帮助开发者快速构建企业级即时通讯应用。
 
@@ -196,7 +196,10 @@ docker compose up -d
 
 部署完成后访问：
 - OpenChat API: http://localhost:3000
-- API 文档: http://localhost:3000/api/docs
+- 前端 API 文档: http://localhost:3000/im/v3/docs
+- 前端 OpenAPI JSON: http://localhost:3000/im/v3/openapi.json
+- 管理端 API 文档: http://localhost:3000/admin/im/v3/docs
+- 管理端 OpenAPI JSON: http://localhost:3000/admin/im/v3/openapi.json
 - WukongIM Demo: http://localhost:5172
 
 ## 下一步
@@ -205,3 +208,4 @@ docker compose up -d
 - [架构设计](./architecture.md) - 深入了解系统架构
 - [功能特性](./features.md) - 探索所有功能特性
 - [API 文档](/zh/api/) - 查看完整的 API 文档
+

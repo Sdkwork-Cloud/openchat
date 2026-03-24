@@ -4,7 +4,7 @@
 
 ## 概述
 
-所有会话管理 API 都需要 JWT 认证，路径前缀为 `/api/v1/conversations`。
+所有会话管理 API 都需要 JWT 认证，路径前缀为 `/im/v3/conversations`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -27,7 +27,7 @@
 创建一个新的会话。
 
 ```http
-POST /api/v1/conversations
+POST /im/v3/conversations
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -80,7 +80,7 @@ Content-Type: application/json
 根据会话ID获取会话详细信息。
 
 ```http
-GET /api/v1/conversations/:id
+GET /im/v3/conversations/:id
 Authorization: Bearer <access-token>
 ```
 
@@ -125,7 +125,7 @@ Authorization: Bearer <access-token>
 获取用户的所有会话列表。
 
 ```http
-GET /api/v1/conversations?userId=user-001&type=single&isPinned=false&limit=50&offset=0
+GET /im/v3/conversations?userId=user-001&type=single&isPinned=false&limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -189,7 +189,7 @@ Authorization: Bearer <access-token>
 获取用户与特定目标（用户或群组）的会话。
 
 ```http
-GET /api/v1/conversations/target/:userId/:targetId?type=single
+GET /im/v3/conversations/target/:userId/:targetId?type=single
 Authorization: Bearer <access-token>
 ```
 
@@ -233,7 +233,7 @@ Authorization: Bearer <access-token>
 更新会话信息。
 
 ```http
-PUT /api/v1/conversations/:id
+PUT /im/v3/conversations/:id
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -282,7 +282,7 @@ Content-Type: application/json
 删除指定会话。
 
 ```http
-DELETE /api/v1/conversations/:id
+DELETE /im/v3/conversations/:id
 Authorization: Bearer <access-token>
 ```
 
@@ -309,7 +309,7 @@ true
 设置会话的置顶状态。
 
 ```http
-PUT /api/v1/conversations/:id/pin
+PUT /im/v3/conversations/:id/pin
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -351,7 +351,7 @@ true
 设置会话的免打扰状态。
 
 ```http
-PUT /api/v1/conversations/:id/mute
+PUT /im/v3/conversations/:id/mute
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -393,7 +393,7 @@ true
 清空会话的未读消息数。
 
 ```http
-PUT /api/v1/conversations/:id/read
+PUT /im/v3/conversations/:id/read
 Authorization: Bearer <access-token>
 ```
 
@@ -420,7 +420,7 @@ true
 获取用户所有会话的未读消息总数。
 
 ```http
-GET /api/v1/conversations/unread-total/:userId
+GET /im/v3/conversations/unread-total/:userId
 Authorization: Bearer <access-token>
 ```
 
@@ -445,7 +445,7 @@ Authorization: Bearer <access-token>
 批量删除多个会话。
 
 ```http
-DELETE /api/v1/conversations/batch
+DELETE /im/v3/conversations/batch
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```

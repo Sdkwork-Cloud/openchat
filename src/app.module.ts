@@ -1,20 +1,9 @@
 import { Module, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_FILTER } from '@nestjs/core';
-import { UserModule } from './modules/user/user.module';
-import { FriendModule } from './modules/friend/friend.module';
-import { MessageModule } from './modules/message/message.module';
-import { GroupModule } from './modules/group/group.module';
-import { RtcModule } from './modules/rtc/rtc.module';
-import { ThirdPartyModule } from './modules/third-party/third-party.module';
-import { AIBotModule } from './modules/ai-bot/ai-bot.module';
+import { APP_FILTER, RouterModule } from '@nestjs/core';
 import { GatewayModule } from './gateways/gateway.module';
 import { IMProviderModule } from './modules/im-provider/im-provider.module';
-import { ConversationModule } from './modules/conversation/conversation.module';
-import { ContactModule } from './modules/contact/contact.module';
-import { IoTModule } from './modules/iot/iot.module';
-import { RedisModule } from './common/redis/redis.module';
 import { ThrottlerModule } from './common/throttler/throttler.module';
 import { QueueModule } from './common/queue/queue.module';
 import { HealthModule } from './common/health/health.module';
@@ -24,6 +13,12 @@ import { AuthModule } from './common/auth/auth.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { EventBusModule } from './common/events/event-bus.module';
 import { ExtensionsModule } from './extensions';
+import { ImAppApiModule } from './api/im-app-api.module';
+import { ImAdminApiModule } from './api/im-admin-api.module';
+import {
+  IM_ADMIN_API_PREFIX,
+  IM_APP_API_PREFIX,
+} from './common/http/im-api-surface.constants';
 import { UserEntity } from './modules/user/entities/user.entity';
 import { Friend } from './modules/friend/friend.entity';
 import { FriendRequest } from './modules/friend/friend-request.entity';
@@ -43,12 +38,10 @@ import { AIBotEntity, BotMessageEntity } from './modules/ai-bot/ai-bot.entity';
 import { ConversationEntity } from './modules/conversation/conversation.entity';
 import { ConversationReadCursorEntity } from './modules/conversation/conversation-read-cursor.entity';
 import { ContactEntity } from './modules/contact/contact.entity';
-import { BotPlatformModule } from './modules/bot-platform/bot-platform.module';
 import { BotEntity } from './modules/bot-platform/entities/bot.entity';
 import { BotCommandEntity } from './modules/bot-platform/entities/bot-command.entity';
 import { DeviceEntity } from './modules/iot/entities/device.entity';
 import { DeviceMessageEntity } from './modules/iot/entities/device-message.entity';
-import { AgentModule } from './modules/agent/agent.module';
 import {
   Agent,
   AgentSession,
@@ -57,9 +50,6 @@ import {
   AgentSkill,
   AgentExecution,
 } from './modules/agent/agent.entity';
-import { WukongIMModule } from './modules/wukongim/wukongim.module';
-import { CrawModule } from './modules/craw/craw.module';
-import { TimelineModule } from './modules/timeline/timeline.module';
 import { TimelinePostEntity } from './modules/timeline/entities/timeline-post.entity';
 import { TimelineFeedItemEntity } from './modules/timeline/entities/timeline-feed-item.entity';
 import { TimelinePostLikeEntity } from './modules/timeline/entities/timeline-post-like.entity';
@@ -85,6 +75,8 @@ import {
   KnowledgeDocument,
   MemoryVector,
 } from './modules/agent/memory/memory.entity';
+import { RtcWebhookModule } from './modules/rtc/rtc-webhook.module';
+import { WukongIMWebhookModule } from './modules/wukongim/wukongim-webhook.module';
 import { DataSource } from 'typeorm';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { SnakeNamingStrategy } from './common/config/snake-naming.strategy';
@@ -225,27 +217,27 @@ const logger = new Logger('Database');
 
     EventBusModule,
 
+    RouterModule.register([
+      {
+        path: IM_APP_API_PREFIX,
+        module: ImAppApiModule,
+      },
+      {
+        path: IM_ADMIN_API_PREFIX,
+        module: ImAdminApiModule,
+      },
+    ]),
+
     ExtensionsModule.forRoot({
       useDefaultUserCenter: true,
       useRemoteUserCenter: false,
     }),
     GatewayModule,
-    UserModule,
-    FriendModule,
-    MessageModule,
-    GroupModule,
-    RtcModule,
-    ThirdPartyModule,
-    AIBotModule,
+    ImAppApiModule,
+    ImAdminApiModule,
+    RtcWebhookModule,
+    WukongIMWebhookModule,
     IMProviderModule,
-    ConversationModule,
-    ContactModule,
-    BotPlatformModule,
-    IoTModule,
-    AgentModule,
-    WukongIMModule,
-    CrawModule,
-    TimelineModule,
   ],
   providers: [
     {

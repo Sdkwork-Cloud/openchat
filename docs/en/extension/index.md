@@ -2,105 +2,80 @@
 
 ## Overview
 
-The OpenChat Extension Plugin System is an enterprise-grade pluggable architecture that allows developers to extend and customize system functionality through plugins. The core design principles are **loose coupling, replaceability, extensibility, and high availability**.
+The OpenChat extension system is a pluggable architecture for integrating external capabilities without coupling them to the IM core.
 
-## Architecture
+Core design goals:
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          Application Layer                               │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
-│  │  Auth Service   │  │  User Service   │  │   IM Service    │         │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘         │
-│           │                    │                    │                  │
-│           ▼                    ▼                    ▼                  │
-│  ┌─────────────────────────────────────────────────────────────────────┤
-│  │                      Extension Proxy Layer                          │
-│  │  ┌─────────────────┐  ┌─────────────────┐                          │
-│  │  │ UserCenterProxy │  │   Other Proxies │                          │
-│  │  └────────┬────────┘  └─────────────────┘                          │
-│  └───────────┼─────────────────────────────────────────────────────────┤
-│              │                                                          │
-│              ▼                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┤
-│  │                      Extension Core Layer                           │
-│  │  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────────┐ │
-│  │  │ ExtensionRegistry │  │ LifecycleManager  │  │ ConfigValidator │ │
-│  │  └───────────────────┘  └───────────────────┘  └─────────────────┘ │
-│  │  ┌───────────────────┐                                              │
-│  │  │  HealthService    │                                              │
-│  │  └───────────────────┘                                              │
-│  └─────────────────────────────────────────────────────────────────────┤
-│              │                                                          │
-│              ▼                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┤
-│  │                      Extension Plugins                              │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐     │
-│  │  │ Default User    │  │ Remote User     │  │ Custom Plugin   │     │
-│  │  │ Center Plugin   │  │ Center Plugin   │  │   ...           │     │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘     │
-│  └─────────────────────────────────────────────────────────────────────┘
-└─────────────────────────────────────────────────────────────────────────┘
-```
+- loose coupling
+- replaceability
+- controlled extensibility
+- operational visibility
+
+## Layer Model
+
+The extension system is organized into four layers:
+
+1. Application layer
+   Auth, user, and IM services call extension proxies instead of vendor-specific implementations.
+2. Proxy layer
+   Proxies expose stable interfaces such as user-center integration.
+3. Core layer
+   Registry, lifecycle management, config validation, and health checking live here.
+4. Plugin layer
+   Concrete plugins implement the extension contracts.
 
 ## Core Components
 
 ### ExtensionRegistry
 
-Manages the lifecycle, dependencies, and state of all plugins.
+Manages extension registration, discovery, dependency resolution, and primary selection.
 
 ```typescript
-// Register plugin
 await extensionRegistry.register(extension, config);
 
-// Get plugin
 const extension = extensionRegistry.get('plugin-id');
-
-// Get plugins by type
 const userCenters = extensionRegistry.getByType(ExtensionType.USER_CENTER);
-
-// Get primary plugin
 const primary = extensionRegistry.getPrimary(ExtensionType.USER_CENTER);
 ```
 
 ### ExtensionLifecycleManager
 
-Manages plugin state transitions and lifecycle hooks.
+Controls extension state transitions:
 
-```
-State Transitions:
-
-UNLOADED → LOADING → LOADED → ACTIVATING → ACTIVE
-    ↑          ↓         ↓          ↓         ↓
-    └────── ERROR ←──────┴──────────┴← DEACTIVATING ← INACTIVE
-```
+- `UNLOADED`
+- `LOADING`
+- `LOADED`
+- `ACTIVATING`
+- `ACTIVE`
+- `DEACTIVATING`
+- `INACTIVE`
+- `ERROR`
 
 ### ExtensionConfigValidator
 
-Validates plugin configuration against schema definitions.
+Validates extension configuration against schema definitions before activation.
 
 ### ExtensionHealthService
 
-Periodically checks plugin health status with auto-recovery support.
+Runs periodic health checks and supports auto-recovery policies.
 
 ## Plugin Types
 
 | Type | Description | Purpose |
 |------|-------------|---------|
-| `user-center` | User Center Plugin | Provides user authentication and management |
-| `auth-strategy` | Auth Strategy Plugin | Provides additional authentication methods |
-| `storage` | Storage Plugin | Provides file storage capabilities |
-| `notification` | Notification Plugin | Provides message notification capabilities |
-| `ai-model` | AI Model Plugin | Provides AI model invocation capabilities |
-| `im-channel` | IM Channel Plugin | Provides IM message channel capabilities |
-| `custom` | Custom Plugin | Custom extension capabilities |
+| `user-center` | User center plugin | user authentication and profile source |
+| `auth-strategy` | Auth strategy plugin | additional authentication methods |
+| `storage` | Storage plugin | file storage and object management |
+| `notification` | Notification plugin | message notification delivery |
+| `ai-model` | AI model plugin | AI model invocation |
+| `im-channel` | IM channel plugin | external IM channel integration |
+| `custom` | Custom plugin | domain-specific extension points |
 
 ## Quick Start
 
-### Using Default User Center
+### Using the default user center
 
 ```typescript
-// app.module.ts
 import { ExtensionsModule } from './extensions';
 
 @Module({
@@ -114,10 +89,9 @@ import { ExtensionsModule } from './extensions';
 export class AppModule {}
 ```
 
-### Using Remote User Center
+### Using a remote user center
 
 ```typescript
-// app.module.ts
 import { ExtensionsModule } from './extensions';
 
 @Module({
@@ -135,8 +109,6 @@ export class AppModule {}
 ### Environment Configuration
 
 ```bash
-# .env
-
 # User center plugin selection
 USER_CENTER_EXTENSION=openchat-user-center-default
 
@@ -158,27 +130,28 @@ EXTENSION_HEALTH_CHECK_INTERVAL=60000
 EXTENSION_AUTO_RECOVERY=true
 ```
 
+`REMOTE_USER_CENTER_API_PREFIX` is an external user-center sample path. It is not the OpenChat IM API prefix and does not change `/im/v3` or `/admin/im/v3`.
+
 ## File Structure
 
-```
+```text
 src/extensions/
-├── core/
-│   ├── extension.interface.ts          # Core interface definitions
-│   ├── extension-registry.service.ts   # Plugin registry
-│   ├── extension-lifecycle.manager.ts  # Lifecycle manager
-│   ├── extension-config.validator.ts   # Config validator
-│   └── extension-health.service.ts     # Health check service
-├── user-center/
-│   ├── user-center.interface.ts        # User center plugin interface
-│   ├── default-user-center.extension.ts # Default local user center
-│   ├── remote-user-center.extension.ts  # Remote user center
-│   └── user-center.proxy.ts            # User center proxy
-├── extensions.module.ts                # Extension module
-├── index.ts                            # Entry file
-└── README.md                           # Documentation
+|- core/
+|  |- extension.interface.ts
+|  |- extension-registry.service.ts
+|  |- extension-lifecycle.manager.ts
+|  |- extension-config.validator.ts
+|  |- extension-health.service.ts
+|- user-center/
+|  |- user-center.interface.ts
+|  |- default-user-center.extension.ts
+|  |- remote-user-center.extension.ts
+|  |- user-center.proxy.ts
+|- extensions.module.ts
+|- index.ts
 ```
 
 ## More
 
-- [User Center Plugin](/en/extension/user-center) - Detailed user center plugin documentation
-- [Development Guide](/en/extension/development) - How to develop custom plugins
+- [User Center Plugin](/en/extension/user-center)
+- [Development Guide](/en/extension/development)

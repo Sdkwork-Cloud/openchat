@@ -74,10 +74,10 @@ describe('Authentication (e2e)', () => {
     await app.close();
   });
 
-  describe('/auth/register (POST)', () => {
+  describe('/im/v3/auth/register (POST)', () => {
     it('should register a new user', () => {
       return request(app.getHttpServer())
-        .post('/auth/register')
+        .post('/im/v3/auth/register')
         .send({
           username: `testuser_${Date.now()}`,
           password: 'TestPassword123!',
@@ -94,16 +94,16 @@ describe('Authentication (e2e)', () => {
     });
   });
 
-  describe('/auth/me (GET)', () => {
+  describe('/im/v3/auth/me (GET)', () => {
     it('should return current user info', () => {
       return request(app.getHttpServer())
-        .get('/auth/me')
+        .get('/im/v3/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
     });
 
     it('should return 401 without token', () => {
-      return request(app.getHttpServer()).get('/auth/me').expect(401);
+      return request(app.getHttpServer()).get('/im/v3/auth/me').expect(401);
     });
   });
 });
@@ -126,10 +126,10 @@ describe('Messages (e2e)', () => {
     await app.close();
   });
 
-  describe('/messages (POST)', () => {
+  describe('/im/v3/messages (POST)', () => {
     it('should send a message', () => {
       return request(app.getHttpServer())
-        .post('/messages')
+        .post('/im/v3/messages')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           fromUserId: userId,

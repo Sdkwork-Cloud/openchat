@@ -1,4 +1,4 @@
-# Authentication API
+﻿# Authentication API
 
 OpenChat uses JWT (JSON Web Token) for authentication, supporting access tokens and refresh tokens.
 
@@ -6,28 +6,12 @@ OpenChat uses JWT (JSON Web Token) for authentication, supporting access tokens 
 
 ### Authentication Flow
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Client    │────>│   Server    │────>│  Database   │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │
-       │  1. Login         │                   │
-       │ ─────────────────>│                   │
-       │                   │  2. Verify        │
-       │                   │ ─────────────────>│
-       │                   │                   │
-       │                   │  3. User Data     │
-       │                   │ <─────────────────│
-       │  4. JWT Token     │                   │
-       │ <─────────────────│                   │
-       │                   │                   │
-       │  5. API Request   │                   │
-       │ ─────────────────>│                   │
-       │     + Token       │                   │
-       │                   │                   │
-       │  6. Response      │                   │
-       │ <─────────────────│                   │
-```
+1. The client sends `POST /im/v3/auth/login` with username and password.
+2. The server validates credentials against the database.
+3. The server loads user data and permissions.
+4. The server returns `accessToken` and `refreshToken`.
+5. The client includes `Authorization: Bearer <access-token>` on subsequent requests.
+6. The server authenticates the request and returns business data.
 
 ### Token Types
 
@@ -81,7 +65,7 @@ The Access Token payload structure is as follows:
 Register a new user account.
 
 ```http
-POST /im/api/v1/auth/register
+POST /im/v3/auth/register
 Content-Type: application/json
 ```
 
@@ -128,7 +112,7 @@ Content-Type: application/json
 Login with username and password to get access token.
 
 ```http
-POST /im/api/v1/auth/login
+POST /im/v3/auth/login
 Content-Type: application/json
 ```
 
@@ -179,7 +163,7 @@ Content-Type: application/json
 Use refresh token to get a new access token.
 
 ```http
-POST /im/api/v1/auth/refresh
+POST /im/v3/auth/refresh
 Content-Type: application/json
 ```
 
@@ -213,7 +197,7 @@ Content-Type: application/json
 Logout and invalidate the current session.
 
 ```http
-POST /im/api/v1/auth/logout
+POST /im/v3/auth/logout
 Authorization: Bearer <access-token>
 ```
 
@@ -241,7 +225,7 @@ Use these endpoints for multi-device governance (WeChat/Telegram-style session c
 #### 1) List device sessions
 
 ```http
-GET /im/api/v1/auth/devices?limit=100
+GET /im/v3/auth/devices?limit=100
 Authorization: Bearer <access-token>
 ```
 
@@ -272,7 +256,7 @@ Response example:
 #### 2) Logout current device
 
 ```http
-POST /im/api/v1/auth/logout/device
+POST /im/v3/auth/logout/device
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -301,14 +285,14 @@ Response example:
 #### 3) Logout a specific device
 
 ```http
-POST /im/api/v1/auth/logout/device/{deviceId}
+POST /im/v3/auth/logout/device/{deviceId}
 Authorization: Bearer <access-token>
 ```
 
 #### 4) Logout other devices (keep current)
 
 ```http
-POST /im/api/v1/auth/logout/others
+POST /im/v3/auth/logout/others
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -333,7 +317,7 @@ Common errors:
 Get the current logged-in user's information.
 
 ```http
-GET /im/api/v1/auth/me
+GET /im/v3/auth/me
 Authorization: Bearer <access-token>
 ```
 
@@ -364,12 +348,12 @@ Authorization: Bearer <access-token>
 
 ```bash
 # User login
-curl -X POST http://localhost:3000/im/api/v1/auth/login \
+curl -X POST http://localhost:3000/im/v3/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "johndoe", "password": "password123"}'
 
 # Get user info
-curl -X GET http://localhost:3000/im/api/v1/auth/me \
+curl -X GET http://localhost:3000/im/v3/auth/me \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
@@ -377,7 +361,7 @@ curl -X GET http://localhost:3000/im/api/v1/auth/me \
 
 ```javascript
 // Login
-const response = await fetch('http://localhost:3000/im/api/v1/auth/login', {
+const response = await fetch('http://localhost:3000/im/v3/auth/login', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -395,7 +379,7 @@ const { accessToken, user } = data;
 localStorage.setItem('accessToken', accessToken);
 
 // Use Token for API requests
-const userResponse = await fetch('http://localhost:3000/im/api/v1/auth/me', {
+const userResponse = await fetch('http://localhost:3000/im/v3/auth/me', {
   headers: {
     'Authorization': `Bearer ${accessToken}`
   }
@@ -439,7 +423,7 @@ let accessToken = localStorage.getItem('accessToken');
 
 async function refreshAccessToken() {
   const refreshToken = localStorage.getItem('refreshToken');
-  const response = await fetch('/im/api/v1/auth/refresh', {
+  const response = await fetch('/im/v3/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken })
@@ -483,3 +467,4 @@ async function fetchWithAuth(url, options = {}) {
 - [User Management API](./users.md) - User-related endpoints
 - [Message Management API](./messages.md) - Messaging endpoints
 - [SDK Documentation](../sdk/) - Simplify development with SDK
+

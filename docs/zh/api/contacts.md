@@ -4,7 +4,7 @@
 
 ## 概述
 
-所有联系人管理 API 都需要 JWT 认证，路径前缀为 `/api/v1/contacts`。
+所有联系人管理 API 都需要 JWT 认证，路径前缀为 `/im/v3/contacts`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -26,7 +26,7 @@
 添加一个新联系人。
 
 ```http
-POST /api/v1/contacts
+POST /im/v3/contacts
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -85,7 +85,7 @@ Content-Type: application/json
 获取用户的所有联系人列表。
 
 ```http
-GET /api/v1/contacts/user/:userId?group=同事&search=张&limit=50&offset=0
+GET /im/v3/contacts/user/:userId?group=同事&search=张&limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -151,7 +151,7 @@ Authorization: Bearer <access-token>
 根据联系人ID获取详细信息。
 
 ```http
-GET /api/v1/contacts/:id
+GET /im/v3/contacts/:id
 Authorization: Bearer <access-token>
 ```
 
@@ -198,7 +198,7 @@ Authorization: Bearer <access-token>
 更新联系人信息。
 
 ```http
-PUT /api/v1/contacts/:id
+PUT /im/v3/contacts/:id
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -250,7 +250,7 @@ Content-Type: application/json
 删除指定联系人。
 
 ```http
-DELETE /api/v1/contacts/:id
+DELETE /im/v3/contacts/:id
 Authorization: Bearer <access-token>
 ```
 
@@ -277,7 +277,7 @@ true
 检查指定用户是否为当前用户的联系人。
 
 ```http
-GET /api/v1/contacts/check?userId=user-001&contactId=user-002
+GET /im/v3/contacts/check?userId=user-001&contactId=user-002
 Authorization: Bearer <access-token>
 ```
 
@@ -308,7 +308,7 @@ Authorization: Bearer <access-token>
 搜索用户的联系人。
 
 ```http
-GET /api/v1/contacts/search?userId=user-001&keyword=张
+GET /im/v3/contacts/search?userId=user-001&keyword=张
 Authorization: Bearer <access-token>
 ```
 
@@ -351,7 +351,7 @@ Authorization: Bearer <access-token>
 批量导入多个联系人。
 
 ```http
-POST /api/v1/contacts/import
+POST /im/v3/contacts/import
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -412,7 +412,7 @@ Content-Type: application/json
 设置联系人的备注名。
 
 ```http
-PUT /api/v1/contacts/:id/remark
+PUT /im/v3/contacts/:id/remark
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -458,7 +458,7 @@ Content-Type: application/json
 设置联系人的分组。
 
 ```http
-PUT /api/v1/contacts/:id/group
+PUT /im/v3/contacts/:id/group
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```

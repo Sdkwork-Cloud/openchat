@@ -78,23 +78,6 @@ export class ConversationController {
   }
 
   /**
-   * 获取会话详情
-   */
-  @Get(':id(\\d+)')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: '获取会话详情' })
-  @ApiParam({ name: 'id', description: '会话ID' })
-  @ApiResponse({ status: 200, description: '成功获取会话详情', type: Conversation })
-  @ApiResponse({ status: 404, description: '会话不存在' })
-  async getConversationById(
-    @Param('id') id: string,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<Conversation | null> {
-    return this.conversationService.getConversationByIdForUser(id, req.auth.userId);
-  }
-
-  /**
    * 获取用户的会话列表
    */
   @Get()
@@ -281,55 +264,39 @@ export class ConversationController {
   }
 
   /**
-   * 更新会话
+   * 获取未读消息总数
    */
-  @Put(':id(\\d+)')
+  @Get('unread-total/me')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: '更新会话' })
-  @ApiParam({ name: 'id', description: '会话ID' })
-  @ApiBody({
-    description: '会话更新信息',
-    required: true,
-    schema: {
-      type: 'object',
-      properties: {
-        isPinned: { type: 'boolean' },
-        isMuted: { type: 'boolean' },
-      },
-    },
-  })
-  @ApiResponse({ status: 200, description: '成功更新会话', type: Conversation })
-  @ApiResponse({ status: 404, description: '会话不存在' })
-  async updateConversation(
-    @Param('id') id: string,
-    @Body() request: UpdateConversationRequest,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<Conversation | null> {
-    return this.conversationService.updateConversationForUser(id, req.auth.userId, request);
+  @ApiOperation({ summary: '获取未读消息总数' })
+  @ApiResponse({ status: 200, description: '成功获取未读消息总数' })
+  async getTotalUnreadCount(@Request() req: AuthenticatedRequest): Promise<{ total: number }> {
+    const total = await this.conversationService.getTotalUnreadCount(req.auth.userId);
+    return { total };
   }
 
   /**
-   * 删除会话
+   * 获取会话详情
    */
-  @Delete(':id(\\d+)')
+  @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: '删除会话' })
+  @ApiOperation({ summary: '获取会话详情' })
   @ApiParam({ name: 'id', description: '会话ID' })
-  @ApiResponse({ status: 200, description: '成功删除会话' })
+  @ApiResponse({ status: 200, description: '成功获取会话详情', type: Conversation })
   @ApiResponse({ status: 404, description: '会话不存在' })
-  async deleteConversation(
+  async getConversationById(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
-  ): Promise<boolean> {
-    return this.conversationService.deleteConversationForUser(id, req.auth.userId);
+  ): Promise<Conversation | null> {
+    return this.conversationService.getConversationByIdForUser(id, req.auth.userId);
   }
 
   /**
    * 置顶/取消置顶会话
    */
-  @Put(':id(\\d+)/pin')
+  @Put(':id/pin')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: '置顶/取消置顶会话' })
@@ -358,7 +325,7 @@ export class ConversationController {
   /**
    * 设置免打扰
    */
-  @Put(':id(\\d+)/mute')
+  @Put(':id/mute')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: '设置免打扰' })
@@ -384,7 +351,10 @@ export class ConversationController {
     return this.conversationService.muteConversationForUser(id, req.auth.userId, isMuted);
   }
 
-  @Put(':id(\\d+)/read')
+  /**
+   * 清空未读消息数
+   */
+  @Put(':id/read')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: '清空未读消息数' })
@@ -403,16 +373,38 @@ export class ConversationController {
     return this.conversationUnreadService.clearUnreadCount(conversation.id);
   }
 
-  @Get('unread-total/me')
+  /**
+   * 更新会话
+   */
+  @Put(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: '获取未读消息总数' })
-  @ApiResponse({ status: 200, description: '成功获取未读消息总数' })
-  async getTotalUnreadCount(@Request() req: AuthenticatedRequest): Promise<{ total: number }> {
-    const total = await this.conversationService.getTotalUnreadCount(req.auth.userId);
-    return { total };
+  @ApiOperation({ summary: '更新会话' })
+  @ApiParam({ name: 'id', description: '会话ID' })
+  @ApiBody({
+    description: '会话更新信息',
+    required: true,
+    schema: {
+      type: 'object',
+      properties: {
+        isPinned: { type: 'boolean' },
+        isMuted: { type: 'boolean' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: '成功更新会话', type: Conversation })
+  @ApiResponse({ status: 404, description: '会话不存在' })
+  async updateConversation(
+    @Param('id') id: string,
+    @Body() request: UpdateConversationRequest,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Conversation | null> {
+    return this.conversationService.updateConversationForUser(id, req.auth.userId, request);
   }
 
+  /**
+   * 批量删除会话
+   */
   @Delete('batch')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -435,6 +427,23 @@ export class ConversationController {
   ): Promise<{ success: boolean; count: number }> {
     const count = await this.conversationService.batchDeleteConversationsForUser(ids, req.auth.userId);
     return { success: true, count };
+  }
+
+  /**
+   * 删除会话
+   */
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '删除会话' })
+  @ApiParam({ name: 'id', description: '会话ID' })
+  @ApiResponse({ status: 200, description: '成功删除会话' })
+  @ApiResponse({ status: 404, description: '会话不存在' })
+  async deleteConversation(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<boolean> {
+    return this.conversationService.deleteConversationForUser(id, req.auth.userId);
   }
 
   private resolveEffectiveDeviceId(

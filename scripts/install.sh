@@ -1,13 +1,13 @@
-#!/bin/bash
+﻿#!/bin/bash
 # ============================================
-# OpenChat - 统一安装脚本
-# 版本: 2.0.0
-# 支持: Linux / macOS
+# OpenChat - 缁熶竴瀹夎鑴氭湰
+# 鐗堟湰: 2.0.0
+# 鏀寔: Linux / macOS
 # ============================================
 
 set -e
 
-# 颜色定义
+# 棰滆壊瀹氫箟
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -16,65 +16,64 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# 应用配置
+# 搴旂敤閰嶇疆
 APP_NAME="OpenChat"
 APP_VERSION="2.0.0"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL_DIR="${INSTALL_DIR:-/opt/openchat}"
 
-# 安装模式
+# 瀹夎妯″紡
 INSTALL_MODE="${1:-interactive}"
 
-# 日志函数
+# 鏃ュ織鍑芥暟
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${CYAN}[STEP]${NC} $1"; }
 
-# 显示横幅
+# 鏄剧ず妯箙
 show_banner() {
     clear
     echo -e "${BOLD}"
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                                                               ║"
-    echo "║   ██████╗ ██████╗ ███████╗ █████╗ ████████╗ █████╗ ██╗       ║"
-    echo "║  ██╔═══██╗██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔══██╗██║       ║"
-    echo "║  ██║   ██║██████╔╝█████╗  ███████║   ██║   ███████║██║       ║"
-    echo "║  ██║   ██║██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══██║██║       ║"
-    echo "║  ╚██████╔╝██║  ██║███████╗██║  ██║   ██║   ██║  ██║███████╗  ║"
-    echo "║   ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝  ║"
-    echo "║                                                               ║"
-    echo "║           Open Source Instant Messaging Platform              ║"
-    echo "║                     Version ${APP_VERSION}                           ║"
-    echo "║                                                               ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo "鈺斺晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+    echo "鈺?                                                              鈺?
+    echo "鈺?  鈻堚枅鈻堚枅鈻堚枅鈺?鈻堚枅鈻堚枅鈻堚枅鈺?鈻堚枅鈻堚枅鈻堚枅鈻堚晽 鈻堚枅鈻堚枅鈻堚晽 鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈺?鈻堚枅鈻堚枅鈻堚晽 鈻堚枅鈺?      鈺?
+    echo "鈺? 鈻堚枅鈺斺晲鈺愨晲鈻堚枅鈺椻枅鈻堚晹鈺愨晲鈻堚枅鈺椻枅鈻堚晹鈺愨晲鈺愨晲鈺濃枅鈻堚晹鈺愨晲鈻堚枅鈺椻暁鈺愨晲鈻堚枅鈺斺晲鈺愨暆鈻堚枅鈺斺晲鈺愨枅鈻堚晽鈻堚枅鈺?      鈺?
+    echo "鈺? 鈻堚枅鈺?  鈻堚枅鈺戔枅鈻堚枅鈻堚枅鈻堚晹鈺濃枅鈻堚枅鈻堚枅鈺? 鈻堚枅鈻堚枅鈻堚枅鈻堚晳   鈻堚枅鈺?  鈻堚枅鈻堚枅鈻堚枅鈻堚晳鈻堚枅鈺?      鈺?
+    echo "鈺? 鈻堚枅鈺?  鈻堚枅鈺戔枅鈻堚晹鈺愨晲鈻堚枅鈺椻枅鈻堚晹鈺愨晲鈺? 鈻堚枅鈺斺晲鈺愨枅鈻堚晳   鈻堚枅鈺?  鈻堚枅鈺斺晲鈺愨枅鈻堚晳鈻堚枅鈺?      鈺?
+    echo "鈺? 鈺氣枅鈻堚枅鈻堚枅鈻堚晹鈺濃枅鈻堚晳  鈻堚枅鈺戔枅鈻堚枅鈻堚枅鈻堚枅鈺椻枅鈻堚晳  鈻堚枅鈺?  鈻堚枅鈺?  鈻堚枅鈺? 鈻堚枅鈺戔枅鈻堚枅鈻堚枅鈻堚枅鈺? 鈺?
+    echo "鈺?  鈺氣晲鈺愨晲鈺愨晲鈺?鈺氣晲鈺? 鈺氣晲鈺濃暁鈺愨晲鈺愨晲鈺愨晲鈺濃暁鈺愨暆  鈺氣晲鈺?  鈺氣晲鈺?  鈺氣晲鈺? 鈺氣晲鈺濃暁鈺愨晲鈺愨晲鈺愨晲鈺? 鈺?
+    echo "鈺?                                                              鈺?
+    echo "鈺?          Open Source Instant Messaging Platform              鈺?
+    echo "鈺?                    Version ${APP_VERSION}                           鈺?
+    echo "鈺?                                                              鈺?
+    echo "鈺氣晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
     echo -e "${NC}"
     echo
 }
 
-# 显示帮助信息
+# 鏄剧ず甯姪淇℃伅
 show_help() {
-    echo "用法: $0 [选项]"
+    echo "鐢ㄦ硶: $0 [閫夐」]"
     echo
-    echo "选项:"
-    echo "  interactive    交互式安装（默认）"
-    echo "  docker         Docker 快速安装"
-    echo "  kubernetes     Kubernetes 安装"
-    echo "  standalone     独立服务安装"
-    echo "  uninstall      卸载 OpenChat"
-    echo "  upgrade        升级 OpenChat"
-    echo "  --help, -h     显示帮助信息"
+    echo "閫夐」:"
+    echo "  interactive    浜や簰寮忓畨瑁咃紙榛樿锛?
+    echo "  docker         Docker 蹇€熷畨瑁?
+    echo "  kubernetes     Kubernetes 瀹夎"
+    echo "  standalone     鐙珛鏈嶅姟瀹夎"
+    echo "  uninstall      鍗歌浇 OpenChat"
+    echo "  upgrade        鍗囩骇 OpenChat"
+    echo "  --help, -h     鏄剧ず甯姪淇℃伅"
     echo
-    echo "示例:"
-    echo "  $0                    # 交互式安装"
-    echo "  $0 docker             # Docker 快速安装"
-    echo "  $0 standalone         # 独立服务安装"
+    echo "绀轰緥:"
+    echo "  $0                    # 浜や簰寮忓畨瑁?
+    echo "  $0 docker             # Docker 蹇€熷畨瑁?
+    echo "  $0 standalone         # 鐙珛鏈嶅姟瀹夎"
     echo
 }
 
-# 检测操作系统
-detect_os() {
+# 妫€娴嬫搷浣滅郴缁?detect_os() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         OS=$ID
@@ -90,85 +89,82 @@ detect_os() {
         OS="unknown"
     fi
     
-    log_info "检测到操作系统: ${OS_NAME:-$OS} ${OS_VERSION:-}"
+    log_info "妫€娴嬪埌鎿嶄綔绯荤粺: ${OS_NAME:-$OS} ${OS_VERSION:-}"
 }
 
-# 检查是否为 root
+# 妫€鏌ユ槸鍚︿负 root
 check_root() {
     if [ "$EUID" -ne 0 ] && [ "$INSTALL_MODE" != "docker" ]; then
-        log_error "请使用 root 权限运行安装脚本"
-        echo "示例: sudo $0"
+        log_error "璇蜂娇鐢?root 鏉冮檺杩愯瀹夎鑴氭湰"
+        echo "绀轰緥: sudo $0"
         exit 1
     fi
 }
 
-# 检查命令是否存在
-command_exists() {
+# 妫€鏌ュ懡浠ゆ槸鍚﹀瓨鍦?command_exists() {
     command -v "$1" &> /dev/null
 }
 
-# 检查系统要求
-check_requirements() {
-    log_step "检查系统要求..."
+# 妫€鏌ョ郴缁熻姹?check_requirements() {
+    log_step "妫€鏌ョ郴缁熻姹?.."
     local missing=()
     
-    # 检查 Node.js
+    # 妫€鏌?Node.js
     if command_exists node; then
         NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
         if [ "$NODE_VERSION" -lt 18 ]; then
-            log_error "Node.js 版本过低 (当前: $(node --version))，需要 18+"
+            log_error "Node.js 鐗堟湰杩囦綆 (褰撳墠: $(node --version))锛岄渶瑕?18+"
             missing+=("nodejs")
         else
             log_success "Node.js $(node --version)"
         fi
     else
-        log_warn "未找到 Node.js"
+        log_warn "鏈壘鍒?Node.js"
         missing+=("nodejs")
     fi
     
-    # 检查 npm
+    # 妫€鏌?npm
     if command_exists npm; then
         log_success "npm $(npm --version)"
     else
-        log_warn "未找到 npm"
+        log_warn "鏈壘鍒?npm"
         missing+=("npm")
     fi
     
-    # 检查 Docker（仅 Docker 模式需要）
+    # 妫€鏌?Docker锛堜粎 Docker 妯″紡闇€瑕侊級
     if [ "$INSTALL_MODE" == "docker" ]; then
         if command_exists docker; then
             DOCKER_VERSION=$(docker --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
             log_success "Docker $DOCKER_VERSION"
         else
-            log_error "未找到 Docker，Docker 模式需要安装 Docker"
+            log_error "鏈壘鍒?Docker锛孌ocker 妯″紡闇€瑕佸畨瑁?Docker"
             missing+=("docker")
         fi
         
         if command_exists docker-compose || docker compose version &> /dev/null; then
-            log_success "Docker Compose 已安装"
+            log_success "Docker Compose 宸插畨瑁?
         else
-            log_error "未找到 Docker Compose"
+            log_error "鏈壘鍒?Docker Compose"
             missing+=("docker-compose")
         fi
     fi
     
-    # 检查 PostgreSQL（仅独立模式需要）
+    # 妫€鏌?PostgreSQL锛堜粎鐙珛妯″紡闇€瑕侊級
     if [ "$INSTALL_MODE" == "standalone" ]; then
         if command_exists psql; then
-            log_success "PostgreSQL 已安装"
+            log_success "PostgreSQL 宸插畨瑁?
         else
-            log_warn "未找到 PostgreSQL，请确保已安装并运行"
+            log_warn "鏈壘鍒?PostgreSQL锛岃纭繚宸插畨瑁呭苟杩愯"
         fi
         
         if command_exists redis-cli; then
-            log_success "Redis 已安装"
+            log_success "Redis 宸插畨瑁?
         else
-            log_warn "未找到 Redis，请确保已安装并运行"
+            log_warn "鏈壘鍒?Redis锛岃纭繚宸插畨瑁呭苟杩愯"
         fi
     fi
     
-    # 返回缺失的依赖
-    if [ ${#missing[@]} -gt 0 ]; then
+    # 杩斿洖缂哄け鐨勪緷璧?    if [ ${#missing[@]} -gt 0 ]; then
         echo "${missing[*]}"
         return 1
     fi
@@ -176,7 +172,7 @@ check_requirements() {
     return 0
 }
 
-# 安装依赖
+# 瀹夎渚濊禆
 install_dependencies() {
     local missing=("$@")
     
@@ -184,13 +180,13 @@ install_dependencies() {
         return 0
     fi
     
-    log_step "安装缺失的依赖..."
+    log_step "瀹夎缂哄け鐨勪緷璧?.."
     
-    read -p "是否自动安装缺失的依赖? (y/N): " -n 1 -r
+    read -p "鏄惁鑷姩瀹夎缂哄け鐨勪緷璧? (y/N): " -n 1 -r
     echo
     
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_error "请手动安装以下依赖: ${missing[*]}"
+        log_error "璇锋墜鍔ㄥ畨瑁呬互涓嬩緷璧? ${missing[*]}"
         exit 1
     fi
     
@@ -209,9 +205,9 @@ install_dependencies() {
     done
 }
 
-# 安装 Node.js
+# 瀹夎 Node.js
 install_nodejs() {
-    log_info "安装 Node.js..."
+    log_info "瀹夎 Node.js..."
     
     case $OS in
         ubuntu|debian)
@@ -226,22 +222,22 @@ install_nodejs() {
             if command_exists brew; then
                 brew install node@18
             else
-                log_error "请先安装 Homebrew: https://brew.sh/"
+                log_error "璇峰厛瀹夎 Homebrew: https://brew.sh/"
                 exit 1
             fi
             ;;
         *)
-            log_error "不支持的操作系统，请手动安装 Node.js"
+            log_error "涓嶆敮鎸佺殑鎿嶄綔绯荤粺锛岃鎵嬪姩瀹夎 Node.js"
             exit 1
             ;;
     esac
     
-    log_success "Node.js 安装完成"
+    log_success "Node.js 瀹夎瀹屾垚"
 }
 
-# 安装 Docker
+# 瀹夎 Docker
 install_docker() {
-    log_info "安装 Docker..."
+    log_info "瀹夎 Docker..."
     
     case $OS in
         ubuntu|debian)
@@ -264,24 +260,24 @@ install_docker() {
             systemctl start docker
             ;;
         macos)
-            log_error "macOS 请手动安装 Docker Desktop: https://www.docker.com/products/docker-desktop"
+            log_error "macOS 璇锋墜鍔ㄥ畨瑁?Docker Desktop: https://www.docker.com/products/docker-desktop"
             exit 1
             ;;
         *)
-            log_error "不支持的操作系统，请手动安装 Docker"
+            log_error "涓嶆敮鎸佺殑鎿嶄綔绯荤粺锛岃鎵嬪姩瀹夎 Docker"
             exit 1
             ;;
     esac
     
-    log_success "Docker 安装完成"
+    log_success "Docker 瀹夎瀹屾垚"
 }
 
-# 安装 Docker Compose
+# 瀹夎 Docker Compose
 install_docker_compose() {
-    log_info "安装 Docker Compose..."
+    log_info "瀹夎 Docker Compose..."
     
     if command_exists docker && docker compose version &> /dev/null; then
-        log_success "Docker Compose 已作为 Docker 插件安装"
+        log_success "Docker Compose 宸蹭綔涓?Docker 鎻掍欢瀹夎"
         return
     fi
     
@@ -289,49 +285,47 @@ install_docker_compose() {
     curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
     
-    log_success "Docker Compose 安装完成"
+    log_success "Docker Compose 瀹夎瀹屾垚"
 }
 
-# Docker 安装模式
+# Docker 瀹夎妯″紡
 install_docker_mode() {
-    log_step "Docker 模式安装..."
+    log_step "Docker 妯″紡瀹夎..."
     
-    # 检查 Docker 服务
+    # 妫€鏌?Docker 鏈嶅姟
     if ! docker info &> /dev/null; then
-        log_error "Docker 服务未运行，请启动 Docker"
+        log_error "Docker 鏈嶅姟鏈繍琛岋紝璇峰惎鍔?Docker"
         exit 1
     fi
     
-    # 检查端口冲突
-    check_port_conflicts
+    # 妫€鏌ョ鍙ｅ啿绐?    check_port_conflicts
     
-    # 获取服务器 IP
+    # 鑾峰彇鏈嶅姟鍣?IP
     get_server_ip
     
-    # 配置环境变量
+    # 閰嶇疆鐜鍙橀噺
     setup_env
     
-    # 创建必要目录
+    # 鍒涘缓蹇呰鐩綍
     mkdir -p var/logs var/data var/run
     
-    # 拉取镜像
-    log_info "拉取 Docker 镜像..."
+    # 鎷夊彇闀滃儚
+    log_info "鎷夊彇 Docker 闀滃儚..."
     docker compose -f docker-compose.quick.yml pull
     
-    # 启动服务
-    log_info "启动服务..."
+    # 鍚姩鏈嶅姟
+    log_info "鍚姩鏈嶅姟..."
     docker compose -f docker-compose.quick.yml up -d
     
-    # 等待服务就绪
+    # 绛夊緟鏈嶅姟灏辩华
     wait_for_services
     
-    # 显示访问信息
+    # 鏄剧ず璁块棶淇℃伅
     show_access_info
 }
 
-# 检查端口冲突
-check_port_conflicts() {
-    log_info "检查端口冲突..."
+# 妫€鏌ョ鍙ｅ啿绐?check_port_conflicts() {
+    log_info "妫€鏌ョ鍙ｅ啿绐?.."
     
     local ports=("3000:OpenChat API" "5432:PostgreSQL" "6379:Redis" "5001:WukongIM API" "5100:WukongIM TCP" "5200:WukongIM WebSocket" "5300:WukongIM Manager")
     local conflicts=()
@@ -356,63 +350,63 @@ check_port_conflicts() {
     done
     
     if [ ${#conflicts[@]} -gt 0 ]; then
-        log_warn "检测到端口冲突:"
+        log_warn "妫€娴嬪埌绔彛鍐茬獊:"
         for conflict in "${conflicts[@]}"; do
-            echo "  - $conflict 已被占用"
+            echo "  - $conflict 宸茶鍗犵敤"
         done
         echo
-        log_warn "您可以:"
-        echo "  1. 停止占用端口的服务"
-        echo "  2. 修改 .env 文件中的端口配置"
+        log_warn "鎮ㄥ彲浠?"
+        echo "  1. 鍋滄鍗犵敤绔彛鐨勬湇鍔?
+        echo "  2. 淇敼 .env 鏂囦欢涓殑绔彛閰嶇疆"
         echo
-        read -p "是否继续安装? (y/N): " -n 1 -r
+        read -p "鏄惁缁х画瀹夎? (y/N): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             exit 1
         fi
     else
-        log_success "端口检查通过"
+        log_success "绔彛妫€鏌ラ€氳繃"
     fi
 }
 
-# 独立服务安装模式
+# 鐙珛鏈嶅姟瀹夎妯″紡
 install_standalone_mode() {
-    log_step "独立服务模式安装..."
+    log_step "鐙珛鏈嶅姟妯″紡瀹夎..."
     
-    # 创建用户
+    # 鍒涘缓鐢ㄦ埛
     create_user
     
-    # 创建目录
+    # 鍒涘缓鐩綍
     create_directories
     
-    # 复制文件
+    # 澶嶅埗鏂囦欢
     copy_files
     
-    # 安装依赖
+    # 瀹夎渚濊禆
     install_npm_dependencies
     
-    # 构建应用
+    # 鏋勫缓搴旂敤
     build_application
     
-    # 创建系统服务
+    # 鍒涘缓绯荤粺鏈嶅姟
     create_systemd_service
     
-    # 初始化数据库
+    # 鍒濆鍖栨暟鎹簱
     init_database
     
-    # 显示安装信息
+    # 鏄剧ず瀹夎淇℃伅
     show_install_info
 }
 
-# 获取服务器 IP
+# 鑾峰彇鏈嶅姟鍣?IP
 get_server_ip() {
-    log_info "检测服务器 IP 地址..."
+    log_info "妫€娴嬫湇鍔″櫒 IP 鍦板潃..."
     
-    # 尝试获取外网 IP
+    # 灏濊瘯鑾峰彇澶栫綉 IP
     EXTERNAL_IP=$(curl -s -4 --connect-timeout 5 ifconfig.me 2>/dev/null || curl -s -4 --connect-timeout 5 icanhazip.com 2>/dev/null || echo "")
     
     if [ -z "$EXTERNAL_IP" ]; then
-        # 获取内网 IP
+        # 鑾峰彇鍐呯綉 IP
         if [[ "$OSTYPE" == "darwin"* ]]; then
             EXTERNAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | head -1 | awk '{print $2}')
         else
@@ -420,22 +414,22 @@ get_server_ip() {
         fi
     fi
     
-    log_info "检测到服务器 IP: $EXTERNAL_IP"
+    log_info "妫€娴嬪埌鏈嶅姟鍣?IP: $EXTERNAL_IP"
     
-    read -p "请确认服务器外网 IP [$EXTERNAL_IP]: " input_ip
+    read -p "璇风‘璁ゆ湇鍔″櫒澶栫綉 IP [$EXTERNAL_IP]: " input_ip
     EXTERNAL_IP=${input_ip:-$EXTERNAL_IP}
     
     export EXTERNAL_IP
 }
 
-# 配置环境变量
+# 閰嶇疆鐜鍙橀噺
 setup_env() {
-    log_info "配置环境变量..."
+    log_info "閰嶇疆鐜鍙橀噺..."
     
     if [ ! -f ".env" ]; then
         cp .env.example .env
         
-        # 更新环境变量
+        # 鏇存柊鐜鍙橀噺
         if [[ "$OSTYPE" == "darwin"* ]]; then
             sed -i '' "s/EXTERNAL_IP=127.0.0.1/EXTERNAL_IP=$EXTERNAL_IP/" .env 2>/dev/null || true
             sed -i '' "s/your-secret-key-change-this-in-production/$(openssl rand -base64 32)/" .env 2>/dev/null || true
@@ -444,94 +438,94 @@ setup_env() {
             sed -i "s/your-secret-key-change-this-in-production/$(openssl rand -base64 32)/" .env 2>/dev/null || true
         fi
         
-        log_success "环境变量配置完成"
-        log_warn "请编辑 .env 文件修改默认密码"
+        log_success "鐜鍙橀噺閰嶇疆瀹屾垚"
+        log_warn "璇风紪杈?.env 鏂囦欢淇敼榛樿瀵嗙爜"
     else
-        log_warn ".env 文件已存在，跳过配置"
+        log_warn ".env 鏂囦欢宸插瓨鍦紝璺宠繃閰嶇疆"
     fi
 }
 
-# 创建用户
+# 鍒涘缓鐢ㄦ埛
 create_user() {
     local SERVICE_USER="${SERVICE_USER:-openchat}"
     
-    log_info "创建服务用户: $SERVICE_USER"
+    log_info "鍒涘缓鏈嶅姟鐢ㄦ埛: $SERVICE_USER"
     
     if id "$SERVICE_USER" &>/dev/null; then
-        log_warn "用户 $SERVICE_USER 已存在"
+        log_warn "鐢ㄦ埛 $SERVICE_USER 宸插瓨鍦?
     else
         useradd -r -s /bin/false -d "$INSTALL_DIR" "$SERVICE_USER"
-        log_success "用户 $SERVICE_USER 创建成功"
+        log_success "鐢ㄦ埛 $SERVICE_USER 鍒涘缓鎴愬姛"
     fi
 }
 
-# 创建目录
+# 鍒涘缓鐩綍
 create_directories() {
-    log_info "创建目录结构..."
+    log_info "鍒涘缓鐩綍缁撴瀯..."
     
     mkdir -p "$INSTALL_DIR"/{bin,etc,var/{logs,run,data},scripts}
     
-    # 设置权限
+    # 璁剧疆鏉冮檺
     chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
     chmod 755 "$INSTALL_DIR"
     chmod 750 "$INSTALL_DIR/var/logs"
     chmod 750 "$INSTALL_DIR/var/data"
     
-    log_success "目录结构创建完成"
+    log_success "鐩綍缁撴瀯鍒涘缓瀹屾垚"
 }
 
-# 复制文件
+# 澶嶅埗鏂囦欢
 copy_files() {
-    log_info "复制应用程序文件..."
+    log_info "澶嶅埗搴旂敤绋嬪簭鏂囦欢..."
     
-    # 复制必要文件
+    # 澶嶅埗蹇呰鏂囦欢
     cp -r "$SCRIPT_DIR/dist" "$INSTALL_DIR/" 2>/dev/null || true
     cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/" 2>/dev/null || true
     cp -r "$SCRIPT_DIR/etc" "$INSTALL_DIR/" 2>/dev/null || true
     cp -r "$SCRIPT_DIR/database" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SCRIPT_DIR/package.json" "$INSTALL_DIR/" 2>/dev/null || true
     
-    # 设置权限
+    # 璁剧疆鏉冮檺
     chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
     chmod +x "$INSTALL_DIR/bin/openchat"
     
-    log_success "文件复制完成"
+    log_success "鏂囦欢澶嶅埗瀹屾垚"
 }
 
-# 安装 npm 依赖
+# 瀹夎 npm 渚濊禆
 install_npm_dependencies() {
-    log_info "安装 Node.js 依赖..."
+    log_info "瀹夎 Node.js 渚濊禆..."
     
     cd "$INSTALL_DIR"
     
     if [ -f "package.json" ]; then
         npm install --production
-        log_success "依赖安装完成"
+        log_success "渚濊禆瀹夎瀹屾垚"
     else
-        log_warn "未找到 package.json，跳过依赖安装"
+        log_warn "鏈壘鍒?package.json锛岃烦杩囦緷璧栧畨瑁?
     fi
 }
 
-# 构建应用
+# 鏋勫缓搴旂敤
 build_application() {
-    log_info "构建应用程序..."
+    log_info "鏋勫缓搴旂敤绋嬪簭..."
     
     cd "$INSTALL_DIR"
     
     if [ -f "package.json" ]; then
         npm run build
-        log_success "应用构建完成"
+        log_success "搴旂敤鏋勫缓瀹屾垚"
     else
-        log_warn "未找到 package.json，跳过构建"
+        log_warn "鏈壘鍒?package.json锛岃烦杩囨瀯寤?
     fi
 }
 
-# 创建 systemd 服务
+# 鍒涘缓 systemd 鏈嶅姟
 create_systemd_service() {
     local SERVICE_NAME="openchat"
     local SERVICE_USER="${SERVICE_USER:-openchat}"
     
-    log_info "创建 systemd 服务..."
+    log_info "鍒涘缓 systemd 鏈嶅姟..."
     
     cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
 [Unit]
@@ -560,46 +554,45 @@ EOF
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME"
     
-    log_success "systemd 服务创建完成"
+    log_success "systemd 鏈嶅姟鍒涘缓瀹屾垚"
 }
 
-# 初始化数据库
+# 鍒濆鍖栨暟鎹簱
 init_database() {
-    log_info "初始化数据库..."
+    log_info "鍒濆鍖栨暟鎹簱..."
     
-    read -p "是否初始化数据库? (y/N): " -n 1 -r
+    read -p "鏄惁鍒濆鍖栨暟鎹簱? (y/N): " -n 1 -r
     echo
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        read -p "数据库名称 [openchat]: " DB_NAME
+        read -p "鏁版嵁搴撳悕绉?[openchat]: " DB_NAME
         DB_NAME=${DB_NAME:-openchat}
         
-        read -p "数据库用户 [openchat]: " DB_USERNAME
+        read -p "鏁版嵁搴撶敤鎴?[openchat]: " DB_USERNAME
         DB_USERNAME=${DB_USERNAME:-openchat}
         
-        read -sp "数据库密码: " DB_PASS
+        read -sp "鏁版嵁搴撳瘑鐮? " DB_PASS
         echo
         
-        # 创建数据库
-        sudo -u postgres psql << EOF
+        # 鍒涘缓鏁版嵁搴?        sudo -u postgres psql << EOF
 CREATE USER $DB_USERNAME WITH PASSWORD '$DB_PASS';
 CREATE DATABASE $DB_NAME OWNER $DB_USERNAME;
 GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USERNAME;
 EOF
         
-        # 执行 DDL
+        # 鎵ц DDL
         if [ -f "$INSTALL_DIR/database/schema.sql" ]; then
             sudo -u postgres psql -d "$DB_NAME" -f "$INSTALL_DIR/database/schema.sql"
-            log_success "数据库表结构创建完成"
+            log_success "鏁版嵁搴撹〃缁撴瀯鍒涘缓瀹屾垚"
         fi
         
-        log_success "数据库初始化完成"
+        log_success "鏁版嵁搴撳垵濮嬪寲瀹屾垚"
     fi
 }
 
-# 等待服务就绪
+# 绛夊緟鏈嶅姟灏辩华
 wait_for_services() {
-    log_info "等待服务就绪..."
+    log_info "绛夊緟鏈嶅姟灏辩华..."
     
     local services=("postgres" "redis" "wukongim" "app")
     local ports=("5432" "6379" "5001" "3000")
@@ -608,10 +601,10 @@ wait_for_services() {
         local service="${services[$i]}"
         local port="${ports[$i]}"
         
-        echo -n "等待 $service"
+        echo -n "绛夊緟 $service"
         for j in {1..60}; do
             if docker compose exec -T "$service" sh -c "exit 0" &> /dev/null 2>&1; then
-                echo " ✓"
+                echo " 鉁?
                 break
             fi
             echo -n "."
@@ -619,75 +612,74 @@ wait_for_services() {
         done
     done
     
-    log_success "所有服务已就绪"
+    log_success "鎵€鏈夋湇鍔″凡灏辩华"
 }
 
-# 显示访问信息
+# 鏄剧ず璁块棶淇℃伅
 show_access_info() {
     echo
-    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                    🎉 安装成功！                              ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${GREEN}鈺斺晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?{NC}"
+    echo -e "${GREEN}鈺?                   馃帀 瀹夎鎴愬姛锛?                             鈺?{NC}"
+    echo -e "${GREEN}鈺氣晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?{NC}"
     echo
-    echo -e "${BOLD}服务访问地址:${NC}"
-    echo "  • OpenChat API:    http://$EXTERNAL_IP:3000"
-    echo "  • API 文档:        http://$EXTERNAL_IP:3000/api/docs"
-    echo "  • 健康检查:        http://$EXTERNAL_IP:3000/health"
-    echo "  • 悟空IM Demo:     http://$EXTERNAL_IP:5172"
-    echo "  • 悟空IM 管理后台: http://$EXTERNAL_IP:5300/web"
+    echo -e "${BOLD}鏈嶅姟璁块棶鍦板潃:${NC}"
+    echo "  鈥?OpenChat API:    http://$EXTERNAL_IP:3000"
+    echo "  鈥?API 鏂囨。:        http://$EXTERNAL_IP:3000/im/v3/docs"
+    echo "  鈥?鍋ュ悍妫€鏌?        http://$EXTERNAL_IP:3000/health"
+    echo "  鈥?鎮熺┖IM Demo:     http://$EXTERNAL_IP:5172"
+    echo "  鈥?鎮熺┖IM 绠＄悊鍚庡彴: http://$EXTERNAL_IP:5300/web"
     echo
-    echo -e "${BOLD}常用命令:${NC}"
-    echo "  • 查看日志:    docker compose logs -f"
-    echo "  • 停止服务:    docker compose down"
-    echo "  • 重启服务:    docker compose restart"
-    echo "  • 查看状态:    docker compose ps"
+    echo -e "${BOLD}甯哥敤鍛戒护:${NC}"
+    echo "  鈥?鏌ョ湅鏃ュ織:    docker compose logs -f"
+    echo "  鈥?鍋滄鏈嶅姟:    docker compose down"
+    echo "  鈥?閲嶅惎鏈嶅姟:    docker compose restart"
+    echo "  鈥?鏌ョ湅鐘舵€?    docker compose ps"
     echo
-    echo -e "${YELLOW}安全提示:${NC}"
-    echo "  ⚠️  生产环境请修改 .env 文件中的默认密码"
-    echo "  ⚠️  建议配置防火墙，限制数据库端口仅内网访问"
-    echo "  ⚠️  建议启用 HTTPS"
+    echo -e "${YELLOW}瀹夊叏鎻愮ず:${NC}"
+    echo "  鈿狅笍  鐢熶骇鐜璇蜂慨鏀?.env 鏂囦欢涓殑榛樿瀵嗙爜"
+    echo "  鈿狅笍  寤鸿閰嶇疆闃茬伀澧欙紝闄愬埗鏁版嵁搴撶鍙ｄ粎鍐呯綉璁块棶"
+    echo "  鈿狅笍  寤鸿鍚敤 HTTPS"
     echo
 }
 
-# 显示安装信息（独立模式）
+# 鏄剧ず瀹夎淇℃伅锛堢嫭绔嬫ā寮忥級
 show_install_info() {
     local SERVICE_NAME="openchat"
     
     echo
-    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                    🎉 安装成功！                              ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${GREEN}鈺斺晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?{NC}"
+    echo -e "${GREEN}鈺?                   馃帀 瀹夎鎴愬姛锛?                             鈺?{NC}"
+    echo -e "${GREEN}鈺氣晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?{NC}"
     echo
-    echo -e "${BOLD}安装信息:${NC}"
-    echo "  • 安装目录: $INSTALL_DIR"
-    echo "  • 服务用户: $SERVICE_USER"
+    echo -e "${BOLD}瀹夎淇℃伅:${NC}"
+    echo "  鈥?瀹夎鐩綍: $INSTALL_DIR"
+    echo "  鈥?鏈嶅姟鐢ㄦ埛: $SERVICE_USER"
     echo
-    echo -e "${BOLD}常用命令:${NC}"
-    echo "  • 启动服务: systemctl start $SERVICE_NAME"
-    echo "  • 停止服务: systemctl stop $SERVICE_NAME"
-    echo "  • 重启服务: systemctl restart $SERVICE_NAME"
-    echo "  • 查看状态: systemctl status $SERVICE_NAME"
-    echo "  • 查看日志: journalctl -u $SERVICE_NAME -f"
+    echo -e "${BOLD}甯哥敤鍛戒护:${NC}"
+    echo "  鈥?鍚姩鏈嶅姟: systemctl start $SERVICE_NAME"
+    echo "  鈥?鍋滄鏈嶅姟: systemctl stop $SERVICE_NAME"
+    echo "  鈥?閲嶅惎鏈嶅姟: systemctl restart $SERVICE_NAME"
+    echo "  鈥?鏌ョ湅鐘舵€? systemctl status $SERVICE_NAME"
+    echo "  鈥?鏌ョ湅鏃ュ織: journalctl -u $SERVICE_NAME -f"
     echo
-    echo -e "${BOLD}配置文件:${NC}"
-    echo "  • 主配置: $INSTALL_DIR/etc/config.json"
-    echo "  • 环境变量: $INSTALL_DIR/.env"
-    echo "  • 日志目录: $INSTALL_DIR/var/logs"
+    echo -e "${BOLD}閰嶇疆鏂囦欢:${NC}"
+    echo "  鈥?涓婚厤缃? $INSTALL_DIR/etc/config.json"
+    echo "  鈥?鐜鍙橀噺: $INSTALL_DIR/.env"
+    echo "  鈥?鏃ュ織鐩綍: $INSTALL_DIR/var/logs"
     echo
 }
 
-# 交互式安装
-interactive_install() {
+# 浜や簰寮忓畨瑁?interactive_install() {
     show_banner
     
-    echo -e "${BOLD}请选择安装模式:${NC}"
+    echo -e "${BOLD}璇烽€夋嫨瀹夎妯″紡:${NC}"
     echo
-    echo "  1) Docker 快速安装（推荐）"
-    echo "  2) 独立服务安装"
-    echo "  3) Kubernetes 安装"
-    echo "  4) 退出"
+    echo "  1) Docker 蹇€熷畨瑁咃紙鎺ㄨ崘锛?
+    echo "  2) 鐙珛鏈嶅姟瀹夎"
+    echo "  3) Kubernetes 瀹夎"
+    echo "  4) 閫€鍑?
     echo
-    read -p "请输入选项 [1-4]: " choice
+    read -p "璇疯緭鍏ラ€夐」 [1-4]: " choice
     
     case $choice in
         1)
@@ -710,55 +702,54 @@ interactive_install() {
             ;;
         3)
             INSTALL_MODE="kubernetes"
-            log_info "Kubernetes 安装请参考: docs/deploy/kubernetes.md"
-            log_info "快速部署: kubectl apply -k k8s/overlays/production"
+            log_info "Kubernetes 瀹夎璇峰弬鑰? docs/deploy/kubernetes.md"
+            log_info "蹇€熼儴缃? kubectl apply -k k8s/overlays/production"
             ;;
         4)
-            log_info "已取消安装"
+            log_info "宸插彇娑堝畨瑁?
             exit 0
             ;;
         *)
-            log_error "无效选项"
+            log_error "鏃犳晥閫夐」"
             exit 1
             ;;
     esac
 }
 
-# 卸载
+# 鍗歌浇
 uninstall() {
-    log_warn "即将卸载 OpenChat..."
+    log_warn "鍗冲皢鍗歌浇 OpenChat..."
     
-    read -p "确认卸载? 此操作不可恢复! (y/N): " -n 1 -r
+    read -p "纭鍗歌浇? 姝ゆ搷浣滀笉鍙仮澶? (y/N): " -n 1 -r
     echo
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        # 停止服务
+        # 鍋滄鏈嶅姟
         systemctl stop openchat 2>/dev/null || true
         systemctl disable openchat 2>/dev/null || true
         rm -f /etc/systemd/system/openchat.service
         systemctl daemon-reload
         
-        # 停止 Docker 容器
+        # 鍋滄 Docker 瀹瑰櫒
         docker compose down 2>/dev/null || true
         
-        # 删除用户
+        # 鍒犻櫎鐢ㄦ埛
         userdel -r openchat 2>/dev/null || true
         
-        # 删除目录
-        read -p "是否删除数据目录 $INSTALL_DIR? (y/N): " -n 1 -r
+        # 鍒犻櫎鐩綍
+        read -p "鏄惁鍒犻櫎鏁版嵁鐩綍 $INSTALL_DIR? (y/N): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             rm -rf "$INSTALL_DIR"
         fi
         
-        log_success "卸载完成"
+        log_success "鍗歌浇瀹屾垚"
     else
-        log_info "已取消卸载"
+        log_info "宸插彇娑堝嵏杞?
     fi
 }
 
-# 主程序
-main() {
+# 涓荤▼搴?main() {
     case "$INSTALL_MODE" in
         -h|--help|help)
             show_help
@@ -786,14 +777,14 @@ main() {
             ;;
         kubernetes)
             show_banner
-            log_info "Kubernetes 安装请参考: docs/deploy/kubernetes.md"
-            log_info "快速部署: kubectl apply -k k8s/overlays/production"
+            log_info "Kubernetes 瀹夎璇峰弬鑰? docs/deploy/kubernetes.md"
+            log_info "蹇€熼儴缃? kubectl apply -k k8s/overlays/production"
             ;;
         uninstall)
             uninstall
             ;;
         upgrade)
-            log_info "升级功能开发中..."
+            log_info "鍗囩骇鍔熻兘寮€鍙戜腑..."
             ;;
         *)
             interactive_install
@@ -801,5 +792,5 @@ main() {
     esac
 }
 
-# 运行主程序
-main "$@"
+# 杩愯涓荤▼搴?main "$@"
+

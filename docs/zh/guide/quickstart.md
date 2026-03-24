@@ -1,4 +1,4 @@
-# 快速开始
+﻿# 快速开始
 
 本指南将帮助你在 5 分钟内搭建并运行 OpenChat 完整环境。
 
@@ -233,7 +233,10 @@ Invoke-WebRequest -Uri http://localhost:3000/health
 | 服务 | 地址 | 说明 |
 |------|------|------|
 | OpenChat API | http://localhost:3000 | 主服务 API |
-| API 文档 | http://localhost:3000/api/docs | Swagger 文档 |
+| 前端 API 文档 | http://localhost:3000/im/v3/docs | 面向应用接入的 Swagger 文档 |
+| 前端 OpenAPI JSON | http://localhost:3000/im/v3/openapi.json | 用于生成 sdkwork-im-sdk 的 schema |
+| 管理端 API 文档 | http://localhost:3000/admin/im/v3/docs | 面向控制面的 Swagger 文档 |
+| 管理端 OpenAPI JSON | http://localhost:3000/admin/im/v3/openapi.json | 管理端 schema |
 | WukongIM Demo | http://localhost:5172 | IM 演示页面 |
 | WukongIM 管理 | http://localhost:5300/web | IM 管理后台 |
 | Prometheus | http://localhost:9090 | 监控面板 |
@@ -245,7 +248,7 @@ Invoke-WebRequest -Uri http://localhost:3000/health
 ::: code-group
 
 ```bash [Linux/macOS]
-curl -X POST http://localhost:3000/api/auth/register \
+curl -X POST http://localhost:3000/im/v3/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user1",
@@ -262,7 +265,7 @@ $body = @{
     nickname = "用户1"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri http://localhost:3000/api/auth/register `
+Invoke-RestMethod -Uri http://localhost:3000/im/v3/auth/register `
     -Method POST -Headers $headers -Body $body
 ```
 
@@ -273,7 +276,7 @@ Invoke-RestMethod -Uri http://localhost:3000/api/auth/register `
 ::: code-group
 
 ```bash [Linux/macOS]
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:3000/im/v3/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user1",
@@ -288,7 +291,7 @@ $body = @{
     password = "password123"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri http://localhost:3000/api/auth/login `
+Invoke-RestMethod -Uri http://localhost:3000/im/v3/auth/login `
     -Method POST -Headers $headers -Body $body
 ```
 
@@ -466,3 +469,4 @@ pnpm run auto-fix
 - 💬 [GitHub Discussions](https://github.com/Sdkwork-Cloud/openchat/discussions)
 - 🐛 [Issue 报告](https://github.com/Sdkwork-Cloud/openchat/issues)
 - 📧 邮箱: contact@sdkwork.com
+

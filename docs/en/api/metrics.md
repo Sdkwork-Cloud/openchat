@@ -1,10 +1,10 @@
-# Metrics API
+﻿# Metrics API
 
 Metrics API provides system metrics monitoring capabilities.
 
 ## Overview
 
-All Metrics APIs require JWT authentication. Path prefix: `/im/api/v1/metrics`.
+All Metrics APIs require JWT authentication. Path prefix: `/im/v3/metrics`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -20,7 +20,7 @@ All Metrics APIs require JWT authentication. Path prefix: `/im/api/v1/metrics`.
 Get general system metrics.
 
 ```http
-GET /im/api/v1/metrics
+GET /im/v3/metrics
 Authorization: Bearer <access-token>
 ```
 
@@ -72,3 +72,4 @@ const messageMetrics = await client.api.metrics.getMessageMetrics();
 ## Related Links
 
 - [Health Check API](./health.md)
+

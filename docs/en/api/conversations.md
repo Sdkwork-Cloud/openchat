@@ -1,10 +1,10 @@
-# Conversation Management API
+﻿# Conversation Management API
 
 Conversation Management API provides functionality for creating, querying, updating, and deleting conversations.
 
 ## Overview
 
-All Conversation Management APIs require JWT authentication. Path prefix: `/im/api/v1/conversations`.
+All Conversation Management APIs require JWT authentication. Path prefix: `/im/v3/conversations`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -25,7 +25,7 @@ All Conversation Management APIs require JWT authentication. Path prefix: `/im/a
 Create a new conversation.
 
 ```http
-POST /im/api/v1/conversations
+POST /im/v3/conversations
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -64,7 +64,7 @@ Content-Type: application/json
 Get user's conversation list.
 
 ```http
-GET /im/api/v1/conversations?userId=user-001&type=single&limit=50&offset=0
+GET /im/v3/conversations?userId=user-001&type=single&limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -134,3 +134,4 @@ await client.im.conversations.clearMessages('conversation-id');
 - [Message Management API](./messages.md)
 - [Contact Management API](./contacts.md)
 - [Group Management API](./groups.md)
+

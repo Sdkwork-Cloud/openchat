@@ -2,105 +2,80 @@
 
 ## 概述
 
-OpenChat 扩展插件体系是一个企业级的可插拔架构设计，允许开发者通过插件的方式扩展和定制系统功能。核心设计理念是**松耦合、可替换、可扩展、高可用**。
+OpenChat 扩展插件体系用于在不破坏 IM 核心边界的前提下接入外部能力或替换默认实现。
 
-## 架构设计
+核心目标：
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          Application Layer                               │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
-│  │  Auth Service   │  │  User Service   │  │   IM Service    │         │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘         │
-│           │                    │                    │                  │
-│           ▼                    ▼                    ▼                  │
-│  ┌─────────────────────────────────────────────────────────────────────┤
-│  │                      Extension Proxy Layer                          │
-│  │  ┌─────────────────┐  ┌─────────────────┐                          │
-│  │  │ UserCenterProxy │  │   Other Proxies │                          │
-│  │  └────────┬────────┘  └─────────────────┘                          │
-│  └───────────┼─────────────────────────────────────────────────────────┤
-│              │                                                          │
-│              ▼                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┤
-│  │                      Extension Core Layer                           │
-│  │  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────────┐ │
-│  │  │ ExtensionRegistry │  │ LifecycleManager  │  │ ConfigValidator │ │
-│  │  └───────────────────┘  └───────────────────┘  └─────────────────┘ │
-│  │  ┌───────────────────┐                                              │
-│  │  │  HealthService    │                                              │
-│  │  └───────────────────┘                                              │
-│  └─────────────────────────────────────────────────────────────────────┤
-│              │                                                          │
-│              ▼                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┤
-│  │                      Extension Plugins                              │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐     │
-│  │  │ Default User    │  │ Remote User     │  │ Custom Plugin   │     │
-│  │  │ Center Plugin   │  │ Center Plugin   │  │   ...           │     │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘     │
-│  └─────────────────────────────────────────────────────────────────────┘
-└─────────────────────────────────────────────────────────────────────────┘
-```
+- 低耦合
+- 可替换
+- 可扩展
+- 可观测
+
+## 分层模型
+
+扩展体系分为四层：
+
+1. 应用层
+   认证、用户、IM 等业务服务通过代理层访问扩展能力。
+2. 代理层
+   对上提供稳定接口，例如用户中心代理。
+3. 核心层
+   负责注册、生命周期、配置校验和健康检查。
+4. 插件层
+   提供具体的扩展实现。
 
 ## 核心组件
 
-### ExtensionRegistry（插件注册中心）
+### ExtensionRegistry
 
-负责管理所有插件的生命周期、依赖关系和状态。
+负责扩展注册、发现、依赖解析与主扩展选择。
 
 ```typescript
-// 注册插件
 await extensionRegistry.register(extension, config);
 
-// 获取插件
 const extension = extensionRegistry.get('plugin-id');
-
-// 获取指定类型的插件
 const userCenters = extensionRegistry.getByType(ExtensionType.USER_CENTER);
-
-// 获取最高优先级的插件
 const primary = extensionRegistry.getPrimary(ExtensionType.USER_CENTER);
 ```
 
-### ExtensionLifecycleManager（生命周期管理器）
+### ExtensionLifecycleManager
 
-管理插件的状态转换和生命周期钩子。
+控制扩展的状态流转：
 
-```
-状态转换图：
+- `UNLOADED`
+- `LOADING`
+- `LOADED`
+- `ACTIVATING`
+- `ACTIVE`
+- `DEACTIVATING`
+- `INACTIVE`
+- `ERROR`
 
-UNLOADED → LOADING → LOADED → ACTIVATING → ACTIVE
-    ↑          ↓         ↓          ↓         ↓
-    └────── ERROR ←──────┴──────────┴← DEACTIVATING ← INACTIVE
-```
+### ExtensionConfigValidator
 
-### ExtensionConfigValidator（配置验证器）
+在扩展激活前按 schema 校验配置。
 
-验证插件配置是否符合 Schema 定义。
+### ExtensionHealthService
 
-### ExtensionHealthService（健康检查服务）
-
-定期检查插件健康状态，支持自动恢复。
+负责周期性健康检查，并支持自动恢复策略。
 
 ## 插件类型
 
 | 类型 | 说明 | 用途 |
 |------|------|------|
-| `user-center` | 用户中心插件 | 提供用户认证和管理能力 |
-| `auth-strategy` | 认证策略插件 | 提供额外的认证方式 |
-| `storage` | 存储插件 | 提供文件存储能力 |
-| `notification` | 通知插件 | 提供消息通知能力 |
-| `ai-model` | AI 模型插件 | 提供 AI 模型调用能力 |
-| `im-channel` | IM 渠道插件 | 提供 IM 消息渠道能力 |
-| `custom` | 自定义插件 | 自定义扩展能力 |
+| `user-center` | 用户中心插件 | 用户认证与资料来源 |
+| `auth-strategy` | 认证策略插件 | 扩展认证方式 |
+| `storage` | 存储插件 | 文件与对象存储 |
+| `notification` | 通知插件 | 消息通知投递 |
+| `ai-model` | AI 模型插件 | AI 模型调用 |
+| `im-channel` | IM 通道插件 | 外部 IM 通道接入 |
+| `custom` | 自定义插件 | 业务自定义扩展点 |
 
 ## 快速开始
 
 ### 使用默认用户中心
 
 ```typescript
-// app.module.ts
 import { ExtensionsModule } from './extensions';
 
 @Module({
@@ -117,7 +92,6 @@ export class AppModule {}
 ### 使用远程用户中心
 
 ```typescript
-// app.module.ts
 import { ExtensionsModule } from './extensions';
 
 @Module({
@@ -135,8 +109,6 @@ export class AppModule {}
 ### 环境变量配置
 
 ```bash
-# .env
-
 # 用户中心插件选择
 USER_CENTER_EXTENSION=openchat-user-center-default
 
@@ -158,27 +130,28 @@ EXTENSION_HEALTH_CHECK_INTERVAL=60000
 EXTENSION_AUTO_RECOVERY=true
 ```
 
-## 文件结构
+`REMOTE_USER_CENTER_API_PREFIX` 是外部用户中心服务的示例路径，不是 OpenChat IM 自身的 `/im/v3` 或 `/admin/im/v3` 前缀。
 
-```
+## 目录结构
+
+```text
 src/extensions/
-├── core/
-│   ├── extension.interface.ts          # 核心接口定义
-│   ├── extension-registry.service.ts   # 插件注册中心
-│   ├── extension-lifecycle.manager.ts  # 生命周期管理器
-│   ├── extension-config.validator.ts   # 配置验证器
-│   └── extension-health.service.ts     # 健康检查服务
-├── user-center/
-│   ├── user-center.interface.ts        # 用户中心插件接口
-│   ├── default-user-center.extension.ts # 默认本地用户中心
-│   ├── remote-user-center.extension.ts  # 远程用户中心
-│   └── user-center.proxy.ts            # 用户中心代理
-├── extensions.module.ts                # 扩展模块
-├── index.ts                            # 入口文件
-└── README.md                           # 使用文档
+|- core/
+|  |- extension.interface.ts
+|  |- extension-registry.service.ts
+|  |- extension-lifecycle.manager.ts
+|  |- extension-config.validator.ts
+|  |- extension-health.service.ts
+|- user-center/
+|  |- user-center.interface.ts
+|  |- default-user-center.extension.ts
+|  |- remote-user-center.extension.ts
+|  |- user-center.proxy.ts
+|- extensions.module.ts
+|- index.ts
 ```
 
 ## 更多内容
 
-- [用户中心插件](/zh/extension/user-center) - 用户中心插件详细文档
-- [开发指南](/zh/extension/development) - 如何开发自定义插件
+- [用户中心插件](/zh/extension/user-center)
+- [开发指南](/zh/extension/development)

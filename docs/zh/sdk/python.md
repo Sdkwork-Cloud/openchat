@@ -1,58 +1,31 @@
 # Python SDK
 
-## 安装
+## 工作区
+
+- 工作区：`sdkwork-im-sdk/sdkwork-im-sdk-python`
+- 生成包名：`sdkwork-backend-sdk`
+- 契约来源：`/im/v3/openapi.json`
+
+## 当前形态
+
+- 仅包含生成的 HTTP SDK
+- 当前没有手写 WuKongIM adapter
+- 适用于脚本、服务和自动化场景
+
+## 命令
 
 ```bash
-pip install openchat-sdk
+./bin/sdk-gen.sh
+./bin/sdk-assemble.sh
 ```
 
-## 快速开始
-
-```python
-from openchat import OpenChatClient
-
-# 创建客户端
-client = OpenChatClient(
-    server_url="http://localhost:3000",
-    im_config={
-        "tcp_addr": "localhost:5100",
-        "ws_url": "ws://localhost:5200"
-    }
-)
-
-# 初始化
-await client.init()
-
-# 登录
-response = await client.auth.login(
-    username="user1",
-    password="password123"
-)
-
-# 发送消息
-await client.messages.send(
-    to="user2",
-    type="text",
-    content="Hello, OpenChat!"
-)
+```powershell
+.\bin\sdk-gen.ps1
+.\bin\sdk-assemble.ps1
 ```
 
-## 异步支持
+## 规则
 
-SDK 完全支持 Python 异步编程：
-
-```python
-import asyncio
-from openchat import OpenChatClient
-
-async def main():
-    client = OpenChatClient(server_url="http://localhost:3000")
-    await client.init()
-    # ...
-
-asyncio.run(main())
-```
-
-## 更多示例
-
-请参考 [GitHub 示例项目](https://github.com/openchat-team/sdk-python-examples)。
+- 只有 `generated/server-openapi` 属于生成器托管
+- 不包含 admin API
+- 未来实时层必须放在生成目录之外

@@ -183,7 +183,11 @@ export class ConversationUnreadService {
   async initializeUnreadCount(conversationId: string, initialCount: number = 0): Promise<void> {
     try {
       const key = this.getRedisKey(conversationId);
-      await this.redis.set(key, initialCount);
+      const normalizedCount = Number.isFinite(initialCount)
+        ? Math.max(0, Math.floor(initialCount))
+        : 0;
+      await this.redis.set(key, normalizedCount);
+      await this.conversationService.setUnreadCount(conversationId, normalizedCount);
     } catch (error) {
       this.logger.error(`Failed to initialize unread count:`, error);
     }

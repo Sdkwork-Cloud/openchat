@@ -1,10 +1,10 @@
-# Contact Management API
+﻿# Contact Management API
 
 Contact Management API provides functionality for adding, querying, updating, and deleting contacts.
 
 ## Overview
 
-All Contact Management APIs require JWT authentication. Path prefix: `/im/api/v1/contacts`.
+All Contact Management APIs require JWT authentication. Path prefix: `/im/v3/contacts`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -26,7 +26,7 @@ All Contact Management APIs require JWT authentication. Path prefix: `/im/api/v1
 Add a new contact.
 
 ```http
-POST /im/api/v1/contacts
+POST /im/v3/contacts
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -69,7 +69,7 @@ Content-Type: application/json
 Get all contacts for a user.
 
 ```http
-GET /im/api/v1/contacts/user/:userId?group=Colleagues&search=john&limit=50&offset=0
+GET /im/v3/contacts/user/:userId?group=Colleagues&search=john&limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -138,3 +138,4 @@ await client.im.contacts.deleteContact('contact-id');
 - [Friend Management API](./friends.md)
 - [User Management API](./users.md)
 - [Conversation Management API](./conversations.md)
+

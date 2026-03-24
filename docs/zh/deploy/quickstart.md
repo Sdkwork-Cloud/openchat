@@ -104,8 +104,11 @@ pnpm run health
 # 健康检查
 curl http://localhost:3000/health
 
-# API 文档
-open http://localhost:3000/api/docs
+# 前端 API 文档
+open http://localhost:3000/im/v3/docs
+
+# 管理端 API 文档
+open http://localhost:3000/admin/im/v3/docs
 ```
 
 ### 3. 查看日志
@@ -125,7 +128,8 @@ docker compose logs -f app
 | 服务 | 地址 | 说明 |
 |------|------|------|
 | OpenChat API | http://localhost:3000 | 主服务 API |
-| API 文档 | http://localhost:3000/api/docs | Swagger 文档 |
+| 前端 API 文档 | http://localhost:3000/im/v3/docs | 前端 IM Swagger 文档 |
+| 管理端 API 文档 | http://localhost:3000/admin/im/v3/docs | 管理端 Swagger 文档 |
 | 健康检查 | http://localhost:3000/health | 服务健康状态 |
 | WukongIM Demo | http://localhost:5172 | IM 演示页面 |
 | WukongIM 管理 | http://localhost:5300/web | IM 管理后台 |

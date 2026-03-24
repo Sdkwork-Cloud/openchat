@@ -159,9 +159,24 @@ export class GroupMessageBatchService {
           ${values}
         ON CONFLICT (user_id, target_id, type) 
         DO UPDATE SET
-          last_message_id = EXCLUDED.last_message_id,
-          last_message_content = EXCLUDED.last_message_content,
-          last_message_time = EXCLUDED.last_message_time,
+          last_message_id = CASE
+            WHEN chat_conversations.last_message_time IS NULL
+              OR chat_conversations.last_message_time <= EXCLUDED.last_message_time
+            THEN EXCLUDED.last_message_id
+            ELSE chat_conversations.last_message_id
+          END,
+          last_message_content = CASE
+            WHEN chat_conversations.last_message_time IS NULL
+              OR chat_conversations.last_message_time <= EXCLUDED.last_message_time
+            THEN EXCLUDED.last_message_content
+            ELSE chat_conversations.last_message_content
+          END,
+          last_message_time = CASE
+            WHEN chat_conversations.last_message_time IS NULL
+              OR chat_conversations.last_message_time <= EXCLUDED.last_message_time
+            THEN EXCLUDED.last_message_time
+            ELSE chat_conversations.last_message_time
+          END,
           unread_count = chat_conversations.unread_count + 1,
           is_deleted = FALSE,
           updated_at = NOW()

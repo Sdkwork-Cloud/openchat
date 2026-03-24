@@ -374,6 +374,6 @@ Kubernetes Cluster
 
 ## 更多资源
 
-- [API 文档](/api/) - 完整的 API 接口文档
+- [API 文档](/zh/api/) - 完整的 API 接口文档
 - [部署指南](/deploy/) - 详细的部署说明
 - [配置说明](/config/) - 配置项详细说明

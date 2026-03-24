@@ -457,8 +457,11 @@ pnpm run health:full
 # API 健康检查
 curl http://localhost:3000/health
 
-# 打开 API 文档
-open http://localhost:3000/api/docs
+# 打开前端 API 文档
+open http://localhost:3000/im/v3/docs
+
+# 打开管理端 API 文档
+open http://localhost:3000/admin/im/v3/docs
 
 # 打开 WukongIM 管理后台
 open http://localhost:5300/web
@@ -468,8 +471,11 @@ open http://localhost:5300/web
 # API 健康检查
 Invoke-WebRequest -Uri http://localhost:3000/health
 
-# 打开 API 文档
-Start-Process "http://localhost:3000/api/docs"
+# 打开前端 API 文档
+Start-Process "http://localhost:3000/im/v3/docs"
+
+# 打开管理端 API 文档
+Start-Process "http://localhost:3000/admin/im/v3/docs"
 
 # 打开 WukongIM 管理后台
 Start-Process "http://localhost:5300/web"

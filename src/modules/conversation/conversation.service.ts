@@ -159,13 +159,32 @@ export class ConversationService extends BaseEntityService<ConversationEntity> i
     content: string,
     messageTime: Date,
   ): Promise<boolean> {
-    const result = await this.repository.update(conversationId, {
-      lastMessageId: messageId,
-      lastMessageContent: content,
-      lastMessageTime: messageTime,
+    const result = await this.repository
+      .createQueryBuilder()
+      .update(ConversationEntity)
+      .set({
+        lastMessageId: messageId,
+        lastMessageContent: content,
+        lastMessageTime: messageTime,
+      })
+      .where('id = :id', { id: conversationId })
+      .andWhere('is_deleted = :isDeleted', { isDeleted: false })
+      .andWhere('(last_message_time IS NULL OR last_message_time <= :messageTime)', { messageTime })
+      .execute();
+
+    if ((result.affected || 0) > 0) {
+      return true;
+    }
+
+    const existingConversation = await this.repository.findOne({
+      where: {
+        id: conversationId,
+        isDeleted: false,
+      },
+      select: ['id'],
     });
 
-    return (result.affected || 0) > 0;
+    return !!existingConversation;
   }
 
   async incrementUnreadCount(conversationId: string): Promise<boolean> {

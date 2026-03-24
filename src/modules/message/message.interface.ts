@@ -1,4 +1,5 @@
 import {
+  TextMediaResource,
   ImageMediaResource,
   VideoMediaResource,
   AudioMediaResource,
@@ -6,12 +7,15 @@ import {
   FileMediaResource,
   DocumentMediaResource,
   CodeMediaResource,
+  CardMediaResource,
   PptMediaResource,
   CharacterMediaResource,
   Model3DMediaResource,
-} from '../../common/media-resource';
+  LocationMediaResource,
+} from "../../common/media-resource";
 
 export {
+  TextMediaResource,
   ImageMediaResource,
   VideoMediaResource,
   AudioMediaResource,
@@ -19,55 +23,48 @@ export {
   FileMediaResource,
   DocumentMediaResource,
   CodeMediaResource,
+  CardMediaResource,
   PptMediaResource,
   CharacterMediaResource,
   Model3DMediaResource,
+  LocationMediaResource,
 };
 
 export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  AUDIO = 'audio',
-  VIDEO = 'video',
-  FILE = 'file',
-  LOCATION = 'location',
-  CARD = 'card',
-  CUSTOM = 'custom',
-  SYSTEM = 'system',
-  MUSIC = 'music',
-  DOCUMENT = 'document',
-  CODE = 'code',
-  PPT = 'ppt',
-  CHARACTER = 'character',
-  MODEL_3D = 'model_3d',
+  TEXT = "text",
+  IMAGE = "image",
+  AUDIO = "audio",
+  VIDEO = "video",
+  FILE = "file",
+  LOCATION = "location",
+  CARD = "card",
+  CUSTOM = "custom",
+  SYSTEM = "system",
+  MUSIC = "music",
+  DOCUMENT = "document",
+  CODE = "code",
+  PPT = "ppt",
+  CHARACTER = "character",
+  MODEL_3D = "model_3d",
 }
 
 export enum MessageStatus {
-  SENDING = 'sending',
-  SENT = 'sent',
-  DELIVERED = 'delivered',
-  READ = 'read',
-  FAILED = 'failed',
-  RECALLED = 'recalled',
+  SENDING = "sending",
+  SENT = "sent",
+  DELIVERED = "delivered",
+  READ = "read",
+  FAILED = "failed",
+  RECALLED = "recalled",
 }
 
 export enum ConversationType {
-  SINGLE = 'single',
-  GROUP = 'group',
+  SINGLE = "single",
+  GROUP = "group",
 }
 
-export interface TextContent {
-  text: string;
-  mentions?: string[];
-}
+export type TextContent = TextMediaResource;
 
-export interface LocationContent {
-  latitude: number;
-  longitude: number;
-  address?: string;
-  name?: string;
-  thumbnailUrl?: string;
-}
+export type LocationContent = LocationMediaResource;
 
 export interface CardContent {
   userId: string;
@@ -86,6 +83,13 @@ export interface CustomContent {
   data?: Record<string, any>;
 }
 
+export interface EventContent {
+  type: string;
+  name?: string;
+  data?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
 export interface MessageContent {
   text?: TextContent;
   image?: ImageMediaResource;
@@ -100,8 +104,10 @@ export interface MessageContent {
   model3d?: Model3DMediaResource;
   location?: LocationContent;
   card?: CardContent;
+  cardResource?: CardMediaResource;
   system?: SystemContent;
   custom?: CustomContent;
+  event?: EventContent;
 }
 
 export interface Message {
@@ -132,7 +138,7 @@ export interface SendMessageResult {
   errorCode?: string;
   isDuplicate?: boolean;
   eventId?: string;
-  eventType?: 'messageSent' | 'messageFailed';
+  eventType?: "messageSent" | "messageFailed";
   occurredAt?: number;
   stateVersion?: number;
 }
@@ -144,7 +150,7 @@ export interface MessageQueryOptions {
   messageType?: MessageType;
   fromSeq?: number;
   toSeq?: number;
-  direction?: 'before' | 'after';
+  direction?: "before" | "after";
 }
 
 export interface MessageSearchOptions {
@@ -159,7 +165,12 @@ export interface MessageSearchOptions {
 }
 
 export interface MessageManager {
-  sendMessage(message: Omit<Message, 'id' | 'uuid' | 'status' | 'createdAt' | 'updatedAt'> & { clientSeq?: number }): Promise<SendMessageResult>;
+  sendMessage(
+    message: Omit<
+      Message,
+      "id" | "uuid" | "status" | "createdAt" | "updatedAt"
+    > & { clientSeq?: number },
+  ): Promise<SendMessageResult>;
   editMessage(
     messageId: string,
     operatorId: string,
@@ -169,23 +180,29 @@ export interface MessageManager {
     },
   ): Promise<SendMessageResult>;
   getMessageById(id: string): Promise<Message | null>;
-  getMessagesByUserId(userId: string, options?: MessageQueryOptions): Promise<Message[]>;
-  getMessagesByGroupId(groupId: string, options?: MessageQueryOptions): Promise<Message[]>;
+  getMessagesByUserId(
+    userId: string,
+    options?: MessageQueryOptions,
+  ): Promise<Message[]>;
+  getMessagesByGroupId(
+    groupId: string,
+    options?: MessageQueryOptions,
+  ): Promise<Message[]>;
   getMessageHistoryBySeq(
     userId: string,
     targetId: string,
-    type: 'single' | 'group',
+    type: "single" | "group",
     options?: {
       fromSeq?: number;
       toSeq?: number;
       limit?: number;
-      direction?: 'before' | 'after';
+      direction?: "before" | "after";
       includeMissingSeqs?: boolean;
     },
   ): Promise<{
     targetId: string;
-    type: 'single' | 'group';
-    direction: 'before' | 'after';
+    type: "single" | "group";
+    direction: "before" | "after";
     fromSeq: number;
     toSeq?: number;
     maxSeq: number;
@@ -201,9 +218,19 @@ export interface MessageManager {
   updateMessageStatus(id: string, status: MessageStatus): Promise<boolean>;
   deleteMessage(id: string): Promise<boolean>;
   markMessagesAsRead(userId: string, messageIds: string[]): Promise<boolean>;
-  recallMessage(messageId: string, operatorId: string): Promise<{ success: boolean; error?: string }>;
-  forwardMessage(messageId: string, fromUserId: string, toUserId?: string, toGroupId?: string): Promise<SendMessageResult>;
-  searchMessages(options: MessageSearchOptions): Promise<{ messages: Message[]; total: number }>;
+  recallMessage(
+    messageId: string,
+    operatorId: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  forwardMessage(
+    messageId: string,
+    fromUserId: string,
+    toUserId?: string,
+    toGroupId?: string,
+  ): Promise<SendMessageResult>;
+  searchMessages(
+    options: MessageSearchOptions,
+  ): Promise<{ messages: Message[]; total: number }>;
 }
 
 export interface Conversation {
@@ -220,7 +247,10 @@ export interface Conversation {
 }
 
 export interface ConversationManager {
-  getConversations(userId: string, options?: { page?: number; limit?: number }): Promise<Conversation[]>;
+  getConversations(
+    userId: string,
+    options?: { page?: number; limit?: number },
+  ): Promise<Conversation[]>;
   getConversationById(id: string): Promise<Conversation | null>;
   pinConversation(id: string): Promise<boolean>;
   unpinConversation(id: string): Promise<boolean>;

@@ -1,277 +1,234 @@
-# OpenChat Server - Project Context
+﻿# OpenChat Server - Project Context
 
-## 项目概述
+## 椤圭洰姒傝堪
 
-OpenChat 是一个开源的即时通讯平台服务端，基于 **NestJS 11.x** 和 **TypeScript 5.9+** 构建。提供完整的 IM 功能，包括实时消息、群组管理、音视频通话、AI 机器人集成等。
+OpenChat 鏄竴涓紑婧愮殑鍗虫椂閫氳骞冲彴鏈嶅姟绔紝鍩轰簬 **NestJS 11.x** 鍜?**TypeScript 5.9+** 鏋勫缓銆傛彁渚涘畬鏁寸殑 IM 鍔熻兘锛屽寘鎷疄鏃舵秷鎭€佺兢缁勭鐞嗐€侀煶瑙嗛閫氳瘽銆丄I 鏈哄櫒浜洪泦鎴愮瓑銆?
+### 鏍稿績鎶€鏈爤
 
-### 核心技术栈
-
-| 类别 | 技术 | 版本 | 用途 |
+| 绫诲埆 | 鎶€鏈?| 鐗堟湰 | 鐢ㄩ€?|
 |------|------|------|------|
-| 框架 | NestJS | 11.x | 应用服务器框架 |
-| 语言 | TypeScript | 5.9+ | 开发语言 |
-| 数据库 | PostgreSQL | 15+ | 主数据库 |
-| ORM | TypeORM | 0.3.x | 数据库 ORM |
-| 缓存 | Redis | 7+ | 缓存、消息队列、WebSocket 适配器 |
-| WebSocket | Socket.IO | 4.x | 实时通信 |
-| IM 引擎 | WukongIM | v2 | 专业消息引擎 |
-| 队列 | BullMQ | 5.x | 异步任务处理 |
-| 认证 | JWT + Passport | - | 身份认证 |
+| 妗嗘灦 | NestJS | 11.x | 搴旂敤鏈嶅姟鍣ㄦ鏋?|
+| 璇█ | TypeScript | 5.9+ | 寮€鍙戣瑷€ |
+| 鏁版嵁搴?| PostgreSQL | 15+ | 涓绘暟鎹簱 |
+| ORM | TypeORM | 0.3.x | 鏁版嵁搴?ORM |
+| 缂撳瓨 | Redis | 7+ | 缂撳瓨銆佹秷鎭槦鍒椼€乄ebSocket 閫傞厤鍣?|
+| WebSocket | Socket.IO | 4.x | 瀹炴椂閫氫俊 |
+| IM 寮曟搸 | WukongIM | v2 | 涓撲笟娑堟伅寮曟搸 |
+| 闃熷垪 | BullMQ | 5.x | 寮傛浠诲姟澶勭悊 |
+| 璁よ瘉 | JWT + Passport | - | 韬唤璁よ瘉 |
 
-### 主要功能模块
+### 涓昏鍔熻兘妯″潡
 
-- **用户系统** - 注册、登录、个人资料管理
-- **好友系统** - 好友添加、删除、分组管理
-- **群组系统** - 群组创建、成员管理、权限控制
-- **消息系统** - 文本、图片、语音、视频、文件消息
-- **会话系统** - 会话列表、置顶、免打扰
-- **联系人系统** - 联系人列表管理
-- **RTC** - 实时音视频通话
-- **AI Bot** - AI 机器人集成
-- **第三方集成** - Telegram、WhatsApp、Webhook
-- **IoT** - ESP32 设备支持
+- **鐢ㄦ埛绯荤粺** - 娉ㄥ唽銆佺櫥褰曘€佷釜浜鸿祫鏂欑鐞?- **濂藉弸绯荤粺** - 濂藉弸娣诲姞銆佸垹闄ゃ€佸垎缁勭鐞?- **缇ょ粍绯荤粺** - 缇ょ粍鍒涘缓銆佹垚鍛樼鐞嗐€佹潈闄愭帶鍒?- **娑堟伅绯荤粺** - 鏂囨湰銆佸浘鐗囥€佽闊炽€佽棰戙€佹枃浠舵秷鎭?- **浼氳瘽绯荤粺** - 浼氳瘽鍒楄〃銆佺疆椤躲€佸厤鎵撴壈
+- **鑱旂郴浜虹郴缁?* - 鑱旂郴浜哄垪琛ㄧ鐞?- **RTC** - 瀹炴椂闊宠棰戦€氳瘽
+- **AI Bot** - AI 鏈哄櫒浜洪泦鎴?- **绗笁鏂归泦鎴?* - Telegram銆乄hatsApp銆乄ebhook
+- **IoT** - ESP32 璁惧鏀寔
 
-## 项目结构
+## 椤圭洰缁撴瀯
 
 ```
 openchat-server/
-├── src/                        # 服务端源代码
-│   ├── common/                 # 公共模块
-│   │   ├── auth/               # 认证授权（guards, strategies, decorators）
-│   │   ├── base/               # 基类
-│   │   ├── cache/              # 缓存服务
-│   │   ├── config/             # 配置管理
-│   │   ├── constants/          # 常量定义
-│   │   ├── dto/                # 数据传输对象
-│   │   ├── events/             # 事件总线
-│   │   ├── exceptions/         # 异常处理
-│   │   ├── filters/            # 过滤器
-│   │   ├── health/             # 健康检查
-│   │   ├── interceptors/       # 拦截器
-│   │   ├── logger/             # 日志服务
-│   │   ├── metrics/            # 性能监控
-│   │   ├── queue/              # 消息队列
-│   │   ├── redis/              # Redis 服务
-│   │   ├── throttler/          # 限流
-│   │   └── utils/              # 工具函数
-│   ├── gateways/               # WebSocket 网关
-│   ├── modules/                # 业务模块
-│   │   ├── agent/              # 智能代理
-│   │   ├── ai-bot/             # AI 机器人
-│   │   ├── bot-platform/       # 机器人平台
-│   │   ├── contact/            # 联系人
-│   │   ├── conversation/       # 会话
-│   │   ├── friend/             # 好友系统
-│   │   ├── group/              # 群组系统
-│   │   ├── im-provider/        # IM 提供者
-│   │   ├── iot/                # IoT 设备
-│   │   ├── message/            # 消息系统
-│   │   ├── rtc/                # 实时音视频
-│   │   ├── third-party/        # 第三方集成
-│   │   ├── user/               # 用户系统
-│   │   └── wukongim/           # WukongIM 集成
-│   ├── extensions/             # 扩展模块
-│   ├── app.module.ts           # 应用主模块
-│   ├── bootstrap.ts            # 启动引导
-│   ├── data-source.ts          # 数据源配置
-│   └── main.ts                 # 入口文件
-├── app/                        # 应用程序（前端）
-├── sdk/                        # SDK 目录
-├── database/                   # 数据库脚本
-│   ├── schema.sql              # 数据库结构
-│   ├── seed.sql                # 种子数据
-│   └── indexes-optimization.sql # 索引优化
-├── docker-compose*.yml         # Docker 编排配置
-├── scripts/                    # 脚本工具
-├── test/                       # 测试文件
-└── docs/                       # 文档
+鈹溾攢鈹€ src/                        # 鏈嶅姟绔簮浠ｇ爜
+鈹?  鈹溾攢鈹€ common/                 # 鍏叡妯″潡
+鈹?  鈹?  鈹溾攢鈹€ auth/               # 璁よ瘉鎺堟潈锛坓uards, strategies, decorators锛?鈹?  鈹?  鈹溾攢鈹€ base/               # 鍩虹被
+鈹?  鈹?  鈹溾攢鈹€ cache/              # 缂撳瓨鏈嶅姟
+鈹?  鈹?  鈹溾攢鈹€ config/             # 閰嶇疆绠＄悊
+鈹?  鈹?  鈹溾攢鈹€ constants/          # 甯搁噺瀹氫箟
+鈹?  鈹?  鈹溾攢鈹€ dto/                # 鏁版嵁浼犺緭瀵硅薄
+鈹?  鈹?  鈹溾攢鈹€ events/             # 浜嬩欢鎬荤嚎
+鈹?  鈹?  鈹溾攢鈹€ exceptions/         # 寮傚父澶勭悊
+鈹?  鈹?  鈹溾攢鈹€ filters/            # 杩囨护鍣?鈹?  鈹?  鈹溾攢鈹€ health/             # 鍋ュ悍妫€鏌?鈹?  鈹?  鈹溾攢鈹€ interceptors/       # 鎷︽埅鍣?鈹?  鈹?  鈹溾攢鈹€ logger/             # 鏃ュ織鏈嶅姟
+鈹?  鈹?  鈹溾攢鈹€ metrics/            # 鎬ц兘鐩戞帶
+鈹?  鈹?  鈹溾攢鈹€ queue/              # 娑堟伅闃熷垪
+鈹?  鈹?  鈹溾攢鈹€ redis/              # Redis 鏈嶅姟
+鈹?  鈹?  鈹溾攢鈹€ throttler/          # 闄愭祦
+鈹?  鈹?  鈹斺攢鈹€ utils/              # 宸ュ叿鍑芥暟
+鈹?  鈹溾攢鈹€ gateways/               # WebSocket 缃戝叧
+鈹?  鈹溾攢鈹€ modules/                # 涓氬姟妯″潡
+鈹?  鈹?  鈹溾攢鈹€ agent/              # 鏅鸿兘浠ｇ悊
+鈹?  鈹?  鈹溾攢鈹€ ai-bot/             # AI 鏈哄櫒浜?鈹?  鈹?  鈹溾攢鈹€ bot-platform/       # 鏈哄櫒浜哄钩鍙?鈹?  鈹?  鈹溾攢鈹€ contact/            # 鑱旂郴浜?鈹?  鈹?  鈹溾攢鈹€ conversation/       # 浼氳瘽
+鈹?  鈹?  鈹溾攢鈹€ friend/             # 濂藉弸绯荤粺
+鈹?  鈹?  鈹溾攢鈹€ group/              # 缇ょ粍绯荤粺
+鈹?  鈹?  鈹溾攢鈹€ im-provider/        # IM 鎻愪緵鑰?鈹?  鈹?  鈹溾攢鈹€ iot/                # IoT 璁惧
+鈹?  鈹?  鈹溾攢鈹€ message/            # 娑堟伅绯荤粺
+鈹?  鈹?  鈹溾攢鈹€ rtc/                # 瀹炴椂闊宠棰?鈹?  鈹?  鈹溾攢鈹€ third-party/        # 绗笁鏂归泦鎴?鈹?  鈹?  鈹溾攢鈹€ user/               # 鐢ㄦ埛绯荤粺
+鈹?  鈹?  鈹斺攢鈹€ wukongim/           # WukongIM 闆嗘垚
+鈹?  鈹溾攢鈹€ extensions/             # 鎵╁睍妯″潡
+鈹?  鈹溾攢鈹€ app.module.ts           # 搴旂敤涓绘ā鍧?鈹?  鈹溾攢鈹€ bootstrap.ts            # 鍚姩寮曞
+鈹?  鈹溾攢鈹€ data-source.ts          # 鏁版嵁婧愰厤缃?鈹?  鈹斺攢鈹€ main.ts                 # 鍏ュ彛鏂囦欢
+鈹溾攢鈹€ app/                        # 搴旂敤绋嬪簭锛堝墠绔級
+鈹溾攢鈹€ sdk/                        # SDK 鐩綍
+鈹溾攢鈹€ database/                   # 鏁版嵁搴撹剼鏈?鈹?  鈹溾攢鈹€ schema.sql              # 鏁版嵁搴撶粨鏋?鈹?  鈹溾攢鈹€ seed.sql                # 绉嶅瓙鏁版嵁
+鈹?  鈹斺攢鈹€ indexes-optimization.sql # 绱㈠紩浼樺寲
+鈹溾攢鈹€ docker-compose*.yml         # Docker 缂栨帓閰嶇疆
+鈹溾攢鈹€ scripts/                    # 鑴氭湰宸ュ叿
+鈹溾攢鈹€ test/                       # 娴嬭瘯鏂囦欢
+鈹斺攢鈹€ docs/                       # 鏂囨。
 ```
 
-## 构建与运行
+## 鏋勫缓涓庤繍琛?
+### 鐜瑕佹眰
 
-### 环境要求
-
-| 依赖 | 版本 | 说明 |
+| 渚濊禆 | 鐗堟湰 | 璇存槑 |
 |------|------|------|
-| Node.js | 18+ | 运行环境 |
-| pnpm | 8+ | 包管理器 |
-| PostgreSQL | 15+ | 数据库（可外部） |
-| Redis | 7+ | 缓存（可外部） |
-| Docker | 24.0+ | 容器运行（推荐） |
+| Node.js | 18+ | 杩愯鐜 |
+| pnpm | 8+ | 鍖呯鐞嗗櫒 |
+| PostgreSQL | 15+ | 鏁版嵁搴擄紙鍙閮級 |
+| Redis | 7+ | 缂撳瓨锛堝彲澶栭儴锛?|
+| Docker | 24.0+ | 瀹瑰櫒杩愯锛堟帹鑽愶級 |
 
-### 安装依赖
+### 瀹夎渚濊禆
 
 ```bash
 pnpm install
 ```
 
-### 环境配置
+### 鐜閰嶇疆
 
 ```bash
-# 复制环境变量示例文件
+# 澶嶅埗鐜鍙橀噺绀轰緥鏂囦欢
 cp .env.example .env
 
-# 编辑 .env 文件，至少需要设置：
+# 缂栬緫 .env 鏂囦欢锛岃嚦灏戦渶瑕佽缃細
 # JWT_SECRET=your-jwt-secret-at-least-32-characters-long
 ```
 
-### 开发模式运行
-
+### 寮€鍙戞ā寮忚繍琛?
 ```bash
-# 启动开发服务器（带热重载）
+# 鍚姩寮€鍙戞湇鍔″櫒锛堝甫鐑噸杞斤級
 pnpm run start:dev
 
-# 或直接使用
-pnpm run dev
+# 鎴栫洿鎺ヤ娇鐢?pnpm run dev
 ```
 
-### 生产模式运行
+### 鐢熶骇妯″紡杩愯
 
 ```bash
-# 构建
+# 鏋勫缓
 pnpm run build
 
-# 启动生产服务器
-pnpm run start:prod
+# 鍚姩鐢熶骇鏈嶅姟鍣?pnpm run start:prod
 ```
 
-### Docker 运行（推荐）
+### Docker 杩愯锛堟帹鑽愶級
 
 ```bash
-# 快速启动（包含所有服务）
+# 蹇€熷惎鍔紙鍖呭惈鎵€鏈夋湇鍔★級
 pnpm run docker:quick
 
-# 或使用 docker compose
+# 鎴栦娇鐢?docker compose
 docker compose -f docker-compose.quick.yml up -d
 
-# 查看日志
+# 鏌ョ湅鏃ュ織
 docker compose logs -f
 
-# 停止服务
+# 鍋滄鏈嶅姟
 docker compose -f docker-compose.quick.yml down
 ```
 
-### 健康检查
-
+### 鍋ュ悍妫€鏌?
 ```bash
-# 快速健康检查
-pnpm run health
+# 蹇€熷仴搴锋鏌?pnpm run health
 
-# 完整健康检查
-pnpm run health:full
+# 瀹屾暣鍋ュ悍妫€鏌?pnpm run health:full
 ```
 
-### 访问端点
+### 璁块棶绔偣
 
-| 服务 | URL |
+| 鏈嶅姟 | URL |
 |------|-----|
-| API 服务 | http://localhost:3000 |
-| Swagger 文档 | http://localhost:3000/api/docs |
-| 健康检查 | http://localhost:3000/health |
+| API 鏈嶅姟 | http://localhost:3000 |
+| Swagger 鏂囨。 | http://localhost:3000/im/v3/docs |
+| 鍋ュ悍妫€鏌?| http://localhost:3000/health |
 | WukongIM Demo | http://localhost:5172 |
-| WukongIM 管理 | http://localhost:5300/web |
+| WukongIM 绠＄悊 | http://localhost:5300/web |
 
-## 测试
+## 娴嬭瘯
 
 ```bash
-# 单元测试
+# 鍗曞厓娴嬭瘯
 pnpm run test
 
-# 测试覆盖率
-pnpm run test:cov
+# 娴嬭瘯瑕嗙洊鐜?pnpm run test:cov
 
-# E2E 测试
+# E2E 娴嬭瘯
 pnpm run test:e2e
 
-# 监视模式
+# 鐩戣妯″紡
 pnpm run test:watch
 ```
 
-## 代码质量
+## 浠ｇ爜璐ㄩ噺
 
 ```bash
-# 代码格式化
-pnpm run format
+# 浠ｇ爜鏍煎紡鍖?pnpm run format
 
-# ESLint 检查
-pnpm run lint
+# ESLint 妫€鏌?pnpm run lint
 
-# 类型检查
-pnpm run typecheck
+# 绫诲瀷妫€鏌?pnpm run typecheck
 ```
 
-## 数据库迁移
-
+## 鏁版嵁搴撹縼绉?
 ```bash
-# 生成迁移文件
+# 鐢熸垚杩佺Щ鏂囦欢
 pnpm run migration:generate -- -n MigrationName
 
-# 执行迁移
+# 鎵ц杩佺Щ
 pnpm run migration:run
 
-# 回滚迁移
+# 鍥炴粴杩佺Щ
 pnpm run migration:revert
 
-# 初始化数据库
+# 鍒濆鍖栨暟鎹簱
 pnpm run db:init
 
-# 插入种子数据
+# 鎻掑叆绉嶅瓙鏁版嵁
 pnpm run db:seed
 ```
 
-## 开发规范
+## 寮€鍙戣鑼?
+### 鍛藉悕绾﹀畾
 
-### 命名约定
-
-| 项目 | 约定 | 示例 |
+| 椤圭洰 | 绾﹀畾 | 绀轰緥 |
 |------|------|------|
-| 类名 | PascalCase | `UserService` |
-| 方法名 | camelCase | `getUserById()` |
-| 变量名 | camelCase | `userId` |
-| 常量 | UPPER_SNAKE_CASE | `MAX_RETRY_COUNT` |
-| 文件/目录名 | kebab-case | `user-service.ts` |
-| 模块名 | PascalCase | `UserModule` |
+| 绫诲悕 | PascalCase | `UserService` |
+| 鏂规硶鍚?| camelCase | `getUserById()` |
+| 鍙橀噺鍚?| camelCase | `userId` |
+| 甯搁噺 | UPPER_SNAKE_CASE | `MAX_RETRY_COUNT` |
+| 鏂囦欢/鐩綍鍚?| kebab-case | `user-service.ts` |
+| 妯″潡鍚?| PascalCase | `UserModule` |
 
-### 代码风格
+### 浠ｇ爜椋庢牸
 
-- 使用 TypeScript 严格模式
-- 遵循 NestJS 代码风格指南
-- 使用 ESLint + Prettier 保证代码质量
-- 依赖注入使用构造函数注入
-- 服务类使用 `@Injectable()` 装饰器
+- 浣跨敤 TypeScript 涓ユ牸妯″紡
+- 閬靛惊 NestJS 浠ｇ爜椋庢牸鎸囧崡
+- 浣跨敤 ESLint + Prettier 淇濊瘉浠ｇ爜璐ㄩ噺
+- 渚濊禆娉ㄥ叆浣跨敤鏋勯€犲嚱鏁版敞鍏?- 鏈嶅姟绫讳娇鐢?`@Injectable()` 瑁呴グ鍣?
+### 妯″潡缁撴瀯
 
-### 模块结构
+姣忎釜涓氬姟妯″潡搴斿寘鍚細
+- `xxx.module.ts` - 妯″潡瀹氫箟
+- `xxx.controller.ts` - HTTP 鎺у埗鍣?- `xxx.service.ts` - 涓氬姟閫昏緫鏈嶅姟
+- `xxx.entity.ts` - 鏁版嵁搴撳疄浣?- `dto/` - 鏁版嵁浼犺緭瀵硅薄
+- `interfaces/` - 鎺ュ彛瀹氫箟
 
-每个业务模块应包含：
-- `xxx.module.ts` - 模块定义
-- `xxx.controller.ts` - HTTP 控制器
-- `xxx.service.ts` - 业务逻辑服务
-- `xxx.entity.ts` - 数据库实体
-- `dto/` - 数据传输对象
-- `interfaces/` - 接口定义
+### 鎻愪氦瑙勮寖
 
-### 提交规范
+閬靛惊 Conventional Commits锛?- `feat:` 鏂板姛鑳?- `fix:` Bug 淇
+- `docs:` 鏂囨。鏇存柊
+- `style:` 浠ｇ爜鏍煎紡璋冩暣
+- `refactor:` 浠ｇ爜閲嶆瀯
+- `test:` 娴嬭瘯鐩稿叧
+- `chore:` 鏋勫缓/宸ュ叿閰嶇疆
 
-遵循 Conventional Commits：
-- `feat:` 新功能
-- `fix:` Bug 修复
-- `docs:` 文档更新
-- `style:` 代码格式调整
-- `refactor:` 代码重构
-- `test:` 测试相关
-- `chore:` 构建/工具配置
-
-## 关键配置项
-
-### 必需配置
+## 鍏抽敭閰嶇疆椤?
+### 蹇呴渶閰嶇疆
 
 ```bash
-# .env 文件中必须设置
-JWT_SECRET=your-jwt-secret-at-least-32-characters-long
+# .env 鏂囦欢涓繀椤昏缃?JWT_SECRET=your-jwt-secret-at-least-32-characters-long
 ```
 
-### 数据库配置
-
+### 鏁版嵁搴撻厤缃?
 ```bash
 DB_HOST=localhost
 DB_PORT=5432
@@ -280,7 +237,7 @@ DB_PASSWORD=your-password
 DB_NAME=openchat
 ```
 
-### Redis 配置
+### Redis 閰嶇疆
 
 ```bash
 REDIS_HOST=localhost
@@ -288,7 +245,7 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 ```
 
-### WukongIM 配置
+### WukongIM 閰嶇疆
 
 ```bash
 WUKONGIM_API_URL=http://localhost:5001
@@ -296,68 +253,61 @@ WUKONGIM_TCP_ADDR=localhost:5100
 WUKONGIM_WS_URL=ws://localhost:5200
 ```
 
-## 诊断工具
+## 璇婃柇宸ュ叿
 
-项目提供了一套完整的诊断和修复工具：
+椤圭洰鎻愪緵浜嗕竴濂楀畬鏁寸殑璇婃柇鍜屼慨澶嶅伐鍏凤細
 
 ```bash
-# 系统预检查
-pnpm run precheck
+# 绯荤粺棰勬鏌?pnpm run precheck
 
-# 运行诊断
+# 杩愯璇婃柇
 pnpm run diagnose
 
-# 自动修复常见问题
+# 鑷姩淇甯歌闂
 pnpm run auto-fix
 
-# 分析日志
+# 鍒嗘瀽鏃ュ織
 pnpm run log:analyze
 
-# 健康监控
+# 鍋ュ悍鐩戞帶
 pnpm run health:monitor
 ```
 
-## 常见问题
+## 甯歌闂
 
-### WukongIM 连接问题
+### WukongIM 杩炴帴闂
 
-1. 检查 WukongIM 服务是否运行：`docker ps | grep wukongim`
-2. 验证 `WUKONGIM_API_URL` 配置
-3. 运行：`pnpm run diagnose`
+1. 妫€鏌?WukongIM 鏈嶅姟鏄惁杩愯锛歚docker ps | grep wukongim`
+2. 楠岃瘉 `WUKONGIM_API_URL` 閰嶇疆
+3. 杩愯锛歚pnpm run diagnose`
 
-### 数据库连接问题
+### 鏁版嵁搴撹繛鎺ラ棶棰?
+1. 纭繚 PostgreSQL 鏈嶅姟杩愯锛歚docker ps | grep postgres`
+2. 楠岃瘉 `.env` 涓殑鏁版嵁搴撻厤缃?3. 杩愯锛歚pnpm run auto-fix`
 
-1. 确保 PostgreSQL 服务运行：`docker ps | grep postgres`
-2. 验证 `.env` 中的数据库配置
-3. 运行：`pnpm run auto-fix`
+### Redis 杩炴帴闂
 
-### Redis 连接问题
+1. 妫€鏌?Redis 鏈嶅姟杩愯锛歚docker ps | grep redis`
+2. 楠岃瘉 Redis 閰嶇疆
+3. 杩愯锛歚pnpm run auto-fix --redis`
 
-1. 检查 Redis 服务运行：`docker ps | grep redis`
-2. 验证 Redis 配置
-3. 运行：`pnpm run auto-fix --redis`
+## 鐩稿叧鏂囨。
 
-## 相关文档
+- [README.md](README.md) - 椤圭洰涓绘枃妗ｏ紙鑻辨枃锛?- [README_CN.md](README_CN.md) - 椤圭洰涓绘枃妗ｏ紙涓枃锛?- [ARCHITECT.md](ARCHITECT.md) - 鏋舵瀯鏍囧噯鏂囨。
+- [CONTRIBUTING.md](CONTRIBUTING.md) - 璐＄尞鎸囧崡
+- [DEPLOYMENT.md](DEPLOYMENT.md) - 閮ㄧ讲鎸囧崡
+- [INSTALL_CN.md](INSTALL_CN.md) - 瀹夎鎸囧崡锛堜腑鏂囷級
+- [INSTALL_EN.md](INSTALL_EN.md) - 瀹夎鎸囧崡锛堣嫳鏂囷級
 
-- [README.md](README.md) - 项目主文档（英文）
-- [README_CN.md](README_CN.md) - 项目主文档（中文）
-- [ARCHITECT.md](ARCHITECT.md) - 架构标准文档
-- [CONTRIBUTING.md](CONTRIBUTING.md) - 贡献指南
-- [DEPLOYMENT.md](DEPLOYMENT.md) - 部署指南
-- [INSTALL_CN.md](INSTALL_CN.md) - 安装指南（中文）
-- [INSTALL_EN.md](INSTALL_EN.md) - 安装指南（英文）
+## API 璺敱鍓嶇紑
 
-## API 路由前缀
-
-- HTTP API: `/im/api/v1`
+- HTTP API: `/im/v3`
 - WebSocket: `/chat-v2`
-- Swagger 文档: `/api/docs`
-- 健康检查: `/health`（无前缀）
+- Swagger 鏂囨。: `/im/v3/docs`
+- 鍋ュ悍妫€鏌? `/health`锛堟棤鍓嶇紑锛?
+## 娉ㄦ剰浜嬮」
 
-## 注意事项
-
-1. **环境变量**: 生产环境必须修改 `.env` 中的默认值，特别是 `JWT_SECRET`
-2. **数据库同步**: 开发环境 `DB_SYNCHRONIZE=true`，生产环境必须设为 `false`
-3. **CORS**: 根据实际需求配置 `CORS_ORIGINS`
-4. **资源限制**: Docker 部署时注意调整内存限制配置
-5. **日志**: 生产环境建议使用 `LOG_FORMAT=json` 并启用文件日志
+1. **鐜鍙橀噺**: 鐢熶骇鐜蹇呴』淇敼 `.env` 涓殑榛樿鍊硷紝鐗瑰埆鏄?`JWT_SECRET`
+2. **鏁版嵁搴撳悓姝?*: 寮€鍙戠幆澧?`DB_SYNCHRONIZE=true`锛岀敓浜х幆澧冨繀椤昏涓?`false`
+3. **CORS**: 鏍规嵁瀹為檯闇€姹傞厤缃?`CORS_ORIGINS`
+4. **璧勬簮闄愬埗**: Docker 閮ㄧ讲鏃舵敞鎰忚皟鏁村唴瀛橀檺鍒堕厤缃?5. **鏃ュ織**: 鐢熶骇鐜寤鸿浣跨敤 `LOG_FORMAT=json` 骞跺惎鐢ㄦ枃浠舵棩蹇?

@@ -66,6 +66,54 @@ describe('MessageSequenceService', () => {
     jest.clearAllMocks();
   });
 
+  it('should rehydrate missing sequence keys from db max before allocating next sequence', async () => {
+    mockRedis.get
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    mockRedis.set
+      .mockResolvedValueOnce('OK')
+      .mockResolvedValueOnce('OK');
+    mockRedis.incr.mockResolvedValue(43);
+
+    const queryBuilder = createQueryBuilderMock();
+    queryBuilder.getRawOne.mockResolvedValue({ maxSeq: '42' });
+    mockMessageRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    const result = await service.getNextSequence('single:user-1:user-2');
+
+    expect(result).toBe(43);
+    expect(queryBuilder.getRawOne).toHaveBeenCalledTimes(1);
+    expect(mockRedis.set).toHaveBeenNthCalledWith(
+      1,
+      'msg:seq:initlock:single:user-1:user-2',
+      '1',
+      'PX',
+      5000,
+      'NX',
+    );
+    expect(mockRedis.set).toHaveBeenNthCalledWith(
+      2,
+      'msg:seq:single:user-1:user-2',
+      '42',
+      'EX',
+      2592000,
+    );
+    expect(mockRedis.incr).toHaveBeenCalledWith('msg:seq:single:user-1:user-2');
+    expect(mockRedis.expire).toHaveBeenCalledWith('msg:seq:single:user-1:user-2', 2592000);
+    expect(mockRedis.del).toHaveBeenCalledWith('msg:seq:initlock:single:user-1:user-2');
+  });
+
+  it('should refresh ttl for existing sequence keys when allocating next sequence', async () => {
+    mockRedis.get.mockResolvedValue('7');
+    mockRedis.incr.mockResolvedValue(8);
+
+    const result = await service.getNextSequence('single:user-1:user-2');
+
+    expect(result).toBe(8);
+    expect(mockMessageRepository.createQueryBuilder).not.toHaveBeenCalled();
+    expect(mockRedis.expire).toHaveBeenCalledWith('msg:seq:single:user-1:user-2', 2592000);
+  });
+
   it('should fallback to db max sequence when redis key is missing', async () => {
     mockRedis.get.mockResolvedValue(null);
     const queryBuilder = createQueryBuilderMock();
@@ -78,14 +126,51 @@ describe('MessageSequenceService', () => {
     expect(queryBuilder.getRawOne).toHaveBeenCalledTimes(1);
   });
 
-  it('should allocate contiguous sequence range via incrby', async () => {
+  it('should allocate contiguous sequence range via incrby for existing keys', async () => {
+    mockRedis.get.mockResolvedValue('100');
     mockRedis.incrby.mockResolvedValue(105);
 
     const sequences = await service.getNextSequences('single:user-1:user-2', 5);
 
     expect(sequences).toEqual([101, 102, 103, 104, 105]);
     expect(mockRedis.incrby).toHaveBeenCalledWith('msg:seq:single:user-1:user-2', 5);
-    expect(mockRedis.expire).not.toHaveBeenCalled();
+    expect(mockRedis.expire).toHaveBeenCalledWith('msg:seq:single:user-1:user-2', 2592000);
+  });
+
+  it('should rehydrate missing sequence keys from db max before allocating ranges', async () => {
+    mockRedis.get
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    mockRedis.set
+      .mockResolvedValueOnce('OK')
+      .mockResolvedValueOnce('OK');
+    mockRedis.incrby.mockResolvedValue(45);
+
+    const queryBuilder = createQueryBuilderMock();
+    queryBuilder.getRawOne.mockResolvedValue({ maxSeq: '42' });
+    mockMessageRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    const result = await service.getNextSequences('single:user-1:user-2', 3);
+
+    expect(result).toEqual([43, 44, 45]);
+    expect(queryBuilder.getRawOne).toHaveBeenCalledTimes(1);
+    expect(mockRedis.set).toHaveBeenNthCalledWith(
+      1,
+      'msg:seq:initlock:single:user-1:user-2',
+      '1',
+      'PX',
+      5000,
+      'NX',
+    );
+    expect(mockRedis.set).toHaveBeenNthCalledWith(
+      2,
+      'msg:seq:single:user-1:user-2',
+      '42',
+      'EX',
+      2592000,
+    );
+    expect(mockRedis.expire).toHaveBeenCalledWith('msg:seq:single:user-1:user-2', 2592000);
+    expect(mockRedis.del).toHaveBeenCalledWith('msg:seq:initlock:single:user-1:user-2');
   });
 
   it('should return missing sequences for a group conversation', async () => {

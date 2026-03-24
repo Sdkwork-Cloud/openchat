@@ -1,4 +1,4 @@
-# OpenChat Server Installation Guide (English)
+﻿# OpenChat Server Installation Guide (English)
 
 This guide matches the current repository scripts and command set, covering both fresh setup and existing-environment upgrades.
 
@@ -178,7 +178,7 @@ Optional:
 
 Swagger endpoint:
 
-- `http://localhost:3000/api/docs`
+- `http://localhost:3000/im/v3/docs`
 
 ## 11. Troubleshooting
 
@@ -227,3 +227,4 @@ pg_restore -h localhost -U openchat_user -d openchat -v openchat_backup.dump
 - Deployment guide: `DEPLOYMENT.md`
 - Database guide: `database/README.md`
 - Command handbook (CN): `docs/COMMANDS_CN.md`
+

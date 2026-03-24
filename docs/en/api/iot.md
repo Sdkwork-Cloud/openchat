@@ -1,10 +1,10 @@
-# IoT Devices API
+﻿# IoT Devices API
 
 IoT Devices API provides IoT device management capabilities.
 
 ## Overview
 
-All IoT APIs require JWT authentication. Path prefix: `/im/api/v1/iot`.
+All IoT APIs require JWT authentication. Path prefix: `/im/v3/iot`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -23,7 +23,7 @@ All IoT APIs require JWT authentication. Path prefix: `/im/api/v1/iot`.
 Register a new IoT device.
 
 ```http
-POST /im/api/v1/iot/devices
+POST /im/v3/iot/devices
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -91,3 +91,4 @@ await client.api.iot.sendCommand('device-id', {
 
 - [Message Management API](./messages.md)
 - [User Management API](./users.md)
+

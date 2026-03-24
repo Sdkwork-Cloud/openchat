@@ -1,4 +1,4 @@
-# Overview
+﻿# Overview
 
 OpenChat is an **open source instant messaging solution** that provides a complete technology stack from server to client, helping developers quickly build enterprise-level instant messaging applications.
 
@@ -197,7 +197,10 @@ docker compose up -d
 
 After deployment, access:
 - OpenChat API: http://localhost:3000
-- API Docs: http://localhost:3000/api/docs
+- App API Docs: http://localhost:3000/im/v3/docs
+- App OpenAPI JSON: http://localhost:3000/im/v3/openapi.json
+- Admin API Docs: http://localhost:3000/admin/im/v3/docs
+- Admin OpenAPI JSON: http://localhost:3000/admin/im/v3/openapi.json
 - WukongIM Demo: http://localhost:5172
 
 ## Next Steps
@@ -206,3 +209,4 @@ After deployment, access:
 - [Architecture](./architecture.md) - Understand the system architecture
 - [Features](./features.md) - Explore all features
 - [API Documentation](/en/api/) - View complete API documentation
+

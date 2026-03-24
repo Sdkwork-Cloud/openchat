@@ -6,18 +6,18 @@
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
-| 发送好友请求 | POST | `/api/friends/request` | 发送好友请求 |
-| 接受好友请求 | POST | `/api/friends/request/:id/accept` | 接受好友请求 |
-| 拒绝好友请求 | POST | `/api/friends/request/:id/reject` | 拒绝好友请求 |
-| 取消好友请求 | DELETE | `/api/friends/request/:id` | 取消好友请求 |
-| 删除好友 | DELETE | `/api/friends/:userId/:friendId` | 删除好友 |
-| 获取好友请求列表 | GET | `/api/friends/requests/:userId` | 获取好友请求列表 |
-| 获取好友列表 | GET | `/api/friends/:userId` | 获取好友列表 |
-| 检查好友关系 | GET | `/api/friends/:userId/:friendId/check` | 检查是否为好友 |
-| 获取发送的好友请求 | GET | `/api/friends/requests/sent/:userId` | 获取发送的好友请求列表 |
-| 拉黑好友 | POST | `/api/friends/:userId/:friendId/block` | 拉黑好友 |
-| 取消拉黑 | POST | `/api/friends/:userId/:friendId/unblock` | 取消拉黑 |
-| 检查是否被拉黑 | GET | `/api/friends/:userId/:friendId/blocked` | 检查是否被拉黑 |
+| 发送好友请求 | POST | `/im/v3/friends/request` | 发送好友请求 |
+| 接受好友请求 | POST | `/im/v3/friends/request/:id/accept` | 接受好友请求 |
+| 拒绝好友请求 | POST | `/im/v3/friends/request/:id/reject` | 拒绝好友请求 |
+| 取消好友请求 | DELETE | `/im/v3/friends/request/:id` | 取消好友请求 |
+| 删除好友 | DELETE | `/im/v3/friends/:userId/:friendId` | 删除好友 |
+| 获取好友请求列表 | GET | `/im/v3/friends/requests/:userId` | 获取好友请求列表 |
+| 获取好友列表 | GET | `/im/v3/friends/:userId` | 获取好友列表 |
+| 检查好友关系 | GET | `/im/v3/friends/:userId/:friendId/check` | 检查是否为好友 |
+| 获取发送的好友请求 | GET | `/im/v3/friends/requests/sent/:userId` | 获取发送的好友请求列表 |
+| 拉黑好友 | POST | `/im/v3/friends/:userId/:friendId/block` | 拉黑好友 |
+| 取消拉黑 | POST | `/im/v3/friends/:userId/:friendId/unblock` | 取消拉黑 |
+| 检查是否被拉黑 | GET | `/im/v3/friends/:userId/:friendId/blocked` | 检查是否被拉黑 |
 
 ---
 
@@ -26,7 +26,7 @@
 向其他用户发送好友请求。
 
 ```http
-POST /api/friends/request
+POST /im/v3/friends/request
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -69,7 +69,7 @@ Content-Type: application/json
 接受待处理的好友请求。
 
 ```http
-POST /api/friends/request/{id}/accept
+POST /im/v3/friends/request/{id}/accept
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -92,7 +92,7 @@ true
 拒绝待处理的好友请求。
 
 ```http
-POST /api/friends/request/{id}/reject
+POST /im/v3/friends/request/{id}/reject
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -115,7 +115,7 @@ true
 取消已发送但未处理的好友请求。
 
 ```http
-DELETE /api/friends/request/{id}
+DELETE /im/v3/friends/request/{id}
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -138,7 +138,7 @@ true
 删除好友关系。
 
 ```http
-DELETE /api/friends/{userId}/{friendId}
+DELETE /im/v3/friends/{userId}/{friendId}
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -162,7 +162,7 @@ true
 获取收到的好友请求列表。
 
 ```http
-GET /api/friends/requests/{userId}?status=pending
+GET /im/v3/friends/requests/{userId}?status=pending
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -208,7 +208,7 @@ Authorization: Bearer &lt;access-token&gt;
 获取用户的好友列表。
 
 ```http
-GET /api/friends/{userId}
+GET /im/v3/friends/{userId}
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -231,7 +231,7 @@ Authorization: Bearer &lt;access-token&gt;
 检查两个用户是否为好友关系。
 
 ```http
-GET /api/friends/{userId}/{friendId}/check
+GET /im/v3/friends/{userId}/{friendId}/check
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -255,7 +255,7 @@ true
 获取已发送的好友请求列表。
 
 ```http
-GET /api/friends/requests/sent/{userId}
+GET /im/v3/friends/requests/sent/{userId}
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -287,7 +287,7 @@ Authorization: Bearer &lt;access-token&gt;
 将用户加入黑名单。
 
 ```http
-POST /api/friends/{userId}/{friendId}/block
+POST /im/v3/friends/{userId}/{friendId}/block
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -311,7 +311,7 @@ true
 将用户从黑名单移除。
 
 ```http
-POST /api/friends/{userId}/{friendId}/unblock
+POST /im/v3/friends/{userId}/{friendId}/unblock
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -335,7 +335,7 @@ true
 检查是否已被指定用户拉黑。
 
 ```http
-GET /api/friends/{userId}/{friendId}/blocked
+GET /im/v3/friends/{userId}/{friendId}/blocked
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -377,7 +377,7 @@ interface FriendRequest {
 
 ```bash
 # 发送好友请求
-curl -X POST http://localhost:3000/api/friends/request \
+curl -X POST http://localhost:3000/im/v3/friends/request \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -387,19 +387,19 @@ curl -X POST http://localhost:3000/api/friends/request \
   }'
 
 # 接受好友请求
-curl -X POST http://localhost:3000/api/friends/request/request-uuid/accept \
+curl -X POST http://localhost:3000/im/v3/friends/request/request-uuid/accept \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 拒绝好友请求
-curl -X POST http://localhost:3000/api/friends/request/request-uuid/reject \
+curl -X POST http://localhost:3000/im/v3/friends/request/request-uuid/reject \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 获取好友列表
-curl -X GET http://localhost:3000/api/friends/user-1 \
+curl -X GET http://localhost:3000/im/v3/friends/user-1 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 删除好友
-curl -X DELETE http://localhost:3000/api/friends/user-1/friend-2 \
+curl -X DELETE http://localhost:3000/im/v3/friends/user-1/friend-2 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 

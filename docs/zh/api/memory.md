@@ -5,7 +5,7 @@
 
 ## 概述
 
-所有记忆管理 API 都需要 JWT 认证，路径前缀为 `/api/v1/agents/:agentId/memory`。
+所有记忆管理 API 都需要 JWT 认证，路径前缀为 `/im/v3/agents/:agentId/memory`。
 
 ---
 
@@ -83,7 +83,7 @@
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory?type=EPISODIC&amp;source=USER&amp;limit=20&amp;offset=0
+GET /im/v3/agents/:agentId/memory?type=EPISODIC&amp;source=USER&amp;limit=20&amp;offset=0
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -132,7 +132,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/search?q=Python编程&amp;type=EPISODIC&amp;limit=10&amp;threshold=0.7
+GET /im/v3/agents/:agentId/memory/search?q=Python编程&amp;type=EPISODIC&amp;limit=10&amp;threshold=0.7
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -174,7 +174,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/semantic-search?q=Python编程&amp;limit=10
+GET /im/v3/agents/:agentId/memory/semantic-search?q=Python编程&amp;limit=10
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -214,7 +214,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/stats
+GET /im/v3/agents/:agentId/memory/stats
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -257,7 +257,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-POST /api/v1/agents/:agentId/memory
+POST /im/v3/agents/:agentId/memory
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 
@@ -311,7 +311,7 @@ Content-Type: application/json
 **请求：**
 
 ```http
-DELETE /api/v1/agents/:agentId/memory/:memoryId
+DELETE /im/v3/agents/:agentId/memory/:memoryId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -343,7 +343,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-POST /api/v1/agents/:agentId/memory/consolidate
+POST /im/v3/agents/:agentId/memory/consolidate
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -377,7 +377,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/sessions/:sessionId/history?maxTokens=8000
+GET /im/v3/agents/:agentId/memory/sessions/:sessionId/history?maxTokens=8000
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -420,7 +420,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-POST /api/v1/agents/:agentId/memory/sessions/:sessionId/summarize
+POST /im/v3/agents/:agentId/memory/sessions/:sessionId/summarize
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -456,7 +456,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-DELETE /api/v1/agents/:agentId/memory/sessions/:sessionId
+DELETE /im/v3/agents/:agentId/memory/sessions/:sessionId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -487,7 +487,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/knowledge
+GET /im/v3/agents/:agentId/memory/knowledge
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -525,7 +525,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-POST /api/v1/agents/:agentId/memory/knowledge
+POST /im/v3/agents/:agentId/memory/knowledge
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 
@@ -581,7 +581,7 @@ Content-Type: application/json
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/knowledge/search?q=请假&amp;limit=5&amp;threshold=0.7
+GET /im/v3/agents/:agentId/memory/knowledge/search?q=请假&amp;limit=5&amp;threshold=0.7
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -623,7 +623,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/knowledge/stats
+GET /im/v3/agents/:agentId/memory/knowledge/stats
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -661,7 +661,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/knowledge/:documentId
+GET /im/v3/agents/:agentId/memory/knowledge/:documentId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -703,7 +703,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-DELETE /api/v1/agents/:agentId/memory/knowledge/:documentId
+DELETE /im/v3/agents/:agentId/memory/knowledge/:documentId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -735,7 +735,7 @@ Authorization: Bearer &lt;access-token&gt;
 **请求：**
 
 ```http
-GET /api/v1/agents/:agentId/memory/knowledge/:documentId/chunks
+GET /im/v3/agents/:agentId/memory/knowledge/:documentId/chunks
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -814,4 +814,3 @@ interface DocumentChunk {
 
 - [AI Agent API](./agents.md)
 - [AI 机器人 API](./ai-bots.md)
-

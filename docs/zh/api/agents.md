@@ -4,7 +4,7 @@ AI Agent API 提供智能代理的创建、管理、消息交互等功能。
 
 ## 概述
 
-所有 AI Agent API 都需要 JWT 认证，路径前缀为 `/api/v1/agents`。
+所有 AI Agent API 都需要 JWT 认证，路径前缀为 `/im/v3/agents`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -37,7 +37,7 @@ AI Agent API 提供智能代理的创建、管理、消息交互等功能。
 创建一个新的AI代理。
 
 ```http
-POST /api/v1/agents
+POST /im/v3/agents
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -103,7 +103,7 @@ Content-Type: application/json
 获取用户的所有Agent列表。
 
 ```http
-GET /api/v1/agents?public=false
+GET /im/v3/agents?public=false
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -147,7 +147,7 @@ Authorization: Bearer &lt;access-token&gt;
 根据ID获取Agent详细信息。
 
 ```http
-GET /api/v1/agents/:id
+GET /im/v3/agents/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -191,7 +191,7 @@ Authorization: Bearer &lt;access-token&gt;
 更新Agent信息。
 
 ```http
-PUT /api/v1/agents/:id
+PUT /im/v3/agents/:id
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -241,7 +241,7 @@ Content-Type: application/json
 删除指定的Agent。
 
 ```http
-DELETE /api/v1/agents/:id
+DELETE /im/v3/agents/:id
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -266,7 +266,7 @@ Authorization: Bearer &lt;access-token&gt;
 为Agent创建一个新的聊天会话。
 
 ```http
-POST /api/v1/agents/:id/sessions
+POST /im/v3/agents/:id/sessions
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -304,7 +304,7 @@ Content-Type: application/json
 获取Agent的所有会话列表。
 
 ```http
-GET /api/v1/agents/:id/sessions?limit=20
+GET /im/v3/agents/:id/sessions?limit=20
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -343,7 +343,7 @@ Authorization: Bearer &lt;access-token&gt;
 根据ID获取会话详情。
 
 ```http
-GET /api/v1/agents/sessions/:sessionId
+GET /im/v3/agents/sessions/:sessionId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -374,7 +374,7 @@ Authorization: Bearer &lt;access-token&gt;
 删除指定的会话。
 
 ```http
-DELETE /api/v1/agents/sessions/:sessionId
+DELETE /im/v3/agents/sessions/:sessionId
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -399,7 +399,7 @@ Authorization: Bearer &lt;access-token&gt;
 获取会话的所有消息。
 
 ```http
-GET /api/v1/agents/sessions/:sessionId/messages?limit=50&amp;offset=0
+GET /im/v3/agents/sessions/:sessionId/messages?limit=50&amp;offset=0
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -450,7 +450,7 @@ Authorization: Bearer &lt;access-token&gt;
 发送消息给Agent。
 
 ```http
-POST /api/v1/agents/sessions/:sessionId/messages
+POST /im/v3/agents/sessions/:sessionId/messages
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -493,7 +493,7 @@ Content-Type: application/json
 使用Server-Sent Events (SSE) 流式接收Agent的响应。
 
 ```http
-POST /api/v1/agents/sessions/:sessionId/stream
+POST /im/v3/agents/sessions/:sessionId/stream
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -529,7 +529,7 @@ data: {"id":"msg-1","content":"。","done":true}
 获取Agent已添加的工具列表。
 
 ```http
-GET /api/v1/agents/:id/tools
+GET /im/v3/agents/:id/tools
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -560,7 +560,7 @@ Authorization: Bearer &lt;access-token&gt;
 为Agent添加工具。
 
 ```http
-POST /api/v1/agents/:id/tools
+POST /im/v3/agents/:id/tools
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -594,7 +594,7 @@ Content-Type: application/json
 获取Agent已添加的技能列表。
 
 ```http
-GET /api/v1/agents/:id/skills
+GET /im/v3/agents/:id/skills
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -625,7 +625,7 @@ Authorization: Bearer &lt;access-token&gt;
 为Agent添加技能。
 
 ```http
-POST /api/v1/agents/:id/skills
+POST /im/v3/agents/:id/skills
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -659,7 +659,7 @@ Content-Type: application/json
 获取所有可用的工具列表。
 
 ```http
-GET /api/v1/agents/tools/available
+GET /im/v3/agents/tools/available
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -695,7 +695,7 @@ Authorization: Bearer &lt;access-token&gt;
 获取所有可用的技能列表。
 
 ```http
-GET /api/v1/agents/skills/available
+GET /im/v3/agents/skills/available
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -731,7 +731,7 @@ Authorization: Bearer &lt;access-token&gt;
 启动Agent的运行时。
 
 ```http
-POST /api/v1/agents/:id/start
+POST /im/v3/agents/:id/start
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -757,7 +757,7 @@ Authorization: Bearer &lt;access-token&gt;
 停止Agent的运行时。
 
 ```http
-POST /api/v1/agents/:id/stop
+POST /im/v3/agents/:id/stop
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -782,7 +782,7 @@ Authorization: Bearer &lt;access-token&gt;
 重置Agent状态。
 
 ```http
-POST /api/v1/agents/:id/reset
+POST /im/v3/agents/:id/reset
 Authorization: Bearer &lt;access-token&gt;
 ```
 

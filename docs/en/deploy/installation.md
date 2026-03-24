@@ -457,8 +457,11 @@ pnpm run health:full
 # API health check
 curl http://localhost:3000/health
 
-# Open API docs
-open http://localhost:3000/api/docs
+# Open app API docs
+open http://localhost:3000/im/v3/docs
+
+# Open admin API docs
+open http://localhost:3000/admin/im/v3/docs
 
 # Open WukongIM admin
 open http://localhost:5300/web
@@ -468,8 +471,11 @@ open http://localhost:5300/web
 # API health check
 Invoke-WebRequest -Uri http://localhost:3000/health
 
-# Open API docs
-Start-Process "http://localhost:3000/api/docs"
+# Open app API docs
+Start-Process "http://localhost:3000/im/v3/docs"
+
+# Open admin API docs
+Start-Process "http://localhost:3000/admin/im/v3/docs"
 
 # Open WukongIM admin
 Start-Process "http://localhost:5300/web"

@@ -64,23 +64,23 @@
 
 鉴权：所有接口均需 JWT。
 
-- `POST /im/api/v1/timeline/posts`
+- `POST /im/v3/timeline/posts`
   - 创建帖子，服务端自动选择 `distribution_mode`。
 
-- `GET /im/api/v1/timeline/feed?cursor=&limit=20`
+- `GET /im/v3/timeline/feed?cursor=&limit=20`
   - 获取当前用户 feed。
   - 自动合并 `inbox` 与 `hybrid/pull` 拉取候选，按统一游标输出。
 
-- `GET /im/api/v1/timeline/posts/:postId`
+- `GET /im/v3/timeline/posts/:postId`
   - 获取帖子详情（含权限校验）。
 
-- `GET /im/api/v1/timeline/users/:userId/posts?cursor=&limit=20`
+- `GET /im/v3/timeline/users/:userId/posts?cursor=&limit=20`
   - 获取用户主页帖子流（按 viewer 权限过滤）。
 
-- `DELETE /im/api/v1/timeline/posts/:postId`
+- `DELETE /im/v3/timeline/posts/:postId`
   - 删除本人帖子（帖子软删 + feed 回收 + 点赞软删）。
 
-- `POST /im/api/v1/timeline/posts/:postId/likes`
+- `POST /im/v3/timeline/posts/:postId/likes`
   - 点赞/取消点赞（支持显式 `liked` 或 toggle）。
 
 ## Cursor 规范
@@ -108,7 +108,7 @@
 
 环境变量：
 - `TIMELINE_BENCH_TOKEN`：压测账号 JWT（必填）
-- `TIMELINE_BENCH_BASE_URL`：默认 `http://localhost:3000/im/api/v1`
+- `TIMELINE_BENCH_BASE_URL`：默认 `http://localhost:3000/im/v3`
 - `TIMELINE_BENCH_POSTS`：发帖请求数，默认 `200`
 - `TIMELINE_BENCH_CONCURRENCY`：并发数，默认 `20`
 - `TIMELINE_BENCH_FEED_READS`：feed 读取请求数，默认 `300`

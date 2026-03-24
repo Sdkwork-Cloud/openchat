@@ -1,7 +1,26 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
-import { createHash } from 'crypto';
-import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Request,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
+import { createHash } from "crypto";
+import { AuthenticatedRequest } from "../../common/auth/interfaces/authenticated-request.interface";
 import {
   ConversationSeqAckBatchResult,
   ConversationSeqAckResult,
@@ -11,19 +30,24 @@ import {
   MessageReceiptSummaryResult,
   MessageService,
   MessageUnreadMembersResult,
-} from './message.service';
+} from "./message.service";
 import {
   MessageReactionService,
   MessageReactionSummaryResult,
-} from './message-reaction.service';
-import { type ReceiptStatus } from './message-receipt.service';
+} from "./message-reaction.service";
+import { type ReceiptStatus } from "./message-receipt.service";
 import {
   MessageDispatchEventType,
   buildMessageEventPayload,
-} from './message-event-envelope.util';
-import { Message, MessageType as DomainMessageType, MessageStatus, SendMessageResult } from './message.interface';
-import { MessageEventStateKey } from './message-state.util';
-import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
+} from "./message-event-envelope.util";
+import {
+  Message,
+  MessageType as DomainMessageType,
+  MessageStatus,
+  SendMessageResult,
+} from "./message.interface";
+import { MessageEventStateKey } from "./message-state.util";
+import { JwtAuthGuard } from "../user/guards/jwt-auth.guard";
 import {
   SendMessage,
   BatchSendMessage,
@@ -41,12 +65,12 @@ import {
   GetMessageHistoryBySeqQuery,
   AckConversationSeqRequest,
   AckConversationSeqBatchRequest,
-} from './dto/message.dto';
+} from "./dto/message.dto";
 
-@ApiTags('messages')
+@ApiTags("messages")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('messages')
+@Controller("messages")
 export class MessageController {
   constructor(
     private messageService: MessageService,
@@ -54,17 +78,13 @@ export class MessageController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: '发送消息' })
-  @ApiResponse({ status: 201, description: '成功发送消息' })
-  @ApiResponse({ status: 400, description: '参数错误' })
+  @ApiOperation({ summary: "发送消息" })
+  @ApiResponse({ status: 201, description: "成功发送消息" })
+  @ApiResponse({ status: 400, description: "参数错误" })
   async sendMessage(
     @Body() messageData: SendMessage,
     @Request() req: AuthenticatedRequest,
   ): Promise<SendMessageResult> {
-    if (messageData.fromUserId && messageData.fromUserId !== req.auth.userId) {
-      throw new ForbiddenException('Cannot send message for another user');
-    }
-
     const normalized = this.normalizeSendMessagePayload(
       messageData,
       req.auth.userId,
@@ -75,19 +95,15 @@ export class MessageController {
     return this.attachDispatchEnvelope(result);
   }
 
-  @Post('batch')
-  @ApiOperation({ summary: '批量发送消息' })
-  @ApiResponse({ status: 201, description: '成功批量发送消息' })
+  @Post("batch")
+  @ApiOperation({ summary: "批量发送消息" })
+  @ApiResponse({ status: 201, description: "成功批量发送消息" })
   async batchSendMessages(
     @Body() batchData: BatchSendMessage,
     @Request() req: AuthenticatedRequest,
   ): Promise<SendMessageResult[]> {
     const requestIdempotencyKey = this.resolveIdempotencyKeyFromRequest(req);
     const normalizedMessages = batchData.messages.map((msg, index) => {
-      if (msg.fromUserId && msg.fromUserId !== req.auth.userId) {
-        throw new ForbiddenException('Cannot send message for another user');
-      }
-
       return this.normalizeSendMessagePayload(
         msg,
         req.auth.userId,
@@ -96,21 +112,24 @@ export class MessageController {
       );
     });
 
-    const batchResult = await this.messageService.sendMessageBatch(normalizedMessages);
-    return batchResult.results.map((result) => this.attachDispatchEnvelope(result));
+    const batchResult =
+      await this.messageService.sendMessageBatch(normalizedMessages);
+    return batchResult.results.map((result) =>
+      this.attachDispatchEnvelope(result),
+    );
   }
 
-  @Get('user/:userId')
-  @ApiOperation({ summary: '获取用户消息列表' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功获取用户消息列表' })
+  @Get("user/:userId")
+  @ApiOperation({ summary: "获取用户消息列表" })
+  @ApiParam({ name: "userId", description: "用户ID" })
+  @ApiResponse({ status: 200, description: "成功获取用户消息列表" })
   async getMessagesByUserId(
-    @Param('userId') userId: string,
+    @Param("userId") userId: string,
     @Query() query: GetMessagesQuery,
     @Request() req: AuthenticatedRequest,
   ): Promise<Message[]> {
     if (userId !== req.auth.userId) {
-      throw new ForbiddenException('Cannot read messages of another user');
+      throw new ForbiddenException("Cannot read messages of another user");
     }
     return this.messageService.getMessagesByUserId(userId, {
       limit: query.limit,
@@ -121,18 +140,23 @@ export class MessageController {
     });
   }
 
-  @Get('group/:groupId')
-  @ApiOperation({ summary: '获取群组消息列表' })
-  @ApiParam({ name: 'groupId', description: '群组ID' })
-  @ApiResponse({ status: 200, description: '成功获取群组消息列表' })
+  @Get("group/:groupId")
+  @ApiOperation({ summary: "获取群组消息列表" })
+  @ApiParam({ name: "groupId", description: "群组ID" })
+  @ApiResponse({ status: 200, description: "成功获取群组消息列表" })
   async getMessagesByGroupId(
-    @Param('groupId') groupId: string,
+    @Param("groupId") groupId: string,
     @Query() query: GetMessagesQuery,
     @Request() req: AuthenticatedRequest,
   ): Promise<Message[]> {
-    const isMember = await this.messageService.isUserInGroup(groupId, req.auth.userId);
+    const isMember = await this.messageService.isUserInGroup(
+      groupId,
+      req.auth.userId,
+    );
     if (!isMember) {
-      throw new ForbiddenException('Cannot read messages of a group you have not joined');
+      throw new ForbiddenException(
+        "Cannot read messages of a group you have not joined",
+      );
     }
     return this.messageService.getMessagesByGroupId(groupId, {
       limit: query.limit,
@@ -143,14 +167,15 @@ export class MessageController {
     });
   }
 
-  @Get('history/seq')
-  @ApiOperation({ summary: '按序列号增量拉取会话消息' })
-  @ApiResponse({ status: 200, description: '成功拉取消息历史' })
+  @Get("history/seq")
+  @ApiOperation({ summary: "按序列号增量拉取会话消息" })
+  @ApiResponse({ status: 200, description: "成功拉取消息历史" })
   async getMessageHistoryBySeq(
     @Query() query: GetMessageHistoryBySeqQuery,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageHistoryBySeqResult> {
-    const conversationType: 'single' | 'group' = query.type === 'group' ? 'group' : 'single';
+    const conversationType: "single" | "group" =
+      query.type === "group" ? "group" : "single";
     return this.messageService.getMessageHistoryBySeq(
       req.auth.userId,
       query.targetId,
@@ -165,15 +190,18 @@ export class MessageController {
     );
   }
 
-  @Post('sync/ack-seq')
-  @ApiOperation({ summary: '确认会话同步序列（支持设备维度）' })
-  @ApiResponse({ status: 200, description: '成功确认会话同步序列' })
+  @Post("sync/ack-seq")
+  @ApiOperation({ summary: "确认会话同步序列（支持设备维度）" })
+  @ApiResponse({ status: 200, description: "成功确认会话同步序列" })
   async ackConversationSeq(
     @Body() body: AckConversationSeqRequest,
     @Request() req: AuthenticatedRequest,
   ): Promise<ConversationSeqAckResult> {
-    const type: 'single' | 'group' = body.type === 'group' ? 'group' : 'single';
-    const effectiveDeviceId = this.resolveEffectiveDeviceId(req.auth.deviceId, body.deviceId);
+    const type: "single" | "group" = body.type === "group" ? "group" : "single";
+    const effectiveDeviceId = this.resolveEffectiveDeviceId(
+      req.auth.deviceId,
+      body.deviceId,
+    );
 
     if (effectiveDeviceId) {
       return this.messageService.ackConversationSeq(
@@ -194,22 +222,27 @@ export class MessageController {
     });
   }
 
-  @Post('sync/ack-seq/batch')
-  @ApiOperation({ summary: '批量确认会话同步序列（支持设备维度）' })
-  @ApiResponse({ status: 200, description: '成功批量确认会话同步序列' })
+  @Post("sync/ack-seq/batch")
+  @ApiOperation({ summary: "批量确认会话同步序列（支持设备维度）" })
+  @ApiResponse({ status: 200, description: "成功批量确认会话同步序列" })
   async ackConversationSeqBatch(
     @Body() body: AckConversationSeqBatchRequest,
     @Request() req: AuthenticatedRequest,
   ): Promise<ConversationSeqAckBatchResult> {
-    const items: Array<{ targetId: string; type: 'single' | 'group'; ackSeq: number }> = (
-      body.items || []
-    ).map((item) => ({
+    const items: Array<{
+      targetId: string;
+      type: "single" | "group";
+      ackSeq: number;
+    }> = (body.items || []).map((item) => ({
       targetId: item.targetId,
-      type: item.type === 'group' ? 'group' : 'single',
+      type: item.type === "group" ? "group" : "single",
       ackSeq: item.ackSeq,
     }));
 
-    const effectiveDeviceId = this.resolveEffectiveDeviceId(req.auth.deviceId, body.deviceId);
+    const effectiveDeviceId = this.resolveEffectiveDeviceId(
+      req.auth.deviceId,
+      body.deviceId,
+    );
     if (effectiveDeviceId) {
       return this.messageService.ackConversationSeqBatch(
         req.auth.userId,
@@ -221,28 +254,33 @@ export class MessageController {
     return this.messageService.ackConversationSeqBatch(req.auth.userId, items);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: '获取消息详情' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功获取消息详情' })
-  @ApiResponse({ status: 404, description: '消息不存在' })
+  @Get(":id")
+  @ApiOperation({ summary: "获取消息详情" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功获取消息详情" })
+  @ApiResponse({ status: 404, description: "消息不存在" })
   async getMessageById(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<Message | null> {
-    const canAccess = await this.messageService.canUserAccessMessage(req.auth.userId, id);
+    const canAccess = await this.messageService.canUserAccessMessage(
+      req.auth.userId,
+      id,
+    );
     if (!canAccess) {
-      throw new ForbiddenException('Cannot read message that does not belong to you');
+      throw new ForbiddenException(
+        "Cannot read message that does not belong to you",
+      );
     }
     return this.messageService.getMessageById(id);
   }
 
-  @Get(':id/receipts')
-  @ApiOperation({ summary: '获取消息回执详情' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功获取消息回执详情' })
+  @Get(":id/receipts")
+  @ApiOperation({ summary: "获取消息回执详情" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功获取消息回执详情" })
   async getMessageReceipts(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Query() query: GetMessageReceiptsQuery,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageReceiptListResult> {
@@ -253,39 +291,51 @@ export class MessageController {
     });
   }
 
-  @Get(':id/receipt-summary')
-  @ApiOperation({ summary: '获取消息回执统计' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功获取消息回执统计' })
+  @Get(":id/receipt-summary")
+  @ApiOperation({ summary: "获取消息回执统计" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功获取消息回执统计" })
   async getMessageReceiptSummary(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageReceiptSummaryResult> {
     return this.messageService.getMessageReceiptSummary(req.auth.userId, id);
   }
 
-  @Get(':id/unread-members')
-  @ApiOperation({ summary: '获取群消息未读成员列表' })
-  @ApiParam({ name: 'id', description: '消息ID（仅群消息）' })
-  @ApiResponse({ status: 200, description: '成功获取群消息未读成员列表', type: MessageUnreadMembersResponse })
+  @Get(":id/unread-members")
+  @ApiOperation({ summary: "获取群消息未读成员列表" })
+  @ApiParam({ name: "id", description: "消息ID（仅群消息）" })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取群消息未读成员列表",
+    type: MessageUnreadMembersResponse,
+  })
   async getGroupMessageUnreadMembers(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Query() query: GetMessageUnreadMembersQuery,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageUnreadMembersResult> {
-    return this.messageService.getGroupMessageUnreadMembers(req.auth.userId, id, {
-      limit: query.limit,
-      offset: query.offset,
-      cursor: query.cursor,
-    });
+    return this.messageService.getGroupMessageUnreadMembers(
+      req.auth.userId,
+      id,
+      {
+        limit: query.limit,
+        offset: query.offset,
+        cursor: query.cursor,
+      },
+    );
   }
 
-  @Get(':id/read-members')
-  @ApiOperation({ summary: '获取群消息已读成员列表' })
-  @ApiParam({ name: 'id', description: '消息ID（仅群消息）' })
-  @ApiResponse({ status: 200, description: '成功获取群消息已读成员列表', type: MessageReadMembersResponse })
+  @Get(":id/read-members")
+  @ApiOperation({ summary: "获取群消息已读成员列表" })
+  @ApiParam({ name: "id", description: "消息ID（仅群消息）" })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取群消息已读成员列表",
+    type: MessageReadMembersResponse,
+  })
   async getGroupMessageReadMembers(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Query() query: GetMessageReadMembersQuery,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageReadMembersResult> {
@@ -296,29 +346,35 @@ export class MessageController {
     });
   }
 
-  @Put(':id/status')
-  @ApiOperation({ summary: '更新消息状态' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功更新消息状态' })
-  @ApiResponse({ status: 404, description: '消息不存在' })
+  @Put(":id/status")
+  @ApiOperation({ summary: "更新消息状态" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功更新消息状态" })
+  @ApiResponse({ status: 404, description: "消息不存在" })
   async updateMessageStatus(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: UpdateMessageStatus,
     @Request() req: AuthenticatedRequest,
   ): Promise<boolean> {
-    const isSender = await this.messageService.isMessageSender(req.auth.userId, id);
+    const isSender = await this.messageService.isMessageSender(
+      req.auth.userId,
+      id,
+    );
     if (!isSender) {
-      throw new ForbiddenException('Only sender can update message status');
+      throw new ForbiddenException("Only sender can update message status");
     }
-    return this.messageService.updateMessageStatus(id, this.normalizeMessageStatus(body.status));
+    return this.messageService.updateMessageStatus(
+      id,
+      this.normalizeMessageStatus(body.status),
+    );
   }
 
-  @Put(':id/content')
-  @ApiOperation({ summary: '编辑消息内容' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功编辑消息' })
+  @Put(":id/content")
+  @ApiOperation({ summary: "编辑消息内容" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功编辑消息" })
   async editMessage(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: EditMessage,
     @Request() req: AuthenticatedRequest,
   ): Promise<SendMessageResult> {
@@ -328,23 +384,23 @@ export class MessageController {
     });
   }
 
-  @Get(':id/reactions')
-  @ApiOperation({ summary: '获取消息反应汇总' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功获取消息反应汇总' })
+  @Get(":id/reactions")
+  @ApiOperation({ summary: "获取消息反应汇总" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功获取消息反应汇总" })
   async getMessageReactionSummary(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageReactionSummaryResult> {
     return this.messageReactionService.getReactionSummary(id, req.auth.userId);
   }
 
-  @Put(':id/reactions')
-  @ApiOperation({ summary: '设置消息反应' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功更新消息反应' })
+  @Put(":id/reactions")
+  @ApiOperation({ summary: "设置消息反应" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功更新消息反应" })
   async setMessageReaction(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: SetMessageReaction,
     @Request() req: AuthenticatedRequest,
   ): Promise<MessageReactionSummaryResult> {
@@ -356,99 +412,124 @@ export class MessageController {
     );
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: '删除消息' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功删除消息' })
+  @Delete(":id")
+  @ApiOperation({ summary: "删除消息" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功删除消息" })
   async deleteMessage(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<boolean> {
-    const isSender = await this.messageService.isMessageSender(req.auth.userId, id);
+    const isSender = await this.messageService.isMessageSender(
+      req.auth.userId,
+      id,
+    );
     if (!isSender) {
-      throw new ForbiddenException('Only sender can delete message');
+      throw new ForbiddenException("Only sender can delete message");
     }
     return this.messageService.deleteMessage(id);
   }
 
-  @Post('group/:groupId/read')
-  @ApiOperation({ summary: '标记群消息为已读' })
-  @ApiParam({ name: 'groupId', description: '群组ID' })
-  @ApiResponse({ status: 200, description: '成功标记群消息为已读' })
+  @Post("group/:groupId/read")
+  @ApiOperation({ summary: "标记群消息为已读" })
+  @ApiParam({ name: "groupId", description: "群组ID" })
+  @ApiResponse({ status: 200, description: "成功标记群消息为已读" })
   async markGroupMessagesAsRead(
-    @Param('groupId') groupId: string,
+    @Param("groupId") groupId: string,
     @Body() body: MarkMessagesRead,
     @Request() req: AuthenticatedRequest,
   ): Promise<boolean> {
-    const isMember = await this.messageService.isUserInGroup(groupId, req.auth.userId);
+    const isMember = await this.messageService.isUserInGroup(
+      groupId,
+      req.auth.userId,
+    );
     if (!isMember) {
-      throw new ForbiddenException('Cannot update read status in a group you have not joined');
+      throw new ForbiddenException(
+        "Cannot update read status in a group you have not joined",
+      );
     }
-    return this.messageService.markGroupMessagesAsRead(req.auth.userId, groupId, body.messageIds);
+    return this.messageService.markGroupMessagesAsRead(
+      req.auth.userId,
+      groupId,
+      body.messageIds,
+    );
   }
 
-  @Post(':userId/read')
-  @ApiOperation({ summary: '标记消息为已读' })
-  @ApiParam({ name: 'userId', description: '用户ID' })
-  @ApiResponse({ status: 200, description: '成功标记消息为已读' })
+  @Post(":userId/read")
+  @ApiOperation({ summary: "标记消息为已读" })
+  @ApiParam({ name: "userId", description: "用户ID" })
+  @ApiResponse({ status: 200, description: "成功标记消息为已读" })
   async markMessagesAsRead(
-    @Param('userId') userId: string,
+    @Param("userId") userId: string,
     @Body() body: MarkMessagesRead,
     @Request() req: AuthenticatedRequest,
   ): Promise<boolean> {
     if (userId !== req.auth.userId) {
-      throw new ForbiddenException('Cannot update another user read status');
+      throw new ForbiddenException("Cannot update another user read status");
     }
     return this.messageService.markMessagesAsRead(userId, body.messageIds);
   }
 
-  @Post(':id/recall')
-  @ApiOperation({ summary: '撤回消息' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功撤回消息' })
-  @ApiResponse({ status: 400, description: '撤回失败' })
+  @Post(":id/recall")
+  @ApiOperation({ summary: "撤回消息" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功撤回消息" })
+  @ApiResponse({ status: 400, description: "撤回失败" })
   async recallMessage(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<{ success: boolean; error?: string }> {
     return this.messageService.recallMessage(id, req.auth.userId);
   }
 
-  @Post(':id/forward')
-  @ApiOperation({ summary: '转发消息' })
-  @ApiParam({ name: 'id', description: '原消息ID' })
-  @ApiResponse({ status: 200, description: '成功转发消息' })
+  @Post(":id/forward")
+  @ApiOperation({ summary: "转发消息" })
+  @ApiParam({ name: "id", description: "原消息ID" })
+  @ApiResponse({ status: 200, description: "成功转发消息" })
   async forwardMessage(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: ForwardMessage,
     @Request() req: AuthenticatedRequest,
   ): Promise<SendMessageResult[]> {
     const results: SendMessageResult[] = [];
 
     for (const toUserId of body.toUserIds || []) {
-      const result = await this.messageService.forwardMessage(id, req.auth.userId, toUserId, undefined);
+      const result = await this.messageService.forwardMessage(
+        id,
+        req.auth.userId,
+        toUserId,
+        undefined,
+      );
       results.push(result);
     }
 
     for (const toGroupId of body.toGroupIds || []) {
-      const result = await this.messageService.forwardMessage(id, req.auth.userId, undefined, toGroupId);
+      const result = await this.messageService.forwardMessage(
+        id,
+        req.auth.userId,
+        undefined,
+        toGroupId,
+      );
       results.push(result);
     }
 
     return results;
   }
 
-  @Post(':id/retry')
-  @ApiOperation({ summary: '重试发送失败的消息' })
-  @ApiParam({ name: 'id', description: '消息ID' })
-  @ApiResponse({ status: 200, description: '成功重试发送' })
+  @Post(":id/retry")
+  @ApiOperation({ summary: "重试发送失败的消息" })
+  @ApiParam({ name: "id", description: "消息ID" })
+  @ApiResponse({ status: 200, description: "成功重试发送" })
   async retryFailedMessage(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<SendMessageResult> {
-    const isSender = await this.messageService.isMessageSender(req.auth.userId, id);
+    const isSender = await this.messageService.isMessageSender(
+      req.auth.userId,
+      id,
+    );
     if (!isSender) {
-      throw new ForbiddenException('Only sender can retry failed message');
+      throw new ForbiddenException("Only sender can retry failed message");
     }
     return this.messageService.retryFailedMessage(id);
   }
@@ -461,11 +542,15 @@ export class MessageController {
     const requested = this.normalizeDeviceIdCandidate(requestedDeviceId);
 
     if (requested && !trusted) {
-      throw new ForbiddenException('deviceId must be bound to authenticated token');
+      throw new ForbiddenException(
+        "deviceId must be bound to authenticated token",
+      );
     }
 
     if (trusted && requested && trusted !== requested) {
-      throw new ForbiddenException('deviceId does not match authenticated device');
+      throw new ForbiddenException(
+        "deviceId does not match authenticated device",
+      );
     }
 
     return trusted;
@@ -493,36 +578,298 @@ export class MessageController {
     authenticatedUserId: string,
     requestIdempotencyKey?: string,
     batchIndex?: number,
-  ): Parameters<MessageService['sendMessage']>[0] {
-    const { idempotencyKey, ...rest } = messageData;
+  ): Parameters<MessageService["sendMessage"]>[0] {
+    const { idempotencyKey } = messageData;
     const normalizedExplicitKey = this.normalizeIdempotencyKey(idempotencyKey);
-    const normalizedRequestKey = this.normalizeIdempotencyKey(requestIdempotencyKey);
-    const deduplicationKey = normalizedExplicitKey
-      ?? (normalizedRequestKey
-        ? (batchIndex === undefined ? normalizedRequestKey : `${normalizedRequestKey}:${batchIndex}`)
+    const normalizedRequestKey = this.normalizeIdempotencyKey(
+      requestIdempotencyKey,
+    );
+    const deduplicationKey =
+      normalizedExplicitKey ??
+      (normalizedRequestKey
+        ? batchIndex === undefined
+          ? normalizedRequestKey
+          : `${normalizedRequestKey}:${batchIndex}`
         : undefined);
-    const rawClientSeq = rest.clientSeq;
-    const explicitClientSeq = Number.isInteger(rawClientSeq) && (rawClientSeq as number) >= 0
-      ? rawClientSeq
-      : undefined;
-    const derivedClientSeq = explicitClientSeq
-      ?? this.deriveClientSeqFromIdempotencyKey(
+    const normalizedPayload = this.isVersionedSendMessagePayload(messageData)
+      ? this.normalizeVersionedSendMessagePayload(
+          messageData,
+          authenticatedUserId,
+        )
+      : this.normalizeLegacySendMessagePayload(
+          messageData,
+          authenticatedUserId,
+        );
+    const rawClientSeq = normalizedPayload.clientSeq;
+    const explicitClientSeq =
+      Number.isInteger(rawClientSeq) && (rawClientSeq as number) >= 0
+        ? rawClientSeq
+        : undefined;
+    const derivedClientSeq =
+      explicitClientSeq ??
+      this.deriveClientSeqFromIdempotencyKey(
         authenticatedUserId,
-        rest.toUserId,
-        rest.groupId,
+        normalizedPayload.toUserId,
+        normalizedPayload.groupId,
         deduplicationKey,
       );
 
     return {
-      ...rest,
-      type: this.normalizeMessageType(rest.type),
-      fromUserId: authenticatedUserId,
-      ...(derivedClientSeq !== undefined ? { clientSeq: derivedClientSeq } : {}),
+      ...normalizedPayload,
+      ...(derivedClientSeq !== undefined
+        ? { clientSeq: derivedClientSeq }
+        : {}),
     };
   }
 
-  private resolveIdempotencyKeyFromRequest(req: AuthenticatedRequest): string | undefined {
-    const standardHeader = this.extractHeaderValue(req.headers?.['idempotency-key']);
+  private isVersionedSendMessagePayload(messageData: SendMessage): boolean {
+    return (
+      messageData.version !== undefined ||
+      !!messageData.conversation ||
+      !!messageData.message ||
+      !!messageData.event
+    );
+  }
+
+  private normalizeLegacySendMessagePayload(
+    messageData: SendMessage,
+    authenticatedUserId: string,
+  ): Parameters<MessageService["sendMessage"]>[0] {
+    if (!messageData.type || !messageData.content) {
+      throw new BadRequestException(
+        "Legacy message payload requires type and content",
+      );
+    }
+
+    return {
+      uuid: messageData.uuid,
+      type: this.normalizeMessageType(messageData.type),
+      content: messageData.content,
+      fromUserId: authenticatedUserId,
+      toUserId: messageData.toUserId,
+      groupId: messageData.groupId,
+      replyToId: messageData.replyToId,
+      forwardFromId: messageData.forwardFromId,
+      clientSeq: messageData.clientSeq,
+      extra: messageData.extra,
+      needReadReceipt: messageData.needReadReceipt,
+    };
+  }
+
+  private normalizeVersionedSendMessagePayload(
+    messageData: SendMessage,
+    authenticatedUserId: string,
+  ): Parameters<MessageService["sendMessage"]>[0] {
+    const conversation = messageData.conversation;
+    if (!conversation) {
+      throw new BadRequestException("conversation is required");
+    }
+
+    const targetId = conversation.targetId?.trim();
+    if (!targetId) {
+      throw new BadRequestException("conversation.targetId is required");
+    }
+
+    const hasMessage = !!messageData.message;
+    const hasEvent = !!messageData.event;
+    if (hasMessage === hasEvent) {
+      throw new BadRequestException(
+        "Exactly one of message or event is required",
+      );
+    }
+
+    const conversationType = this.normalizeConversationType(conversation.type);
+    const basePayload: Omit<
+      Parameters<MessageService["sendMessage"]>[0],
+      "type" | "content"
+    > = {
+      uuid: messageData.uuid,
+      fromUserId: authenticatedUserId,
+      ...(conversationType === "single"
+        ? { toUserId: targetId }
+        : { groupId: targetId }),
+      ...(messageData.replyToId ? { replyToId: messageData.replyToId } : {}),
+      ...(messageData.forwardFromId
+        ? { forwardFromId: messageData.forwardFromId }
+        : {}),
+      ...(messageData.clientSeq !== undefined
+        ? { clientSeq: messageData.clientSeq }
+        : {}),
+      ...(messageData.extra ? { extra: messageData.extra } : {}),
+      ...(messageData.needReadReceipt !== undefined
+        ? { needReadReceipt: messageData.needReadReceipt }
+        : {}),
+    };
+
+    if (hasEvent) {
+      return {
+        ...basePayload,
+        type: DomainMessageType.SYSTEM,
+        content: this.normalizeEventMessageContent(messageData.event),
+      };
+    }
+
+    const normalizedMessage = this.normalizeVersionedMessageEnvelope(
+      messageData.message,
+    );
+    return {
+      ...basePayload,
+      ...normalizedMessage,
+    };
+  }
+
+  private normalizeVersionedMessageEnvelope(
+    message?: SendMessage["message"],
+  ): Pick<Parameters<MessageService["sendMessage"]>[0], "type" | "content"> {
+    if (!message) {
+      throw new BadRequestException("message is required");
+    }
+
+    const type = this.normalizeMessageType(message.type);
+    const payloadField = this.resolveMessagePayloadField(type);
+    const activePayloadFields = this.getActiveMessagePayloadFields(message);
+    if (
+      activePayloadFields.length !== 1 ||
+      activePayloadFields[0] !== payloadField
+    ) {
+      throw new BadRequestException(
+        `message.${payloadField} must match message.type`,
+      );
+    }
+
+    const payload = (message as unknown as Record<string, unknown>)[
+      payloadField
+    ];
+    if (!payload || typeof payload !== "object") {
+      throw new BadRequestException(`message.${payloadField} is required`);
+    }
+
+    return {
+      type,
+      content:
+        payloadField === "card"
+          ? { cardResource: payload as Message["content"]["cardResource"] }
+          : ({ [payloadField]: payload } as Message["content"]),
+    };
+  }
+
+  private normalizeEventMessageContent(
+    event?: SendMessage["event"],
+  ): Message["content"] {
+    const type = event?.type?.trim();
+    if (!type) {
+      throw new BadRequestException("event.type is required");
+    }
+
+    return {
+      event: {
+        type,
+        ...(event?.name ? { name: event.name } : {}),
+        ...(event?.data ? { data: event.data } : {}),
+        ...(event?.metadata ? { metadata: event.metadata } : {}),
+      },
+    };
+  }
+
+  private getActiveMessagePayloadFields(
+    message: NonNullable<SendMessage["message"]>,
+  ): string[] {
+    const payloadKeys = [
+      "text",
+      "image",
+      "audio",
+      "video",
+      "file",
+      "location",
+      "card",
+      "system",
+      "custom",
+      "music",
+      "document",
+      "code",
+      "ppt",
+      "character",
+      "model3d",
+    ] as const;
+
+    return payloadKeys.filter((key) =>
+      this.hasPayloadValue(
+        (message as unknown as Record<string, unknown>)[key],
+      ),
+    );
+  }
+
+  private hasPayloadValue(value: unknown): boolean {
+    if (!value) {
+      return false;
+    }
+
+    if (typeof value !== "object") {
+      return true;
+    }
+
+    return Object.keys(value as Record<string, unknown>).length > 0;
+  }
+
+  private resolveMessagePayloadField(type: Message["type"]): string {
+    switch (type) {
+      case DomainMessageType.TEXT:
+        return "text";
+      case DomainMessageType.IMAGE:
+        return "image";
+      case DomainMessageType.AUDIO:
+        return "audio";
+      case DomainMessageType.VIDEO:
+        return "video";
+      case DomainMessageType.FILE:
+        return "file";
+      case DomainMessageType.LOCATION:
+        return "location";
+      case DomainMessageType.CARD:
+        return "card";
+      case DomainMessageType.SYSTEM:
+        return "system";
+      case DomainMessageType.CUSTOM:
+        return "custom";
+      case DomainMessageType.MUSIC:
+        return "music";
+      case DomainMessageType.DOCUMENT:
+        return "document";
+      case DomainMessageType.CODE:
+        return "code";
+      case DomainMessageType.PPT:
+        return "ppt";
+      case DomainMessageType.CHARACTER:
+        return "character";
+      case DomainMessageType.MODEL_3D:
+        return "model3d";
+      default:
+        throw new BadRequestException(
+          "Unsupported message.type in versioned envelope",
+        );
+    }
+  }
+
+  private normalizeConversationType(type?: string): "single" | "group" {
+    const normalized =
+      typeof type === "string" ? type.trim().toUpperCase() : "";
+
+    switch (normalized) {
+      case "SINGLE":
+        return "single";
+      case "GROUP":
+        return "group";
+      default:
+        throw new BadRequestException("Invalid conversation type");
+    }
+  }
+
+  private resolveIdempotencyKeyFromRequest(
+    req: AuthenticatedRequest,
+  ): string | undefined {
+    const standardHeader = this.extractHeaderValue(
+      req.headers?.["idempotency-key"],
+    );
     return this.normalizeIdempotencyKey(standardHeader);
   }
 
@@ -532,14 +879,16 @@ export class MessageController {
     }
 
     if (Array.isArray(raw)) {
-      return raw.find((value) => typeof value === 'string' && value.trim().length > 0)?.trim();
+      return raw
+        .find((value) => typeof value === "string" && value.trim().length > 0)
+        ?.trim();
     }
 
     return raw.trim() || undefined;
   }
 
   private normalizeIdempotencyKey(key?: string): string | undefined {
-    if (!key || typeof key !== 'string') {
+    if (!key || typeof key !== "string") {
       return undefined;
     }
 
@@ -566,10 +915,10 @@ export class MessageController {
       return undefined;
     }
 
-    const scope = groupId ? `group:${groupId}` : `single:${toUserId || ''}`;
-    const hashHex = createHash('sha256')
+    const scope = groupId ? `group:${groupId}` : `single:${toUserId || ""}`;
+    const hashHex = createHash("sha256")
       .update(`${userId}:${scope}:${normalizedKey}`)
-      .digest('hex');
+      .digest("hex");
     const primary = Number.parseInt(hashHex.slice(0, 13), 16);
     if (Number.isSafeInteger(primary) && primary >= 0) {
       return primary;
@@ -579,81 +928,95 @@ export class MessageController {
 
   private attachDispatchEnvelope(result: SendMessageResult): SendMessageResult {
     const eventType: MessageDispatchEventType = result.success
-      ? 'messageSent'
-      : 'messageFailed';
+      ? "messageSent"
+      : "messageFailed";
     const stateKey = this.resolveDispatchStateKey(result);
     return buildMessageEventPayload(eventType, result, {
       status: stateKey,
       identity: {
         serverMessageId: result.message?.id,
         messageId: result.message?.id,
-        status: result.success ? (result.isDuplicate ? 'duplicate' : 'sent') : 'failed',
+        status: result.success
+          ? result.isDuplicate
+            ? "duplicate"
+            : "sent"
+          : "failed",
         stableKey: result.message?.uuid || result.errorCode || result.error,
       },
     });
   }
 
-  private resolveDispatchStateKey(result: SendMessageResult): MessageEventStateKey {
+  private resolveDispatchStateKey(
+    result: SendMessageResult,
+  ): MessageEventStateKey {
     if (!result.success) {
       return MessageStatus.FAILED;
     }
 
-    return result.isDuplicate ? 'duplicate' : MessageStatus.SENT;
+    return result.isDuplicate ? "duplicate" : MessageStatus.SENT;
   }
 
-  private normalizeMessageType(type: SendMessage['type']): Message['type'] {
-    switch (type) {
-      case 'text':
+  private normalizeMessageType(type?: string): Message["type"] {
+    const normalized =
+      typeof type === "string"
+        ? type.trim().replace(/-/g, "_").toUpperCase()
+        : "";
+
+    switch (normalized) {
+      case "TEXT":
         return DomainMessageType.TEXT;
-      case 'image':
+      case "IMAGE":
         return DomainMessageType.IMAGE;
-      case 'audio':
+      case "AUDIO":
         return DomainMessageType.AUDIO;
-      case 'video':
+      case "VIDEO":
         return DomainMessageType.VIDEO;
-      case 'file':
+      case "FILE":
         return DomainMessageType.FILE;
-      case 'location':
+      case "LOCATION":
         return DomainMessageType.LOCATION;
-      case 'card':
+      case "CARD":
         return DomainMessageType.CARD;
-      case 'custom':
+      case "CUSTOM":
         return DomainMessageType.CUSTOM;
-      case 'system':
+      case "SYSTEM":
         return DomainMessageType.SYSTEM;
-      case 'music':
+      case "MUSIC":
         return DomainMessageType.MUSIC;
-      case 'document':
+      case "DOCUMENT":
         return DomainMessageType.DOCUMENT;
-      case 'code':
+      case "CODE":
         return DomainMessageType.CODE;
-      case 'ppt':
+      case "PPT":
         return DomainMessageType.PPT;
-      case 'character':
+      case "CHARACTER":
         return DomainMessageType.CHARACTER;
-      case 'model_3d':
+      case "MODEL_3D":
+      case "MODEL3D":
         return DomainMessageType.MODEL_3D;
       default:
-        throw new BadRequestException('Invalid message type');
+        throw new BadRequestException("Invalid message type");
     }
   }
 
-  private normalizeMessageStatus(status: UpdateMessageStatus['status']): MessageStatus {
+  private normalizeMessageStatus(
+    status: UpdateMessageStatus["status"],
+  ): MessageStatus {
     switch (status) {
-      case 'sending':
+      case "sending":
         return MessageStatus.SENDING;
-      case 'sent':
+      case "sent":
         return MessageStatus.SENT;
-      case 'delivered':
+      case "delivered":
         return MessageStatus.DELIVERED;
-      case 'read':
+      case "read":
         return MessageStatus.READ;
-      case 'failed':
+      case "failed":
         return MessageStatus.FAILED;
-      case 'recalled':
+      case "recalled":
         return MessageStatus.RECALLED;
       default:
-        throw new BadRequestException('Invalid message status');
+        throw new BadRequestException("Invalid message status");
     }
   }
 }

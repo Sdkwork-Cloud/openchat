@@ -3,10 +3,11 @@ import {
   RtcProviderHealthQueryDto,
   RtcProviderOperationStatsQueryDto,
 } from './dto/rtc.dto';
-import { RTCController } from './rtc.controller';
+import { RtcAdminController } from './rtc-admin.controller';
+import { RtcAppController } from './rtc-app.controller';
 import { RTCService } from './rtc.service';
 
-describe('RTCController', () => {
+describe('RTC API split controllers', () => {
   function createController() {
     const rtcService = {
       getProviderOperationStats: jest.fn(),
@@ -17,15 +18,23 @@ describe('RTCController', () => {
     } as unknown as RTCService;
 
     return {
-      controller: new RTCController(rtcService),
+      appController: new RtcAppController(rtcService),
+      adminController: new RtcAdminController(rtcService),
       rtcService,
     };
   }
 
-  it('should reject provider stats query for non-admin user', async () => {
-    const { controller, rtcService } = createController();
+  it('should keep provider stats off the app controller surface', () => {
+    const { appController } = createController();
 
-    await expect(controller.getProviderOperationStats(
+    expect((appController as any).getProviderOperationStats).toBeUndefined();
+    expect((appController as any).getProviderHealthReport).toBeUndefined();
+  });
+
+  it('should reject provider stats query for non-admin user', async () => {
+    const { adminController, rtcService } = createController();
+
+    await expect(adminController.getProviderOperationStats(
       {
         id: 'user-1',
         username: 'alice',
@@ -38,7 +47,7 @@ describe('RTCController', () => {
   });
 
   it('should return provider stats for admin user and pass query through', async () => {
-    const { controller, rtcService } = createController();
+    const { adminController, rtcService } = createController();
     const stats = [
       {
         provider: 'volcengine',
@@ -62,7 +71,7 @@ describe('RTCController', () => {
       windowMinutes: 60,
       topErrorLimit: 5,
     };
-    const result = await controller.getProviderOperationStats(
+    const result = await adminController.getProviderOperationStats(
       {
         id: 'admin-1',
         username: 'ops-admin',
@@ -76,9 +85,9 @@ describe('RTCController', () => {
   });
 
   it('should reject provider health query for non-admin user', async () => {
-    const { controller, rtcService } = createController();
+    const { adminController, rtcService } = createController();
 
-    await expect(controller.getProviderHealthReport(
+    await expect(adminController.getProviderHealthReport(
       {
         id: 'user-2',
         username: 'bob',
@@ -91,7 +100,7 @@ describe('RTCController', () => {
   });
 
   it('should allow provider health query by username admin fallback and pass query through', async () => {
-    const { controller, rtcService } = createController();
+    const { adminController, rtcService } = createController();
     const report = {
       generatedAt: new Date(),
       windowMinutes: 30,
@@ -109,7 +118,7 @@ describe('RTCController', () => {
       degradedFailureRate: 0.2,
       unhealthyFailureRate: 0.4,
     };
-    const result = await controller.getProviderHealthReport(
+    const result = await adminController.getProviderHealthReport(
       {
         id: 'admin-2',
         username: 'admin',
@@ -123,7 +132,7 @@ describe('RTCController', () => {
   });
 
   it('should validate rtc token for token owner', async () => {
-    const { controller, rtcService } = createController();
+    const { appController, rtcService } = createController();
     const expiresAt = new Date('2026-03-01T00:00:00.000Z');
     (rtcService.validateToken as jest.Mock).mockResolvedValue({
       roomId: 'room-1',
@@ -134,7 +143,7 @@ describe('RTCController', () => {
       expiresAt,
     });
 
-    const result = await controller.validateToken(
+    const result = await appController.validateToken(
       {
         id: 'user-1',
         username: 'alice',
@@ -156,7 +165,7 @@ describe('RTCController', () => {
   });
 
   it('should validate rtc token for room participant', async () => {
-    const { controller, rtcService } = createController();
+    const { appController, rtcService } = createController();
     (rtcService.validateToken as jest.Mock).mockResolvedValue({
       roomId: 'room-2',
       userId: 'user-2',
@@ -168,7 +177,7 @@ describe('RTCController', () => {
       participants: ['user-1', 'user-2'],
     });
 
-    const result = await controller.validateToken(
+    const result = await appController.validateToken(
       {
         id: 'user-1',
         username: 'member',
@@ -182,7 +191,7 @@ describe('RTCController', () => {
   });
 
   it('should reject rtc token validation for non-owner and non-participant', async () => {
-    const { controller, rtcService } = createController();
+    const { appController, rtcService } = createController();
     (rtcService.validateToken as jest.Mock).mockResolvedValue({
       roomId: 'room-3',
       userId: 'user-2',
@@ -194,7 +203,7 @@ describe('RTCController', () => {
       participants: ['user-2', 'user-3'],
     });
 
-    await expect(controller.validateToken(
+    await expect(appController.validateToken(
       {
         id: 'user-1',
         username: 'outsider',
@@ -205,7 +214,7 @@ describe('RTCController', () => {
   });
 
   it('should return provider capabilities directly', async () => {
-    const { controller, rtcService } = createController();
+    const { appController, rtcService } = createController();
     const report = {
       defaultProvider: 'volcengine',
       recommendedPrimary: 'volcengine',
@@ -224,7 +233,7 @@ describe('RTCController', () => {
     };
     (rtcService.getProviderCapabilities as jest.Mock).mockResolvedValue(report);
 
-    const result = await controller.getProviderCapabilities();
+    const result = await appController.getProviderCapabilities();
 
     expect(result).toBe(report);
     expect((rtcService.getProviderCapabilities as jest.Mock).mock.calls).toHaveLength(1);

@@ -1,338 +1,56 @@
-# API Documentation
+# App API Reference
 
-OpenChat provides a complete RESTful API for building instant messaging applications.
+OpenChat exposes the app-facing IM HTTP surface under `/im/v3`.
 
-## Overview
+This surface is the only server contract that app SDK generation may consume.
 
-### Base Information
+## Runtime OpenAPI
 
-| Item | Value |
-|------|-------|
-| Base URL | `http://your-server:3000/im/api/v1` |
-| Protocol | HTTP/HTTPS |
-| Data Format | JSON |
-| Character Encoding | UTF-8 |
-| Time Format | ISO 8601 (`2024-01-15T10:30:00Z`) |
+- App Swagger UI: `http://localhost:3000/im/v3/docs`
+- App OpenAPI JSON: `http://localhost:3000/im/v3/openapi.json`
+- Schema-only runtime: `npm run start:openapi`
 
-### API Modules
+If markdown pages and the running service ever differ, treat the runtime OpenAPI document as the source of truth.
 
-| Module | Path Prefix | Description |
-|--------|-------------|-------------|
-| Authentication | `/im/api/v1/auth` | Login, registration, token management |
-| User Management | `/im/api/v1/users` | User info, search, settings |
-| Message Management | `/im/api/v1/messages` | Send messages, history, recall |
-| Message Search | `/im/api/v1/message-search` | Full-text search, advanced search |
-| Conversation Management | `/im/api/v1/conversations` | Conversation list, unread management |
-| Group Management | `/im/api/v1/groups` | Group creation, member management |
-| Friend Management | `/im/api/v1/friends` | Friend requests, groups |
-| Timeline | `/im/api/v1/timeline` | Moments posting, feed retrieval, likes |
-| Contact Management | `/im/api/v1/contacts` | Contact management, groups |
-| Real-time Audio/Video | `/im/api/v1/rtc` | Audio/video calls, signaling |
-| AI Bots | `/im/api/v1/ai-bots` | AI bot management, message processing |
-| AI Agents | `/im/api/v1/agents` | AI Agent management, tool calls |
-| Bot Platform | `/im/api/v1/bots` | Multi-platform bot integration |
-| Memory Management | `/im/api/v1/memory` | Conversation memory, knowledge base |
-| IoT | `/im/api/v1/iot` | IoT device management, message control |
-| Health Check | `/im/api/v1/health` | Service health status check |
-| Metrics | `/im/api/v1/metrics` | Prometheus monitoring metrics |
-| Third-party Integration | `/im/api/v1/third-party` | Multi-platform message integration |
-| IM Integration | `/im/api/v1/im` | WukongIM related endpoints |
+## Scope
 
----
+| Surface | Prefix | Audience | SDK Generation |
+|------|------|------|------|
+| App IM API | `/im/v3` | web apps, mobile apps, desktop apps, bots, frontend SDKs | included |
+| Admin IM API | `/admin/im/v3` | operators, admin consoles, control-plane tooling | excluded |
 
-## Authentication
+Admin APIs are documented separately at [Admin API Reference](../admin-api/index.md).
 
-OpenChat uses JWT (JSON Web Token) for API authentication.
+## Main Domains
 
-### Get Token
-
-```http
-POST /im/api/v1/auth/login
-Content-Type: application/json
-
-{
-  "username": "your-username",
-  "password": "your-password"
-}
-```
-
-### Use Token
-
-Add Authorization header to requests:
-
-```http
-Authorization: Bearer <your-access-token>
-```
-
-### Token Types
-
-| Token Type | Validity | Purpose |
-|------------|----------|---------|
-| Access Token | 1 hour | API request authentication |
-| Refresh Token | 7 days | Refresh Access Token |
-
----
-
-## Common Response Format
-
-### Success Response
-
-```json
-{
-  "success": true,
-  "data": {
-    // Response data
-  },
-  "message": "Operation successful"
-}
-```
-
-### Error Response
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Error description",
-    "details": {}
-  }
-}
-```
-
-### Paginated Response
-
-```json
-{
-  "success": true,
-  "data": {
-    "items": [],
-    "pagination": {
-      "page": 1,
-      "limit": 20,
-      "total": 100,
-      "totalPages": 5
-    }
-  }
-}
-```
-
----
-
-## HTTP Status Codes
-
-| Status Code | Description |
-|-------------|-------------|
-| 200 | Success |
-| 201 | Created successfully |
-| 204 | Success (no content) |
-| 400 | Bad request |
-| 401 | Unauthorized (not logged in or invalid token) |
-| 403 | Forbidden |
-| 404 | Resource not found |
-| 409 | Resource conflict |
-| 429 | Rate limit exceeded |
-| 500 | Internal server error |
-
----
-
-## Common Error Codes
-
-| Error Code | Description |
-|------------|-------------|
-| `VALIDATION_ERROR` | Parameter validation failed |
-| `UNAUTHORIZED` | Unauthorized |
-| `FORBIDDEN` | Permission denied |
-| `NOT_FOUND` | Resource not found |
-| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded |
-| `INTERNAL_ERROR` | Internal server error |
-
----
-
-## Rate Limits
-
-| Type | Limit |
-|------|-------|
-| Default rate limit | 100 requests/minute |
-| Login rate limit | 10 requests/minute |
-| Message send limit | 60 messages/minute |
-| File upload size | Max 50MB |
-
----
-
-## API Documentation Navigation
-
-### Authentication
-
-| Documentation | Description |
+| Domain | Prefix |
 |------|------|
-| [Authentication API](./auth.md) | Login, registration, token refresh, password management |
+| Authentication | `/im/v3/auth` |
+| Users | `/im/v3/users` |
+| Contacts | `/im/v3/contacts` |
+| Messages | `/im/v3/messages` |
+| Conversations | `/im/v3/conversations` |
+| Groups | `/im/v3/groups` |
+| Friends | `/im/v3/friends` |
+| Timeline | `/im/v3/timeline` |
+| RTC | `/im/v3/rtc` |
+| WuKongIM bootstrap | `/im/v3/wukongim` |
+| AI / Agents | `/im/v3/ai-bots`, `/im/v3/agents` |
 
-### Users
+## Key References
 
-| Documentation | Description |
-|------|------|
-| [User Management API](./users.md) | User info, search, settings |
-| [Contact Management API](./contacts.md) | Contact management, groups, notes |
+- [Authentication](./auth.md)
+- [Messages](./messages.md)
+- [Conversations](./conversations.md)
+- [RTC](./rtc.md)
+- [WuKongIM Integration](./wukongim.md)
+- [Open Access](./open-access.md)
+- [Admin API Reference](../admin-api/index.md)
 
-### Messages
+## Standard Rules
 
-| Documentation | Description |
-|------|------|
-| [Message Management API](./messages.md) | Send messages, history, recall, forward |
-| [Message Search API](./message-search.md) | Full-text search, advanced search |
-| [WukongIM Integration API](./wukongim.md) | IM message engine endpoints |
-
-### Conversations
-
-| Documentation | Description |
-|------|------|
-| [Conversation Management API](./conversations.md) | Conversation list, pin, mute, unread management |
-
-### Social
-
-| Documentation | Description |
-|------|------|
-| [Group Management API](./groups.md) | Group creation, member management, permission settings |
-| [Friend Management API](./friends.md) | Friend requests, group management, blacklist |
-| [Timeline API](./timeline.md) | Moments posting, feed retrieval, likes, and deletion |
-
-### Real-time Communication
-
-| Documentation | Description |
-|------|------|
-| [Real-time Audio/Video API](./rtc.md) | Audio/video calls, signaling exchange |
-
-### AI Features
-
-| Documentation | Description |
-|------|------|
-| [AI Bots API](./ai-bots.md) | AI bot management, message processing |
-| [AI Agents API](./agents.md) | AI Agent management, tool calls, workflows |
-| [Bot Platform API](./bots.md) | Multi-platform bot integration |
-| [Memory Management API](./memory.md) | Conversation memory, vector storage, knowledge base |
-
-### IoT Features
-
-| Documentation | Description |
-|------|------|
-| [IoT API](./iot.md) | IoT device management, message control |
-
-### Operations & Monitoring
-
-| Documentation | Description |
-|------|------|
-| [Health Check API](./health.md) | Service health status check |
-| [Metrics API](./metrics.md) | Prometheus monitoring metrics |
-
-### Integrations
-
-| Documentation | Description |
-|------|------|
-| [Third-party Integration API](./third-party.md) | WhatsApp, Telegram, WeChat and other platform integration |
-| [Open Access Guide](./open-access.md) | External access auth matrix, bot open endpoints, craw endpoints, webhook headers |
-
----
-
-## Quick Start
-
-### 1. Register User
-
-```bash
-curl -X POST http://localhost:3000/im/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "password": "password123",
-    "nickname": "Test User"
-  }'
-```
-
-### 2. Login to Get Token
-
-```bash
-curl -X POST http://localhost:3000/im/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "password": "password123"
-  }'
-```
-
-### 3. Send Message
-
-```bash
-curl -X POST http://localhost:3000/api/messages \
-  -H "Authorization: Bearer <your-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "receiver-user-id",
-    "type": "text",
-    "content": {
-      "text": "Hello, OpenChat!"
-    }
-  }'
-```
-
----
-
-## SDK Support
-
-OpenChat provides multi-language SDKs to simplify API calls:
-
-- [TypeScript SDK](../sdk/typescript.md)
-- [Java SDK](../sdk/java.md)
-- [Go SDK](../sdk/go.md)
-- [Python SDK](../sdk/python.md)
-
-### TypeScript SDK Example
-
-```typescript
-import { OpenChatClient } from '@openchat/sdk';
-
-const client = new OpenChatClient({
-  serverUrl: 'http://localhost:3000'
-});
-
-// Login
-await client.auth.login({
-  username: 'testuser',
-  password: 'password123'
-});
-
-// Send message
-await client.message.send({
-  to: 'receiver-id',
-  type: 'text',
-  content: { text: 'Hello!' }
-});
-
-// Listen for messages
-client.message.onMessage((message) => {
-  console.log('Received message:', message);
-});
-```
-
----
-
-## Online API Documentation
-
-After starting the server, access Swagger UI for interactive API documentation:
-
-```
-http://localhost:3000/api/docs
-```
-
-Swagger UI provides:
-- Complete API list
-- Online testing
-- Request/response examples
-- Data model definitions
-
----
-
-## Related Links
-
-- [Quick Start Guide](../guide/quickstart.md)
-- [SDK Documentation](../sdk/)
-- [Deployment Guide](../deploy/)
+- runtime schema version: `openapi: 3.2.0`
+- runtime dialect: `jsonSchemaDialect: https://spec.openapis.org/oas/3.2/dialect/base`
+- app SDK generation must use `/im/v3/openapi.json`
+- admin control-plane APIs remain isolated at `/admin/im/v3/openapi.json`
+- WuKongIM integration code stays outside generator-owned `generated/server-openapi`

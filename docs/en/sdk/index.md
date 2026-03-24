@@ -1,170 +1,60 @@
 # SDK Documentation
 
-OpenChat provides multi-language SDKs to help developers quickly integrate instant messaging functionality.
+OpenChat ships the app-facing SDK system through the `sdkwork-im-sdk` workspace.
 
-## SDK List
+This workspace generates HTTP API clients from the runtime app schema and keeps WuKongIM realtime integration in separate handwritten modules.
 
-| SDK | Platform | Status | Description |
-|-----|----------|--------|-------------|
-| [TypeScript SDK](./typescript.md) | Web / Node.js | ✅ Stable | Supports React, Vue, Angular frameworks |
-| [Java SDK](./java.md) | Android / JVM | 🚧 In Development | Supports Android and Java backend |
-| [Go SDK](./go.md) | Go | 🚧 In Development | Supports Go backend services |
-| [Python SDK](./python.md) | Python | 🚧 In Development | Supports Python backend and scripts |
+## Source of Truth
 
-## Quick Start
+- app schema: `http://localhost:3000/im/v3/openapi.json`
+- admin schema: `http://localhost:3000/admin/im/v3/openapi.json`
+- runtime docs: `/im/v3/docs` and `/admin/im/v3/docs`
 
-### TypeScript SDK
+Only the app schema is used for `sdkwork-im-sdk` generation.
 
-```bash
-npm install @openchat/sdk
-```
+## Generation Model
 
-```typescript
-import { OpenChatClient } from '@openchat/sdk';
+- generator-owned output: `generated/server-openapi`
+- handwritten realtime adapter: `adapter-wukongim`
+- handwritten product layer: `composed`
 
-const client = new OpenChatClient({
-  serverUrl: 'http://localhost:3000',
-  imConfig: {
-    wsUrl: 'ws://localhost:5200'
-  }
-});
+Repeated generation must never overwrite handwritten WuKongIM integration code.
 
-// Initialize
-await client.init();
+## Language Matrix
 
-// Login
-await client.auth.login({
-  username: 'user',
-  password: 'password'
-});
+| Language / Target | Workspace | Realtime Layer | Notes |
+|------|------|------|------|
+| TypeScript | `sdkwork-im-sdk-typescript` | yes | first-class with `wukongimjssdk` |
+| Flutter | `sdkwork-im-sdk-flutter` | yes | first-class with `wukongimfluttersdk` |
+| Java | `sdkwork-im-sdk-java` | generated HTTP only | JVM package |
+| Kotlin | `sdkwork-im-sdk-kotlin` | generated HTTP only | canonical Android-side generator target |
+| Go | `sdkwork-im-sdk-go` | generated HTTP only | Go module |
+| Python | `sdkwork-im-sdk-python` | generated HTTP only | Python package |
+| Swift | `sdkwork-im-sdk-swift` | generated HTTP only | canonical iOS-side generator target |
+| C# | `sdkwork-im-sdk-csharp` | generated HTTP only | .NET package |
+| Android Wrapper | `sdkwork-im-sdk-android` | wrapper only | forwards to Kotlin workspace |
+| iOS Wrapper | `sdkwork-im-sdk-ios` | wrapper only | forwards to Swift workspace |
 
-// Send message
-await client.message.send({
-  to: 'user-uuid',
-  type: 'text',
-  content: { text: 'Hello!' }
-});
-```
+## Script Entry Points
 
-## Core Features
+- root generate: `sdkwork-im-sdk/bin/generate-sdk.sh`
+- root generate: `sdkwork-im-sdk/bin/generate-sdk.ps1`
+- language generate: `sdkwork-im-sdk-XXX/bin/sdk-gen.sh`
+- language generate: `sdkwork-im-sdk-XXX/bin/sdk-gen.ps1`
+- language assemble: `sdkwork-im-sdk-XXX/bin/sdk-assemble.sh`
+- language assemble: `sdkwork-im-sdk-XXX/bin/sdk-assemble.ps1`
 
-### Messaging
+The root wrappers can auto-start `npm run start:openapi` when the runtime schema is unavailable.
 
-- Send/receive messages
-- Message recall
-- Message forwarding
-- Read receipts
-- Message history
+## Pages
 
-### User Management
-
-- User registration/login
-- Profile management
-- Online status
-- User search
-
-### Group Management
-
-- Create/dissolve groups
-- Member management
-- Group messages
-- Group announcements
-
-### Friend System
-
-- Friend requests
-- Friend list
-- Friend groups
-- Block list
-
-## Message Types
-
-The SDK supports multiple message types:
-
-| Type | Description |
-|------|-------------|
-| text | Text message |
-| image | Image message |
-| audio | Audio message |
-| video | Video message |
-| file | File message |
-| music | Music message |
-| document | Document message |
-| code | Code message |
-| location | Location message |
-| card | Contact card |
-| custom | Custom message |
-
-## Configuration
-
-```typescript
-interface OpenChatConfig {
-  serverUrl: string;           // Server URL
-  imConfig: {
-    tcpAddr?: string;          // TCP address (mobile)
-    wsUrl: string;             // WebSocket address (web)
-  };
-  options?: {
-    autoReconnect?: boolean;   // Auto reconnect
-    reconnectAttempts?: number;// Reconnect attempts
-    reconnectInterval?: number;// Reconnect interval
-    heartbeatInterval?: number;// Heartbeat interval
-    messageCacheSize?: number; // Message cache size
-    logLevel?: 'debug' | 'info' | 'warn' | 'error';
-  };
-}
-```
-
-## Event System
-
-```typescript
-// Connection status
-client.onConnectionChange((status) => {
-  console.log('Connection status:', status);
-});
-
-// New message
-client.message.onMessage((message) => {
-  console.log('Received message:', message);
-});
-
-// Message status change
-client.message.onStatusChange((messageId, status) => {
-  console.log('Message status:', status);
-});
-
-// Error handling
-client.onError((error) => {
-  console.error('Error:', error);
-});
-```
-
-## Error Handling
-
-```typescript
-try {
-  await client.message.send({
-    to: 'user-uuid',
-    type: 'text',
-    content: { text: 'Hello' }
-  });
-} catch (error) {
-  switch (error.code) {
-    case 'NETWORK_ERROR':
-      // Network error
-      break;
-    case 'UNAUTHORIZED':
-      // Unauthorized
-      break;
-    case 'RATE_LIMIT_EXCEEDED':
-      // Rate limit exceeded
-      break;
-  }
-}
-```
-
-## Related Links
-
-- [API Documentation](../api/) - Complete API documentation
-- [Deployment Guide](../deploy/) - Server deployment
-- [Configuration](../config/) - Server configuration
+- [TypeScript](./typescript.md)
+- [Flutter](./flutter.md)
+- [Java](./java.md)
+- [Kotlin](./kotlin.md)
+- [Go](./go.md)
+- [Python](./python.md)
+- [Swift](./swift.md)
+- [C#](./csharp.md)
+- [Android Wrapper](./android.md)
+- [iOS Wrapper](./ios.md)

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsString,
   IsNotEmpty,
@@ -15,9 +15,10 @@ import {
   ArrayMaxSize,
   IsIn,
   Matches,
-} from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+} from "class-validator";
+import { Type, Transform } from "class-transformer";
 import {
+  TextMediaResource,
   ImageMediaResource,
   VideoMediaResource,
   AudioMediaResource,
@@ -29,96 +30,137 @@ import {
   PptMediaResource,
   CharacterMediaResource,
   Model3DMediaResource,
-} from '../../../common/media-resource';
+  LocationMediaResource,
+} from "../../../common/media-resource";
 
-export { ImageMediaResource, VideoMediaResource, AudioMediaResource, MusicMediaResource, FileMediaResource, DocumentMediaResource, CodeMediaResource, CardMediaResource, PptMediaResource, CharacterMediaResource, Model3DMediaResource };
+export {
+  TextMediaResource,
+  ImageMediaResource,
+  VideoMediaResource,
+  AudioMediaResource,
+  MusicMediaResource,
+  FileMediaResource,
+  DocumentMediaResource,
+  CodeMediaResource,
+  CardMediaResource,
+  PptMediaResource,
+  CharacterMediaResource,
+  Model3DMediaResource,
+  LocationMediaResource,
+};
 
 export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  AUDIO = 'audio',
-  VIDEO = 'video',
-  FILE = 'file',
-  LOCATION = 'location',
-  CARD = 'card',
-  CUSTOM = 'custom',
-  SYSTEM = 'system',
-  MUSIC = 'music',
-  DOCUMENT = 'document',
-  CODE = 'code',
-  PPT = 'ppt',
-  CHARACTER = 'character',
-  MODEL_3D = 'model_3d',
+  TEXT = "text",
+  IMAGE = "image",
+  AUDIO = "audio",
+  VIDEO = "video",
+  FILE = "file",
+  LOCATION = "location",
+  CARD = "card",
+  CUSTOM = "custom",
+  SYSTEM = "system",
+  MUSIC = "music",
+  DOCUMENT = "document",
+  CODE = "code",
+  PPT = "ppt",
+  CHARACTER = "character",
+  MODEL_3D = "model_3d",
+}
+
+export enum MessageTransportType {
+  TEXT = "TEXT",
+  IMAGE = "IMAGE",
+  AUDIO = "AUDIO",
+  VIDEO = "VIDEO",
+  FILE = "FILE",
+  LOCATION = "LOCATION",
+  CARD = "CARD",
+  CUSTOM = "CUSTOM",
+  SYSTEM = "SYSTEM",
+  MUSIC = "MUSIC",
+  DOCUMENT = "DOCUMENT",
+  CODE = "CODE",
+  PPT = "PPT",
+  CHARACTER = "CHARACTER",
+  MODEL_3D = "MODEL_3D",
 }
 
 export enum MessageStatus {
-  SENDING = 'sending',
-  SENT = 'sent',
-  DELIVERED = 'delivered',
-  READ = 'read',
-  FAILED = 'failed',
-  RECALLED = 'recalled',
+  SENDING = "sending",
+  SENT = "sent",
+  DELIVERED = "delivered",
+  READ = "read",
+  FAILED = "failed",
+  RECALLED = "recalled",
 }
 
 export enum ConversationType {
-  SINGLE = 'single',
-  GROUP = 'group',
+  SINGLE = "single",
+  GROUP = "group",
+}
+
+export enum ConversationTransportType {
+  SINGLE = "SINGLE",
+  GROUP = "GROUP",
 }
 
 export class LocationContent {
-  @ApiProperty({ description: '纬度', example: 39.9042 })
+  @ApiProperty({ description: "纬度", example: 39.9042 })
   @IsNumber()
   latitude: number;
 
-  @ApiProperty({ description: '经度', example: 116.4074 })
+  @ApiProperty({ description: "经度", example: 116.4074 })
   @IsNumber()
   longitude: number;
 
-  @ApiPropertyOptional({ description: '地址描述', example: '北京市东城区天安门' })
+  @ApiPropertyOptional({
+    description: "地址描述",
+    example: "北京市东城区天安门",
+  })
   @IsOptional()
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional({ description: '地点名称', example: '天安门' })
+  @ApiPropertyOptional({ description: "地点名称", example: "天安门" })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: '缩略图URL' })
+  @ApiPropertyOptional({ description: "缩略图URL" })
   @IsOptional()
   @IsString()
   thumbnailUrl?: string;
 }
 
 export class CardContent {
-  @ApiProperty({ description: '用户ID' })
+  @ApiProperty({ description: "用户ID" })
   @IsString()
   @IsNotEmpty()
   userId: string;
 
-  @ApiPropertyOptional({ description: '用户昵称' })
+  @ApiPropertyOptional({ description: "用户昵称" })
   @IsOptional()
   @IsString()
   nickname?: string;
 
-  @ApiPropertyOptional({ description: '用户头像URL' })
+  @ApiPropertyOptional({ description: "用户头像URL" })
   @IsOptional()
   @IsString()
   avatar?: string;
 
-  @ApiPropertyOptional({ description: '用户签名' })
+  @ApiPropertyOptional({ description: "用户签名" })
   @IsOptional()
   @IsString()
   signature?: string;
 }
 
 export class TextContent {
-  @ApiProperty({ description: '文本内容', example: 'Hello World' })
+  @ApiProperty({ description: "文本内容", example: "Hello World" })
   @IsString()
   @IsNotEmpty()
   text: string;
 
-  @ApiPropertyOptional({ description: '是否提及', type: [String] })
+  @ApiPropertyOptional({ description: "是否提及", type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -126,195 +168,411 @@ export class TextContent {
 }
 
 export class SystemContent {
-  @ApiProperty({ description: '系统消息类型' })
+  @ApiProperty({ description: "系统消息类型" })
   @IsString()
   @IsNotEmpty()
   type: string;
 
-  @ApiPropertyOptional({ description: '系统消息内容' })
+  @ApiPropertyOptional({ description: "系统消息内容" })
+  @IsOptional()
   @IsOptional()
   @IsObject()
   data?: Record<string, any>;
 }
 
 export class CustomContent {
-  @ApiProperty({ description: '自定义消息类型标识' })
+  @ApiProperty({ description: "自定义消息类型标识" })
   @IsString()
   @IsNotEmpty()
   customType: string;
 
-  @ApiPropertyOptional({ description: '自定义消息数据' })
+  @ApiPropertyOptional({ description: "自定义消息数据" })
   @IsOptional()
   @IsObject()
   data?: Record<string, any>;
 }
 
+export class EventContent {
+  @ApiProperty({ description: "事件类型", example: "REACTION_ADDED" })
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @ApiPropertyOptional({
+    description: "事件名称",
+    example: "message.reaction.added",
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: "事件数据" })
+  @IsOptional()
+  @IsObject()
+  data?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: "事件元数据" })
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, any>;
+}
+
 export class MessageContent {
-  @ApiPropertyOptional({ description: '文本内容' })
+  @ApiPropertyOptional({ description: "文本内容" })
   @IsOptional()
   @ValidateNested()
   @Type(() => TextContent)
   text?: TextContent;
 
-  @ApiPropertyOptional({ description: '图片资源' })
+  @ApiPropertyOptional({ description: "图片资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => ImageMediaResource)
   image?: ImageMediaResource;
 
-  @ApiPropertyOptional({ description: '视频资源' })
+  @ApiPropertyOptional({ description: "视频资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => VideoMediaResource)
   video?: VideoMediaResource;
 
-  @ApiPropertyOptional({ description: '音频资源' })
+  @ApiPropertyOptional({ description: "音频资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => AudioMediaResource)
   audio?: AudioMediaResource;
 
-  @ApiPropertyOptional({ description: '音乐资源' })
+  @ApiPropertyOptional({ description: "音乐资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => MusicMediaResource)
   music?: MusicMediaResource;
 
-  @ApiPropertyOptional({ description: '文件资源' })
+  @ApiPropertyOptional({ description: "文件资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => FileMediaResource)
   file?: FileMediaResource;
 
-  @ApiPropertyOptional({ description: '文档资源' })
+  @ApiPropertyOptional({ description: "文档资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => DocumentMediaResource)
   document?: DocumentMediaResource;
 
-  @ApiPropertyOptional({ description: '代码资源' })
+  @ApiPropertyOptional({ description: "代码资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => CodeMediaResource)
   code?: CodeMediaResource;
 
-  @ApiPropertyOptional({ description: '演示文稿资源' })
+  @ApiPropertyOptional({ description: "演示文稿资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => PptMediaResource)
   ppt?: PptMediaResource;
 
-  @ApiPropertyOptional({ description: '数字人/角色资源' })
+  @ApiPropertyOptional({ description: "数字人/角色资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => CharacterMediaResource)
   character?: CharacterMediaResource;
 
-  @ApiPropertyOptional({ description: '3D模型资源' })
+  @ApiPropertyOptional({ description: "3D模型资源" })
   @IsOptional()
   @ValidateNested()
   @Type(() => Model3DMediaResource)
   model3d?: Model3DMediaResource;
 
-  @ApiPropertyOptional({ description: '位置内容' })
+  @ApiPropertyOptional({ description: "位置内容" })
   @IsOptional()
   @ValidateNested()
   @Type(() => LocationContent)
   location?: LocationContent;
 
-  @ApiPropertyOptional({ description: '名片内容' })
+  @ApiPropertyOptional({ description: "名片内容" })
   @IsOptional()
   @ValidateNested()
   @Type(() => CardContent)
   card?: CardContent;
 
-  @ApiPropertyOptional({ description: '卡片资源（小程序、应用等）' })
+  @ApiPropertyOptional({ description: "卡片资源（小程序、应用等）" })
   @IsOptional()
   @ValidateNested()
   @Type(() => CardMediaResource)
   cardResource?: CardMediaResource;
 
-  @ApiPropertyOptional({ description: '系统消息内容' })
+  @ApiPropertyOptional({ description: "系统消息内容" })
   @IsOptional()
   @ValidateNested()
   @Type(() => SystemContent)
   system?: SystemContent;
 
-  @ApiPropertyOptional({ description: '自定义消息内容' })
+  @ApiPropertyOptional({ description: "自定义消息内容" })
   @IsOptional()
   @ValidateNested()
   @Type(() => CustomContent)
   custom?: CustomContent;
+
+  @ApiPropertyOptional({ description: "事件内容" })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EventContent)
+  event?: EventContent;
+}
+
+export class EventContentTransport {
+  @ApiProperty({ description: "事件类型", example: "REACTION_ADDED" })
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @ApiPropertyOptional({
+    description: "事件名称",
+    example: "message.reaction.added",
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: "事件数据" })
+  @IsOptional()
+  @IsObject()
+  data?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: "事件元数据" })
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, any>;
+}
+
+export class MessageEnvelope {
+  @ApiPropertyOptional({
+    description: "消息类型，统一使用大写枚举",
+    enum: MessageTransportType,
+    example: MessageTransportType.TEXT,
+  })
+  @IsEnum(MessageTransportType)
+  type: MessageTransportType;
+
+  @ApiPropertyOptional({ description: "文本资源", type: TextMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TextMediaResource)
+  text?: TextMediaResource;
+
+  @ApiPropertyOptional({ description: "图片资源", type: ImageMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ImageMediaResource)
+  image?: ImageMediaResource;
+
+  @ApiPropertyOptional({ description: "音频资源", type: AudioMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AudioMediaResource)
+  audio?: AudioMediaResource;
+
+  @ApiPropertyOptional({ description: "视频资源", type: VideoMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => VideoMediaResource)
+  video?: VideoMediaResource;
+
+  @ApiPropertyOptional({ description: "文件资源", type: FileMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FileMediaResource)
+  file?: FileMediaResource;
+
+  @ApiPropertyOptional({ description: "位置资源", type: LocationMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LocationMediaResource)
+  location?: LocationMediaResource;
+
+  @ApiPropertyOptional({ description: "卡片资源", type: CardMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CardMediaResource)
+  card?: CardMediaResource;
+
+  @ApiPropertyOptional({ description: "系统消息内容", type: SystemContent })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SystemContent)
+  system?: SystemContent;
+
+  @ApiPropertyOptional({ description: "自定义消息内容", type: CustomContent })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CustomContent)
+  custom?: CustomContent;
+
+  @ApiPropertyOptional({ description: "音乐资源", type: MusicMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MusicMediaResource)
+  music?: MusicMediaResource;
+
+  @ApiPropertyOptional({ description: "文档资源", type: DocumentMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DocumentMediaResource)
+  document?: DocumentMediaResource;
+
+  @ApiPropertyOptional({ description: "代码资源", type: CodeMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CodeMediaResource)
+  code?: CodeMediaResource;
+
+  @ApiPropertyOptional({ description: "PPT 资源", type: PptMediaResource })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PptMediaResource)
+  ppt?: PptMediaResource;
+
+  @ApiPropertyOptional({
+    description: "数字角色资源",
+    type: CharacterMediaResource,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CharacterMediaResource)
+  character?: CharacterMediaResource;
+
+  @ApiPropertyOptional({
+    description: "3D 模型资源",
+    type: Model3DMediaResource,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => Model3DMediaResource)
+  model3d?: Model3DMediaResource;
+}
+
+export class ConversationEnvelope {
+  @ApiProperty({
+    description: "会话类型，统一使用大写枚举",
+    enum: ConversationTransportType,
+    example: ConversationTransportType.SINGLE,
+  })
+  @IsEnum(ConversationTransportType)
+  type: ConversationTransportType;
+
+  @ApiProperty({ description: "会话目标ID，单聊为用户ID，群聊为群ID" })
+  @IsString()
+  @IsNotEmpty()
+  targetId: string;
 }
 
 export class SendMessage {
   @ApiPropertyOptional({
-    description: '消息UUID（客户端生成，用于去重）',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: "协议版本，新协议建议使用 2",
+    example: 2,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  version?: number;
+
+  @ApiPropertyOptional({
+    description: "会话信息",
+    type: ConversationEnvelope,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ConversationEnvelope)
+  conversation?: ConversationEnvelope;
+
+  @ApiPropertyOptional({
+    description: "消息内容载体",
+    type: MessageEnvelope,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MessageEnvelope)
+  message?: MessageEnvelope;
+
+  @ApiPropertyOptional({
+    description: "事件内容",
+    type: EventContentTransport,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EventContentTransport)
+  event?: EventContentTransport;
+  @ApiPropertyOptional({
+    description: "消息UUID（客户端生成，用于去重）",
+    example: "550e8400-e29b-41d4-a716-446655440000",
   })
   @IsOptional()
   @IsUUID()
   uuid?: string;
 
   @ApiProperty({
-    description: '消息类型',
+    description: "消息类型",
     enum: MessageType,
     example: MessageType.TEXT,
   })
+  @IsOptional()
   @IsEnum(MessageType)
-  type: MessageType;
+  type?: MessageType;
 
   @ApiProperty({
-    description: '消息内容，根据type不同结构不同',
+    description: "消息内容，根据type不同结构不同",
     type: MessageContent,
   })
   @IsObject()
   @ValidateNested()
   @Type(() => MessageContent)
-  content: MessageContent;
+  content?: MessageContent;
 
   @ApiProperty({
-    description: '发送者用户ID',
-    example: 'user-123',
+    description: "发送者用户ID",
+    example: "user-123",
   })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  fromUserId: string;
+  fromUserId?: string;
 
   @ApiPropertyOptional({
-    description: '接收者用户ID（单聊时必填）',
-    example: 'user-456',
+    description: "接收者用户ID（单聊时必填）",
+    example: "user-456",
   })
   @IsOptional()
   @IsString()
   toUserId?: string;
 
   @ApiPropertyOptional({
-    description: '群组ID（群聊时必填）',
-    example: 'group-789',
+    description: "群组ID（群聊时必填）",
+    example: "group-789",
   })
   @IsOptional()
   @IsString()
   groupId?: string;
 
   @ApiPropertyOptional({
-    description: '回复的消息ID',
-    example: 'msg-001',
+    description: "回复的消息ID",
+    example: "msg-001",
   })
   @IsOptional()
   @IsString()
   replyToId?: string;
 
   @ApiPropertyOptional({
-    description: '转发来源消息ID',
-    example: 'msg-002',
+    description: "转发来源消息ID",
+    example: "msg-002",
   })
   @IsOptional()
   @IsString()
   forwardFromId?: string;
 
   @ApiPropertyOptional({
-    description: '客户端序列号（用于消息去重）',
+    description: "客户端序列号（用于消息去重）",
     example: 12345,
   })
   @IsOptional()
@@ -322,25 +580,25 @@ export class SendMessage {
   clientSeq?: number;
 
   @ApiPropertyOptional({
-    description: '幂等键（推荐，支持通过幂等键稳定推导 clientSeq）',
-    example: 'msg-send-20260308-0001',
+    description: "幂等键（推荐，支持通过幂等键稳定推导 clientSeq）",
+    example: "msg-send-20260308-0001",
   })
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z0-9._:-]{1,128}$/, {
-    message: 'idempotencyKey 格式无效',
+    message: "idempotencyKey 格式无效",
   })
   idempotencyKey?: string;
 
   @ApiPropertyOptional({
-    description: '扩展数据',
+    description: "扩展数据",
   })
   @IsOptional()
   @IsObject()
   extra?: Record<string, any>;
 
   @ApiPropertyOptional({
-    description: '是否需要已读回执',
+    description: "是否需要已读回执",
     default: true,
   })
   @IsOptional()
@@ -350,7 +608,7 @@ export class SendMessage {
 
 export class BatchSendMessage {
   @ApiProperty({
-    description: '消息列表',
+    description: "消息列表",
     type: [SendMessage],
   })
   @IsArray()
@@ -362,7 +620,7 @@ export class BatchSendMessage {
 
 export class UpdateMessageStatus {
   @ApiProperty({
-    description: '消息状态',
+    description: "消息状态",
     enum: MessageStatus,
     example: MessageStatus.READ,
   })
@@ -372,7 +630,7 @@ export class UpdateMessageStatus {
 
 export class EditMessage {
   @ApiProperty({
-    description: '更新后的消息内容',
+    description: "更新后的消息内容",
     type: MessageContent,
   })
   @IsObject()
@@ -381,7 +639,7 @@ export class EditMessage {
   content: MessageContent;
 
   @ApiPropertyOptional({
-    description: '编辑时附带的扩展数据',
+    description: "编辑时附带的扩展数据",
   })
   @IsOptional()
   @IsObject()
@@ -390,15 +648,15 @@ export class EditMessage {
 
 export class SetMessageReaction {
   @ApiProperty({
-    description: '表情内容',
-    example: '👍',
+    description: "表情内容",
+    example: "👍",
   })
   @IsString()
   @IsNotEmpty()
   emoji: string;
 
   @ApiPropertyOptional({
-    description: '是否激活该反应，默认 true；false 时移除当前用户的该反应',
+    description: "是否激活该反应，默认 true；false 时移除当前用户的该反应",
     default: true,
   })
   @IsOptional()
@@ -408,9 +666,9 @@ export class SetMessageReaction {
 
 export class MarkMessagesRead {
   @ApiProperty({
-    description: '消息ID列表',
+    description: "消息ID列表",
     type: [String],
-    example: ['msg-001', 'msg-002', 'msg-003'],
+    example: ["msg-001", "msg-002", "msg-003"],
   })
   @IsArray()
   @IsString({ each: true })
@@ -419,7 +677,7 @@ export class MarkMessagesRead {
 
 export class GetMessagesQuery {
   @ApiPropertyOptional({
-    description: '限制数量',
+    description: "限制数量",
     default: 50,
     maximum: 100,
   })
@@ -429,7 +687,7 @@ export class GetMessagesQuery {
   limit?: number = 50;
 
   @ApiPropertyOptional({
-    description: '偏移量',
+    description: "偏移量",
     default: 0,
   })
   @IsOptional()
@@ -437,14 +695,14 @@ export class GetMessagesQuery {
   offset?: number = 0;
 
   @ApiPropertyOptional({
-    description: '游标（用于游标分页）',
+    description: "游标（用于游标分页）",
   })
   @IsOptional()
   @IsString()
   cursor?: string;
 
   @ApiPropertyOptional({
-    description: '起始序列号（大于该值）',
+    description: "起始序列号（大于该值）",
     example: 1024,
   })
   @IsOptional()
@@ -454,7 +712,7 @@ export class GetMessagesQuery {
   fromSeq?: number;
 
   @ApiPropertyOptional({
-    description: '结束序列号（小于等于该值）',
+    description: "结束序列号（小于等于该值）",
     example: 2048,
   })
   @IsOptional()
@@ -464,18 +722,18 @@ export class GetMessagesQuery {
   toSeq?: number;
 
   @ApiPropertyOptional({
-    description: '拉取方向（默认 before，若传 fromSeq 建议使用 after）',
-    enum: ['before', 'after'],
-    default: 'before',
+    description: "拉取方向（默认 before，若传 fromSeq 建议使用 after）",
+    enum: ["before", "after"],
+    default: "before",
   })
   @IsOptional()
-  @IsIn(['before', 'after'])
-  direction?: 'before' | 'after' = 'before';
+  @IsIn(["before", "after"])
+  direction?: "before" | "after" = "before";
 }
 
 export class GetMessageReceiptsQuery {
   @ApiPropertyOptional({
-    description: '限制数量',
+    description: "限制数量",
     default: 50,
     maximum: 200,
   })
@@ -487,7 +745,7 @@ export class GetMessageReceiptsQuery {
   limit?: number = 50;
 
   @ApiPropertyOptional({
-    description: '偏移量',
+    description: "偏移量",
     default: 0,
   })
   @IsOptional()
@@ -497,7 +755,7 @@ export class GetMessageReceiptsQuery {
   offset?: number = 0;
 
   @ApiPropertyOptional({
-    description: '回执状态过滤',
+    description: "回执状态过滤",
     enum: [MessageStatus.SENT, MessageStatus.DELIVERED, MessageStatus.READ],
   })
   @IsOptional()
@@ -507,7 +765,7 @@ export class GetMessageReceiptsQuery {
 
 export class GetMessageUnreadMembersQuery {
   @ApiPropertyOptional({
-    description: '限制数量',
+    description: "限制数量",
     default: 50,
     maximum: 200,
   })
@@ -519,7 +777,7 @@ export class GetMessageUnreadMembersQuery {
   limit?: number = 50;
 
   @ApiPropertyOptional({
-    description: '偏移量',
+    description: "偏移量",
     default: 0,
   })
   @IsOptional()
@@ -529,7 +787,7 @@ export class GetMessageUnreadMembersQuery {
   offset?: number = 0;
 
   @ApiPropertyOptional({
-    description: '游标（优先于 offset）',
+    description: "游标（优先于 offset）",
   })
   @IsOptional()
   @IsString()
@@ -538,7 +796,7 @@ export class GetMessageUnreadMembersQuery {
 
 export class GetMessageReadMembersQuery {
   @ApiPropertyOptional({
-    description: '限制数量',
+    description: "限制数量",
     default: 50,
     maximum: 200,
   })
@@ -550,7 +808,7 @@ export class GetMessageReadMembersQuery {
   limit?: number = 50;
 
   @ApiPropertyOptional({
-    description: '偏移量',
+    description: "偏移量",
     default: 0,
   })
   @IsOptional()
@@ -560,7 +818,7 @@ export class GetMessageReadMembersQuery {
   offset?: number = 0;
 
   @ApiPropertyOptional({
-    description: '游标（优先于 offset）',
+    description: "游标（优先于 offset）",
   })
   @IsOptional()
   @IsString()
@@ -569,20 +827,20 @@ export class GetMessageReadMembersQuery {
 
 export class MessageUnreadMemberItemResponse {
   @ApiProperty({
-    description: '用户ID',
-    example: 'user-123',
+    description: "用户ID",
+    example: "user-123",
   })
   userId: string;
 
   @ApiProperty({
-    description: '群角色',
-    enum: ['owner', 'admin', 'member'],
-    example: 'member',
+    description: "群角色",
+    enum: ["owner", "admin", "member"],
+    example: "member",
   })
-  role: 'owner' | 'admin' | 'member';
+  role: "owner" | "admin" | "member";
 
   @ApiPropertyOptional({
-    description: '回执状态（未读列表中可能为空）',
+    description: "回执状态（未读列表中可能为空）",
     enum: [MessageStatus.SENT, MessageStatus.DELIVERED],
     nullable: true,
     example: MessageStatus.DELIVERED,
@@ -590,17 +848,17 @@ export class MessageUnreadMemberItemResponse {
   receiptStatus: MessageStatus.SENT | MessageStatus.DELIVERED | null;
 
   @ApiPropertyOptional({
-    description: '投递时间',
+    description: "投递时间",
     type: String,
-    format: 'date-time',
+    format: "date-time",
     nullable: true,
   })
   deliveredAt: Date | null;
 
   @ApiPropertyOptional({
-    description: '已读时间（未读成员通常为空）',
+    description: "已读时间（未读成员通常为空）",
     type: String,
-    format: 'date-time',
+    format: "date-time",
     nullable: true,
   })
   readAt: Date | null;
@@ -608,43 +866,43 @@ export class MessageUnreadMemberItemResponse {
 
 export class MessageUnreadMembersResponse {
   @ApiProperty({
-    description: '消息ID',
-    example: 'msg-001',
+    description: "消息ID",
+    example: "msg-001",
   })
   messageId: string;
 
   @ApiProperty({
-    description: '群组ID',
-    example: 'group-001',
+    description: "群组ID",
+    example: "group-001",
   })
   groupId: string;
 
   @ApiProperty({
-    description: '总数量（全量统计）',
+    description: "总数量（全量统计）",
     example: 120,
   })
   total: number;
 
   @ApiProperty({
-    description: '当前分页大小',
+    description: "当前分页大小",
     example: 50,
   })
   limit: number;
 
   @ApiProperty({
-    description: 'offset 分页偏移（使用 cursor 时仅回显）',
+    description: "offset 分页偏移（使用 cursor 时仅回显）",
     example: 0,
   })
   offset: number;
 
   @ApiPropertyOptional({
-    description: '下一页游标，不存在表示到达末页',
-    example: 'eyJ0IjoiMjAyNi0wMy0wNVQxMDowMDowMC4wMDBaIiwidSI6InVzZXItMTAwMSJ9',
+    description: "下一页游标，不存在表示到达末页",
+    example: "eyJ0IjoiMjAyNi0wMy0wNVQxMDowMDowMC4wMDBaIiwidSI6InVzZXItMTAwMSJ9",
   })
   nextCursor?: string;
 
   @ApiProperty({
-    description: '成员列表',
+    description: "成员列表",
     type: [MessageUnreadMemberItemResponse],
   })
   items: MessageUnreadMemberItemResponse[];
@@ -652,37 +910,37 @@ export class MessageUnreadMembersResponse {
 
 export class MessageReadMemberItemResponse {
   @ApiProperty({
-    description: '用户ID',
-    example: 'user-123',
+    description: "用户ID",
+    example: "user-123",
   })
   userId: string;
 
   @ApiProperty({
-    description: '群角色',
-    enum: ['owner', 'admin', 'member'],
-    example: 'member',
+    description: "群角色",
+    enum: ["owner", "admin", "member"],
+    example: "member",
   })
-  role: 'owner' | 'admin' | 'member';
+  role: "owner" | "admin" | "member";
 
   @ApiProperty({
-    description: '回执状态（已读列表固定为 read）',
+    description: "回执状态（已读列表固定为 read）",
     enum: [MessageStatus.READ],
     example: MessageStatus.READ,
   })
   receiptStatus: MessageStatus.READ;
 
   @ApiPropertyOptional({
-    description: '投递时间',
+    description: "投递时间",
     type: String,
-    format: 'date-time',
+    format: "date-time",
     nullable: true,
   })
   deliveredAt: Date | null;
 
   @ApiPropertyOptional({
-    description: '已读时间',
+    description: "已读时间",
     type: String,
-    format: 'date-time',
+    format: "date-time",
     nullable: true,
   })
   readAt: Date | null;
@@ -690,43 +948,43 @@ export class MessageReadMemberItemResponse {
 
 export class MessageReadMembersResponse {
   @ApiProperty({
-    description: '消息ID',
-    example: 'msg-001',
+    description: "消息ID",
+    example: "msg-001",
   })
   messageId: string;
 
   @ApiProperty({
-    description: '群组ID',
-    example: 'group-001',
+    description: "群组ID",
+    example: "group-001",
   })
   groupId: string;
 
   @ApiProperty({
-    description: '总数量（全量统计）',
+    description: "总数量（全量统计）",
     example: 85,
   })
   total: number;
 
   @ApiProperty({
-    description: '当前分页大小',
+    description: "当前分页大小",
     example: 50,
   })
   limit: number;
 
   @ApiProperty({
-    description: 'offset 分页偏移（使用 cursor 时仅回显）',
+    description: "offset 分页偏移（使用 cursor 时仅回显）",
     example: 0,
   })
   offset: number;
 
   @ApiPropertyOptional({
-    description: '下一页游标，不存在表示到达末页',
-    example: 'eyJ0IjoiMjAyNi0wMy0wNVQxMDowMDowMC4wMDBaIiwidSI6InVzZXItMTAwMSJ9',
+    description: "下一页游标，不存在表示到达末页",
+    example: "eyJ0IjoiMjAyNi0wMy0wNVQxMDowMDowMC4wMDBaIiwidSI6InVzZXItMTAwMSJ9",
   })
   nextCursor?: string;
 
   @ApiProperty({
-    description: '成员列表',
+    description: "成员列表",
     type: [MessageReadMemberItemResponse],
   })
   items: MessageReadMemberItemResponse[];
@@ -734,15 +992,15 @@ export class MessageReadMembersResponse {
 
 export class GetMessageHistory {
   @ApiProperty({
-    description: '目标ID（用户ID或群组ID）',
-    example: 'user-456',
+    description: "目标ID（用户ID或群组ID）",
+    example: "user-456",
   })
   @IsString()
   @IsNotEmpty()
   targetId: string;
 
   @ApiProperty({
-    description: '会话类型',
+    description: "会话类型",
     enum: ConversationType,
     example: ConversationType.SINGLE,
   })
@@ -750,7 +1008,7 @@ export class GetMessageHistory {
   type: ConversationType;
 
   @ApiPropertyOptional({
-    description: '限制数量',
+    description: "限制数量",
     default: 50,
   })
   @IsOptional()
@@ -759,14 +1017,14 @@ export class GetMessageHistory {
   limit?: number;
 
   @ApiPropertyOptional({
-    description: '游标',
+    description: "游标",
   })
   @IsOptional()
   @IsString()
   cursor?: string;
 
   @ApiPropertyOptional({
-    description: '消息类型过滤',
+    description: "消息类型过滤",
     enum: MessageType,
   })
   @IsOptional()
@@ -776,15 +1034,15 @@ export class GetMessageHistory {
 
 export class GetMessageHistoryBySeqQuery {
   @ApiProperty({
-    description: '目标ID（用户ID或群组ID）',
-    example: 'user-456',
+    description: "目标ID（用户ID或群组ID）",
+    example: "user-456",
   })
   @IsString()
   @IsNotEmpty()
   targetId: string;
 
   @ApiProperty({
-    description: '会话类型',
+    description: "会话类型",
     enum: ConversationType,
     example: ConversationType.SINGLE,
   })
@@ -792,7 +1050,7 @@ export class GetMessageHistoryBySeqQuery {
   type: ConversationType;
 
   @ApiPropertyOptional({
-    description: '起始序列号（仅返回 seq > fromSeq）',
+    description: "起始序列号（仅返回 seq > fromSeq）",
     example: 1024,
     default: 0,
   })
@@ -803,7 +1061,7 @@ export class GetMessageHistoryBySeqQuery {
   fromSeq?: number = 0;
 
   @ApiPropertyOptional({
-    description: '结束序列号（仅返回 seq <= toSeq）',
+    description: "结束序列号（仅返回 seq <= toSeq）",
     example: 2048,
   })
   @IsOptional()
@@ -813,7 +1071,7 @@ export class GetMessageHistoryBySeqQuery {
   toSeq?: number;
 
   @ApiPropertyOptional({
-    description: '分页大小',
+    description: "分页大小",
     example: 50,
     default: 50,
     maximum: 200,
@@ -826,32 +1084,32 @@ export class GetMessageHistoryBySeqQuery {
   limit?: number = 50;
 
   @ApiPropertyOptional({
-    description: '拉取方向（after 常用于增量同步，before 常用于向前翻页）',
-    enum: ['after', 'before'],
-    default: 'after',
+    description: "拉取方向（after 常用于增量同步，before 常用于向前翻页）",
+    enum: ["after", "before"],
+    default: "after",
   })
   @IsOptional()
-  @IsIn(['after', 'before'])
-  direction?: 'after' | 'before' = 'after';
+  @IsIn(["after", "before"])
+  direction?: "after" | "before" = "after";
 
   @ApiPropertyOptional({
-    description: '是否返回缺失序列号列表（用于消息补洞）',
+    description: "是否返回缺失序列号列表（用于消息补洞）",
     default: false,
   })
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') {
+    if (value === undefined || value === null || value === "") {
       return undefined;
     }
-    if (typeof value === 'boolean') {
+    if (typeof value === "boolean") {
       return value;
     }
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       const normalized = value.trim().toLowerCase();
-      if (normalized === 'true') {
+      if (normalized === "true") {
         return true;
       }
-      if (normalized === 'false') {
+      if (normalized === "false") {
         return false;
       }
     }
@@ -863,15 +1121,15 @@ export class GetMessageHistoryBySeqQuery {
 
 export class AckConversationSeqItemRequest {
   @ApiProperty({
-    description: '目标ID（用户ID或群组ID）',
-    example: 'user-456',
+    description: "目标ID（用户ID或群组ID）",
+    example: "user-456",
   })
   @IsString()
   @IsNotEmpty()
   targetId: string;
 
   @ApiProperty({
-    description: '会话类型',
+    description: "会话类型",
     enum: ConversationType,
     example: ConversationType.SINGLE,
   })
@@ -879,7 +1137,7 @@ export class AckConversationSeqItemRequest {
   type: ConversationType;
 
   @ApiProperty({
-    description: '确认到的序列号',
+    description: "确认到的序列号",
     example: 1024,
     minimum: 1,
   })
@@ -891,8 +1149,8 @@ export class AckConversationSeqItemRequest {
 
 export class AckConversationSeqRequest extends AckConversationSeqItemRequest {
   @ApiPropertyOptional({
-    description: '设备ID（用于多端独立同步游标）',
-    example: 'ios-iphone15-001',
+    description: "设备ID（用于多端独立同步游标）",
+    example: "ios-iphone15-001",
   })
   @IsOptional()
   @IsString()
@@ -903,7 +1161,7 @@ export class AckConversationSeqRequest extends AckConversationSeqItemRequest {
 
 export class AckConversationSeqBatchRequest {
   @ApiProperty({
-    description: '会话 ACK 列表',
+    description: "会话 ACK 列表",
     type: [AckConversationSeqItemRequest],
   })
   @IsArray()
@@ -913,8 +1171,8 @@ export class AckConversationSeqBatchRequest {
   items: AckConversationSeqItemRequest[];
 
   @ApiPropertyOptional({
-    description: '设备ID（用于多端独立同步游标）',
-    example: 'android-pixel9-001',
+    description: "设备ID（用于多端独立同步游标）",
+    example: "android-pixel9-001",
   })
   @IsOptional()
   @IsString()
@@ -925,8 +1183,8 @@ export class AckConversationSeqBatchRequest {
 
 export class RecallMessage {
   @ApiProperty({
-    description: '操作者用户ID',
-    example: 'user-123',
+    description: "操作者用户ID",
+    example: "user-123",
   })
   @IsString()
   @IsNotEmpty()
@@ -935,24 +1193,24 @@ export class RecallMessage {
 
 export class ForwardMessage {
   @ApiProperty({
-    description: '原消息ID',
-    example: 'msg-001',
+    description: "原消息ID",
+    example: "msg-001",
   })
   @IsString()
   @IsNotEmpty()
   messageId: string;
 
   @ApiProperty({
-    description: '转发目标用户ID列表',
+    description: "转发目标用户ID列表",
     type: [String],
-    example: ['user-456', 'user-789'],
+    example: ["user-456", "user-789"],
   })
   @IsArray()
   @IsString({ each: true })
   toUserIds: string[];
 
   @ApiPropertyOptional({
-    description: '转发目标群组ID列表',
+    description: "转发目标群组ID列表",
     type: [String],
   })
   @IsOptional()
@@ -963,22 +1221,22 @@ export class ForwardMessage {
 
 export class SearchMessages {
   @ApiProperty({
-    description: '搜索关键词',
-    example: 'Hello',
+    description: "搜索关键词",
+    example: "Hello",
   })
   @IsString()
   @IsNotEmpty()
   keyword: string;
 
   @ApiPropertyOptional({
-    description: '目标ID（用户ID或群组ID）',
+    description: "目标ID（用户ID或群组ID）",
   })
   @IsOptional()
   @IsString()
   targetId?: string;
 
   @ApiPropertyOptional({
-    description: '会话类型',
+    description: "会话类型",
     enum: ConversationType,
   })
   @IsOptional()
@@ -986,7 +1244,7 @@ export class SearchMessages {
   type?: ConversationType;
 
   @ApiPropertyOptional({
-    description: '消息类型',
+    description: "消息类型",
     enum: MessageType,
   })
   @IsOptional()
@@ -994,23 +1252,23 @@ export class SearchMessages {
   messageType?: MessageType;
 
   @ApiPropertyOptional({
-    description: '开始时间',
-    example: '2024-01-01T00:00:00Z',
+    description: "开始时间",
+    example: "2024-01-01T00:00:00Z",
   })
   @IsOptional()
   @IsString()
   startTime?: string;
 
   @ApiPropertyOptional({
-    description: '结束时间',
-    example: '2024-12-31T23:59:59Z',
+    description: "结束时间",
+    example: "2024-12-31T23:59:59Z",
   })
   @IsOptional()
   @IsString()
   endTime?: string;
 
   @ApiPropertyOptional({
-    description: '页码',
+    description: "页码",
     default: 1,
   })
   @IsOptional()
@@ -1019,7 +1277,7 @@ export class SearchMessages {
   page?: number;
 
   @ApiPropertyOptional({
-    description: '每页数量',
+    description: "每页数量",
     default: 20,
   })
   @IsOptional()

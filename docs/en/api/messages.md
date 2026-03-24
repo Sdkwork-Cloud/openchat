@@ -6,19 +6,19 @@ The Message Management API provides functionality for sending, querying, recalli
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
-| Send Message | POST | `/api/v1/messages` | Send a message |
-| Get Message List | GET | `/api/v1/messages/user/:userId` | Get conversation messages |
-| Get Conversation List | GET | `/api/conversations` | Get conversation list |
-| Mark as Read | POST | `/api/v1/messages/:userId/read` | Mark messages as read |
-| Recall Message | POST | `/api/v1/messages/:id/recall` | Recall a message |
-| Delete Message | DELETE | `/api/v1/messages/:id` | Delete a message |
-| Forward Message | POST | `/api/v1/messages/:id/forward` | Forward a message |
-| Search Messages | GET | `/api/v1/messages/search` | Search messages |
-| Get Message Receipts | GET | `/api/v1/messages/:id/receipts` | Paginated recipient receipt details |
-| Get Receipt Summary | GET | `/api/v1/messages/:id/receipt-summary` | sent/delivered/read summary |
-| Get Group Unread Members | GET | `/api/v1/messages/:id/unread-members` | Group unread member list |
-| Get Group Read Members | GET | `/api/v1/messages/:id/read-members` | Group read member list |
-| Mark Group Messages Read | POST | `/api/v1/messages/group/:groupId/read` | Batch read report for group members |
+| Send Message | POST | `/im/v3/messages` | Send a message |
+| Get Message List | GET | `/im/v3/messages/user/:userId` | Get conversation messages |
+| Get Conversation List | GET | `/im/v3/conversations` | Get conversation list |
+| Mark as Read | POST | `/im/v3/messages/:userId/read` | Mark messages as read |
+| Recall Message | POST | `/im/v3/messages/:id/recall` | Recall a message |
+| Delete Message | DELETE | `/im/v3/messages/:id` | Delete a message |
+| Forward Message | POST | `/im/v3/messages/:id/forward` | Forward a message |
+| Search Messages | GET | `/im/v3/messages/search` | Search messages |
+| Get Message Receipts | GET | `/im/v3/messages/:id/receipts` | Paginated recipient receipt details |
+| Get Receipt Summary | GET | `/im/v3/messages/:id/receipt-summary` | sent/delivered/read summary |
+| Get Group Unread Members | GET | `/im/v3/messages/:id/unread-members` | Group unread member list |
+| Get Group Read Members | GET | `/im/v3/messages/:id/read-members` | Group read member list |
+| Mark Group Messages Read | POST | `/im/v3/messages/group/:groupId/read` | Batch read report for group members |
 
 ---
 
@@ -27,7 +27,7 @@ The Message Management API provides functionality for sending, querying, recalli
 ### Get Message Receipts
 
 ```http
-GET /api/v1/messages/:id/receipts?limit=50&offset=0&status=read
+GET /im/v3/messages/:id/receipts?limit=50&offset=0&status=read
 Authorization: Bearer <access-token>
 ```
 
@@ -39,7 +39,7 @@ Notes:
 ### Get Receipt Summary
 
 ```http
-GET /api/v1/messages/:id/receipt-summary
+GET /im/v3/messages/:id/receipt-summary
 Authorization: Bearer <access-token>
 ```
 
@@ -62,33 +62,33 @@ Sample response:
 ### Get Group Unread Members
 
 ```http
-GET /api/v1/messages/:id/unread-members?limit=50&offset=0
+GET /im/v3/messages/:id/unread-members?limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
 Cursor pagination (recommended):
 
 ```http
-GET /api/v1/messages/:id/unread-members?limit=50&cursor=<nextCursor>
+GET /im/v3/messages/:id/unread-members?limit=50&cursor=<nextCursor>
 ```
 
 ### Get Group Read Members
 
 ```http
-GET /api/v1/messages/:id/read-members?limit=50&offset=0
+GET /im/v3/messages/:id/read-members?limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
 Cursor pagination (recommended):
 
 ```http
-GET /api/v1/messages/:id/read-members?limit=50&cursor=<nextCursor>
+GET /im/v3/messages/:id/read-members?limit=50&cursor=<nextCursor>
 ```
 
 ### Mark Group Messages as Read
 
 ```http
-POST /api/v1/messages/group/:groupId/read
+POST /im/v3/messages/group/:groupId/read
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -110,48 +110,84 @@ Notes:
 
 Send a message to a specified user or group.
 
+Prefer the V2 envelope: `version + conversation + message/event`. The runtime OpenAPI document at `/im/v3/openapi.json` is the source of truth. Legacy `type` / `content` / `fromUserId` / `toUserId` / `groupId` fields remain for backward compatibility only.
+
 ```http
-POST /api/v1/messages
+POST /im/v3/messages
 Authorization: Bearer <access-token>
 Idempotency-Key: <optional-idempotency-key>
 Content-Type: application/json
 ```
 
-**Request Body:**
+**Preferred V2 request envelope:**
 
 ```json
 {
-  "uuid": "string",              // Optional, message UUID (client-generated, for deduplication)
-  "type": "text",                // Required, message type
-  "content": {},                 // Required, message content (structure varies by type)
-  "fromUserId": "string",        // Required, sender user ID
-  "toUserId": "string",          // Optional, receiver user ID (required for direct messages)
-  "groupId": "string",           // Optional, group ID (required for group messages)
-  "replyToId": "string",         // Optional, ID of the message being replied to
-  "forwardFromId": "string",     // Optional, ID of the original message being forwarded
-  "clientSeq": 12345,            // Optional, client sequence number (for deduplication)
-  "idempotencyKey": "string",    // Optional, idempotency key (recommended)
-  "extra": {},                   // Optional, extended data
-  "needReadReceipt": true        // Optional, whether read receipt is needed, default true
+  "version": 2,
+  "conversation": {
+    "type": "SINGLE",
+    "targetId": "user-002"
+  },
+  "message": {
+    "type": "TEXT",
+    "text": {
+      "text": "Hello, OpenChat!",
+      "format": "PLAIN",
+      "mentions": []
+    }
+  },
+  "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "clientSeq": 12345,
+  "needReadReceipt": true
 }
 ```
 
-**Parameters:**
+**Canonical fields:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| uuid | string | No | Message UUID, client-generated, for deduplication |
-| type | string | Yes | Message type, see Message Types below |
-| content | object | Yes | Message content, structure varies by type |
-| fromUserId | string | Yes | Sender user ID |
-| toUserId | string | Conditional | Receiver user ID (required for direct messages) |
-| groupId | string | Conditional | Group ID (required for group messages) |
-| replyToId | string | No | ID of the message being replied to |
-| forwardFromId | string | No | ID of the original message being forwarded |
-| clientSeq | number | No | Client sequence number, for deduplication |
-| idempotencyKey | string | No | Idempotency key (`[A-Za-z0-9._:-]{1,128}`), mapped to stable `clientSeq` |
-| extra | object | No | Extended data |
-| needReadReceipt | boolean | No | Whether read receipt is needed, default true |
+| Field | Type | Required | Description |
+|------|------|----------|-------------|
+| version | number | No | Protocol version. Use `2` for new integrations. |
+| conversation.type | enum | Yes | Uppercase transport enum: `SINGLE` or `GROUP`. |
+| conversation.targetId | string | Yes | User ID for direct chat or group ID for group chat. |
+| message.type | enum | Conditional | Uppercase message transport type: `TEXT`, `IMAGE`, `AUDIO`, `VIDEO`, `FILE`, `LOCATION`, and more. |
+| message | object | Conditional | MediaResource-based message payload. Only the primary field matching `message.type` should be populated. |
+| event | object | Conditional | Event payload for RTC signaling, multiplayer games, room control, bot actions, and other non-chat data. |
+| uuid | string | No | Client-generated message UUID for tracing and de-duplication. |
+| clientSeq | number | No | Client sequence number used for weak-network retries and ordering. |
+| idempotencyKey | string | No | Body-level idempotency key that can be mapped to a stable `clientSeq`. |
+| needReadReceipt | boolean | No | Whether read receipts are required. Defaults to `true`. |
+
+**Event example:**
+
+```json
+{
+  "version": 2,
+  "conversation": {
+    "type": "GROUP",
+    "targetId": "table-001"
+  },
+  "event": {
+    "type": "GAME_ACTION",
+    "name": "game.chess.move",
+    "data": {
+      "tableId": "table-001",
+      "move": "e2e4",
+      "turn": "black"
+    },
+    "metadata": {
+      "domain": "game",
+      "scene": "chess"
+    }
+  },
+  "uuid": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+Notes:
+- Provide at least one of `message` or `event`.
+- `message.type` stays uppercase across SDKs to avoid transport-level casing drift.
+- `message.text`, `message.image`, `message.video`, `message.file`, `message.location`, and related fields are built on the MediaResource system and are intended to scale to AI, multimodal, RTC, and game scenarios.
+- The legacy `type + content + toUserId/groupId` contract is preserved only for compatibility.
 
 Idempotency behavior:
 - If `clientSeq` is provided, it takes precedence.
@@ -712,7 +748,7 @@ interface MediaResource {
 
 ```bash
 # Send text message
-curl -X POST http://localhost:3000/api/v1/messages \
+curl -X POST http://localhost:3000/im/v3/messages \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -H "Content-Type: application/json" \
   -d '{

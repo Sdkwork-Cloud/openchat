@@ -1,0 +1,18 @@
+[submodule "app/openchat-react-pc/sdkwork-sdk-app"]
+	path = app/openchat-react-pc/sdkwork-sdk-app
+	url = https://github.com/Sdkwork-Cloud/sdkwork-sdk-app.git
+	branch = main
+[submodule "openclaw"]
+	path = openclaw
+	url = https://github.com/openclaw/openclaw.git
+[submodule "xiaozhi-esp32"]
+	path = xiaozhi-esp32
+	url = https://github.com/78/xiaozhi-esp32
+[submodule "sdkwork-agent"]
+	path = sdkwork-agent
+	url = https://github.com/Sdkwork-Cloud/sdkwork-agent.git
+	branch = main
+[submodule "sdkwork-im-sdk"]
+	path = sdkwork-im-sdk
+	url = https://github.com/Sdkwork-Cloud/sdkwork-im-sdk.git
+	branch = main

@@ -1,10 +1,10 @@
-# AI Bots API
+﻿# AI Bots API
 
 AI Bots API provides AI-powered bot management capabilities.
 
 ## Overview
 
-All AI Bots APIs require JWT authentication. Path prefix: `/im/api/v1/ai-bots`.
+All AI Bots APIs require JWT authentication. Path prefix: `/im/v3/ai-bots`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -22,7 +22,7 @@ All AI Bots APIs require JWT authentication. Path prefix: `/im/api/v1/ai-bots`.
 Create a new AI bot.
 
 ```http
-POST /im/api/v1/ai-bots
+POST /im/v3/ai-bots
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -87,3 +87,4 @@ const newBot = await client.api.aiBots.create({
 
 - [AI Agents API](./agents.md)
 - [Bot Platform API](./bots.md)
+

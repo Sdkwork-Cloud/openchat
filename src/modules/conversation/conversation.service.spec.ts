@@ -72,6 +72,7 @@ describe('ConversationService', () => {
     createQueryBuilder: jest.Mock;
     findOne: jest.Mock;
     save: jest.Mock;
+    update: jest.Mock;
   };
   let cursorRepository: {
     createQueryBuilder: jest.Mock;
@@ -91,6 +92,7 @@ describe('ConversationService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(conversationUpdateQueryBuilder),
       findOne: jest.fn(),
       save: jest.fn(),
+      update: jest.fn(),
     };
 
     cursorRepository = {
@@ -222,6 +224,62 @@ describe('ConversationService', () => {
           draft: undefined,
         }),
       );
+    });
+  });
+
+  describe('updateLastMessage', () => {
+    it('should update the conversation snapshot when messageTime is newer', async () => {
+      conversationUpdateQueryBuilder.execute.mockResolvedValue({ affected: 1 });
+
+      const result = await service.updateLastMessage(
+        'conv-1',
+        'msg-2',
+        'latest',
+        new Date('2026-03-23T10:00:00.000Z'),
+      );
+
+      expect(result).toBe(true);
+      expect(conversationUpdateQueryBuilder.update).toHaveBeenCalledWith(ConversationEntity);
+      expect(conversationUpdateQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(last_message_time IS NULL OR last_message_time <= :messageTime)',
+        { messageTime: new Date('2026-03-23T10:00:00.000Z') },
+      );
+      expect(conversationRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should treat stale message snapshots as no-op when the conversation still exists', async () => {
+      conversationUpdateQueryBuilder.execute.mockResolvedValue({ affected: 0 });
+      conversationRepository.findOne.mockResolvedValue({ id: 'conv-1' });
+
+      const result = await service.updateLastMessage(
+        'conv-1',
+        'msg-1',
+        'older',
+        new Date('2026-03-23T09:59:00.000Z'),
+      );
+
+      expect(result).toBe(true);
+      expect(conversationRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          id: 'conv-1',
+          isDeleted: false,
+        },
+        select: ['id'],
+      });
+    });
+
+    it('should return false when updating a missing conversation snapshot', async () => {
+      conversationUpdateQueryBuilder.execute.mockResolvedValue({ affected: 0 });
+      conversationRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.updateLastMessage(
+        'missing-conv',
+        'msg-1',
+        'payload',
+        new Date('2026-03-23T10:00:00.000Z'),
+      );
+
+      expect(result).toBe(false);
     });
   });
 

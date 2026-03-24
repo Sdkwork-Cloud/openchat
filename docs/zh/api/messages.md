@@ -4,7 +4,7 @@
 
 ## 概述
 
-所有消息管理 API 都需要 JWT 认证，路径前缀为 `/api/v1/messages`。
+所有消息管理 API 都需要 JWT 认证，路径前缀为 `/im/v3/messages`。
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
@@ -32,7 +32,7 @@
 ### 获取消息回执详情
 
 ```http
-GET /api/v1/messages/:id/receipts?limit=50&offset=0&status=read
+GET /im/v3/messages/:id/receipts?limit=50&offset=0&status=read
 Authorization: Bearer <access-token>
 ```
 
@@ -44,7 +44,7 @@ Authorization: Bearer <access-token>
 ### 获取消息回执统计
 
 ```http
-GET /api/v1/messages/:id/receipt-summary
+GET /im/v3/messages/:id/receipt-summary
 Authorization: Bearer <access-token>
 ```
 
@@ -67,33 +67,33 @@ Authorization: Bearer <access-token>
 ### 获取群消息未读成员
 
 ```http
-GET /api/v1/messages/:id/unread-members?limit=50&offset=0
+GET /im/v3/messages/:id/unread-members?limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
 支持 `cursor` 分页（推荐）：
 
 ```http
-GET /api/v1/messages/:id/unread-members?limit=50&cursor=<nextCursor>
+GET /im/v3/messages/:id/unread-members?limit=50&cursor=<nextCursor>
 ```
 
 ### 获取群消息已读成员
 
 ```http
-GET /api/v1/messages/:id/read-members?limit=50&offset=0
+GET /im/v3/messages/:id/read-members?limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
 支持 `cursor` 分页（推荐）：
 
 ```http
-GET /api/v1/messages/:id/read-members?limit=50&cursor=<nextCursor>
+GET /im/v3/messages/:id/read-members?limit=50&cursor=<nextCursor>
 ```
 
 ### 标记群消息已读
 
 ```http
-POST /api/v1/messages/group/:groupId/read
+POST /im/v3/messages/group/:groupId/read
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -115,38 +115,84 @@ Content-Type: application/json
 
 发送消息给指定用户或群组。
 
+推荐使用 V2 Envelope：`version + conversation + message/event`。运行时 OpenAPI（`/im/v3/openapi.json`）是唯一权威契约；旧的 `type` / `content` / `fromUserId` / `toUserId` / `groupId` 字段仅作为兼容输入保留。
+
 ```http
-POST /api/v1/messages
+POST /im/v3/messages
 Authorization: Bearer <access-token>
 Idempotency-Key: <optional-idempotency-key>
 Content-Type: application/json
 ```
 
-### 请求参数
+### 推荐请求结构（V2）
 
-| 参数 | 类型 | 必填 | 说明 |
+```json
+{
+  "version": 2,
+  "conversation": {
+    "type": "SINGLE",
+    "targetId": "user-002"
+  },
+  "message": {
+    "type": "TEXT",
+    "text": {
+      "text": "你好，OpenChat！",
+      "format": "PLAIN",
+      "mentions": []
+    }
+  },
+  "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "clientSeq": 12345,
+  "needReadReceipt": true
+}
+```
+
+### 字段说明
+
+| 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| uuid | string | 否 | 消息UUID，客户端生成，用于去重 |
-| type | string | 是 | 消息类型，见[消息类型](#消息类型) |
-| content | object | 是 | 消息内容，根据type不同结构不同 |
-| fromUserId | string | 是 | 发送者用户ID |
-| toUserId | string | 条件必填 | 接收者用户ID（单聊时必填） |
-| groupId | string | 条件必填 | 群组ID（群聊时必填） |
-| replyToId | string | 否 | 回复的消息ID |
-| forwardFromId | string | 否 | 转发来源消息ID |
-| clientSeq | number | 否 | 客户端序列号，用于消息去重 |
-| idempotencyKey | string | 否 | 幂等键（推荐，格式 `[A-Za-z0-9._:-]{1,128}`，可稳定映射为 clientSeq） |
-| extra | object | 否 | 扩展数据 |
-| needReadReceipt | boolean | 否 | 是否需要已读回执，默认true |
+| version | number | 否 | 协议版本，推荐传 `2` |
+| conversation.type | enum | 是 | 会话类型，统一使用大写：`SINGLE` / `GROUP` |
+| conversation.targetId | string | 是 | 会话目标 ID，单聊为用户 ID，群聊为群组 ID |
+| message.type | enum | 条件必填 | 消息传输类型，统一使用大写：`TEXT` / `IMAGE` / `AUDIO` / `VIDEO` / `FILE` / `LOCATION` 等 |
+| message | object | 条件必填 | 基于 MediaResource 体系的消息载体，一次只承载与 `message.type` 对应的主资源字段 |
+| event | object | 条件必填 | 事件载体，适用于 RTC 信令、游戏动作、房间控制、机器人动作等非正文数据 |
+| uuid | string | 否 | 客户端生成的消息 UUID，用于幂等与追踪 |
+| clientSeq | number | 否 | 客户端序列号，用于弱网重试去重 |
+| idempotencyKey | string | 否 | 请求体幂等键，可稳定映射到 `clientSeq` |
+| needReadReceipt | boolean | 否 | 是否要求已读回执，默认 `true` |
 
-幂等建议：
-- 显式传 `clientSeq` 时，以 `clientSeq` 为准。
-- 未传 `clientSeq` 时，服务端会优先使用 body 的 `idempotencyKey`，其次使用请求头 `Idempotency-Key` / `X-Idempotency-Key`，稳定推导 `clientSeq`。
-- 批量发送若只传请求头幂等键，服务端会按消息下标自动派生子键，避免同批消息相互冲突。
+### 事件发送示例
 
-状态流转约束：
-- 投递状态遵循单向升级：`sending -> sent -> delivered -> read`。
-- 迟到 ACK 不会导致状态回退（例如 `read` 不会被后续 `delivered` 覆盖）。
+```json
+{
+  "version": 2,
+  "conversation": {
+    "type": "GROUP",
+    "targetId": "table-001"
+  },
+  "event": {
+    "type": "GAME_ACTION",
+    "name": "game.chess.move",
+    "data": {
+      "tableId": "table-001",
+      "move": "e2e4",
+      "turn": "black"
+    },
+    "metadata": {
+      "domain": "game",
+      "scene": "chess"
+    }
+  },
+  "uuid": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+说明：
+- `message` 与 `event` 至少提供一个；IM 正文优先放入 `message`，控制信令与扩展业务数据放入 `event`。
+- `message.type` 统一使用大写 transport enum，避免多 SDK 间大小写分歧。
+- `message.text`、`message.image`、`message.video`、`message.file`、`message.location` 等字段均基于 MediaResource 体系，可持续扩展到 AI、多媒体、游戏等场景。
+- 旧的 `type + content + toUserId/groupId` 结构继续兼容，但新接入请优先使用 V2 Envelope。
 
 ### 响应示例
 
@@ -182,7 +228,7 @@ Content-Type: application/json
 | occurredAt | number | 事件时间戳（毫秒） |
 | stateVersion | number | 状态版本（`messageSent=1`，`messageFailed=-1`） |
 
-### 请求示例 - 所有消息类型
+### 历史兼容示例（Legacy，保留兼容）
 
 #### 文本消息（单聊）
 
@@ -623,7 +669,7 @@ Content-Type: application/json
 一次性发送多条消息。
 
 ```http
-POST /api/v1/messages/batch
+POST /im/v3/messages/batch
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -687,7 +733,7 @@ Content-Type: application/json
 根据消息ID获取单条消息的详细信息。
 
 ```http
-GET /api/v1/messages/:id
+GET /im/v3/messages/:id
 Authorization: Bearer <access-token>
 ```
 
@@ -726,7 +772,7 @@ Authorization: Bearer <access-token>
 获取与指定用户的消息历史记录。
 
 ```http
-GET /api/v1/messages/user/:userId?limit=50&offset=0
+GET /im/v3/messages/user/:userId?limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -767,7 +813,7 @@ Authorization: Bearer <access-token>
 获取指定群组的消息历史记录。
 
 ```http
-GET /api/v1/messages/group/:groupId?limit=50&offset=0
+GET /im/v3/messages/group/:groupId?limit=50&offset=0
 Authorization: Bearer <access-token>
 ```
 
@@ -813,7 +859,7 @@ Authorization: Bearer <access-token>
 更新消息的状态（如已送达、已读等）。
 
 ```http
-PUT /api/v1/messages/:id/status
+PUT /im/v3/messages/:id/status
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -843,7 +889,7 @@ true
 删除指定的消息。
 
 ```http
-DELETE /api/v1/messages/:id
+DELETE /im/v3/messages/:id
 Authorization: Bearer <access-token>
 ```
 
@@ -860,7 +906,7 @@ true
 将与指定用户的消息标记为已读。
 
 ```http
-POST /api/v1/messages/:userId/read
+POST /im/v3/messages/:userId/read
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -890,7 +936,7 @@ true
 撤回已发送的消息（通常有时间限制）。
 
 ```http
-POST /api/v1/messages/:id/recall
+POST /im/v3/messages/:id/recall
 Authorization: Bearer <access-token>
 ```
 
@@ -918,7 +964,7 @@ Authorization: Bearer <access-token>
 将消息转发给一个或多个用户或群组。
 
 ```http
-POST /api/v1/messages/:id/forward
+POST /im/v3/messages/:id/forward
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -962,7 +1008,7 @@ Content-Type: application/json
 重试发送之前失败的消息。
 
 ```http
-POST /api/v1/messages/:id/retry
+POST /im/v3/messages/:id/retry
 Authorization: Bearer <access-token>
 ```
 

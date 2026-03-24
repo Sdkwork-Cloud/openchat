@@ -1,4 +1,4 @@
-# Timeline API
+﻿# Timeline API
 
 ## Design Goals
 - High-concurrency reads: `inbox + cursor` as the main read path with index-ordered pagination.
@@ -64,23 +64,23 @@ Notes:
 
 Auth: all endpoints require JWT.
 
-- `POST /im/api/v1/timeline/posts`
+- `POST /im/v3/timeline/posts`
   - Create post, server decides `distribution_mode`.
 
-- `GET /im/api/v1/timeline/feed?cursor=&limit=20`
+- `GET /im/v3/timeline/feed?cursor=&limit=20`
   - Get current user's feed.
   - Merges `inbox` and `hybrid/pull` candidates with a unified cursor.
 
-- `GET /im/api/v1/timeline/posts/:postId`
+- `GET /im/v3/timeline/posts/:postId`
   - Get post detail with permission checks.
 
-- `GET /im/api/v1/timeline/users/:userId/posts?cursor=&limit=20`
+- `GET /im/v3/timeline/users/:userId/posts?cursor=&limit=20`
   - Get a user's post stream with viewer-based visibility filtering.
 
-- `DELETE /im/api/v1/timeline/posts/:postId`
+- `DELETE /im/v3/timeline/posts/:postId`
   - Delete own post (soft delete post + feed reclaim + like soft delete).
 
-- `POST /im/api/v1/timeline/posts/:postId/likes`
+- `POST /im/v3/timeline/posts/:postId/likes`
   - Like/unlike (supports explicit `liked` or toggle).
 
 ## Cursor Format
@@ -108,8 +108,9 @@ Tuning notes:
 
 Environment variables:
 - `TIMELINE_BENCH_TOKEN`: benchmark account JWT (required)
-- `TIMELINE_BENCH_BASE_URL`: default `http://localhost:3000/im/api/v1`
+- `TIMELINE_BENCH_BASE_URL`: default `http://localhost:3000/im/v3`
 - `TIMELINE_BENCH_POSTS`: post request count, default `200`
 - `TIMELINE_BENCH_CONCURRENCY`: concurrency, default `20`
 - `TIMELINE_BENCH_FEED_READS`: feed read request count, default `300`
 - `TIMELINE_BENCH_FEED_LIMIT`: feed page size, default `20`
+

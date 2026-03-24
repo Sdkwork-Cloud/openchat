@@ -1,57 +1,31 @@
 # Java SDK
 
-## Installation
+## Workspace
 
-### Maven
+- workspace: `sdkwork-im-sdk/sdkwork-im-sdk-java`
+- generated package: `com.sdkwork:backend-sdk`
+- app schema source: `/im/v3/openapi.json`
 
-```xml
-<dependency>
-    <groupId>io.openchat</groupId>
-    <artifactId>sdk</artifactId>
-    <version>1.0.0</version>
-</dependency>
+## Current Shape
+
+- generated HTTP client only
+- no handwritten WuKongIM adapter in this workspace
+- future realtime work must stay outside `generated/server-openapi`
+
+## Commands
+
+```bash
+./bin/sdk-gen.sh
+./bin/sdk-assemble.sh
 ```
 
-### Gradle
-
-```groovy
-implementation 'io.openchat:sdk:1.0.0'
+```powershell
+.\bin\sdk-gen.ps1
+.\bin\sdk-assemble.ps1
 ```
 
-## Quick Start
+## Rules
 
-```java
-import io.openchat.sdk.OpenChatClient;
-
-OpenChatClient client = new OpenChatClient.Builder()
-    .serverUrl("http://localhost:3000")
-    .imConfig(new ImConfig.Builder()
-        .tcpAddr("localhost:5100")
-        .wsUrl("ws://localhost:5200")
-        .build())
-    .build();
-
-// Initialize
-client.init();
-
-// Login
-AuthResponse response = client.auth().login(
-    new LoginRequest("username", "password")
-);
-
-// Send message
-client.messages().send(new MessageRequest()
-    .to("user2")
-    .type(MessageType.TEXT)
-    .content("Hello, OpenChat!")
-);
-```
-
-## More Examples
-
-See [GitHub Examples](https://github.com/openchat-team/sdk-java-examples).
-
-## Next Steps
-
-- [TypeScript SDK](./typescript.md) - TypeScript SDK
-- [API Documentation](../api/) - Complete API reference
+- only `generated/server-openapi` is generator-owned
+- admin APIs are excluded
+- repeated generation must preserve any future handwritten layers by keeping them outside the generated directory

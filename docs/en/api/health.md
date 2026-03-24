@@ -1,10 +1,10 @@
-# Health Check API
+﻿# Health Check API
 
 Health Check API provides system health monitoring capabilities.
 
 ## Overview
 
-Health Check APIs do not require authentication. Path prefix: `/im/api/v1/health`.
+Health Check APIs do not require authentication. Path prefix: `/im/v3/health`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -20,7 +20,7 @@ Health Check APIs do not require authentication. Path prefix: `/im/api/v1/health
 Check if the service is running.
 
 ```http
-GET /im/api/v1/health
+GET /im/v3/health
 ```
 
 ### Response
@@ -40,7 +40,7 @@ GET /im/api/v1/health
 Get detailed health status of all components.
 
 ```http
-GET /im/api/v1/health/detailed
+GET /im/v3/health/detailed
 ```
 
 ### Response
@@ -85,3 +85,4 @@ const detailed = await client.api.health.detailedCheck();
 ## Related Links
 
 - [Metrics API](./metrics.md)
+

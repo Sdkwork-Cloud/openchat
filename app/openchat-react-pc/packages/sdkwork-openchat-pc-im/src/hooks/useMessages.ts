@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { useCallback, useEffect, useRef, useState } from "react";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { useCallback, useEffect, useRef, useState } from "react";
 import type { Message, MessageStatus } from "../entities/message.entity";
 import { registerSDKEvents } from "../adapters/sdk-adapter";
 import type { MessageContent } from "../services";

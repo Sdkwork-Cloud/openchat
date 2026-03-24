@@ -104,8 +104,11 @@ pnpm run health
 # Health check
 curl http://localhost:3000/health
 
-# API documentation
-open http://localhost:3000/api/docs
+# App API documentation
+open http://localhost:3000/im/v3/docs
+
+# Admin API documentation
+open http://localhost:3000/admin/im/v3/docs
 ```
 
 ### 3. View Logs
@@ -125,7 +128,8 @@ After installation, access the following services:
 | Service | URL |
 |---------|-----|
 | OpenChat API | http://localhost:3000 |
-| API Documentation | http://localhost:3000/api/docs |
+| App API Documentation | http://localhost:3000/im/v3/docs |
+| Admin API Documentation | http://localhost:3000/admin/im/v3/docs |
 | Health Check | http://localhost:3000/health |
 | WukongIM Demo | http://localhost:5172 |
 | WukongIM Admin | http://localhost:5300/web |

@@ -1,10 +1,10 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="./docs/assets/images/branding/logo.png" width="150" alt="OpenChat Logo">
 
 # OpenChat
 
-**开源即时通讯解决方案 - 服务端、SDK、应用一体化**
+**寮€婧愬嵆鏃堕€氳瑙ｅ喅鏂规 - 鏈嶅姟绔€丼DK銆佸簲鐢ㄤ竴浣撳寲**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -15,65 +15,62 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg?logo=redis)](https://redis.io/)
 [![WukongIM](https://img.shields.io/badge/WukongIM-v2-orange.svg)](https://githubim.com/)
 
-[English](README.md) | [中文](README_CN.md)
+[English](README.md) | [涓枃](README_CN.md)
 
 </div>
 
 ---
 
-## 📖 目录
+## 馃摉 鐩綍
 
-- [📖 目录](#-目录)
-- [🚀 快速开始](#-快速开始)
-  - [环境要求](#环境要求)
-  - [安装步骤](#安装步骤)
-  - [Docker 部署（推荐）](#docker-部署推荐)
-- [✨ 功能特性](#-功能特性)
-  - [💬 即时通讯](#-即时通讯)
-  - [🔊 实时音视频](#-实时音视频)
-  - [🤖 AI 助手](#-ai-助手)
-  - [🔌 第三方集成](#-第三方集成)
-  - [🛠️ 系统功能](#️-系统功能)
-- [📁 系统架构](#-系统架构)
-- [🔧 技术栈](#-技术栈)
-- [📚 API 文档](#-api-文档)
-- [🏗️ 项目结构](#️-项目结构)
-- [🌐 集成](#-集成)
-- [⚡ 性能优化](#-性能优化)
-- [🔒 安全](#-安全)
-- [📊 监控与日志](#-监控与日志)
-- [📦 部署](#-部署)
-- [👨‍💻 开发指南](#️-开发指南)
-- [🧪 测试](#-测试)
-- [❓ 常见问题](#-常见问题)
-- [🤝 贡献指南](#-贡献指南)
-- [📄 许可证](#-许可证)
-- [💬 社区](#-社区)
-- [📷 截图](#-截图)
+- [馃摉 鐩綍](#-鐩綍)
+- [馃殌 蹇€熷紑濮媇(#-蹇€熷紑濮?
+  - [鐜瑕佹眰](#鐜瑕佹眰)
+  - [瀹夎姝ラ](#瀹夎姝ラ)
+  - [Docker 閮ㄧ讲锛堟帹鑽愶級](#docker-閮ㄧ讲鎺ㄨ崘)
+- [鉁?鍔熻兘鐗规€(#-鍔熻兘鐗规€?
+  - [馃挰 鍗虫椂閫氳](#-鍗虫椂閫氳)
+  - [馃攰 瀹炴椂闊宠棰慮(#-瀹炴椂闊宠棰?
+  - [馃 AI 鍔╂墜](#-ai-鍔╂墜)
+  - [馃攲 绗笁鏂归泦鎴怾(#-绗笁鏂归泦鎴?
+  - [馃洜锔?绯荤粺鍔熻兘](#锔?绯荤粺鍔熻兘)
+- [馃搧 绯荤粺鏋舵瀯](#-绯荤粺鏋舵瀯)
+- [馃敡 鎶€鏈爤](#-鎶€鏈爤)
+- [馃摎 API 鏂囨。](#-api-鏂囨。)
+- [馃彈锔?椤圭洰缁撴瀯](#锔?椤圭洰缁撴瀯)
+- [馃寪 闆嗘垚](#-闆嗘垚)
+- [鈿?鎬ц兘浼樺寲](#-鎬ц兘浼樺寲)
+- [馃敀 瀹夊叏](#-瀹夊叏)
+- [馃搳 鐩戞帶涓庢棩蹇梋(#-鐩戞帶涓庢棩蹇?
+- [馃摝 閮ㄧ讲](#-閮ㄧ讲)
+- [馃懆鈥嶐煉?寮€鍙戞寚鍗梋(#锔?寮€鍙戞寚鍗?
+- [馃И 娴嬭瘯](#-娴嬭瘯)
+- [鉂?甯歌闂](#-甯歌闂)
+- [馃 璐＄尞鎸囧崡](#-璐＄尞鎸囧崡)
+- [馃搫 璁稿彲璇乚(#-璁稿彲璇?
+- [馃挰 绀惧尯](#-绀惧尯)
+- [馃摲 鎴浘](#-鎴浘)
 
 ---
 
-## 🚀 快速开始
+## 馃殌 蹇€熷紑濮?
+### 鐜瑕佹眰
 
-### 环境要求
-
-| 依赖 | 版本要求 | 说明 |
+| 渚濊禆 | 鐗堟湰瑕佹眰 | 璇存槑 |
 |------|---------|------|
-| Docker | 24.0+ | 容器运行时（推荐） |
-| Docker Compose | 2.0+ | 容器编排 |
-| Node.js | 18+ | 运行环境（独立部署） |
-| PostgreSQL | 15+ | 主数据库（外部） |
-| Redis | 7+ | 缓存和消息队列（外部） |
+| Docker | 24.0+ | 瀹瑰櫒杩愯鏃讹紙鎺ㄨ崘锛?|
+| Docker Compose | 2.0+ | 瀹瑰櫒缂栨帓 |
+| Node.js | 18+ | 杩愯鐜锛堢嫭绔嬮儴缃诧級 |
+| PostgreSQL | 15+ | 涓绘暟鎹簱锛堝閮級 |
+| Redis | 7+ | 缂撳瓨鍜屾秷鎭槦鍒楋紙澶栭儴锛?|
 
-### 一键安装（推荐）
-
+### 涓€閿畨瑁咃紙鎺ㄨ崘锛?
 **Linux / macOS:**
 
 ```bash
-# 快速安装
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
+# 蹇€熷畨瑁?curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
 
-# 或克隆后安装
+# 鎴栧厠闅嗗悗瀹夎
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 ./scripts/quick-install.sh
@@ -82,15 +79,13 @@ cd openchat
 **Windows:**
 
 ```powershell
-# 快速安装
-.\scripts\quick-install.bat
+# 蹇€熷畨瑁?.\scripts\quick-install.bat
 
-# 或 PowerShell
+# 鎴?PowerShell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-### 安装前检查
-
+### 瀹夎鍓嶆鏌?
 ```bash
 # Linux / macOS
 ./scripts/precheck.sh
@@ -99,474 +94,384 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 scripts\precheck.bat
 ```
 
-安装前检查脚本将验证：
-- 操作系统和架构
-- 内存和磁盘空间
-- Docker 和 Docker Compose
-- 端口可用性
-- 网络连接
+瀹夎鍓嶆鏌ヨ剼鏈皢楠岃瘉锛?- 鎿嶄綔绯荤粺鍜屾灦鏋?- 鍐呭瓨鍜岀鐩樼┖闂?- Docker 鍜?Docker Compose
+- 绔彛鍙敤鎬?- 缃戠粶杩炴帴
 
-### Docker 快速启动
-
+### Docker 蹇€熷惎鍔?
 ```bash
-# 快速启动（一条命令启动所有服务）
+# 蹇€熷惎鍔紙涓€鏉″懡浠ゅ惎鍔ㄦ墍鏈夋湇鍔★級
 docker compose -f docker-compose.quick.yml up -d
 
-# 或使用部署脚本（会做依赖和端口检查）
+# 鎴栦娇鐢ㄩ儴缃茶剼鏈紙浼氬仛渚濊禆鍜岀鍙ｆ鏌ワ級
 ./scripts/docker-deploy.sh install
 
-# 查看服务状态
-docker compose ps
+# 鏌ョ湅鏈嶅姟鐘舵€?docker compose ps
 
-# 查看日志
+# 鏌ョ湅鏃ュ織
 docker compose logs -f
 ```
 
-### 手动安装
+### 鎵嬪姩瀹夎
 
 ```bash
-# 克隆项目
+# 鍏嬮殕椤圭洰
 git clone <your-openchat-repo-url> openchat-server
 cd openchat-server
 
-# 安装依赖
+# 瀹夎渚濊禆
 npm install
 
-# 配置环境
+# 閰嶇疆鐜
 cp .env.example .env.development
 vim .env.development
 
-# 初始化数据库（全新库）
-./scripts/init-database.sh development
+# 鍒濆鍖栨暟鎹簱锛堝叏鏂板簱锛?./scripts/init-database.sh development
 
-# 存量库升级（可重复执行）
+# 瀛橀噺搴撳崌绾э紙鍙噸澶嶆墽琛岋級
 ./scripts/apply-db-patches.sh development
 
-# 或开发模式启动
-npm run start:dev
+# 鎴栧紑鍙戞ā寮忓惎鍔?npm run start:dev
 ```
 
-### 验证安装
+### 楠岃瘉瀹夎
 
 ```bash
-# 健康检查
-curl http://localhost:3000/health
+# 鍋ュ悍妫€鏌?curl http://localhost:3000/health
 
-# API 文档
-open http://localhost:3000/api/docs
+# API 鏂囨。
+open http://localhost:3000/im/v3/docs
 
-# 运行健康检查脚本
-./scripts/health-check.sh
+# 杩愯鍋ュ悍妫€鏌ヨ剼鏈?./scripts/health-check.sh
 ```
 
-### 访问地址
+### 璁块棶鍦板潃
 
-安装完成后，可访问以下服务：
+瀹夎瀹屾垚鍚庯紝鍙闂互涓嬫湇鍔★細
 
-| 服务 | 地址 |
+| 鏈嶅姟 | 鍦板潃 |
 |------|------|
 | OpenChat API | http://localhost:3000 |
-| API 文档 | http://localhost:3000/api/docs |
-| 健康检查 | http://localhost:3000/health |
-| 悟空IM Demo | http://localhost:5172 |
-| 悟空IM 管理后台 | http://localhost:5300/web |
+| API 鏂囨。 | http://localhost:3000/im/v3/docs |
+| 鍋ュ悍妫€鏌?| http://localhost:3000/health |
+| 鎮熺┖IM Demo | http://localhost:5172 |
+| 鎮熺┖IM 绠＄悊鍚庡彴 | http://localhost:5300/web |
 
 ---
 
-## ✨ 功能特性
+## 鉁?鍔熻兘鐗规€?
+### 馃挰 鍗虫椂閫氳
 
-### 💬 即时通讯
-
-| 功能 | 状态 | 说明 |
+| 鍔熻兘 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| 单聊 | ✅ | 一对一私聊 |
-| 群聊 | ✅ | 支持最多 500 人群组 |
-| 消息撤回 | ✅ | 2 分钟内可撤回 |
-| 已读回执 | ✅ | 消息已读状态 |
-| 多媒体消息 | ✅ | 文本、图片、语音、视频、文件 |
-| 消息搜索 | ✅ | 全文搜索历史消息 |
-| 离线推送 | ✅ | 离线消息推送通知 |
+| 鍗曡亰 | 鉁?| 涓€瀵逛竴绉佽亰 |
+| 缇よ亰 | 鉁?| 鏀寔鏈€澶?500 浜虹兢缁?|
+| 娑堟伅鎾ゅ洖 | 鉁?| 2 鍒嗛挓鍐呭彲鎾ゅ洖 |
+| 宸茶鍥炴墽 | 鉁?| 娑堟伅宸茶鐘舵€?|
+| 澶氬獟浣撴秷鎭?| 鉁?| 鏂囨湰銆佸浘鐗囥€佽闊炽€佽棰戙€佹枃浠?|
+| 娑堟伅鎼滅储 | 鉁?| 鍏ㄦ枃鎼滅储鍘嗗彶娑堟伅 |
+| 绂荤嚎鎺ㄩ€?| 鉁?| 绂荤嚎娑堟伅鎺ㄩ€侀€氱煡 |
 
-### 🔊 实时音视频
-
-| 功能 | 状态 | 说明 |
+### 馃攰 瀹炴椂闊宠棰?
+| 鍔熻兘 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| 音频通话 | ✅ | 高清语音通话 |
-| 视频通话 | ✅ | 1080P 视频通话 |
-| 屏幕共享 | ✅ | 桌面/窗口共享 |
-| 群组通话 | ✅ | 多人音视频会议 |
-| 录制回放 | ✅ | 通话录制与回放 |
+| 闊抽閫氳瘽 | 鉁?| 楂樻竻璇煶閫氳瘽 |
+| 瑙嗛閫氳瘽 | 鉁?| 1080P 瑙嗛閫氳瘽 |
+| 灞忓箷鍏变韩 | 鉁?| 妗岄潰/绐楀彛鍏变韩 |
+| 缇ょ粍閫氳瘽 | 鉁?| 澶氫汉闊宠棰戜細璁?|
+| 褰曞埗鍥炴斁 | 鉁?| 閫氳瘽褰曞埗涓庡洖鏀?|
 
-### 🤖 AI 助手
+### 馃 AI 鍔╂墜
 
-| 功能 | 状态 | 说明 |
+| 鍔熻兘 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| GPT 集成 | ✅ | 内置 ChatGPT 支持 |
-| 智能客服 | ✅ | 自动问答机器人 |
-| AI Bot | ✅ | 自定义 AI 机器人 |
-| 多模型支持 | ✅ | 支持 OpenAI、Claude 等 |
+| GPT 闆嗘垚 | 鉁?| 鍐呯疆 ChatGPT 鏀寔 |
+| 鏅鸿兘瀹㈡湇 | 鉁?| 鑷姩闂瓟鏈哄櫒浜?|
+| AI Bot | 鉁?| 鑷畾涔?AI 鏈哄櫒浜?|
+| 澶氭ā鍨嬫敮鎸?| 鉁?| 鏀寔 OpenAI銆丆laude 绛?|
 
-### 🔌 第三方集成
-
-| 功能 | 状态 | 说明 |
+### 馃攲 绗笁鏂归泦鎴?
+| 鍔熻兘 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| Telegram | ✅ | 消息同步 |
-| WhatsApp | ✅ | 消息同步 |
-| Webhook | ✅ | 自定义集成 |
-| 开放 API | ✅ | RESTful API |
+| Telegram | 鉁?| 娑堟伅鍚屾 |
+| WhatsApp | 鉁?| 娑堟伅鍚屾 |
+| Webhook | 鉁?| 鑷畾涔夐泦鎴?|
+| 寮€鏀?API | 鉁?| RESTful API |
 
-### 🛠️ 系统功能
+### 馃洜锔?绯荤粺鍔熻兘
 
-| 功能 | 状态 | 说明 |
+| 鍔熻兘 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| 用户管理 | ✅ | 注册、登录、个人资料 |
-| 好友系统 | ✅ | 添加、删除、分组管理 |
-| 群组系统 | ✅ | 创建、成员管理、权限控制 |
-| WebSocket | ✅ | 实时消息推送 |
-| 分布式部署 | ✅ | 支持集群部署 |
-| 性能监控 | ✅ | Prometheus 指标 |
-| 安全认证 | ✅ | JWT + RBAC |
-| 限流保护 | ✅ | 防止滥用 |
+| 鐢ㄦ埛绠＄悊 | 鉁?| 娉ㄥ唽銆佺櫥褰曘€佷釜浜鸿祫鏂?|
+| 濂藉弸绯荤粺 | 鉁?| 娣诲姞銆佸垹闄ゃ€佸垎缁勭鐞?|
+| 缇ょ粍绯荤粺 | 鉁?| 鍒涘缓銆佹垚鍛樼鐞嗐€佹潈闄愭帶鍒?|
+| WebSocket | 鉁?| 瀹炴椂娑堟伅鎺ㄩ€?|
+| 鍒嗗竷寮忛儴缃?| 鉁?| 鏀寔闆嗙兢閮ㄧ讲 |
+| 鎬ц兘鐩戞帶 | 鉁?| Prometheus 鎸囨爣 |
+| 瀹夊叏璁よ瘉 | 鉁?| JWT + RBAC |
+| 闄愭祦淇濇姢 | 鉁?| 闃叉婊ョ敤 |
 
 ---
 
-## 📁 系统架构
+## 馃搧 绯荤粺鏋舵瀯
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              客户端层 (Client Layer)                         │
-├──────────────┬──────────────┬──────────────┬──────────────┬────────────────┤
-│   Web App    │  PC Client   │  Mobile App  │ Mini Program │   IoT Device   │
-│   (React)    │   (Tauri)    │  (React Nat) │   (微信)      │    (ESP32)     │
-└──────┬───────┴──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────┘
-       │              │              │              │                │
-       └──────────────┴──────────────┴──────────────┴────────────────┘
-                                    │
-                                    │ WebSocket / HTTP
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           服务层 (Service Layer - NestJS)                    │
-│  ┌─────────────┬─────────────┬─────────────┬─────────────┬───────────────┐  │
-│  │    Auth     │    User     │   Message   │    Group    │      RTC      │  │
-│  │   认证授权   │   用户管理   │   消息服务   │   群组管理   │    音视频     │  │
-│  └─────────────┴─────────────┴─────────────┴─────────────┴───────────────┘  │
-│  ┌─────────────┬─────────────┬─────────────┬─────────────┬───────────────┐  │
-│  │   Friend    │   Contact   │   AI Bot    │  ThirdParty │      IoT      │  │
-│  │   好友管理   │   通讯录     │   AI机器人  │   第三方集成  │   物联网设备  │  │
-│  └─────────────┴─────────────┴─────────────┴─────────────┴───────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ SDK / API
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        消息引擎层 (Message Layer - WukongIM)                  │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │  连接管理  │  消息路由  │  离线存储  │  消息同步  │  在线状态            ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              数据层 (Data Layer)                             │
-│  ┌──────────────┬──────────────┬──────────────┬──────────────┬───────────┐  │
-│  │  PostgreSQL  │    Redis     │    MinIO     │ Elasticsearch│  Prometheus│ │
-│  │   主数据库    │  缓存/队列   │   对象存储    │   搜索引擎    │   监控     │ │
-│  └──────────────┴──────────────┴──────────────┴──────────────┴───────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹?                             瀹㈡埛绔眰 (Client Layer)                         鈹?鈹溾攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹?  Web App    鈹? PC Client   鈹? Mobile App  鈹?Mini Program 鈹?  IoT Device   鈹?鈹?  (React)    鈹?  (Tauri)    鈹? (React Nat) 鈹?  (寰俊)      鈹?   (ESP32)     鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹?       鈹?             鈹?             鈹?             鈹?               鈹?       鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?                                    鈹?                                    鈹?WebSocket / HTTP
+                                    鈻?鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹?                          鏈嶅姟灞?(Service Layer - NestJS)                    鈹?鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?鈹? 鈹?   Auth     鈹?   User     鈹?  Message   鈹?   Group    鈹?     RTC      鈹? 鈹?鈹? 鈹?  璁よ瘉鎺堟潈   鈹?  鐢ㄦ埛绠＄悊   鈹?  娑堟伅鏈嶅姟   鈹?  缇ょ粍绠＄悊   鈹?   闊宠棰?    鈹? 鈹?鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?鈹? 鈹?  Friend    鈹?  Contact   鈹?  AI Bot    鈹? ThirdParty 鈹?     IoT      鈹? 鈹?鈹? 鈹?  濂藉弸绠＄悊   鈹?  閫氳褰?    鈹?  AI鏈哄櫒浜? 鈹?  绗笁鏂归泦鎴? 鈹?  鐗╄仈缃戣澶? 鈹? 鈹?鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?                                    鈹?                                    鈹?SDK / API
+                                    鈻?鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹?                       娑堟伅寮曟搸灞?(Message Layer - WukongIM)                  鈹?鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹愨攤
+鈹? 鈹? 杩炴帴绠＄悊  鈹? 娑堟伅璺敱  鈹? 绂荤嚎瀛樺偍  鈹? 娑堟伅鍚屾  鈹? 鍦ㄧ嚎鐘舵€?           鈹傗攤
+鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹樷攤
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?                                    鈹?                                    鈻?鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹?                             鏁版嵁灞?(Data Layer)                             鈹?鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?鈹? 鈹? PostgreSQL  鈹?   Redis     鈹?   MinIO     鈹?Elasticsearch鈹? Prometheus鈹?鈹?鈹? 鈹?  涓绘暟鎹簱    鈹? 缂撳瓨/闃熷垪   鈹?  瀵硅薄瀛樺偍    鈹?  鎼滅储寮曟搸    鈹?  鐩戞帶     鈹?鈹?鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹粹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?```
 
 ---
 
-## 🔧 技术栈
+## 馃敡 鎶€鏈爤
 
-### 后端技术
-
-| 技术 | 版本 | 说明 |
+### 鍚庣鎶€鏈?
+| 鎶€鏈?| 鐗堟湰 | 璇存槑 |
 |------|------|------|
-| [NestJS](https://nestjs.com/) | 11.x | 企业级 Node.js 框架 |
-| [TypeScript](https://www.typescriptlang.org/) | 5.9+ | 类型安全的 JavaScript |
-| [TypeORM](https://typeorm.io/) | 0.3.x | 强大的 ORM 框架 |
-| [PostgreSQL](https://www.postgresql.org/) | 15+ | 高性能关系数据库 |
-| [Redis](https://redis.io/) | 7+ | 内存数据库和消息队列 |
-| [BullMQ](https://docs.bullmq.io/) | 5.x | 消息队列 |
-| [Socket.IO](https://socket.io/) | 4.x | 实时通信 |
-| [WukongIM](https://githubim.com/) | v2 | 专业 IM 引擎 |
-| [Passport](http://www.passportjs.org/) | 0.7+ | 认证中间件 |
-| [JWT](https://jwt.io/) | - | 基于令牌的认证 |
+| [NestJS](https://nestjs.com/) | 11.x | 浼佷笟绾?Node.js 妗嗘灦 |
+| [TypeScript](https://www.typescriptlang.org/) | 5.9+ | 绫诲瀷瀹夊叏鐨?JavaScript |
+| [TypeORM](https://typeorm.io/) | 0.3.x | 寮哄ぇ鐨?ORM 妗嗘灦 |
+| [PostgreSQL](https://www.postgresql.org/) | 15+ | 楂樻€ц兘鍏崇郴鏁版嵁搴?|
+| [Redis](https://redis.io/) | 7+ | 鍐呭瓨鏁版嵁搴撳拰娑堟伅闃熷垪 |
+| [BullMQ](https://docs.bullmq.io/) | 5.x | 娑堟伅闃熷垪 |
+| [Socket.IO](https://socket.io/) | 4.x | 瀹炴椂閫氫俊 |
+| [WukongIM](https://githubim.com/) | v2 | 涓撲笟 IM 寮曟搸 |
+| [Passport](http://www.passportjs.org/) | 0.7+ | 璁よ瘉涓棿浠?|
+| [JWT](https://jwt.io/) | - | 鍩轰簬浠ょ墝鐨勮璇?|
 
 ### DevOps
 
-| 技术 | 说明 |
+| 鎶€鏈?| 璇存槑 |
 |------|------|
-| Docker | 容器化部署 |
-| Docker Compose | 多容器编排 |
-| Kubernetes | 集群编排 |
-| Prometheus | 监控告警 |
+| Docker | 瀹瑰櫒鍖栭儴缃?|
+| Docker Compose | 澶氬鍣ㄧ紪鎺?|
+| Kubernetes | 闆嗙兢缂栨帓 |
+| Prometheus | 鐩戞帶鍛婅 |
 | GitHub Actions | CI/CD |
 
 ---
 
-## 📚 API 文档
+## 馃摎 API 鏂囨。
 
 ### Swagger UI
 
-启动服务后访问：
+鍚姩鏈嶅姟鍚庤闂細
 
 ```
-http://localhost:3000/api/docs
+http://localhost:3000/im/v3/docs
 ```
 
-### API 端点
+### API 绔偣
 
-| 模块 | 端点 | 说明 |
+| 妯″潡 | 绔偣 | 璇存槑 |
 |------|------|------|
-| 认证 | `/api/auth/*` | 登录、注册、Token 刷新 |
-| 用户 | `/api/users/*` | 用户信息、资料管理 |
-| 消息 | `/api/messages/*` | 消息发送、历史查询 |
-| 群组 | `/api/groups/*` | 群组创建、成员管理 |
-| 好友 | `/api/friends/*` | 好友申请、列表管理 |
-| 联系人 | `/api/contacts/*` | 通讯录管理 |
-| 音视频 | `/api/rtc/*` | 通话信令、房间管理 |
+| 璁よ瘉 | `/api/auth/*` | 鐧诲綍銆佹敞鍐屻€乀oken 鍒锋柊 |
+| 鐢ㄦ埛 | `/api/users/*` | 鐢ㄦ埛淇℃伅銆佽祫鏂欑鐞?|
+| 娑堟伅 | `/api/messages/*` | 娑堟伅鍙戦€併€佸巻鍙叉煡璇?|
+| 缇ょ粍 | `/api/groups/*` | 缇ょ粍鍒涘缓銆佹垚鍛樼鐞?|
+| 濂藉弸 | `/api/friends/*` | 濂藉弸鐢宠銆佸垪琛ㄧ鐞?|
+| 鑱旂郴浜?| `/api/contacts/*` | 閫氳褰曠鐞?|
+| 闊宠棰?| `/api/rtc/*` | 閫氳瘽淇′护銆佹埧闂寸鐞?|
 
-### 完整 API 文档
+### 瀹屾暣 API 鏂囨。
 
-详细 API 文档请参考 [API 文档](./docs/zh/api/index.md)。
-
-部署与安装命令速查请参考 [命令速查](./docs/COMMANDS_CN.md)。
-
+璇︾粏 API 鏂囨。璇峰弬鑰?[API 鏂囨。](./docs/zh/api/index.md)銆?
+閮ㄧ讲涓庡畨瑁呭懡浠ら€熸煡璇峰弬鑰?[鍛戒护閫熸煡](./docs/COMMANDS_CN.md)銆?
 ---
 
-## 🏗️ 项目结构
+## 馃彈锔?椤圭洰缁撴瀯
 
 ```
 openchat/
-├── 📁 src/                        # 服务端源码
-│   ├── 📁 common/                 # 公共模块
-│   │   ├── 📁 auth/               # 认证授权
-│   │   │   ├── guards/            # 认证守卫
-│   │   │   ├── strategies/        # 认证策略
-│   │   │   ├── auth-manager.service.ts
-│   │   │   ├── permissions.decorator.ts
-│   │   │   ├── permissions.guard.ts
-│   │   │   └── token-blacklist.service.ts
-│   │   ├── 📁 base/               # 基础类
-│   │   ├── 📁 cache/              # 缓存服务
-│   │   ├── 📁 config/             # 配置管理
-│   │   ├── 📁 constants/          # 常量定义
-│   │   ├── 📁 dto/                # 数据传输对象
-│   │   ├── 📁 events/             # 事件总线
-│   │   ├── 📁 exceptions/         # 异常处理
-│   │   ├── 📁 filters/            # 过滤器
-│   │   ├── 📁 health/             # 健康检查
-│   │   ├── 📁 interceptors/       # 拦截器
-│   │   ├── 📁 logger/             # 日志服务
-│   │   ├── 📁 metrics/            # 性能监控
-│   │   ├── 📁 queue/              # 消息队列
-│   │   ├── 📁 redis/              # Redis 服务
-│   │   ├── 📁 throttler/          # 限流
-│   │   └── 📁 utils/              # 工具函数
-│   ├── 📁 gateways/               # WebSocket 网关
-│   ├── 📁 modules/                # 业务模块
-│   │   ├── 📁 agent/              # 智能代理
-│   │   ├── 📁 ai-bot/             # AI 机器人
-│   │   ├── 📁 bot-platform/       # 机器人平台
-│   │   ├── 📁 contact/            # 联系人
-│   │   ├── 📁 conversation/       # 会话管理
-│   │   ├── 📁 friend/             # 好友系统
-│   │   ├── 📁 group/              # 群组系统
-│   │   ├── 📁 im-provider/        # IM 提供者
-│   │   ├── 📁 iot/                # 物联网
-│   │   ├── 📁 message/            # 消息系统
-│   │   ├── 📁 rtc/                # 实时音视频
-│   │   ├── 📁 third-party/        # 第三方集成
-│   │   ├── 📁 user/               # 用户系统
-│   │   └── 📁 wukongim/           # 悟空IM 集成
-│   ├── app.module.ts              # 应用模块
-│   ├── bootstrap.ts               # 启动引导
-│   ├── data-source.ts             # 数据源配置
-│   └── main.ts                    # 入口文件
-├── 📁 sdk/                        # SDK 目录
-│   ├── 📁 typescript/             # TypeScript SDK
-│   ├── 📁 android/                # Android SDK
-│   ├── 📁 ios/                    # iOS SDK
-│   ├── 📁 flutter/                # Flutter SDK
-│   ├── 📁 python/                 # Python SDK
-│   └── 📁 nodejs/                 # Node.js SDK
-├── 📁 app/                        # 应用目录
-│   ├── 📁 openchat/               # 主应用
-│   ├── 📁 openchat-admin/         # 管理后台
-│   ├── 📁 openchat-react-mobile/  # 移动端
-│   └── 📁 openchat-react-pc/      # PC 端
-├── 📁 docs/                       # 文档
-│   ├── 📁 assets/                 # 资源文件
-│   │   ├── 📁 images/             # 图片
-│   │   │   ├── 📁 branding/       # 品牌图片
-│   │   │   │   └── logo.png       # 项目 Logo
-│   │   │   ├── 📁 screenshots/    # 截图
-│   │   │   └── 📁 social/         # 社交媒体
-│   │   │       └── wechat-qr.png  # 微信二维码
-│   │   ├── 📁 videos/             # 视频
-│   │   └── 📁 icons/              # 图标
-│   ├── 📁 api/                    # API 文档
-│   ├── 📁 guide/                  # 使用指南
-│   └── 📁 sdk/                    # SDK 文档
-├── 📁 database/                   # 数据库
-│   ├── schema.sql                 # 数据库结构
-│   ├── seed.sql                   # 初始数据
-│   └── indexes-optimization.sql   # 索引优化
-├── 📁 k8s/                        # Kubernetes 配置
-│   ├── 📁 base/                   # 基础配置
-│   └── 📁 overlays/               # 环境配置
-├── 📁 scripts/                    # 脚本
-│   ├── quick-start.sh             # 快速启动
-│   ├── install.sh                 # 安装脚本 (Linux/macOS)
-│   ├── install.bat                # 安装脚本 (Windows)
-│   ├── setup-wizard.sh            # 交互式安装向导
-│   ├── install-manager.sh         # 安装状态管理
-│   ├── install-test.sh            # 安装验证测试
-│   ├── precheck.sh                # 系统预检查
-│   ├── diagnose.sh                # 错误诊断工具
-│   ├── auto-fix.sh                # 自动修复工具
-│   ├── log-analyzer.sh            # 日志分析工具
-│   ├── health-check.sh            # 健康监控
-│   ├── post-install.sh            # 安装后配置
-│   └── uninstall.sh               # 卸载脚本
-├── 📁 test/                       # 测试
-│   ├── __mocks__/                 # Mock 文件
-│   ├── app.e2e-spec.ts            # E2E 测试
-│   └── setup.ts                   # 测试配置
-├── 📁 xiaozhi-esp32/              # ESP32 IoT 固件
-├── .env.example                   # 环境变量示例
-├── docker-compose.yml             # Docker 编排
-├── Dockerfile                     # Docker 镜像
-├── jest.config.js                 # Jest 配置
-├── package.json                   # 项目配置
-├── tsconfig.json                  # TypeScript 配置
-├── LICENSE                        # 许可证
-├── README.md                      # 英文文档
-└── README_CN.md                   # 中文文档
+鈹溾攢鈹€ 馃搧 src/                        # 鏈嶅姟绔簮鐮?鈹?  鈹溾攢鈹€ 馃搧 common/                 # 鍏叡妯″潡
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 auth/               # 璁よ瘉鎺堟潈
+鈹?  鈹?  鈹?  鈹溾攢鈹€ guards/            # 璁よ瘉瀹堝崼
+鈹?  鈹?  鈹?  鈹溾攢鈹€ strategies/        # 璁よ瘉绛栫暐
+鈹?  鈹?  鈹?  鈹溾攢鈹€ auth-manager.service.ts
+鈹?  鈹?  鈹?  鈹溾攢鈹€ permissions.decorator.ts
+鈹?  鈹?  鈹?  鈹溾攢鈹€ permissions.guard.ts
+鈹?  鈹?  鈹?  鈹斺攢鈹€ token-blacklist.service.ts
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 base/               # 鍩虹绫?鈹?  鈹?  鈹溾攢鈹€ 馃搧 cache/              # 缂撳瓨鏈嶅姟
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 config/             # 閰嶇疆绠＄悊
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 constants/          # 甯搁噺瀹氫箟
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 dto/                # 鏁版嵁浼犺緭瀵硅薄
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 events/             # 浜嬩欢鎬荤嚎
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 exceptions/         # 寮傚父澶勭悊
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 filters/            # 杩囨护鍣?鈹?  鈹?  鈹溾攢鈹€ 馃搧 health/             # 鍋ュ悍妫€鏌?鈹?  鈹?  鈹溾攢鈹€ 馃搧 interceptors/       # 鎷︽埅鍣?鈹?  鈹?  鈹溾攢鈹€ 馃搧 logger/             # 鏃ュ織鏈嶅姟
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 metrics/            # 鎬ц兘鐩戞帶
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 queue/              # 娑堟伅闃熷垪
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 redis/              # Redis 鏈嶅姟
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 throttler/          # 闄愭祦
+鈹?  鈹?  鈹斺攢鈹€ 馃搧 utils/              # 宸ュ叿鍑芥暟
+鈹?  鈹溾攢鈹€ 馃搧 gateways/               # WebSocket 缃戝叧
+鈹?  鈹溾攢鈹€ 馃搧 modules/                # 涓氬姟妯″潡
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 agent/              # 鏅鸿兘浠ｇ悊
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 ai-bot/             # AI 鏈哄櫒浜?鈹?  鈹?  鈹溾攢鈹€ 馃搧 bot-platform/       # 鏈哄櫒浜哄钩鍙?鈹?  鈹?  鈹溾攢鈹€ 馃搧 contact/            # 鑱旂郴浜?鈹?  鈹?  鈹溾攢鈹€ 馃搧 conversation/       # 浼氳瘽绠＄悊
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 friend/             # 濂藉弸绯荤粺
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 group/              # 缇ょ粍绯荤粺
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 im-provider/        # IM 鎻愪緵鑰?鈹?  鈹?  鈹溾攢鈹€ 馃搧 iot/                # 鐗╄仈缃?鈹?  鈹?  鈹溾攢鈹€ 馃搧 message/            # 娑堟伅绯荤粺
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 rtc/                # 瀹炴椂闊宠棰?鈹?  鈹?  鈹溾攢鈹€ 馃搧 third-party/        # 绗笁鏂归泦鎴?鈹?  鈹?  鈹溾攢鈹€ 馃搧 user/               # 鐢ㄦ埛绯荤粺
+鈹?  鈹?  鈹斺攢鈹€ 馃搧 wukongim/           # 鎮熺┖IM 闆嗘垚
+鈹?  鈹溾攢鈹€ app.module.ts              # 搴旂敤妯″潡
+鈹?  鈹溾攢鈹€ bootstrap.ts               # 鍚姩寮曞
+鈹?  鈹溾攢鈹€ data-source.ts             # 鏁版嵁婧愰厤缃?鈹?  鈹斺攢鈹€ main.ts                    # 鍏ュ彛鏂囦欢
+鈹溾攢鈹€ 馃搧 sdk/                        # SDK 鐩綍
+鈹?  鈹溾攢鈹€ 馃搧 typescript/             # TypeScript SDK
+鈹?  鈹溾攢鈹€ 馃搧 android/                # Android SDK
+鈹?  鈹溾攢鈹€ 馃搧 ios/                    # iOS SDK
+鈹?  鈹溾攢鈹€ 馃搧 flutter/                # Flutter SDK
+鈹?  鈹溾攢鈹€ 馃搧 python/                 # Python SDK
+鈹?  鈹斺攢鈹€ 馃搧 nodejs/                 # Node.js SDK
+鈹溾攢鈹€ 馃搧 app/                        # 搴旂敤鐩綍
+鈹?  鈹溾攢鈹€ 馃搧 openchat/               # 涓诲簲鐢?鈹?  鈹溾攢鈹€ 馃搧 openchat-admin/         # 绠＄悊鍚庡彴
+鈹?  鈹溾攢鈹€ 馃搧 openchat-react-mobile/  # 绉诲姩绔?鈹?  鈹斺攢鈹€ 馃搧 openchat-react-pc/      # PC 绔?鈹溾攢鈹€ 馃搧 docs/                       # 鏂囨。
+鈹?  鈹溾攢鈹€ 馃搧 assets/                 # 璧勬簮鏂囦欢
+鈹?  鈹?  鈹溾攢鈹€ 馃搧 images/             # 鍥剧墖
+鈹?  鈹?  鈹?  鈹溾攢鈹€ 馃搧 branding/       # 鍝佺墝鍥剧墖
+鈹?  鈹?  鈹?  鈹?  鈹斺攢鈹€ logo.png       # 椤圭洰 Logo
+鈹?  鈹?  鈹?  鈹溾攢鈹€ 馃搧 screenshots/    # 鎴浘
+鈹?  鈹?  鈹?  鈹斺攢鈹€ 馃搧 social/         # 绀句氦濯掍綋
+鈹?  鈹?  鈹?      鈹斺攢鈹€ wechat-qr.png  # 寰俊浜岀淮鐮?鈹?  鈹?  鈹溾攢鈹€ 馃搧 videos/             # 瑙嗛
+鈹?  鈹?  鈹斺攢鈹€ 馃搧 icons/              # 鍥炬爣
+鈹?  鈹溾攢鈹€ 馃搧 api/                    # API 鏂囨。
+鈹?  鈹溾攢鈹€ 馃搧 guide/                  # 浣跨敤鎸囧崡
+鈹?  鈹斺攢鈹€ 馃搧 sdk/                    # SDK 鏂囨。
+鈹溾攢鈹€ 馃搧 database/                   # 鏁版嵁搴?鈹?  鈹溾攢鈹€ schema.sql                 # 鏁版嵁搴撶粨鏋?鈹?  鈹溾攢鈹€ seed.sql                   # 鍒濆鏁版嵁
+鈹?  鈹斺攢鈹€ indexes-optimization.sql   # 绱㈠紩浼樺寲
+鈹溾攢鈹€ 馃搧 k8s/                        # Kubernetes 閰嶇疆
+鈹?  鈹溾攢鈹€ 馃搧 base/                   # 鍩虹閰嶇疆
+鈹?  鈹斺攢鈹€ 馃搧 overlays/               # 鐜閰嶇疆
+鈹溾攢鈹€ 馃搧 scripts/                    # 鑴氭湰
+鈹?  鈹溾攢鈹€ quick-start.sh             # 蹇€熷惎鍔?鈹?  鈹溾攢鈹€ install.sh                 # 瀹夎鑴氭湰 (Linux/macOS)
+鈹?  鈹溾攢鈹€ install.bat                # 瀹夎鑴氭湰 (Windows)
+鈹?  鈹溾攢鈹€ setup-wizard.sh            # 浜や簰寮忓畨瑁呭悜瀵?鈹?  鈹溾攢鈹€ install-manager.sh         # 瀹夎鐘舵€佺鐞?鈹?  鈹溾攢鈹€ install-test.sh            # 瀹夎楠岃瘉娴嬭瘯
+鈹?  鈹溾攢鈹€ precheck.sh                # 绯荤粺棰勬鏌?鈹?  鈹溾攢鈹€ diagnose.sh                # 閿欒璇婃柇宸ュ叿
+鈹?  鈹溾攢鈹€ auto-fix.sh                # 鑷姩淇宸ュ叿
+鈹?  鈹溾攢鈹€ log-analyzer.sh            # 鏃ュ織鍒嗘瀽宸ュ叿
+鈹?  鈹溾攢鈹€ health-check.sh            # 鍋ュ悍鐩戞帶
+鈹?  鈹溾攢鈹€ post-install.sh            # 瀹夎鍚庨厤缃?鈹?  鈹斺攢鈹€ uninstall.sh               # 鍗歌浇鑴氭湰
+鈹溾攢鈹€ 馃搧 test/                       # 娴嬭瘯
+鈹?  鈹溾攢鈹€ __mocks__/                 # Mock 鏂囦欢
+鈹?  鈹溾攢鈹€ app.e2e-spec.ts            # E2E 娴嬭瘯
+鈹?  鈹斺攢鈹€ setup.ts                   # 娴嬭瘯閰嶇疆
+鈹溾攢鈹€ 馃搧 xiaozhi-esp32/              # ESP32 IoT 鍥轰欢
+鈹溾攢鈹€ .env.example                   # 鐜鍙橀噺绀轰緥
+鈹溾攢鈹€ docker-compose.yml             # Docker 缂栨帓
+鈹溾攢鈹€ Dockerfile                     # Docker 闀滃儚
+鈹溾攢鈹€ jest.config.js                 # Jest 閰嶇疆
+鈹溾攢鈹€ package.json                   # 椤圭洰閰嶇疆
+鈹溾攢鈹€ tsconfig.json                  # TypeScript 閰嶇疆
+鈹溾攢鈹€ LICENSE                        # 璁稿彲璇?鈹溾攢鈹€ README.md                      # 鑻辨枃鏂囨。
+鈹斺攢鈹€ README_CN.md                   # 涓枃鏂囨。
 ```
 
 ---
 
-## 🌐 集成
+## 馃寪 闆嗘垚
 
-### WukongIM 集成
+### WukongIM 闆嗘垚
 
-OpenChat 与 WukongIM 深度集成，提供可靠的实时消息服务：
-
-| 功能 | 说明 |
+OpenChat 涓?WukongIM 娣卞害闆嗘垚锛屾彁渚涘彲闈犵殑瀹炴椂娑堟伅鏈嶅姟锛?
+| 鍔熻兘 | 璇存槑 |
 |------|------|
-| 消息发送 | 所有消息通过 WukongIM 发送 |
-| 用户同步 | 本地数据库与 WukongIM 用户数据同步 |
-| 群组同步 | 群组数据双向同步 |
-| 消息确认 | 支持消息送达确认和已读回执 |
-| 在线状态 | 实时在线状态管理 |
+| 娑堟伅鍙戦€?| 鎵€鏈夋秷鎭€氳繃 WukongIM 鍙戦€?|
+| 鐢ㄦ埛鍚屾 | 鏈湴鏁版嵁搴撲笌 WukongIM 鐢ㄦ埛鏁版嵁鍚屾 |
+| 缇ょ粍鍚屾 | 缇ょ粍鏁版嵁鍙屽悜鍚屾 |
+| 娑堟伅纭 | 鏀寔娑堟伅閫佽揪纭鍜屽凡璇诲洖鎵?|
+| 鍦ㄧ嚎鐘舵€?| 瀹炴椂鍦ㄧ嚎鐘舵€佺鐞?|
 
-### 第三方服务
-
-| 服务 | 状态 | 说明 |
+### 绗笁鏂规湇鍔?
+| 鏈嶅姟 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| Telegram | ✅ | 消息同步 |
-| WhatsApp | ✅ | 消息同步 |
-| Webhook | ✅ | 自定义集成 |
+| Telegram | 鉁?| 娑堟伅鍚屾 |
+| WhatsApp | 鉁?| 娑堟伅鍚屾 |
+| Webhook | 鉁?| 鑷畾涔夐泦鎴?|
 
 ---
 
-## ⚡ 性能优化
+## 鈿?鎬ц兘浼樺寲
 
-### 数据库优化
+### 鏁版嵁搴撲紭鍖?
+- **杩炴帴姹犵鐞?*锛氫紭鍖栫殑杩炴帴姹犲ぇ灏忓拰瓒呮椂璁剧疆
+- **绱㈠紩浼樺寲**锛氬叧閿瓧娈电储寮曪紝鏌ヨ鎬ц兘鎻愬崌 10x
+- **鎵归噺鎿嶄綔**锛氭壒閲忔彃鍏ュ拰鏇存柊锛屽噺灏戞暟鎹簱寰€杩?
+### 缂撳瓨绛栫暐
 
-- **连接池管理**：优化的连接池大小和超时设置
-- **索引优化**：关键字段索引，查询性能提升 10x
-- **批量操作**：批量插入和更新，减少数据库往返
+- **Redis 缂撳瓨**锛氱儹鐐规暟鎹紦瀛橈紝鍑忓皯鏁版嵁搴撴煡璇?- **鏈湴缂撳瓨**锛歀RU 缂撳瓨锛屽噺灏戠綉缁滃紑閿€
+- **缂撳瓨棰勭儹**锛氬惎鍔ㄦ椂棰勫姞杞界儹鐐规暟鎹?
+### 娑堟伅澶勭悊
 
-### 缓存策略
+- **娑堟伅闃熷垪**锛氬紓姝ュ鐞嗚€楁椂鎿嶄綔
+- **鎵归噺鍙戦€?*锛氱兢娑堟伅鎵归噺澶勭悊
+- **鎸囨暟閫€閬块噸璇?*锛氭彁楂樻秷鎭彂閫佸彲闈犳€?
+### 骞跺彂鎺у埗
 
-- **Redis 缓存**：热点数据缓存，减少数据库查询
-- **本地缓存**：LRU 缓存，减少网络开销
-- **缓存预热**：启动时预加载热点数据
-
-### 消息处理
-
-- **消息队列**：异步处理耗时操作
-- **批量发送**：群消息批量处理
-- **指数退避重试**：提高消息发送可靠性
-
-### 并发控制
-
-- **限流保护**：防止系统过载
-- **并发限制**：控制并发请求数量
-- **优雅降级**：高负载时自动降级
-
+- **闄愭祦淇濇姢**锛氶槻姝㈢郴缁熻繃杞?- **骞跺彂闄愬埗**锛氭帶鍒跺苟鍙戣姹傛暟閲?- **浼橀泤闄嶇骇**锛氶珮璐熻浇鏃惰嚜鍔ㄩ檷绾?
 ---
 
-## 🔒 安全
+## 馃敀 瀹夊叏
 
-### 认证授权
+### 璁よ瘉鎺堟潈
 
-| 功能 | 说明 |
+| 鍔熻兘 | 璇存槑 |
 |------|------|
-| JWT 认证 | 安全的用户认证机制 |
-| 多因素认证 | 支持多种认证方式 |
-| Token 黑名单 | 支持主动登出 |
-| RBAC 权限 | 基于角色的访问控制 |
+| JWT 璁よ瘉 | 瀹夊叏鐨勭敤鎴疯璇佹満鍒?|
+| 澶氬洜绱犺璇?| 鏀寔澶氱璁よ瘉鏂瑰紡 |
+| Token 榛戝悕鍗?| 鏀寔涓诲姩鐧诲嚭 |
+| RBAC 鏉冮檺 | 鍩轰簬瑙掕壊鐨勮闂帶鍒?|
 
-### 安全防护
+### 瀹夊叏闃叉姢
 
-| 功能 | 说明 |
+| 鍔熻兘 | 璇存槑 |
 |------|------|
-| CORS 配置 | 跨域资源共享配置 |
-| Helmet 安全头 | 增强应用安全性 |
-| 输入验证 | 防止恶意输入 |
-| 限流保护 | 防止暴力破解 |
-| 敏感信息脱敏 | 日志自动脱敏 |
+| CORS 閰嶇疆 | 璺ㄥ煙璧勬簮鍏变韩閰嶇疆 |
+| Helmet 瀹夊叏澶?| 澧炲己搴旂敤瀹夊叏鎬?|
+| 杈撳叆楠岃瘉 | 闃叉鎭舵剰杈撳叆 |
+| 闄愭祦淇濇姢 | 闃叉鏆村姏鐮磋В |
+| 鏁忔劅淇℃伅鑴辨晱 | 鏃ュ織鑷姩鑴辨晱 |
 
 ---
 
-## 📊 监控与日志
+## 馃搳 鐩戞帶涓庢棩蹇?
+### 鎬ц兘鐩戞帶
 
-### 性能监控
+- **Prometheus 鎸囨爣**锛氬疄鏃舵敹闆嗙郴缁熸€ц兘鎸囨爣
+- **鍋ュ悍妫€鏌?*锛氱郴缁熷仴搴风姸鎬佹鏌?- **鎬ц兘杩借釜**锛氳姹傝€楁椂杩借釜
 
-- **Prometheus 指标**：实时收集系统性能指标
-- **健康检查**：系统健康状态检查
-- **性能追踪**：请求耗时追踪
+### 鏃ュ織绠＄悊
 
-### 日志管理
-
-- **结构化日志**：JSON 格式日志输出
-- **日志级别**：支持 debug/info/warn/error 级别
-- **日志文件**：支持文件输出和日志轮转
-- **请求追踪**：请求 ID 追踪
+- **缁撴瀯鍖栨棩蹇?*锛欽SON 鏍煎紡鏃ュ織杈撳嚭
+- **鏃ュ織绾у埆**锛氭敮鎸?debug/info/warn/error 绾у埆
+- **鏃ュ織鏂囦欢**锛氭敮鎸佹枃浠惰緭鍑哄拰鏃ュ織杞浆
+- **璇锋眰杩借釜**锛氳姹?ID 杩借釜
 
 ---
 
-## 📦 部署
+## 馃摝 閮ㄧ讲
 
-### Docker Compose 部署（推荐）
+### Docker Compose 閮ㄧ讲锛堟帹鑽愶級
 
 ```bash
-# 开发环境（包含 PostgreSQL、Redis、WukongIM、Prometheus）
-docker compose up -d
+# 寮€鍙戠幆澧冿紙鍖呭惈 PostgreSQL銆丷edis銆乄ukongIM銆丳rometheus锛?docker compose up -d
 
-# 生产环境
+# 鐢熶骇鐜
 docker compose -f docker-compose.prod.yml up -d
 
-# 使用外部数据库和 Redis
+# 浣跨敤澶栭儴鏁版嵁搴撳拰 Redis
 docker compose -f docker-compose.external-db.yml up -d
 
-# 扩展服务
+# 鎵╁睍鏈嶅姟
 docker compose up -d --scale app=3
 ```
 
-### Docker 独立部署
+### Docker 鐙珛閮ㄧ讲
 
 ```bash
-# 构建镜像
+# 鏋勫缓闀滃儚
 docker build -t openchat/server:latest .
 
-# 运行容器（需要外部 PostgreSQL 和 Redis）
-docker run -d \
+# 杩愯瀹瑰櫒锛堥渶瑕佸閮?PostgreSQL 鍜?Redis锛?docker run -d \
   --name openchat \
   -p 3000:3000 \
   -e NODE_ENV=production \
@@ -581,196 +486,178 @@ docker run -d \
   openchat/server:latest
 ```
 
-### Kubernetes 部署
+### Kubernetes 閮ㄧ讲
 
 ```bash
-# 部署到 Kubernetes
+# 閮ㄧ讲鍒?Kubernetes
 kubectl apply -k k8s/overlays/production
 
-# 查看部署状态
-kubectl get pods -n openchat
+# 鏌ョ湅閮ㄧ讲鐘舵€?kubectl get pods -n openchat
 ```
 
 ---
 
-## 👨‍💻 开发指南
+## 馃懆鈥嶐煉?寮€鍙戞寚鍗?
+### 浠ｇ爜瑙勮寖
 
-### 代码规范
+- 浣跨敤 TypeScript 涓ユ牸妯″紡
+- 閬靛惊 NestJS 浠ｇ爜椋庢牸鎸囧崡
+- 浣跨敤 ESLint + Prettier 淇濊瘉浠ｇ爜璐ㄩ噺
 
-- 使用 TypeScript 严格模式
-- 遵循 NestJS 代码风格指南
-- 使用 ESLint + Prettier 保证代码质量
-
-### 开发命令
-
+### 寮€鍙戝懡浠?
 ```bash
-# 启动开发服务器
+# 鍚姩寮€鍙戞湇鍔″櫒
 npm run start:dev
 
-# 代码格式化
-npm run format
+# 浠ｇ爜鏍煎紡鍖?npm run format
 
-# 代码检查
-npm run lint
+# 浠ｇ爜妫€鏌?npm run lint
 
-# 类型检查
-npm run lint:types
+# 绫诲瀷妫€鏌?npm run lint:types
 ```
 
-### 数据库初始化与补丁
-
+### 鏁版嵁搴撳垵濮嬪寲涓庤ˉ涓?
 ```bash
-# 全新数据库初始化（schema + 可选 seed）
-./scripts/init-database.sh development
+# 鍏ㄦ柊鏁版嵁搴撳垵濮嬪寲锛坰chema + 鍙€?seed锛?./scripts/init-database.sh development
 
-# 存量数据库补丁升级（patches）
-./scripts/apply-db-patches.sh development
+# 瀛橀噺鏁版嵁搴撹ˉ涓佸崌绾э紙patches锛?./scripts/apply-db-patches.sh development
 ```
 
 ---
 
-## 🧪 测试
+## 馃И 娴嬭瘯
 
 ```bash
-# 运行单元测试
+# 杩愯鍗曞厓娴嬭瘯
 npm run test
 
-# 运行测试覆盖率
-npm run test:cov
+# 杩愯娴嬭瘯瑕嗙洊鐜?npm run test:cov
 
-# 运行 E2E 测试
+# 杩愯 E2E 娴嬭瘯
 npm run test:e2e
 
-# 监视模式
+# 鐩戣妯″紡
 npm run test:watch
 ```
 
 ---
 
-## ❓ 常见问题
+## 鉂?甯歌闂
 
-### 诊断工具
+### 璇婃柇宸ュ叿
 
-OpenChat 提供了一套完整的诊断和修复工具：
+OpenChat 鎻愪緵浜嗕竴濂楀畬鏁寸殑璇婃柇鍜屼慨澶嶅伐鍏凤細
 
 ```bash
-# 系统预检查
-./scripts/precheck.sh
+# 绯荤粺棰勬鏌?./scripts/precheck.sh
 
-# 运行诊断
+# 杩愯璇婃柇
 ./scripts/diagnose.sh
 
-# 自动修复常见问题
+# 鑷姩淇甯歌闂
 ./scripts/auto-fix.sh --all
 
-# 分析日志
+# 鍒嗘瀽鏃ュ織
 ./scripts/log-analyzer.sh analyze
 
-# 健康监控
+# 鍋ュ悍鐩戞帶
 ./scripts/health-check.sh --monitor
 ```
 
-### 常见问题
+### 甯歌闂
 
-#### WukongIM 连接问题
+#### WukongIM 杩炴帴闂
 
-1. 检查 WukongIM 服务是否运行：`docker ps | grep wukongim`
-2. 验证 `WUKONGIM_API_URL` 配置
-3. 检查网络连通性：`./scripts/diagnose.sh --network`
+1. 妫€鏌?WukongIM 鏈嶅姟鏄惁杩愯锛歚docker ps | grep wukongim`
+2. 楠岃瘉 `WUKONGIM_API_URL` 閰嶇疆
+3. 妫€鏌ョ綉缁滆繛閫氭€э細`./scripts/diagnose.sh --network`
 
-#### 数据库连接问题
+#### 鏁版嵁搴撹繛鎺ラ棶棰?
+1. 纭繚 PostgreSQL 鏈嶅姟杩愯锛歚docker ps | grep postgres`
+2. 楠岃瘉 `.env` 涓殑鏁版嵁搴撻厤缃?3. 妫€鏌ユ暟鎹簱鐢ㄦ埛鏉冮檺
+4. 杩愯锛歚./scripts/auto-fix.sh --database`
 
-1. 确保 PostgreSQL 服务运行：`docker ps | grep postgres`
-2. 验证 `.env` 中的数据库配置
-3. 检查数据库用户权限
-4. 运行：`./scripts/auto-fix.sh --database`
+#### Redis 杩炴帴闂
 
-#### Redis 连接问题
+1. 妫€鏌?Redis 鏈嶅姟鏄惁杩愯锛歚docker ps | grep redis`
+2. 楠岃瘉 Redis 閰嶇疆
+3. 杩愯锛歚./scripts/auto-fix.sh --redis`
 
-1. 检查 Redis 服务是否运行：`docker ps | grep redis`
-2. 验证 Redis 配置
-3. 运行：`./scripts/auto-fix.sh --redis`
+#### 瀹瑰櫒闂
 
-#### 容器问题
+1. 妫€鏌ュ鍣ㄧ姸鎬侊細`docker compose ps`
+2. 鏌ョ湅瀹瑰櫒鏃ュ織锛歚./scripts/log-analyzer.sh containers`
+3. 閲嶅惎瀹瑰櫒锛歚./scripts/auto-fix.sh --containers`
 
-1. 检查容器状态：`docker compose ps`
-2. 查看容器日志：`./scripts/log-analyzer.sh containers`
-3. 重启容器：`./scripts/auto-fix.sh --containers`
+#### 瀹夎闂
 
-#### 安装问题
+1. 妫€鏌ュ畨瑁呯姸鎬侊細`./scripts/install-manager.sh status`
+2. 鎭㈠涓柇鐨勫畨瑁咃細`./scripts/install-manager.sh resume`
+3. 閲嶇疆瀹夎锛歚./scripts/install-manager.sh reset`
 
-1. 检查安装状态：`./scripts/install-manager.sh status`
-2. 恢复中断的安装：`./scripts/install-manager.sh resume`
-3. 重置安装：`./scripts/install-manager.sh reset`
-
-详细故障排除指南请参考 [安装文档](./INSTALL_CN.md) 与 [命令速查](./docs/COMMANDS_CN.md)
+璇︾粏鏁呴殰鎺掗櫎鎸囧崡璇峰弬鑰?[瀹夎鏂囨。](./INSTALL_CN.md) 涓?[鍛戒护閫熸煡](./docs/COMMANDS_CN.md)
 
 ---
 
-## 🤝 贡献指南
+## 馃 璐＄尞鎸囧崡
 
-我们欢迎所有形式的贡献！
+鎴戜滑娆㈣繋鎵€鏈夊舰寮忕殑璐＄尞锛?
+### 璐＄尞姝ラ
 
-### 贡献步骤
+1. Fork 鏈粨搴?2. 鍒涘缓鐗规€у垎鏀?(`git checkout -b feature/AmazingFeature`)
+3. 鎻愪氦鏇存敼 (`git commit -m 'Add some AmazingFeature'`)
+4. 鎺ㄩ€佸埌鍒嗘敮 (`git push origin feature/AmazingFeature`)
+5. 鍒涘缓 Pull Request
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
+### 琛屼负鍑嗗垯
 
-### 行为准则
+璐＄尞鍓嶈闃呰 [琛屼负鍑嗗垯](CODE_OF_CONDUCT.md)
 
-贡献前请阅读 [行为准则](CODE_OF_CONDUCT.md)
+### 璐＄尞鎸囧崡
 
-### 贡献指南
-
-详细贡献指南请参考 [贡献指南](CONTRIBUTING.md)
+璇︾粏璐＄尞鎸囧崡璇峰弬鑰?[璐＄尞鎸囧崡](CONTRIBUTING.md)
 
 ---
 
-## 📄 许可证
-
-OpenChat 是开源软件，使用 [AGPL-3.0 许可证](LICENSE) 授权。
-
+## 馃搫 璁稿彲璇?
+OpenChat 鏄紑婧愯蒋浠讹紝浣跨敤 [AGPL-3.0 璁稿彲璇乚(LICENSE) 鎺堟潈銆?
 ---
 
-## 💬 社区
+## 馃挰 绀惧尯
 
-加入我们的社区，获取帮助、分享想法、参与项目！
+鍔犲叆鎴戜滑鐨勭ぞ鍖猴紝鑾峰彇甯姪銆佸垎浜兂娉曘€佸弬涓庨」鐩紒
 
-| 平台 | 链接 |
+| 骞冲彴 | 閾炬帴 |
 |------|------|
 | GitHub Discussions | [![GitHub Discussions](https://img.shields.io/badge/GitHub%20Discussions-181717?logo=github&logoColor=white)](https://github.com/Sdkwork-Cloud/openchat/discussions) |
 | X (Twitter) | [![X](https://img.shields.io/badge/X-1DA1F2?logo=x&logoColor=white)](https://x.com/openchat_cloud) |
 | Discord | [![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/openchat) |
-| 微信公众号 | 扫描下方二维码 |
-| 邮箱 | [![Email](https://img.shields.io/badge/Email-D14836?logo=gmail&logoColor=white)](mailto:contact@sdkwork.com) |
+| 寰俊鍏紬鍙?| 鎵弿涓嬫柟浜岀淮鐮?|
+| 閭 | [![Email](https://img.shields.io/badge/Email-D14836?logo=gmail&logoColor=white)](mailto:contact@sdkwork.com) |
 
 <div align="center">
-  <img src="./docs/assets/images/social/wechat-qr.png" width="200" alt="微信公众号二维码">
-  <p>OpenChat 官方公众号</p>
+  <img src="./docs/assets/images/social/wechat-qr.png" width="200" alt="寰俊鍏紬鍙蜂簩缁寸爜">
+  <p>OpenChat 瀹樻柟鍏紬鍙?/p>
 </div>
 
 ---
 
-## 📷 截图
+## 馃摲 鎴浘
 
 <div align="center">
 
-### Web 界面
+### Web 鐣岄潰
 
-<img src="./docs/assets/images/screenshots/web/chat.png" width="300" alt="Web 聊天界面">
-<img src="./docs/assets/images/screenshots/web/group.png" width="300" alt="Web 群组界面">
+<img src="./docs/assets/images/screenshots/web/chat.png" width="300" alt="Web 鑱婂ぉ鐣岄潰">
+<img src="./docs/assets/images/screenshots/web/group.png" width="300" alt="Web 缇ょ粍鐣岄潰">
 
-### 移动端界面
+### 绉诲姩绔晫闈?
+<img src="./docs/assets/images/screenshots/mobile/chat.png" width="200" alt="绉诲姩绔亰澶╃晫闈?>
+<img src="./docs/assets/images/screenshots/mobile/profile.png" width="200" alt="绉诲姩绔釜浜鸿祫鏂欑晫闈?>
 
-<img src="./docs/assets/images/screenshots/mobile/chat.png" width="200" alt="移动端聊天界面">
-<img src="./docs/assets/images/screenshots/mobile/profile.png" width="200" alt="移动端个人资料界面">
+### 瑙嗛閫氳瘽
 
-### 视频通话
-
-<img src="./docs/assets/images/screenshots/video/call.png" width="300" alt="视频通话界面">
+<img src="./docs/assets/images/screenshots/video/call.png" width="300" alt="瑙嗛閫氳瘽鐣岄潰">
 
 </div>
 
@@ -778,12 +665,13 @@ OpenChat 是开源软件，使用 [AGPL-3.0 许可证](LICENSE) 授权。
 
 <div align="center">
 
-**如果这个项目对你有帮助，请给我们一个 ⭐️ Star！**
+**濡傛灉杩欎釜椤圭洰瀵逛綘鏈夊府鍔╋紝璇风粰鎴戜滑涓€涓?猸愶笍 Star锛?*
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Sdkwork-Cloud/openchat&type=Date)](https://star-history.com/#Sdkwork-Cloud/openchat&Date)
 
 ---
 
-© 2024 Sdkwork Cloud. All rights reserved.
+漏 2024 Sdkwork Cloud. All rights reserved.
 
 </div>
+

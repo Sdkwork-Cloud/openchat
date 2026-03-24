@@ -1,10 +1,10 @@
-# Bot Platform API
+﻿# Bot Platform API
 
 Bot Platform API provides bot platform management capabilities for third-party bot integration.
 
 ## Overview
 
-All Bot Platform APIs require JWT authentication. Path prefix: `/im/api/v1/bots`.
+All Bot Platform APIs require JWT authentication. Path prefix: `/im/v3/bots`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -23,7 +23,7 @@ All Bot Platform APIs require JWT authentication. Path prefix: `/im/api/v1/bots`
 Register a new bot on the platform.
 
 ```http
-POST /im/api/v1/bots
+POST /im/v3/bots
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -74,3 +74,4 @@ For signature verification details and language examples, see the Open Access gu
 - [AI Bots API](./ai-bots.md)
 - [AI Agents API](./agents.md)
 - [Open Access Guide](./open-access.md)
+

@@ -6,10 +6,10 @@
 
 | 接口 | 方法 | 路径 | 说明 |
 |------|------|------|------|
-| 获取当前用户 | GET | `/im/api/v1/users/me` | 获取当前登录用户信息 |
-| 获取用户详情 | GET | `/im/api/v1/users/:id` | 获取指定用户详情 |
-| 更新用户资料 | PUT | `/im/api/v1/users/:id` | 更新用户资料（仅限自己） |
-| 搜索用户 | GET | `/im/api/v1/users` | 根据关键词搜索用户 |
+| 获取当前用户 | GET | `/im/v3/users/me` | 获取当前登录用户信息 |
+| 获取用户详情 | GET | `/im/v3/users/:id` | 获取指定用户详情 |
+| 更新用户资料 | PUT | `/im/v3/users/:id` | 更新用户资料（仅限自己） |
+| 搜索用户 | GET | `/im/v3/users` | 根据关键词搜索用户 |
 
 ---
 
@@ -18,7 +18,7 @@
 获取当前登录用户的详细信息。
 
 ```http
-GET /im/api/v1/users/me
+GET /im/v3/users/me
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -55,7 +55,7 @@ Authorization: Bearer &lt;access-token&gt;
 获取指定用户的公开信息。
 
 ```http
-GET /im/api/v1/users/{id}
+GET /im/v3/users/{id}
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -90,7 +90,7 @@ null
 更新用户的个人信息（只能更新自己的资料）。
 
 ```http
-PUT /im/api/v1/users/{id}
+PUT /im/v3/users/{id}
 Authorization: Bearer &lt;access-token&gt;
 Content-Type: application/json
 ```
@@ -149,7 +149,7 @@ Content-Type: application/json
 根据关键词搜索用户。
 
 ```http
-GET /im/api/v1/users?keyword=john&amp;limit=20
+GET /im/v3/users?keyword=john&amp;limit=20
 Authorization: Bearer &lt;access-token&gt;
 ```
 
@@ -218,21 +218,21 @@ interface User {
 
 ```bash
 # 获取当前用户
-curl -X GET http://localhost:3000/im/api/v1/users/me \
+curl -X GET http://localhost:3000/im/v3/users/me \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 获取指定用户
-curl -X GET http://localhost:3000/im/api/v1/users/user-uuid \
+curl -X GET http://localhost:3000/im/v3/users/user-uuid \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 
 # 更新用户资料
-curl -X PUT http://localhost:3000/im/api/v1/users/user-uuid \
+curl -X PUT http://localhost:3000/im/v3/users/user-uuid \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -H "Content-Type: application/json" \
   -d '{"nickname": "New Name"}'
 
 # 搜索用户
-curl -X GET "http://localhost:3000/im/api/v1/users?keyword=john&amp;limit=20" \
+curl -X GET "http://localhost:3000/im/v3/users?keyword=john&amp;limit=20" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 

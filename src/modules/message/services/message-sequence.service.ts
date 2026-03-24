@@ -27,8 +27,13 @@ export interface MissingSequenceScanResult {
 export class MessageSequenceService {
   private readonly logger = new Logger(MessageSequenceService.name);
   private readonly SEQUENCE_KEY_PREFIX = 'msg:seq:';
+  private readonly SEQUENCE_INIT_LOCK_PREFIX = 'msg:seq:initlock:';
+  private readonly SEQUENCE_INIT_LOCK_TTL_MS = 5000;
+  private readonly SEQUENCE_INIT_LOCK_MAX_ATTEMPTS = 20;
+  private readonly SEQUENCE_INIT_LOCK_RETRY_DELAY_MS = 50;
   private readonly SEQUENCE_EXPIRE_DAYS = 30; // 序列号保留30天
   private readonly MISSING_SEQUENCE_SCAN_MAX_WINDOW = 20000;
+  private readonly SEQUENCE_EXPIRE_SECONDS = this.SEQUENCE_EXPIRE_DAYS * 24 * 60 * 60;
 
   constructor(
     @Inject(REDIS_CLIENT) private redis: Redis,
@@ -44,12 +49,9 @@ export class MessageSequenceService {
    */
   async getNextSequence(conversationId: string): Promise<number> {
     const key = this.getSequenceKey(conversationId);
+    await this.ensureSequenceKeyInitialized(conversationId, key);
     const sequence = await this.redis.incr(key);
-
-    // 设置过期时间（第一次设置时）
-    if (sequence === 1) {
-      await this.redis.expire(key, this.SEQUENCE_EXPIRE_DAYS * 24 * 60 * 60);
-    }
+    await this.redis.expire(key, this.SEQUENCE_EXPIRE_SECONDS);
 
     this.logger.debug(`Generated sequence ${sequence} for conversation ${conversationId}`);
     return sequence;
@@ -68,6 +70,7 @@ export class MessageSequenceService {
     }
 
     const key = this.getSequenceKey(conversationId);
+    await this.ensureSequenceKeyInitialized(conversationId, key);
     const endSequence = await this.redis.incrby(key, count);
     if (!Number.isFinite(endSequence) || endSequence < count) {
       throw new Error(`Invalid sequence range generated for ${conversationId}`);
@@ -76,10 +79,7 @@ export class MessageSequenceService {
     const startSequence = endSequence - count + 1;
     const sequences = Array.from({ length: count }, (_, index) => startSequence + index);
 
-    // 设置过期时间（第一次设置时）
-    if (endSequence === count) {
-      await this.redis.expire(key, this.SEQUENCE_EXPIRE_DAYS * 24 * 60 * 60);
-    }
+    await this.redis.expire(key, this.SEQUENCE_EXPIRE_SECONDS);
 
     this.logger.debug(`Generated ${count} sequences for conversation ${conversationId}`);
     return sequences;
@@ -115,7 +115,7 @@ export class MessageSequenceService {
   async resetSequence(conversationId: string, sequence: number): Promise<void> {
     const key = this.getSequenceKey(conversationId);
     await this.redis.set(key, sequence.toString());
-    await this.redis.expire(key, this.SEQUENCE_EXPIRE_DAYS * 24 * 60 * 60);
+    await this.redis.expire(key, this.SEQUENCE_EXPIRE_SECONDS);
 
     this.logger.warn(`Reset sequence for conversation ${conversationId} to ${sequence}`);
   }
@@ -258,6 +258,53 @@ export class MessageSequenceService {
     return `${this.SEQUENCE_KEY_PREFIX}${conversationId}`;
   }
 
+  private getSequenceInitLockKey(conversationId: string): string {
+    return `${this.SEQUENCE_INIT_LOCK_PREFIX}${conversationId}`;
+  }
+
+  private async ensureSequenceKeyInitialized(conversationId: string, key: string): Promise<void> {
+    const currentValue = await this.redis.get(key);
+    if (currentValue !== null) {
+      return;
+    }
+
+    const lockKey = this.getSequenceInitLockKey(conversationId);
+    for (let attempt = 0; attempt < this.SEQUENCE_INIT_LOCK_MAX_ATTEMPTS; attempt += 1) {
+      const lockAcquired = await this.redis.set(
+        lockKey,
+        '1',
+        'PX',
+        this.SEQUENCE_INIT_LOCK_TTL_MS,
+        'NX',
+      );
+
+      if (lockAcquired) {
+        try {
+          const existingValue = await this.redis.get(key);
+          if (existingValue !== null) {
+            return;
+          }
+
+          const maxSeq = await this.getConversationMaxSeq(conversationId);
+          await this.redis.set(key, String(maxSeq), 'EX', this.SEQUENCE_EXPIRE_SECONDS);
+          return;
+        } finally {
+          await this.redis.del(lockKey);
+        }
+      }
+
+      const existingValue = await this.redis.get(key);
+      if (existingValue !== null) {
+        return;
+      }
+
+      await this.delay(this.SEQUENCE_INIT_LOCK_RETRY_DELAY_MS);
+    }
+
+    const maxSeq = await this.getConversationMaxSeq(conversationId);
+    await this.redis.set(key, String(maxSeq), 'EX', this.SEQUENCE_EXPIRE_SECONDS);
+  }
+
   private async getConversationMaxSeq(conversationId: string): Promise<number> {
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
@@ -313,5 +360,9 @@ export class MessageSequenceService {
     }
 
     return false;
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

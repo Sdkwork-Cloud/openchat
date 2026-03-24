@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RTCService } from './rtc.service';
-import { RTCController } from './rtc.controller';
-import { RTCWebhookController } from './rtc-webhook.controller';
 import { RTCRoom } from './rtc-room.entity';
 import { RTCToken } from './rtc-token.entity';
 import { RTCChannelEntity } from './rtc-channel.entity';
@@ -22,7 +20,6 @@ import { RTCCallParticipant } from './rtc-call-participant.entity';
     ]),
   ],
   providers: [RTCService],
-  controllers: [RTCController, RTCWebhookController],
   exports: [RTCService],
 })
 export class RtcModule {}

@@ -1,10 +1,10 @@
-# AI Agents API
+﻿# AI Agents API
 
 AI Agents API provides AI agent management capabilities for building intelligent assistants.
 
 ## Overview
 
-All AI Agents APIs require JWT authentication. Path prefix: `/im/api/v1/agents`.
+All AI Agents APIs require JWT authentication. Path prefix: `/im/v3/agents`.
 
 | Endpoint | Method | Path | Description |
 |----------|--------|------|-------------|
@@ -24,7 +24,7 @@ All AI Agents APIs require JWT authentication. Path prefix: `/im/api/v1/agents`.
 Create a new AI agent.
 
 ```http
-POST /im/api/v1/agents
+POST /im/v3/agents
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -91,3 +91,4 @@ const newAgent = await client.api.agents.create({
 
 - [AI Bots API](./ai-bots.md)
 - [Memory Management API](./memory.md)
+
