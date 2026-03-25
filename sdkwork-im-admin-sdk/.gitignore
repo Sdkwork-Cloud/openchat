@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+sdkwork-im-admin-sdk-typescript/generated/server-openapi/dist/
+sdkwork-im-admin-sdk-typescript/composed/package-lock.json
+sdkwork-im-admin-sdk-typescript/generated/server-openapi/package-lock.json

@@ -17,6 +17,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { RTCRoom, RTCToken } from '../rtc.interface';
 
 const RTC_ROOM_TYPES = ['p2p', 'group'] as const;
 const RTC_VIDEO_RECORD_STATUS = ['recording', 'completed', 'failed', 'processing'] as const;
@@ -31,6 +32,13 @@ const RTC_PROVIDER_HEALTH_REASONS = [
   'high_control_plane_circuit_open_rate',
 ] as const;
 const RTC_PROVIDER_VALUES = ['volcengine', 'tencent', 'alibaba', 'livekit'] as const;
+const RTC_SIGNALING_TRANSPORT_VALUES = ['WUKONGIM_EVENT'] as const;
+const RTC_REALTIME_TRANSPORT_VALUES = ['WUKONGIM'] as const;
+const RTC_SIGNALING_EVENT_TYPE_VALUES = ['RTC_SIGNAL'] as const;
+const RTC_SIGNALING_NAMESPACE_VALUES = ['rtc'] as const;
+const RTC_SIGNALING_CONVERSATION_TYPE_VALUES = ['GROUP'] as const;
+const RTC_SIGNALING_DIRECT_TYPES = ['offer', 'answer', 'ice-candidate'] as const;
+const RTC_SIGNALING_BROADCAST_TYPES = ['join', 'leave', 'publish', 'unpublish'] as const;
 
 export class CreateRtcRoomDto {
   @ApiProperty({ enum: RTC_ROOM_TYPES, default: 'p2p' })
@@ -104,6 +112,166 @@ export class GenerateRtcTokenDto {
   @Min(60)
   @Max(86400)
   expireSeconds?: number;
+}
+
+export class RtcConnectionInfoRequestDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  channelId?: string;
+
+  @ApiPropertyOptional({ enum: RTC_PROVIDER_VALUES })
+  @IsOptional()
+  @IsIn(RTC_PROVIDER_VALUES)
+  @IsString()
+  provider?: string;
+
+  @ApiPropertyOptional({ description: 'Role used by cloud provider ACL' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  role?: string;
+
+  @ApiPropertyOptional({ minimum: 60, maximum: 86400, default: 7200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(60)
+  @Max(86400)
+  expireSeconds?: number;
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Whether WuKongIM realtime token should be included in the response',
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeRealtimeToken?: boolean;
+}
+
+export class RtcConnectionConversationTargetDto {
+  @ApiProperty({ enum: RTC_SIGNALING_CONVERSATION_TYPE_VALUES, default: 'GROUP' })
+  conversationType: 'GROUP';
+
+  @ApiProperty({ description: 'Conversation targetId used for room-scoped broadcast events' })
+  targetId: string;
+}
+
+export class RtcConnectionSignalingDto {
+  @ApiProperty({ enum: RTC_SIGNALING_TRANSPORT_VALUES, default: 'WUKONGIM_EVENT' })
+  transport: 'WUKONGIM_EVENT';
+
+  @ApiProperty({ enum: RTC_SIGNALING_EVENT_TYPE_VALUES, default: 'RTC_SIGNAL' })
+  eventType: 'RTC_SIGNAL';
+
+  @ApiProperty({ enum: RTC_SIGNALING_NAMESPACE_VALUES, default: 'rtc' })
+  namespace: 'rtc';
+
+  @ApiProperty({ description: 'Business room id used for RTC signaling routing' })
+  roomId: string;
+
+  @ApiProperty({
+    description: 'Field name used for direct peer routing when sending one-to-one RTC signaling events',
+    default: 'toUserId',
+  })
+  directTargetField: string;
+
+  @ApiProperty({ type: () => RtcConnectionConversationTargetDto })
+  broadcastConversation: RtcConnectionConversationTargetDto;
+
+  @ApiProperty({
+    type: [String],
+    enum: RTC_SIGNALING_DIRECT_TYPES,
+    description: 'RTC signaling types that should be routed directly to a peer',
+  })
+  directSignalTypes: Array<'offer' | 'answer' | 'ice-candidate'>;
+
+  @ApiProperty({
+    type: [String],
+    enum: RTC_SIGNALING_BROADCAST_TYPES,
+    description: 'RTC signaling/event types that should be broadcast to the room conversation',
+  })
+  broadcastSignalTypes: Array<'join' | 'leave' | 'publish' | 'unpublish'>;
+}
+
+export class RtcConnectionRealtimeDto {
+  @ApiProperty({ enum: RTC_REALTIME_TRANSPORT_VALUES, default: 'WUKONGIM' })
+  transport: 'WUKONGIM';
+
+  @ApiProperty()
+  uid: string;
+
+  @ApiProperty()
+  wsUrl: string;
+
+  @ApiPropertyOptional()
+  token?: string;
+
+  @ApiPropertyOptional()
+  apiUrl?: string;
+
+  @ApiPropertyOptional()
+  managerUrl?: string;
+
+  @ApiPropertyOptional()
+  tcpAddr?: string;
+}
+
+export class RtcConnectionProviderConfigDto {
+  @ApiProperty({ enum: RTC_PROVIDER_VALUES })
+  provider: 'volcengine' | 'tencent' | 'alibaba' | 'livekit';
+
+  @ApiPropertyOptional()
+  channelId?: string;
+
+  @ApiProperty({ description: 'Provider client appId/sdkAppId/serverUrl identity exposed to the client SDK' })
+  appId: string;
+
+  @ApiProperty({ description: 'Provider-side room identifier used by the RTC media SDK when joining the room' })
+  providerRoomId: string;
+
+  @ApiProperty({ description: 'Business room identifier used by OpenChat app APIs and signaling' })
+  businessRoomId: string;
+
+  @ApiProperty()
+  userId: string;
+
+  @ApiProperty()
+  token: string;
+
+  @ApiPropertyOptional()
+  role?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  expiresAt?: Date;
+
+  @ApiPropertyOptional()
+  endpoint?: string;
+
+  @ApiPropertyOptional()
+  region?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sanitized client-safe provider extension configuration for future SDK expansion',
+  })
+  extras?: Record<string, any>;
+}
+
+export class RtcConnectionInfoResponseDto {
+  @ApiProperty({ type: () => RTCRoom })
+  room: RTCRoom;
+
+  @ApiProperty({ type: () => RTCToken })
+  rtcToken: RTCToken;
+
+  @ApiProperty({ type: () => RtcConnectionProviderConfigDto })
+  providerConfig: RtcConnectionProviderConfigDto;
+
+  @ApiProperty({ type: () => RtcConnectionSignalingDto })
+  signaling: RtcConnectionSignalingDto;
+
+  @ApiProperty({ type: () => RtcConnectionRealtimeDto })
+  realtime: RtcConnectionRealtimeDto;
 }
 
 export class ValidateRtcTokenDto {

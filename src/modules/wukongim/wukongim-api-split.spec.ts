@@ -11,6 +11,8 @@ describe('WuKongIM API split controllers', () => {
       getSystemInfo: jest.fn(),
       healthCheck: jest.fn(),
       createChannel: jest.fn(),
+      getChannelInfo: jest.fn(),
+      getSubscribers: jest.fn(),
     } as unknown as WukongIMService;
 
     return {
@@ -125,5 +127,47 @@ describe('WuKongIM API split controllers', () => {
     expect((wukongIMService.healthCheck as jest.Mock).mock.calls).toHaveLength(
       0,
     );
+  });
+
+  it('should expose admin channel info and subscribers from the control plane controller', async () => {
+    const { adminController, wukongIMService } = createControllers();
+    (wukongIMService.getChannelInfo as jest.Mock).mockResolvedValue({
+      channel_id: 'group-1',
+      channel_type: 2,
+      name: 'Ops Group',
+    });
+    (wukongIMService.getSubscribers as jest.Mock).mockResolvedValue({
+      subscribers: [{ uid: 'user-1' }, { uid: 'user-2' }],
+    });
+
+    const req = {
+      auth: { userId: 'admin-1', roles: ['admin'] },
+    } as any;
+
+    const infoResult = await (adminController as any).getChannelInfo(
+      req,
+      'group-1',
+      2,
+    );
+    const subscriberResult = await (adminController as any).getSubscribers(
+      req,
+      'group-1',
+      2,
+    );
+
+    expect(infoResult).toEqual({
+      success: true,
+      data: {
+        channel_id: 'group-1',
+        channel_type: 2,
+        name: 'Ops Group',
+      },
+    });
+    expect(subscriberResult).toEqual({
+      success: true,
+      data: {
+        subscribers: [{ uid: 'user-1' }, { uid: 'user-2' }],
+      },
+    });
   });
 });

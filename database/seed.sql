@@ -29,6 +29,13 @@ SET
     deleted_at = NULL,
     updated_at = CURRENT_TIMESTAMP;
 
+UPDATE chat_users
+SET roles = CASE
+    WHEN username = 'admin' THEN '["admin"]'::jsonb
+    ELSE '["user"]'::jsonb
+END
+WHERE username IN ('admin', 'alice', 'bob', 'carol', 'dave');
+
 DO $$
 DECLARE
     admin_uuid VARCHAR(36);

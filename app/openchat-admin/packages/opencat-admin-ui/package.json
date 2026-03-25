@@ -1,0 +1,20 @@
+{
+  "name": "@openchat/opencat-admin-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run src/components/AdminPrimitives.test.ts"
+  },
+  "dependencies": {
+    "@openchat/opencat-admin-commons": "workspace:*",
+    "react": "^18.2.0",
+    "react-router-dom": "^6.20.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

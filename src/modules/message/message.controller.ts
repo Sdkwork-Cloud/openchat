@@ -40,6 +40,7 @@ import {
   MessageDispatchEventType,
   buildMessageEventPayload,
 } from "./message-event-envelope.util";
+import { normalizeMessageEventTransport } from "./message-event-transport.util";
 import {
   Message,
   MessageType as DomainMessageType,
@@ -705,7 +706,10 @@ export class MessageController {
       return {
         ...basePayload,
         type: DomainMessageType.SYSTEM,
-        content: this.normalizeEventMessageContent(messageData.event),
+        content: this.normalizeEventMessageContent(messageData.event, {
+          type: conversationType,
+          targetId,
+        }),
       };
     }
 
@@ -755,19 +759,16 @@ export class MessageController {
 
   private normalizeEventMessageContent(
     event?: SendMessage["event"],
+    context?: {
+      type: "single" | "group";
+      targetId: string;
+    },
   ): Message["content"] {
-    const type = event?.type?.trim();
-    if (!type) {
-      throw new BadRequestException("event.type is required");
-    }
-
     return {
-      event: {
-        type,
-        ...(event?.name ? { name: event.name } : {}),
-        ...(event?.data ? { data: event.data } : {}),
-        ...(event?.metadata ? { metadata: event.metadata } : {}),
-      },
+      event: normalizeMessageEventTransport(event, {
+        type: context?.type || "single",
+        targetId: context?.targetId || "",
+      }),
     };
   }
 

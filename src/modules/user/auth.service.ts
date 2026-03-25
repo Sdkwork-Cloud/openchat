@@ -372,13 +372,20 @@ export class AuthService {
    * 生成JWT访问令牌
    */
   private async generateToken(user: UserEntity, deviceId?: string): Promise<string> {
-    const roles = await this.permissionService.getUserRoles(user.id);
-    const permissions = await this.permissionService.getUserPermissions(user.id);
+    const persistedRoles = Array.isArray(user.roles)
+      ? user.roles.filter((role): role is string => typeof role === 'string' && role.length > 0)
+      : [];
+    const fallbackRoles = persistedRoles.length > 0
+      ? []
+      : await this.permissionService.getUserRoles(user.id);
+    const roles = persistedRoles.length > 0 ? persistedRoles : fallbackRoles;
+    const normalizedRoles = roles.length > 0 ? roles : ['user'];
+    const permissions = await this.permissionService.getPermissionsForRoles(normalizedRoles);
     
     const payload: Record<string, unknown> = {
       userId: user.id,
       username: user.username,
-      roles,
+      roles: normalizedRoles,
       permissions,
       jti: randomUUID(),
     };
@@ -638,6 +645,7 @@ export class AuthService {
       email: email || '',
       phone: phone || '',
       password: hashedPassword,
+      roles: ['user'],
       nickname,
       status: 'offline',
       isDeleted: false,

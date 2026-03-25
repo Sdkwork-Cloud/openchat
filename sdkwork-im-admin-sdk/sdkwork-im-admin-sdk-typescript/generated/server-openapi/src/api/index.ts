@@ -1,0 +1,11 @@
+export { BaseApi } from './base';
+export { backendApiPath } from './paths';
+export { AdminDashboardApi, createAdminDashboardApi } from './admin-dashboard';
+export { AdminUsersApi, createAdminUsersApi } from './admin-users';
+export { AdminGroupsApi, createAdminGroupsApi } from './admin-groups';
+export { AdminFriendsApi, createAdminFriendsApi } from './admin-friends';
+export { AdminMessagesApi, createAdminMessagesApi } from './admin-messages';
+export { AdminIotApi, createAdminIotApi } from './admin-iot';
+export { AdminSystemApi, createAdminSystemApi } from './admin-system';
+export { RtcAdminApi, createRtcAdminApi } from './rtc-admin';
+export { WukongimAdminApi, createWukongimAdminApi } from './wukongim-admin';

@@ -32,6 +32,8 @@ import {
   GenerateRtcTokenDto,
   ListRtcVideoRecordQueryDto,
   RtcProviderCapabilitiesResponseDto,
+  RtcConnectionInfoRequestDto,
+  RtcConnectionInfoResponseDto,
   RtcProviderOperationErrorDto,
   RtcTokenValidationResultDto,
   StartRtcRecordingDto,
@@ -145,6 +147,26 @@ export class RtcAppController {
       dto.role,
       dto.expireSeconds,
     );
+  }
+
+  @Post('rooms/:id/connection')
+  @ApiOperation({
+    summary: 'Create aggregated RTC client connection info for provider bootstrap, signaling, and realtime bootstrap',
+  })
+  @ApiParam({ name: 'id', description: 'Room ID' })
+  @ApiBody({ type: RtcConnectionInfoRequestDto })
+  @ApiOkResponse({ type: RtcConnectionInfoResponseDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Provider routing conflict, missing client bootstrap config, or provider failure',
+    type: RtcProviderOperationErrorDto,
+  })
+  async getConnectionInfo(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() dto: RtcConnectionInfoRequestDto,
+  ): Promise<RtcConnectionInfoResponseDto> {
+    return this.rtcService.getClientConnectionInfo(id, user.id, dto || {});
   }
 
   @Post('tokens/validate')

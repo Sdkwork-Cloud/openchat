@@ -50,6 +50,14 @@ export class UserEntity extends BaseEntity {
 
   @Column({
     type: 'jsonb',
+    nullable: false,
+    default: () => '\'["user"]\'::jsonb',
+    comment: 'User roles',
+  })
+  roles: string[];
+
+  @Column({
+    type: 'jsonb',
     nullable: true,
     comment: '用户头像，支持URL或结构化图片资源',
   })

@@ -26,6 +26,7 @@ import {
   CreateRtcChannelDto,
   RtcProviderHealthQueryDto,
   RtcProviderHealthReportDto,
+  RtcProviderCapabilitiesResponseDto,
   RtcProviderOperationStatDto,
   RtcProviderOperationStatsQueryDto,
   UpdateRtcChannelDto,
@@ -139,6 +140,16 @@ export class RtcAdminController {
   ): Promise<RtcProviderHealthReportDto> {
     this.assertAdmin(user);
     return this.rtcService.getProviderHealthReport(query);
+  }
+
+  @Get('providers/capabilities')
+  @ApiOperation({ summary: 'Get RTC provider capabilities for admin operations' })
+  @ApiResponse({ status: 200, type: RtcProviderCapabilitiesResponseDto })
+  async getProviderCapabilities(
+    @CurrentUser() user: UserEntity,
+  ): Promise<RtcProviderCapabilitiesResponseDto> {
+    this.assertAdmin(user);
+    return this.rtcService.getProviderCapabilities();
   }
 
   @Get('channels/:id')

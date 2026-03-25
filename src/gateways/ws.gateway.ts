@@ -119,6 +119,7 @@ const MAX_PRESENCE_SUBSCRIPTION_BATCH = 500;
 const PRESENCE_ACL_ALLOWED_CACHE_TTL_MS = 60000;
 const MAX_PRESENCE_ACL_ALLOWED_CACHE_SIZE = 50000;
 const PRESENCE_ACL_CHANGED_EVENT_TYPE = 'presence.acl.changed';
+const MESSAGE_REALTIME_FANOUT_EVENT_TYPE = 'message.realtime.fanout';
 const PRESENCE_ACL_ALLOWED_CACHE_KEY_DELIMITER = '\u0001';
 const OFFLINE_CLEANUP_LOCK_KEY = 'ws:cleanup:offline-users';
 const OFFLINE_CLEANUP_LOCK_TTL_MS = 55000;
@@ -141,6 +142,18 @@ interface PresenceAclAllowedCacheEntry {
   requesterUserId: string;
   targetUserId: string;
   expiresAt: number;
+}
+
+interface MessageRealtimeFanoutEventPayload {
+  type?: unknown;
+  eventType?: unknown;
+  conversationType?: unknown;
+  fromUserId?: unknown;
+  toUserId?: unknown;
+  groupId?: unknown;
+  messageId?: unknown;
+  serverMessageId?: unknown;
+  payload?: unknown;
 }
 
 /**
@@ -1249,28 +1262,36 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       return;
     }
 
-    this.presenceAclEventUnsubscribe = this.eventBusService.subscribe<IEvent<PresenceAclChangedEventPayload>>(
+    this.presenceAclEventUnsubscribe = this.eventBusService.subscribe<IEvent<Record<string, unknown>>>(
       EventTypeConstants.CUSTOM_EVENT,
       (event) => {
-        this.handlePresenceAclChangedEvent(event);
+        this.handleCustomEvent(event);
       },
       { async: true },
     );
   }
 
-  private handlePresenceAclChangedEvent(event: IEvent<PresenceAclChangedEventPayload>): void {
+  private handleCustomEvent(event: IEvent<Record<string, unknown>>): void {
     const payload = event?.data;
     if (!isPlainObject(payload)) {
       return;
     }
 
-    if (payload.type !== PRESENCE_ACL_CHANGED_EVENT_TYPE) {
+    if (this.handlePresenceAclChangedEvent(payload)) {
       return;
+    }
+
+    this.handleMessageRealtimeFanoutEvent(payload);
+  }
+
+  private handlePresenceAclChangedEvent(payload: PresenceAclChangedEventPayload): boolean {
+    if (payload.type !== PRESENCE_ACL_CHANGED_EVENT_TYPE) {
+      return false;
     }
 
     const normalizedUserIds = this.normalizePresenceAclChangedUserIds(payload.affectedUserIds);
     if (normalizedUserIds.length === 0) {
-      return;
+      return true;
     }
 
     const clearedEntries = this.invalidatePresenceAclAllowedCacheForUsers(normalizedUserIds, 'event');
@@ -1279,6 +1300,105 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
         `Invalidated ${clearedEntries} presence ACL cache entries for users [${normalizedUserIds.join(',')}]`,
       );
     }
+
+    return true;
+  }
+
+  private handleMessageRealtimeFanoutEvent(payload: MessageRealtimeFanoutEventPayload): void {
+    if (!this.server || payload.type !== MESSAGE_REALTIME_FANOUT_EVENT_TYPE) {
+      return;
+    }
+
+    const eventType = normalizeMessageTypeToken(payload.eventType, 64);
+    if (!eventType) {
+      return;
+    }
+
+    const realtimePayload = this.buildMessageRealtimeFanoutPayload(payload, eventType);
+    if (!realtimePayload) {
+      return;
+    }
+
+    if (payload.conversationType === 'single') {
+      const fromUserId = normalizeIdentifier(payload.fromUserId);
+      const toUserId = normalizeIdentifier(payload.toUserId);
+      if (!fromUserId || !toUserId) {
+        return;
+      }
+
+      this.wsMessageEventEmitter.emitToUsers(
+        this.server,
+        [...new Set([fromUserId, toUserId])],
+        eventType,
+        realtimePayload,
+      );
+      return;
+    }
+
+    if (payload.conversationType === 'group') {
+      const groupId = normalizeIdentifier(payload.groupId);
+      if (!groupId) {
+        return;
+      }
+
+      this.wsMessageEventEmitter.emitToGroup(this.server, groupId, eventType, realtimePayload);
+    }
+  }
+
+  private buildMessageRealtimeFanoutPayload(
+    payload: MessageRealtimeFanoutEventPayload,
+    eventType: string,
+  ): Record<string, unknown> | undefined {
+    if (!isPlainObject(payload.payload)) {
+      return undefined;
+    }
+
+    const realtimePayload: Record<string, unknown> = { ...payload.payload };
+    const nestedEventType = realtimePayload.eventType !== undefined
+      ? normalizeMessageTypeToken(realtimePayload.eventType, 64)
+      : undefined;
+    if (realtimePayload.eventType !== undefined && nestedEventType !== eventType) {
+      return undefined;
+    }
+    realtimePayload.eventType = eventType;
+
+    const topLevelMessageId = payload.messageId !== undefined
+      ? normalizeIdentifier(payload.messageId)
+      : undefined;
+    const nestedMessageId = realtimePayload.messageId !== undefined
+      ? normalizeIdentifier(realtimePayload.messageId)
+      : undefined;
+    if (realtimePayload.messageId !== undefined && !nestedMessageId) {
+      return undefined;
+    }
+    if (topLevelMessageId && nestedMessageId && topLevelMessageId !== nestedMessageId) {
+      return undefined;
+    }
+    if (topLevelMessageId) {
+      realtimePayload.messageId = topLevelMessageId;
+    }
+
+    const topLevelServerMessageId = payload.serverMessageId !== undefined
+      ? normalizeIdentifier(payload.serverMessageId)
+      : undefined;
+    const nestedServerMessageId = realtimePayload.serverMessageId !== undefined
+      ? normalizeIdentifier(realtimePayload.serverMessageId)
+      : undefined;
+    if (realtimePayload.serverMessageId !== undefined && !nestedServerMessageId) {
+      return undefined;
+    }
+    if (
+      topLevelServerMessageId
+      && nestedServerMessageId
+      && topLevelServerMessageId !== nestedServerMessageId
+    ) {
+      return undefined;
+    }
+    if (topLevelServerMessageId) {
+      realtimePayload.serverMessageId = topLevelServerMessageId;
+    }
+
+    return realtimePayload;
   }
 
   private normalizePresenceAclChangedUserIds(value: unknown): string[] {

@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
@@ -19,6 +20,12 @@ import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated
 import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 import { WukongIMChannelType } from './wukongim.constants';
 import { WukongIMService } from './wukongim.service';
+import {
+  WukongIMAdminCreateChannelDto,
+  WukongIMAdminDeleteChannelDto,
+  WukongIMAdminSendMessageDto,
+  WukongIMAdminSubscribersDto,
+} from './dto/wukongim-admin.dto';
 
 @ApiTags('wukongim-admin')
 @ApiBearerAuth()
@@ -32,15 +39,10 @@ export class WukongIMAdminController {
   @Post('message/send')
   @ApiOperation({ summary: 'Send a WuKongIM control-plane message' })
   @ApiResponse({ status: 200, description: 'Message sent' })
+  @ApiBody({ type: WukongIMAdminSendMessageDto })
   async sendMessage(
     @Request() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      channelId: string;
-      channelType: number;
-      payload: string;
-      clientMsgNo?: string;
-    },
+    @Body() body: WukongIMAdminSendMessageDto,
   ) {
     this.assertAdmin(req);
 
@@ -70,15 +72,10 @@ export class WukongIMAdminController {
   @Post('message/sendbatch')
   @ApiOperation({ summary: 'Send WuKongIM control-plane messages in batch' })
   @ApiResponse({ status: 200, description: 'Batch send completed' })
+  @ApiBody({ type: [WukongIMAdminSendMessageDto] })
   async sendBatchMessages(
     @Request() req: AuthenticatedRequest,
-    @Body()
-    messages: Array<{
-      channelId: string;
-      channelType: number;
-      payload: string;
-      clientMsgNo?: string;
-    }>,
+    @Body() messages: WukongIMAdminSendMessageDto[],
   ) {
     this.assertAdmin(req);
 
@@ -151,15 +148,10 @@ export class WukongIMAdminController {
   @Post('channel/create')
   @ApiOperation({ summary: 'Create WuKongIM channel' })
   @ApiResponse({ status: 200, description: 'Channel created' })
+  @ApiBody({ type: WukongIMAdminCreateChannelDto })
   async createChannel(
     @Request() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      channelId: string;
-      channelType: number;
-      name?: string;
-      avatar?: string;
-    },
+    @Body() body: WukongIMAdminCreateChannelDto,
   ) {
     this.assertAdmin(req);
 
@@ -187,17 +179,17 @@ export class WukongIMAdminController {
   @Post('channel/delete')
   @ApiOperation({ summary: 'Delete WuKongIM channel' })
   @ApiResponse({ status: 200, description: 'Channel deleted' })
+  @ApiBody({ type: WukongIMAdminDeleteChannelDto })
   async deleteChannel(
     @Request() req: AuthenticatedRequest,
-    @Body('channelId') channelId: string,
-    @Body('channelType') channelType: number,
+    @Body() body: WukongIMAdminDeleteChannelDto,
   ) {
     this.assertAdmin(req);
 
     try {
       const result = await this.wukongIMService.deleteChannel(
-        channelId,
-        channelType as WukongIMChannelType,
+        body.channelId,
+        body.channelType as WukongIMChannelType,
       );
       return {
         success: true,
@@ -216,14 +208,10 @@ export class WukongIMAdminController {
   @Post('channel/subscriber/add')
   @ApiOperation({ summary: 'Add channel subscribers' })
   @ApiResponse({ status: 200, description: 'Subscribers added' })
+  @ApiBody({ type: WukongIMAdminSubscribersDto })
   async addSubscribers(
     @Request() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      channelId: string;
-      channelType: number;
-      subscribers: string[];
-    },
+    @Body() body: WukongIMAdminSubscribersDto,
   ) {
     this.assertAdmin(req);
 
@@ -250,14 +238,10 @@ export class WukongIMAdminController {
   @Post('channel/subscriber/remove')
   @ApiOperation({ summary: 'Remove channel subscribers' })
   @ApiResponse({ status: 200, description: 'Subscribers removed' })
+  @ApiBody({ type: WukongIMAdminSubscribersDto })
   async removeSubscribers(
     @Request() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      channelId: string;
-      channelType: number;
-      subscribers: string[];
-    },
+    @Body() body: WukongIMAdminSubscribersDto,
   ) {
     this.assertAdmin(req);
 
@@ -274,6 +258,43 @@ export class WukongIMAdminController {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to remove subscribers: ${message}`);
+      return {
+        success: false,
+        message,
+      };
+    }
+  }
+
+  @Get('channel/info')
+  @ApiOperation({ summary: 'Get WuKongIM channel info' })
+  @ApiResponse({ status: 200, description: 'Channel info returned' })
+  async getChannelInfo(
+    @Request() req: AuthenticatedRequest,
+    @Query('channelId') channelId: string,
+    @Query('channelType') channelType: number,
+  ) {
+    this.assertAdmin(req);
+
+    try {
+      if (!channelId || !channelType) {
+        return {
+          success: false,
+          message: 'channelId and channelType are required',
+        };
+      }
+
+      const result = await this.wukongIMService.getChannelInfo(
+        channelId,
+        channelType as WukongIMChannelType,
+      );
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to get channel info: ${message}`);
       return {
         success: false,
         message,
@@ -312,6 +333,43 @@ export class WukongIMAdminController {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to get system info: ${message}`);
+      return {
+        success: false,
+        message,
+      };
+    }
+  }
+
+  @Get('channel/subscribers')
+  @ApiOperation({ summary: 'Get WuKongIM channel subscribers' })
+  @ApiResponse({ status: 200, description: 'Channel subscribers returned' })
+  async getSubscribers(
+    @Request() req: AuthenticatedRequest,
+    @Query('channelId') channelId: string,
+    @Query('channelType') channelType: number,
+  ) {
+    this.assertAdmin(req);
+
+    try {
+      if (!channelId || !channelType) {
+        return {
+          success: false,
+          message: 'channelId and channelType are required',
+        };
+      }
+
+      const result = await this.wukongIMService.getSubscribers(
+        channelId,
+        channelType as WukongIMChannelType,
+      );
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to get subscribers: ${message}`);
       return {
         success: false,
         message,

@@ -5,7 +5,6 @@ import { Redis } from 'ioredis';
 import { RedisService } from '../common/redis/redis.service';
 import { MessageService } from '../modules/message/message.service';
 import { MessageReceiptService } from '../modules/message/message-receipt.service';
-import { MESSAGE_REALTIME_FANOUT_EVENT_TYPE } from '../modules/message/message-event-envelope.util';
 import { MessageStatus } from '../modules/message/message.interface';
 import { WsAckRetryService } from './services/ws-ack-retry.service';
 import { WsGroupAuthorizationService } from './services/ws-group-authorization.service';
@@ -18,6 +17,8 @@ import { WsRtcSessionCommandService } from './services/ws-rtc-session-command.se
 import { WsSystemMessageService } from './services/ws-system-message.service';
 import { WsTypingIndicatorService } from './services/ws-typing-indicator.service';
 import { WSGateway } from './ws.gateway';
+
+const MESSAGE_REALTIME_FANOUT_EVENT_TYPE = 'message.realtime.fanout';
 
 type MockSocket = Partial<Omit<Socket, 'emit' | 'join' | 'leave' | 'to' | 'handshake'>> & {
   user?: { userId?: string; deviceId?: string };
@@ -72,6 +73,7 @@ describe('WSGateway', () => {
   let wsMessageAckCommandService: WsMessageAckCommandService;
   let wsMessageCommandService: WsMessageCommandService;
   let wsRtcSessionCommandService: WsRtcSessionCommandService;
+  let rtcService: { getRoomById: jest.Mock };
   let wsMessageEventEmitterService: WsMessageEventEmitterService;
   let wsMessageTelemetryService: WsMessageTelemetryService;
   let wsSystemMessageService: WsSystemMessageService;
@@ -140,7 +142,17 @@ describe('WSGateway', () => {
       wsMessageEventEmitterService,
       new EventEmitter2(),
     );
-    wsRtcSessionCommandService = new WsRtcSessionCommandService();
+    rtcService = {
+      getRoomById: jest.fn().mockResolvedValue({
+        id: 'room-1',
+        status: 'active',
+        participants: ['user-1', 'user-2'],
+      }),
+    };
+    wsRtcSessionCommandService = new WsRtcSessionCommandService(
+      undefined,
+      rtcService as any,
+    );
     wsMessageTelemetryService = new WsMessageTelemetryService(
       new EventEmitter2(),
       {
@@ -528,6 +540,22 @@ describe('WSGateway', () => {
           toUserId: '',
           roomId: 'room-1',
           signal: null,
+          type: 'offer',
+        } as any,
+        asSocket(client),
+      );
+
+      expect(result).toEqual({ success: false, error: 'Invalid rtc signal payload' });
+    });
+
+    it('should reject rtcSignal offer when sdp payload is missing', async () => {
+      const client = createSocket({ user: { userId: 'user-1' } });
+      const result = await gateway.handleRTCSignal(
+        {
+          fromUserId: 'user-1',
+          toUserId: 'user-2',
+          roomId: 'room-1',
+          signal: {},
           type: 'offer',
         } as any,
         asSocket(client),

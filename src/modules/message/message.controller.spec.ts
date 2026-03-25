@@ -144,6 +144,180 @@ describe("MessageController", () => {
     );
   });
 
+  it("should normalize rtc signaling event into canonical rtc event payload", async () => {
+    const { controller, messageService } = createController();
+    messageService.sendMessage.mockResolvedValue({ success: true });
+
+    await controller.sendMessage(
+      {
+        version: 2,
+        conversation: {
+          type: "SINGLE",
+          targetId: "user-2",
+        },
+        event: {
+          type: "rtc_signal",
+          name: "rtc.offer",
+          data: {
+            roomId: "room-1",
+            toUserId: "user-2",
+            signalType: "offer",
+            payload: {
+              sdp: "offer-sdp",
+            },
+          },
+          metadata: {
+            correlationId: "corr-1",
+          },
+        },
+      } as any,
+      {
+        auth: { userId: "user-1" },
+        headers: {},
+      } as any,
+    );
+
+    expect(messageService.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromUserId: "user-1",
+        toUserId: "user-2",
+        type: "system",
+        content: {
+          event: {
+            type: "RTC_SIGNAL",
+            name: "rtc.offer",
+            data: {
+              roomId: "room-1",
+              toUserId: "user-2",
+              signalType: "offer",
+              payload: {
+                sdp: "offer-sdp",
+              },
+            },
+            metadata: {
+              namespace: "rtc",
+              version: 1,
+              roomId: "room-1",
+              correlationId: "corr-1",
+            },
+          },
+        },
+      }),
+    );
+  });
+
+  it("should reject rtc signaling event without roomId", async () => {
+    const { controller, messageService } = createController();
+
+    await expect(
+      controller.sendMessage(
+        {
+          version: 2,
+          conversation: {
+            type: "SINGLE",
+            targetId: "user-2",
+          },
+          event: {
+            type: "RTC_SIGNAL",
+            name: "rtc.offer",
+            data: {
+              signalType: "offer",
+              payload: {
+                sdp: "offer-sdp",
+              },
+            },
+          },
+        } as any,
+        {
+          auth: { userId: "user-1" },
+          headers: {},
+        } as any,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(messageService.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("should reject rtc signaling offer event without sdp payload", async () => {
+    const { controller, messageService } = createController();
+
+    await expect(
+      controller.sendMessage(
+        {
+          version: 2,
+          conversation: {
+            type: "SINGLE",
+            targetId: "user-2",
+          },
+          event: {
+            type: "RTC_SIGNAL",
+            name: "rtc.offer",
+            data: {
+              roomId: "room-1",
+              toUserId: "user-2",
+              signalType: "offer",
+              payload: {},
+            },
+          },
+        } as any,
+        {
+          auth: { userId: "user-1" },
+          headers: {},
+        } as any,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(messageService.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("should normalize game event into canonical game namespace envelope", async () => {
+    const { controller, messageService } = createController();
+    messageService.sendMessage.mockResolvedValue({ success: true });
+
+    await controller.sendMessage(
+      {
+        version: 2,
+        conversation: {
+          type: "GROUP",
+          targetId: "table-1",
+        },
+        event: {
+          type: "game_event",
+          name: "game.move",
+          data: {
+            tableId: "table-1",
+            move: "discard",
+          },
+        },
+      } as any,
+      {
+        auth: { userId: "user-1" },
+        headers: {},
+      } as any,
+    );
+
+    expect(messageService.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groupId: "table-1",
+        type: "system",
+        content: {
+          event: {
+            type: "GAME_EVENT",
+            name: "game.move",
+            data: {
+              tableId: "table-1",
+              move: "discard",
+            },
+            metadata: {
+              namespace: "game",
+              version: 1,
+            },
+          },
+        },
+      }),
+    );
+  });
+
   it("should reject request when both message and event are provided in versioned envelope", async () => {
     const { controller, messageService } = createController();
 

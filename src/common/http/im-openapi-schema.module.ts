@@ -16,6 +16,13 @@ import { RtcAppController } from '../../modules/rtc/rtc-app.controller';
 import { RtcAdminController } from '../../modules/rtc/rtc-admin.controller';
 import { WukongIMAppController } from '../../modules/wukongim/wukongim-app.controller';
 import { WukongIMAdminController } from '../../modules/wukongim/wukongim-admin.controller';
+import { AdminDashboardController } from '../../modules/admin/admin-dashboard.controller';
+import { AdminUsersController } from '../../modules/admin/admin-users.controller';
+import { AdminGroupsController } from '../../modules/admin/admin-groups.controller';
+import { AdminFriendsController } from '../../modules/admin/admin-friends.controller';
+import { AdminMessagesController } from '../../modules/admin/admin-messages.controller';
+import { AdminIotController } from '../../modules/admin/admin-iot.controller';
+import { AdminSystemController } from '../../modules/admin/admin-system.controller';
 import { AIBotController } from '../../modules/ai-bot/ai-bot.controller';
 import { AgentController } from '../../modules/agent/agent.controller';
 import { MemoryController } from '../../modules/agent/memory/memory.controller';
@@ -62,6 +69,13 @@ export const IM_APP_OPENAPI_CONTROLLERS: Array<Type<unknown>> = [
 ];
 
 export const IM_ADMIN_OPENAPI_CONTROLLERS: Array<Type<unknown>> = [
+  AdminDashboardController,
+  AdminUsersController,
+  AdminGroupsController,
+  AdminFriendsController,
+  AdminMessagesController,
+  AdminIotController,
+  AdminSystemController,
   RtcAdminController,
   WukongIMAdminController,
 ];

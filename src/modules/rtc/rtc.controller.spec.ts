@@ -15,6 +15,7 @@ describe('RTC API split controllers', () => {
       validateToken: jest.fn(),
       getRoomById: jest.fn(),
       getProviderCapabilities: jest.fn(),
+      getClientConnectionInfo: jest.fn(),
     } as unknown as RTCService;
 
     return {
@@ -131,6 +132,27 @@ describe('RTC API split controllers', () => {
     expect((rtcService.getProviderHealthReport as jest.Mock).mock.calls).toEqual([[query]]);
   });
 
+  it('should expose provider capabilities from the admin controller for admin users', async () => {
+    const { adminController, rtcService } = createController();
+    const report = {
+      defaultProvider: 'volcengine',
+      recommendedPrimary: 'volcengine',
+      fallbackOrder: ['volcengine', 'tencent'],
+      activeProviders: ['volcengine'],
+      providers: [],
+    };
+    (rtcService.getProviderCapabilities as jest.Mock).mockResolvedValue(report);
+
+    const result = await (adminController as any).getProviderCapabilities({
+      id: 'admin-1',
+      username: 'ops-admin',
+      roles: ['admin'],
+    });
+
+    expect(result).toBe(report);
+    expect((rtcService.getProviderCapabilities as jest.Mock).mock.calls).toHaveLength(1);
+  });
+
   it('should validate rtc token for token owner', async () => {
     const { appController, rtcService } = createController();
     const expiresAt = new Date('2026-03-01T00:00:00.000Z');
@@ -237,5 +259,91 @@ describe('RTC API split controllers', () => {
 
     expect(result).toBe(report);
     expect((rtcService.getProviderCapabilities as jest.Mock).mock.calls).toHaveLength(1);
+  });
+
+  it('should return aggregated rtc connection info for room participant', async () => {
+    const { appController, rtcService } = createController();
+    const connectionInfo = {
+      room: {
+        id: 'room-1',
+        participants: ['user-1', 'user-2'],
+      },
+      rtcToken: {
+        id: 'rtc-token-1',
+        roomId: 'room-1',
+        userId: 'user-1',
+        provider: 'volcengine',
+        token: 'rtc-token-value',
+      },
+      providerConfig: {
+        provider: 'volcengine',
+        appId: '10001',
+        providerRoomId: 'volc-room-1',
+        businessRoomId: 'room-1',
+        userId: 'user-1',
+        token: 'rtc-token-value',
+      },
+      signaling: {
+        transport: 'WUKONGIM_EVENT',
+        eventType: 'RTC_SIGNAL',
+        namespace: 'rtc',
+        roomId: 'room-1',
+      },
+      realtime: {
+        transport: 'WUKONGIM',
+        uid: 'user-1',
+        wsUrl: 'ws://localhost:5172',
+        token: 'wk-token',
+      },
+    };
+    ((rtcService as any).getClientConnectionInfo as jest.Mock).mockResolvedValue(
+      connectionInfo,
+    );
+
+    const result = await (appController as any).getConnectionInfo(
+      {
+        id: 'user-1',
+        username: 'alice',
+        roles: ['user'],
+      },
+      'room-1',
+      {
+        provider: 'volcengine',
+        role: 'host',
+        expireSeconds: 1800,
+      },
+    );
+
+    expect(result).toBe(connectionInfo);
+    expect((((rtcService as any).getClientConnectionInfo) as jest.Mock).mock.calls).toEqual([
+      [
+        'room-1',
+        'user-1',
+        {
+          provider: 'volcengine',
+          role: 'host',
+          expireSeconds: 1800,
+        },
+      ],
+    ]);
+  });
+
+  it('should reject rtc connection info query for non-owner and non-participant', async () => {
+    const { appController, rtcService } = createController();
+    ((rtcService as any).getClientConnectionInfo as jest.Mock).mockRejectedValue(
+      new ForbiddenException('User is not a participant of this room'),
+    );
+
+    await expect(
+      (appController as any).getConnectionInfo(
+        {
+          id: 'user-9',
+          username: 'outsider',
+          roles: ['user'],
+        },
+        'room-1',
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

@@ -182,9 +182,13 @@ export class PermissionService implements OnModuleInit {
 
   async getUserPermissions(userId: string): Promise<string[]> {
     const roles = await this.getUserRoles(userId);
+    return this.getPermissionsForRoles(roles);
+  }
+
+  async getPermissionsForRoles(roleNames: string[]): Promise<string[]> {
     const permissions = new Set<string>();
 
-    for (const roleName of roles) {
+    for (const roleName of roleNames) {
       const role = this.roles.get(roleName);
       if (role) {
         role.permissions.forEach((p) => permissions.add(p));

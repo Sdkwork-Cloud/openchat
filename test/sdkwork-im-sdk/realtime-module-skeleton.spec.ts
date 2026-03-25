@@ -51,7 +51,7 @@ describe('sdkwork-im-sdk realtime module skeletons', () => {
       'utf8',
     );
 
-    expect(typescriptComposedPackage.dependencies?.['@sdkwork/backend-sdk']).toBeDefined();
+    expect(typescriptComposedPackage.dependencies?.['@sdkwork/im-backend-sdk']).toBeDefined();
     expect(typescriptComposedPackage.dependencies?.['@openchat/sdkwork-im-wukongim-adapter']).toBeDefined();
     expect(flutterComposedPubspec).toContain('backend_sdk:');
     expect(flutterComposedPubspec).toContain('openchat_wukongim_adapter:');

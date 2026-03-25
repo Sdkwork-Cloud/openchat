@@ -8,58 +8,88 @@
 
 ## 分层结构
 
-- `generated/server-openapi`：发布为 `@sdkwork/backend-sdk`
-- `adapter-wukongim`：发布为 `@openchat/sdkwork-im-wukongim-adapter`
-- `composed`：发布为 `@openchat/sdkwork-im-sdk`
+- `generated/server-openapi`：仅承载服务端 HTTP API 的生成代码
+- `src`：手写运行时层
+- WuKongIM 接收链路与 RTC 编排逻辑保持在生成层之外
 
-TypeScript 手写包发布时统一输出编译后的 `dist` 产物。源码继续保留在 `src`，但运行时与类型入口统一指向 `dist/index.js` 和 `dist/index.d.ts`。
+生成器只允许覆盖 `generated/server-openapi`。多次生成不能覆盖手写的 RTC、WuKongIM 集成层。
 
 ## 实时模型
 
-- 消息发送：HTTP API
-- 长连接接收：`wukongimjssdk`
-- 对外能力聚合：手写 `composed` 包
+- 业务发送：HTTP API
+- 实时接收：WuKongIM 长连接
+- 消息持久化：服务端负责
+- 前端契约权威：`/im/v3/openapi.json`
 
-## 稳定业务模块
+## 对外稳定模块
 
-手写的 `@openchat/sdkwork-im-sdk` facade 向应用暴露稳定模块：
+手写 `OpenChatClient` facade 暴露：
 
-- `session`
-- `realtime`
-- `messages`
-- `events`
-- `friends`
-- `conversations`
-- `groups`
-- `contacts`
+- `auth`
+- `im`
 - `rtc`
+- `api`
 
-这样应用层不需要直接感知生成器的类型缺陷，也不需要直接操作 WuKongIM 运行时细节。
+## RTC 启动引导
+
+生成层 `generated/server-openapi/src/api/rtc.ts` 现在已经包含 `appControllerGetConnectionInfo(...)`。手写客户端对外暴露：
+
+- `client.rtc.getConnectionInfo(roomId, options?)`
+- `client.rtc.prepareCall(roomId, options?)`
+- `client.rtc.startCall(roomId, options?)`
+
+`prepareCall(...)` 会完成三件事：
+
+1. 请求 `POST /im/v3/rtc/rooms/:id/connection`
+2. 根据服务端返回结果选择 RTC provider
+3. 缓存 `token` 与 `providerRoomId`，供 `startCall(...)` 自动入会
+
+房间字段要严格区分：
+
+- `businessRoomId`：OpenChat 业务房间号，用于 HTTP API 与信令
+- `providerRoomId`：RTC 媒体 SDK 真正入会使用的房间号
+
+## 典型 RTC 流程
+
+```typescript
+const client = new OpenChatClient(config);
+
+const info = await client.rtc.prepareCall('room-123', {
+  provider: 'volcengine',
+  role: 'host',
+  includeRealtimeToken: true,
+});
+
+await client.rtc.startCall('room-123');
+
+console.log(info.providerConfig.providerRoomId);
+console.log(info.realtime.wsUrl);
+```
+
+接口响应包含：
+
+- `room`
+- `rtcToken`
+- `providerConfig`
+- `signaling`
+- `realtime`
 
 ## Event 与 RTC 标准
 
 - 消息请求：`version + conversation + message`
 - 事件请求：`version + conversation + event`
-- RTC 信令：`RTC_SIGNAL`
-- 未来多人游戏、棋牌等数据：通过 `GAME_EVENT` 这类领域事件继续扩展
-- 自定义 RTC 信令：`rtc.signaling.sendCustom({ eventName, signalType, ... })`
-
-## 关键辅助方法
-
-- `messages.send(...)` 会在发送前把原始 envelope 规范化为 `version: 2`，并统一将传输层 `type` 转成大写
-- `messages.batchSend(...)` 会对批量发送中的每一条 envelope 做同样的规范化处理
-- `session.register(...)` 与 `session.login(...)` 保持一致，可基于服务端返回的 WuKongIM 配置自动拉起实时连接
-- `realtime.connect(...)` 会把已连接的 WuKongIM 会话同步回 `session.getState()`
-- `realtime.onRaw(...)` 可在应用层过滤前拿到标准化后的原始消息帧与事件帧
-- `events.publishGameEvent(...)` 统一封装 `GAME_EVENT`，适合多人游戏、棋牌等未来扩展场景
+- RTC 信令事件类型：`RTC_SIGNAL`
+- 多人游戏、棋牌游戏等扩展数据：使用 `GAME_EVENT` 等领域事件继续扩展
+- `OpenChatClient.im.messages.sendXxx(...)` 现已统一走 HTTP 发送，WuKongIM 只负责接收链路
+- `sendUserCard(...)`、`sendCombined(...)` 等兼容能力统一序列化为 `CUSTOM` 消息信封，不破坏标准消息结构
 
 ## 命令
 
 ```bash
 ./bin/sdk-gen.sh
 ./bin/sdk-assemble.sh
-cd adapter-wukongim && npm run build
-cd ../composed && npm run build
+npm run test:rtc
+npm run typecheck
 ```
 
 ```powershell
@@ -70,6 +100,6 @@ cd ../composed && npm run build
 ## 规则
 
 - 只有 `generated/server-openapi` 可以被重新生成
-- 实时逻辑必须保留在 `adapter-wukongim` 或 `composed`
-- 终端应用不得依赖 admin 控制面 API
-- 反复生成不得修改 `adapter-wukongim` 或 `composed`
+- 前端应用不得依赖 admin 控制面 API
+- 重复生成不能修改手写 RTC 或 WuKongIM 逻辑
+- 生成前端 SDK 必须使用运行中的 `/im/v3/openapi.json`

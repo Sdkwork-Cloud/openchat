@@ -21,6 +21,7 @@ CREATE TABLE chat_users (
     phone VARCHAR(20) UNIQUE,
     nickname VARCHAR(100) NOT NULL,
     password VARCHAR(100) NOT NULL,
+    roles JSONB NOT NULL DEFAULT '["user"]'::jsonb,
     avatar JSONB,
     status VARCHAR(20) DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'busy')),
     resources JSONB,

@@ -62,7 +62,7 @@ export class LocalUserManagerService {
   async getUserByUsernameWithPassword(username: string): Promise<UserEntity | null> {
     return this.userRepository.findOne({
       where: { username, isDeleted: false },
-      select: ['id', 'uuid', 'username', 'nickname', 'password', 'avatar', 'status', 'resources', 'createdAt', 'updatedAt'],
+      select: ['id', 'uuid', 'username', 'nickname', 'password', 'roles', 'avatar', 'status', 'resources', 'createdAt', 'updatedAt'],
     });
   }
 
@@ -72,7 +72,7 @@ export class LocalUserManagerService {
   async getUserByIdWithPassword(id: string): Promise<UserEntity | null> {
     return this.userRepository.findOne({
       where: { id, isDeleted: false },
-      select: ['id', 'uuid', 'username', 'nickname', 'password', 'avatar', 'status', 'resources', 'createdAt', 'updatedAt'],
+      select: ['id', 'uuid', 'username', 'nickname', 'password', 'roles', 'avatar', 'status', 'resources', 'createdAt', 'updatedAt'],
     });
   }
 

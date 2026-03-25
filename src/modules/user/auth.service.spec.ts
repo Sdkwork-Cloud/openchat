@@ -62,6 +62,7 @@ describe('AuthService', () => {
   const mockPermissionService = {
     getUserRoles: jest.fn().mockResolvedValue([]),
     getUserPermissions: jest.fn().mockResolvedValue([]),
+    getPermissionsForRoles: jest.fn().mockResolvedValue(['*']),
   };
 
   const mockRedisService = {
@@ -75,6 +76,21 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    mockJwtService.sign.mockReset();
+    mockJwtService.sign.mockReturnValue('mock-access-token');
+    mockUserSyncService.syncUserToIM.mockReset();
+    mockUserSyncService.syncUserToIM.mockResolvedValue(undefined);
+    mockUserSyncService.syncUserOnLogin.mockReset();
+    mockUserSyncService.syncUserOnLogin.mockResolvedValue(undefined);
+    mockPermissionService.getUserRoles.mockReset();
+    mockPermissionService.getUserRoles.mockResolvedValue([]);
+    mockPermissionService.getUserPermissions.mockReset();
+    mockPermissionService.getUserPermissions.mockResolvedValue([]);
+    mockPermissionService.getPermissionsForRoles.mockReset();
+    mockPermissionService.getPermissionsForRoles.mockImplementation(async (roles: string[]) => (
+      roles.includes('admin') ? ['*'] : []
+    ));
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -178,6 +194,31 @@ describe('AuthService', () => {
         expect.objectContaining({
           userId: 'user-1',
           deviceId: 'ios-001',
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('should prefer persisted user roles when generating admin tokens', async () => {
+      mockPermissionService.getUserRoles.mockResolvedValue([]);
+      mockLocalUserManager.getUserByUsernameWithPassword.mockResolvedValue({
+        id: 'user-1',
+        username: 'admin',
+        nickname: 'Admin',
+        roles: ['admin'],
+        password: '$2b$10$POhQ6iz4.bQpIdSLR/vLvOBivQQllu8g.2HBhUtjzd0p/Lyuea4kK',
+      });
+
+      await service.login({
+        username: 'admin',
+        password: 'OpenChat@123',
+      });
+
+      expect(mockJwtService.sign).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          userId: 'user-1',
+          roles: ['admin'],
         }),
         expect.any(Object),
       );

@@ -1,0 +1,8 @@
+packages:
+  - 'packages/opencat-admin-*'
+  - '../../sdkwork-im-admin-sdk/sdkwork-im-admin-sdk-typescript/composed'
+  - '../../sdkwork-im-admin-sdk/sdkwork-im-admin-sdk-typescript/generated/server-openapi'
+  - '../../sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi'
+
+ignoredBuiltDependencies:
+  - esbuild

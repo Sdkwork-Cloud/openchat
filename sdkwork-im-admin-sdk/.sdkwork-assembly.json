@@ -1,0 +1,36 @@
+{
+  "assembledAt": "2026-03-24T16:35:52.304Z",
+  "workspace": "sdkwork-im-admin-sdk",
+  "workspaceVersion": "1.0.0",
+  "openapi": {
+    "authorityPath": "openapi/openchat-im-admin.openapi.yaml",
+    "sdkgenPath": "openapi/openchat-im-admin.sdkgen.yaml",
+    "openapiVersion": "3.2.0",
+    "apiVersion": "0.1.0",
+    "sdkgenExists": true
+  },
+  "languages": [
+    {
+      "language": "typescript",
+      "workspaceDir": "sdkwork-im-admin-sdk-typescript",
+      "layers": {
+        "generated": {
+          "path": "generated/server-openapi",
+          "present": true,
+          "packageName": "@sdkwork/im-admin-backend-sdk",
+          "version": "1.0.0"
+        },
+        "composed": {
+          "path": "composed",
+          "present": true,
+          "packageName": "@openchat/sdkwork-im-admin-sdk",
+          "version": "1.0.11",
+          "dependencies": [
+            "@sdkwork/im-admin-backend-sdk@file:../generated/server-openapi",
+            "@sdkwork/im-backend-sdk@file:../../../sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi"
+          ]
+        }
+      }
+    }
+  ]
+}

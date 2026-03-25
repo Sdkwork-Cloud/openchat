@@ -20,6 +20,7 @@ import { MessageModule } from '../modules/message/message.module';
 import { FriendModule } from '../modules/friend/friend.module';
 import { GroupModule } from '../modules/group/group.module';
 import { IMProviderModule } from '../modules/im-provider/im-provider.module';
+import { RtcModule } from '../modules/rtc/rtc.module';
 import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
 
 /**
@@ -33,6 +34,7 @@ import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
     FriendModule,
     GroupModule,
     IMProviderModule,
+    RtcModule,
     EventEmitterModule.forRoot(),
   ],
   providers: [

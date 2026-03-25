@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, MoreThan, ObjectLiteral, Repository } from 'typeorm';
 import { PrometheusService } from '../../common/metrics/prometheus.service';
+import { WukongIMService } from '../wukongim/wukongim.service';
 import { RTCChannelEntity } from './rtc-channel.entity';
 import { RTCRoom as RTCRoomEntity } from './rtc-room.entity';
 import { RTCToken as RTCTokenEntity } from './rtc-token.entity';
@@ -47,6 +48,10 @@ import { AlibabaRTCChannel } from './channels/alibaba';
 import { VolcengineRTCChannel } from './channels/volcengine';
 import { LiveKitRTCChannel } from './channels/livekit';
 import { TencentRTCChannel } from './channels/tencent';
+import {
+  RtcConnectionInfoRequestDto,
+  RtcConnectionInfoResponseDto,
+} from './dto/rtc.dto';
 
 interface CachedChannelClient {
   updatedAt: number;
@@ -280,6 +285,8 @@ export class RTCService implements RTCManager {
     private readonly rtcVideoRecordRepository: Repository<RTCVideoRecord>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    @Optional()
+    private readonly wukongIMService?: WukongIMService,
     @Optional()
     @Inject(RTC_AI_EXTENSION)
     private readonly aiExtension?: RtcAiExtension,
@@ -588,6 +595,99 @@ export class RTCService implements RTCManager {
     });
 
     return saved;
+  }
+
+  async getClientConnectionInfo(
+    roomId: string,
+    userId: string,
+    options: RtcConnectionInfoRequestDto = {},
+  ): Promise<RtcConnectionInfoResponseDto> {
+    const room = await this.rtcRoomRepository.findOne({
+      where: { id: roomId, isDeleted: false },
+    });
+    if (!room || room.status !== 'active') {
+      throw new NotFoundException('Room not found or inactive');
+    }
+
+    const participants = this.parseParticipants(room.participants);
+    if (!participants.includes(userId)) {
+      throw new ForbiddenException('User is not a participant of this room');
+    }
+
+    const rtcToken = await this.generateToken(
+      roomId,
+      userId,
+      options.channelId,
+      options.provider,
+      options.role,
+      options.expireSeconds,
+    );
+
+    const channelEntity = await this.resolveChannelEntity({
+      channelId: rtcToken.channelId || room.channelId || options.channelId,
+      provider: rtcToken.provider || room.provider || options.provider,
+      operation: 'generateToken',
+    });
+    if (!channelEntity) {
+      throw new BadRequestException(
+        'RTC connection info requires an active RTC channel configuration',
+      );
+    }
+
+    const realtimeConfig = this.wukongIMService?.getConnectionConfig(userId);
+    if (!realtimeConfig?.wsUrl) {
+      throw new BadRequestException(
+        'WuKongIM realtime bootstrap config is unavailable',
+      );
+    }
+
+    const realtimeToken = options.includeRealtimeToken === false
+      ? undefined
+      : await this.wukongIMService?.getUserToken(userId);
+    const providerRoomId = room.externalRoomId || room.id;
+
+    return {
+      room: this.mapToRTCRoom(room),
+      rtcToken,
+      providerConfig: {
+        provider: this.safeNormalizeProvider(
+          rtcToken.provider || channelEntity.provider,
+        ),
+        channelId: rtcToken.channelId || room.channelId || channelEntity.id,
+        appId: channelEntity.appId,
+        providerRoomId,
+        businessRoomId: room.id,
+        userId,
+        token: rtcToken.token,
+        role: rtcToken.role,
+        expiresAt: rtcToken.expiresAt,
+        endpoint: channelEntity.endpoint || undefined,
+        region: channelEntity.region || undefined,
+        extras: this.sanitizeRtcClientExtraConfig(channelEntity.extraConfig),
+      },
+      signaling: {
+        transport: 'WUKONGIM_EVENT',
+        eventType: 'RTC_SIGNAL',
+        namespace: 'rtc',
+        roomId: room.id,
+        directTargetField: 'toUserId',
+        broadcastConversation: {
+          conversationType: 'GROUP',
+          targetId: room.id,
+        },
+        directSignalTypes: ['offer', 'answer', 'ice-candidate'],
+        broadcastSignalTypes: ['join', 'leave', 'publish', 'unpublish'],
+      },
+      realtime: {
+        transport: 'WUKONGIM',
+        uid: realtimeConfig.uid,
+        wsUrl: realtimeConfig.wsUrl,
+        token: realtimeToken,
+        apiUrl: realtimeConfig.apiUrl,
+        managerUrl: realtimeConfig.managerUrl,
+        tcpAddr: realtimeConfig.tcpAddr,
+      },
+    };
   }
 
   async validateToken(token: string): Promise<RTCToken | null> {
@@ -3370,6 +3470,72 @@ export class RTCService implements RTCManager {
     ) {
       throw new BadRequestException('Room bound provider does not match resolved channel provider');
     }
+  }
+
+  private sanitizeRtcClientExtraConfig(
+    value?: Record<string, any>,
+  ): Record<string, any> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {};
+    }
+
+    const blockedKeyPatterns = [
+      /appsecret/i,
+      /secretaccesskey/i,
+      /volcsecretaccesskey/i,
+      /secretkey/i,
+      /accesskeyid/i,
+      /volcaccesskeyid/i,
+      /sessiontoken/i,
+      /securitytoken/i,
+      /tokenissuer/i,
+      /authorization/i,
+      /storageconfig/i,
+      /recordstartoptions/i,
+      /recordstopoptions/i,
+      /appkey/i,
+    ];
+
+    const sanitized: Record<string, any> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (blockedKeyPatterns.some((pattern) => pattern.test(key))) {
+        continue;
+      }
+
+      if (
+        typeof entry === 'string'
+        || typeof entry === 'number'
+        || typeof entry === 'boolean'
+        || entry === null
+      ) {
+        sanitized[key] = entry;
+        continue;
+      }
+
+      if (Array.isArray(entry)) {
+        const items = entry.filter((item) => (
+          typeof item === 'string'
+          || typeof item === 'number'
+          || typeof item === 'boolean'
+          || item === null
+        ));
+        if (items.length > 0) {
+          sanitized[key] = items;
+        }
+        continue;
+      }
+
+      if (typeof entry === 'object') {
+        const nested = this.sanitizeRtcClientExtraConfig(
+          entry as Record<string, any>,
+        );
+        if (Object.keys(nested).length > 0) {
+          sanitized[key] = nested;
+        }
+      }
+    }
+
+    return sanitized;
   }
 
   private validateChannelConfig(

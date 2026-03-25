@@ -1,0 +1,19 @@
+{
+  "name": "@openchat/opencat-admin-infrastructure",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run src/auth/session.test.ts src/services/admin-sdk-integration.test.ts"
+  },
+  "dependencies": {
+    "@openchat/opencat-admin-types": "workspace:*",
+    "@openchat/sdkwork-im-admin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@openchat/opencat-admin-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3001",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{ recursive:true, force:true })\"",
+    "lint": "node ../../scripts/run-workspace-tsc.mjs --noEmit"
+  },
+  "dependencies": {
+    "@openchat/opencat-admin-shell": "workspace:*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.1.14",
+    "vite": "^6.2.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

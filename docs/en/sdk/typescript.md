@@ -8,58 +8,88 @@
 
 ## Layer Split
 
-- `generated/server-openapi`: published as `@sdkwork/backend-sdk`
-- `adapter-wukongim`: published as `@openchat/sdkwork-im-wukongim-adapter`
-- `composed`: published as `@openchat/sdkwork-im-sdk`
+- `generated/server-openapi`: SDKWORK Generator output for server HTTP APIs only
+- handwritten runtime layer: `src`
+- WuKongIM receive path and RTC orchestration remain outside generator-owned output
 
-The handwritten TypeScript packages publish compiled `dist` outputs. Source remains in `src`, but runtime and type entrypoints resolve through `dist/index.js` and `dist/index.d.ts`.
+The generated layer is refreshed from the running app schema. Repeated generation must not overwrite handwritten RTC or WuKongIM integration logic.
 
 ## Realtime Model
 
-- message send: generated HTTP client
-- long connection: `wukongimjssdk`
-- app-facing composition: handwritten `composed` package
+- outbound business send: app HTTP API
+- inbound realtime receive: WuKongIM long connection
+- message persistence: server-side
+- app schema authority: `/im/v3/openapi.json`
 
 ## Stable Business Modules
 
-The handwritten `@openchat/sdkwork-im-sdk` facade exposes:
+The handwritten `OpenChatClient` facade exposes:
 
-- `session`
-- `realtime`
-- `messages`
-- `events`
-- `friends`
-- `conversations`
-- `groups`
-- `contacts`
+- `auth`
+- `im`
 - `rtc`
+- `api`
 
-This facade keeps outbound send on HTTP and keeps inbound receive on WuKongIM. It also hides generator typing gaps behind a stable application API.
+## RTC Bootstrap
+
+The generated HTTP layer now includes `appControllerGetConnectionInfo(...)` in `generated/server-openapi/src/api/rtc.ts`. The composed client exposes:
+
+- `client.rtc.getConnectionInfo(roomId, options?)`
+- `client.rtc.prepareCall(roomId, options?)`
+- `client.rtc.startCall(roomId, options?)`
+
+`prepareCall(...)` does three things:
+
+1. Requests `POST /im/v3/rtc/rooms/:id/connection`
+2. Selects the provider returned by the server
+3. Stores prepared `token` and `providerRoomId` so `startCall(...)` can join correctly
+
+Important room distinction:
+
+- `businessRoomId`: OpenChat room id for HTTP APIs and signaling
+- `providerRoomId`: media-provider room id used by the RTC SDK when joining
+
+## Typical RTC Flow
+
+```typescript
+const client = new OpenChatClient(config);
+
+const info = await client.rtc.prepareCall('room-123', {
+  provider: 'volcengine',
+  role: 'host',
+  includeRealtimeToken: true,
+});
+
+await client.rtc.startCall('room-123');
+
+console.log(info.providerConfig.providerRoomId);
+console.log(info.realtime.wsUrl);
+```
+
+The response contains:
+
+- `room`
+- `rtcToken`
+- `providerConfig`
+- `signaling`
+- `realtime`
 
 ## Event And RTC Standard
 
 - message request: `version + conversation + message`
 - event request: `version + conversation + event`
-- RTC signaling: `RTC_SIGNAL`
-- future multiplayer or chess payloads: domain events such as `GAME_EVENT`
-- custom RTC signaling: `rtc.signaling.sendCustom({ eventName, signalType, ... })`
-
-## Helper Highlights
-
-- `messages.send(...)` normalizes raw envelopes to `version: 2` and uppercases transport `type` fields before HTTP send
-- `messages.batchSend(...)` applies the same normalization to every outbound envelope in a batch
-- `session.register(...)` aligns with `session.login(...)` and can bootstrap realtime from server-provided WuKongIM config
-- `realtime.connect(...)` persists the connected WuKongIM session back into `session.getState()`
-- `realtime.onRaw(...)` exposes normalized inbound message and event frames before app-level filtering
-- `events.publishGameEvent(...)` standardizes `GAME_EVENT` payloads for multiplayer, chess, and similar future scenes
+- RTC signaling event type: `RTC_SIGNAL`
+- multiplayer or chess payloads: domain events such as `GAME_EVENT`
+- `OpenChatClient.im.messages.sendXxx(...)` now sends through HTTP only; WuKongIM stays receive-only
+- compatibility helpers such as `sendUserCard(...)` and `sendCombined(...)` serialize through `CUSTOM` envelopes so the standard message shape stays stable
 
 ## Commands
 
 ```bash
 ./bin/sdk-gen.sh
 ./bin/sdk-assemble.sh
-cd adapter-wukongim && npm run build
-cd ../composed && npm run build
+npm run test:rtc
+npm run typecheck
 ```
 
 ```powershell
@@ -70,6 +100,6 @@ cd ../composed && npm run build
 ## Rules
 
 - only `generated/server-openapi` may be regenerated
-- realtime logic must stay in `adapter-wukongim` or `composed`
 - app clients must never depend on admin control-plane APIs
-- repeated generation must not modify `adapter-wukongim` or `composed`
+- repeated generation must not modify handwritten RTC or WuKongIM logic
+- use the runtime schema URL, not the checked-in admin schema, when generating app SDKs

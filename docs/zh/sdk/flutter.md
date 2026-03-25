@@ -8,19 +8,21 @@
 
 ## 分层结构
 
-- `generated/server-openapi`：发布为 `backend_sdk`
-- `adapter-wukongim`：发布为 `openchat_wukongim_adapter`
-- `composed`：发布为 `openchat_sdk`
+- `generated/server-openapi`：生成得到的 `backend_sdk`
+- `adapter-wukongim`：手写实时适配层
+- `composed`：手写 `openchat_sdk`
+
+允许重复生成的只有 `generated/server-openapi`。手写的 WuKongIM 与 RTC 层必须在多次生成后保持稳定不变。
 
 ## 实时模型
 
-- 消息发送：HTTP API
-- 长连接接收：`wukongimfluttersdk`
-- 对外能力聚合：手写 `composed` 包
+- 业务发送：HTTP API
+- 实时接收：`wukongimfluttersdk`
+- 消息持久化：服务端负责
 
-## 稳定业务模块
+## 对外稳定模块
 
-手写的 `openchat_sdk` facade 向终端应用暴露稳定模块：
+手写 `openchat_sdk` facade 暴露：
 
 - `session`
 - `realtime`
@@ -32,39 +34,67 @@
 - `contacts`
 - `rtc`
 
-其中 `messages` 负责通过 HTTP 发送消息，`realtime` 负责通过 WuKongIM 接收消息，`events` 负责统一事件传输，`rtc.signaling` 则在 `event.type = RTC_SIGNAL` 标准上承载 RTC 信令。
+## RTC 启动引导
+
+Flutter 生成层现在已经包含 `backendClient.rtc.appControllerGetConnectionInfo(...)`。手写组合层进一步封装为：
+
+- `sdk.rtc.connection.get(roomId, request: ...)`
+- `sdk.rtc.connection.prepareCall(roomId, request: ..., applyRealtimeSession: true)`
+
+当请求里开启 `includeRealtimeToken` 时，`prepareCall(...)` 会把返回的 WuKongIM 实时会话写回 SDK 的认证会话，方便后续直接建立长连接。
+
+房间字段要严格区分：
+
+- `businessRoomId`：OpenChat 业务房间号，HTTP API 与信令都基于它
+- `providerRoomId`：RTC provider 媒体层真正入会使用的房间号
+
+## 典型 RTC 流程
+
+```dart
+final sdk = OpenChatImSdk.create(
+  baseUrl: 'http://127.0.0.1:3000',
+  accessToken: token,
+);
+
+final info = await sdk.rtc.connection.prepareCall(
+  'room-123',
+  request: const OpenChatRtcConnectionRequest(
+    provider: 'volcengine',
+    role: 'host',
+    includeRealtimeToken: true,
+  ),
+);
+
+await sdk.rtc.signaling.sendJoin(roomId: 'room-123');
+
+print(info.providerConfig.providerRoomId);
+print(info.realtime.wsUrl);
+```
+
+返回结构包含：
+
+- `room`
+- `rtcToken`
+- `providerConfig`
+- `signaling`
+- `realtime`
 
 ## Event 与 RTC 标准
 
 - 消息请求：`version + conversation + message`
 - 事件请求：`version + conversation + event`
-- RTC 信令：`RTC_SIGNAL`
-- 未来多人游戏、棋牌等数据：通过 `GAME_EVENT` 这类领域事件继续扩展
-
-## 本地开发
-
-Flutter `composed` 包保留发布时的版本依赖，同时通过 `pubspec_overrides.yaml` 在本地工作区解析：
-
-- `backend_sdk` -> `generated/server-openapi`
-- `openchat_wukongim_adapter` -> `adapter-wukongim`
-
-这样可以保证重复生成只覆盖 HTTP 生成层，不会影响手写的 WuKongIM 与 RTC 封装。
-
-## 关键辅助方法
-
-- `session.register(...)` 与 `session.login(...)` 都支持基于服务端返回的 WuKongIM 配置自动拉起实时连接
-- `messages.batchSend(...)` 会在进入生成 HTTP SDK 前对批量消息逐条做规范化处理
-- `realtime.connect(...)` 会把已连接的 WuKongIM 会话同步回 SDK 会话状态
-- `realtime.onRaw(...)` 可在应用层过滤前拿到标准化后的消息帧与事件帧
-- 房间级 RTC 信令在未显式传入 `groupId` 且不是点对点 `toUserId` 时，会自动回落到 `roomId`
-- `events.publishGameEvent(...)` 统一封装 `GAME_EVENT`，适合多人游戏、棋牌等未来扩展场景
-- `conversations.batchDelete(...)` 与 `contacts.batchDelete(...)` 由手写 `composed` 层实现，从而在不修改生成代码的前提下安全支持带 body 的 DELETE 请求
+- RTC 信令事件类型：`RTC_SIGNAL`
+- 多人游戏、棋牌游戏等扩展数据：使用 `GAME_EVENT` 等领域事件继续扩展
+- `openchat_sdk.messages.*` 保持 HTTP-first 发送模型
+- `sendCombined(...)`、`sendUserCard(...)` 通过 `CUSTOM` 消息信封承载兼容语义，与 TypeScript 保持一致
 
 ## 命令
 
 ```bash
 ./bin/sdk-gen.sh
 ./bin/sdk-assemble.sh
+dart analyze composed
+dart analyze adapter-wukongim
 ```
 
 ```powershell
@@ -72,14 +102,9 @@ Flutter `composed` 包保留发布时的版本依赖，同时通过 `pubspec_ove
 .\bin\sdk-assemble.ps1
 ```
 
-```bash
-cd composed && dart analyze
-cd ../adapter-wukongim && dart analyze
-```
-
 ## 规则
 
 - 只有 `generated/server-openapi` 可以被重新生成
-- 实时逻辑必须保留在 `adapter-wukongim` 或 `composed`
-- 终端应用不得依赖 admin 控制面 API
-- 反复生成不得修改 `adapter-wukongim` 或 `composed`
+- 前端应用不得依赖 admin 控制面 API
+- 重复生成不能修改 `adapter-wukongim` 或 `composed`
+- 生成 `sdkwork-im-sdk` 时只允许使用前端 app schema

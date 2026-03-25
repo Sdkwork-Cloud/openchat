@@ -1,0 +1,29 @@
+{
+  "name": "@openchat/sdkwork-im-admin-sdk",
+  "version": "1.0.11",
+  "description": "Composed OpenChat admin TypeScript SDK built on generated admin and auth HTTP APIs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../../node_modules/typescript/bin/tsc -p tsconfig.build.json",
+    "typecheck": "node ../../../node_modules/typescript/bin/tsc -p tsconfig.build.json --noEmit"
+  },
+  "dependencies": {
+    "@sdkwork/im-admin-backend-sdk": "file:../generated/server-openapi",
+    "@sdkwork/im-backend-sdk": "file:../../../sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi"
+  }
+}

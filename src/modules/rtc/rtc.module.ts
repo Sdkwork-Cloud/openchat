@@ -7,9 +7,11 @@ import { RTCChannelEntity } from './rtc-channel.entity';
 import { RTCVideoRecord } from './rtc-video-record.entity';
 import { RTCCallSession } from './rtc-call-session.entity';
 import { RTCCallParticipant } from './rtc-call-participant.entity';
+import { WukongIMModule } from '../wukongim/wukongim.module';
 
 @Module({
   imports: [
+    WukongIMModule,
     TypeOrmModule.forFeature([
       RTCRoom,
       RTCToken,

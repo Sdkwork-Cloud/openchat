@@ -1,0 +1,20 @@
+{
+  "name": "@openchat/opencat-admin-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run src/stores/useAppStore.test.ts"
+  },
+  "dependencies": {
+    "@openchat/opencat-admin-infrastructure": "workspace:*",
+    "@openchat/opencat-admin-types": "workspace:*",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
