@@ -21,7 +21,8 @@ export class UserSyncService implements OnModuleInit {
     private wukongIMService: WukongIMService,
     private configService: ConfigService,
   ) {
-    this.enabled = this.configService.get<boolean>('WUKONGIM_ENABLED') !== false;
+    const rawEnabled = this.configService.get<string>('WUKONGIM_ENABLED', 'true');
+    this.enabled = !['false', '0', 'no', 'off'].includes(rawEnabled.trim().toLowerCase());
   }
 
   onModuleInit() {

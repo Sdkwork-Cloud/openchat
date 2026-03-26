@@ -19,7 +19,7 @@ This guide will help you install and configure OpenChat Server on different plat
 | Docker | 24.0+ | Container runtime |
 | Docker Compose | 2.0+ | Container orchestration |
 | Node.js | 18+ | Required for dev mode |
-| pnpm | 8+ | Package manager |
+| npm | 9+ | Package manager |
 | Git | 2.0+ | Version control |
 
 ## Pre-installation Check
@@ -30,12 +30,12 @@ Before installation, run the check script to verify your system environment:
 
 ```bash [Linux/macOS]
 # Run pre-check script
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 ```
 
 ```powershell [Windows]
 # Run pre-check script
-pnpm run precheck:win
+.\scripts\precheck.ps1
 ```
 
 :::
@@ -54,21 +54,19 @@ Check items include:
 ::: code-group
 
 ```bash [Linux/macOS]
-# Download and run install script
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# Or clone and run
+# Clone and run the unified deploy script
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
+cp .env.example .env
+# edit .env as needed
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ```powershell [Windows]
-# Quick install
-.\scripts\quick-install.bat
-
-# Or PowerShell full install
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+# PowerShell unified deploy
+Copy-Item .env.example .env
+# edit .env as needed
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 :::
@@ -85,9 +83,6 @@ cd openchat
 # Start all services with one command
 docker compose -f docker-compose.quick.yml up -d
 
-# Or use npm script
-pnpm run docker:quick
-
 # View service status
 docker compose ps
 
@@ -102,9 +97,6 @@ cd openchat
 
 # Start all services with one command
 docker compose -f docker-compose.quick.yml up -d
-
-# Or use npm script
-pnpm run docker:quick
 
 # View service status
 docker compose ps
@@ -125,13 +117,13 @@ git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # Install dependencies
-pnpm install
+npm ci
 
 # Configure environment
-cp .env.example .env
+cp .env.example .env.development
 
 # Start dev server
-pnpm run dev
+npm run start:dev
 ```
 
 ```powershell [Windows]
@@ -140,13 +132,13 @@ git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # Install dependencies
-pnpm install
+npm ci
 
 # Configure environment
-copy .env.example .env
+Copy-Item .env.example .env.development
 
 # Start dev server
-pnpm run dev
+npm run start:dev
 ```
 
 :::
@@ -157,24 +149,15 @@ pnpm run dev
 
 ```bash [Linux/macOS]
 # Health check
-curl http://localhost:3000/health
+curl http://127.0.0.1:7200/health
 
-# Run health check script
-pnpm run health
-
-# Full diagnosis
-pnpm run health:full
+# Runtime wrapper health check
+./bin/openchat health
 ```
 
 ```powershell [Windows]
 # Health check
-Invoke-WebRequest -Uri http://localhost:3000/health
-
-# Run health check script
-pnpm run health
-
-# Full diagnosis
-pnpm run health:full
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::
@@ -190,17 +173,11 @@ The simplest installation method, suitable for quick experience and development 
 ```bash [Linux/macOS]
 # Use quick config
 docker compose -f docker-compose.quick.yml up -d
-
-# Or use npm script
-pnpm run docker:quick
 ```
 
 ```powershell [Windows]
 # Use quick config
 docker compose -f docker-compose.quick.yml up -d
-
-# Or use npm script
-pnpm run docker:quick
 ```
 
 :::
@@ -257,7 +234,7 @@ Run directly on server, suitable for scenarios requiring fine control.
 
 ```bash [Linux/macOS]
 # Use install script
-sudo ./scripts/install.sh standalone
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
 # Or manual install
 pnpm install
@@ -441,10 +418,10 @@ docker compose restart nginx
 
 ```powershell [Windows]
 # Quick check
-pnpm run health
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 
 # Full diagnosis
-pnpm run health:full
+Invoke-WebRequest -Uri http://127.0.0.1:7200/ready
 ```
 
 :::
@@ -455,13 +432,13 @@ pnpm run health:full
 
 ```bash [Linux/macOS]
 # API health check
-curl http://localhost:3000/health
+curl http://127.0.0.1:7200/health
 
 # Open app API docs
-open http://localhost:3000/im/v3/docs
+open http://127.0.0.1:7200/im/v3/docs
 
 # Open admin API docs
-open http://localhost:3000/admin/im/v3/docs
+open http://127.0.0.1:7200/admin/im/v3/docs
 
 # Open WukongIM admin
 open http://localhost:5300/web
@@ -469,13 +446,13 @@ open http://localhost:5300/web
 
 ```powershell [Windows]
 # API health check
-Invoke-WebRequest -Uri http://localhost:3000/health
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 
 # Open app API docs
-Start-Process "http://localhost:3000/im/v3/docs"
+Start-Process "http://127.0.0.1:7200/im/v3/docs"
 
 # Open admin API docs
-Start-Process "http://localhost:3000/admin/im/v3/docs"
+Start-Process "http://127.0.0.1:7200/admin/im/v3/docs"
 
 # Open WukongIM admin
 Start-Process "http://localhost:5300/web"
@@ -491,10 +468,10 @@ Start-Process "http://localhost:5300/web"
 
 ```bash [Linux/macOS]
 # Check port usage
-lsof -i :3000
+lsof -i :7200
 
 # Or use netstat
-netstat -tlnp | grep 3000
+netstat -tlnp | grep 7200
 
 # Kill process
 kill -9 <PID>
@@ -502,7 +479,7 @@ kill -9 <PID>
 
 ```powershell [Windows]
 # Check port usage
-netstat -ano | findstr :3000
+netstat -ano | findstr :7200
 
 # Kill process
 taskkill /PID <PID> /F
@@ -565,22 +542,21 @@ Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 10
 ::: code-group
 
 ```bash [Linux/macOS]
+# View service status
+systemctl status openchat.service
+
+# Runtime health
+./bin/openchat status
+./bin/openchat health
+
 # View logs
-docker compose logs app
-
-# Run diagnosis
-./scripts/health-check.sh full
-
-# Try auto-fix
-./scripts/auto-fix.sh
+tail -f var/logs/stdout.log
 ```
 
 ```powershell [Windows]
-# View logs
-docker compose logs app
-
-# Run diagnosis
-pnpm run health:full
+# Runtime health
+.\bin\openchat.ps1 status
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::

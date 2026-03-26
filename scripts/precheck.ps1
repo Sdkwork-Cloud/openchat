@@ -9,12 +9,6 @@ function Convert-ToCliArgs {
     foreach ($item in $InputArgs) {
         switch -Regex ($item) {
             '^-(Mode|mode)$' { $output.Add('--mode'); continue }
-            '^-(Environment|env)$' { $output.Add('--environment'); continue }
-            '^-(Yes|yes)$' { $output.Add('--yes'); continue }
-            '^-(InitDb|init-db)$' { $output.Add('--init-db'); continue }
-            '^-(Start|start)$' { $output.Add('--start'); continue }
-            '^-(Seed|seed)$' { $output.Add('--seed'); continue }
-            '^-(SkipBuild|skip-build)$' { $output.Add('--skip-build'); continue }
             default { $output.Add($item) }
         }
     }
@@ -28,10 +22,10 @@ $cliPath = Join-Path $projectRoot 'scripts/openchat-cli.cjs'
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 
 if (-not $nodeCommand) {
-    Write-Host '[ERROR] Node.js >= 18 is required to run OpenChat install.' -ForegroundColor Red
+    Write-Host '[ERROR] Node.js >= 18 is required to run OpenChat precheck.' -ForegroundColor Red
     exit 1
 }
 
 $forwardedArgs = Convert-ToCliArgs -InputArgs $args
-& $nodeCommand.Source $cliPath install @forwardedArgs
+& $nodeCommand.Source $cliPath precheck @forwardedArgs
 exit $LASTEXITCODE

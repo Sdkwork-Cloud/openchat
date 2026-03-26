@@ -1,0 +1,25 @@
+[Unit]
+Description=OpenChat Server
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=sdkwork
+Group=sdkwork
+WorkingDirectory=/opt/source/openchat
+EnvironmentFile=/opt/source/openchat/.env
+Environment=OPENCHAT_HOME=/opt/source/openchat
+Environment=OPENCHAT_CONFIG=/opt/source/openchat/etc/config.json
+Environment=OPENCHAT_LOG_DIR=/opt/source/openchat/var/logs
+Environment=OPENCHAT_DATA_DIR=/opt/source/openchat/var/data
+PIDFile=/opt/source/openchat/var/run/openchat.pid
+GuessMainPID=no
+ExecStart=/opt/source/openchat/bin/openchat start --host 127.0.0.1 --port 7200 --environment production
+ExecStop=/opt/source/openchat/bin/openchat stop
+ExecReload=/opt/source/openchat/bin/openchat restart --host 127.0.0.1 --port 7200 --environment production
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

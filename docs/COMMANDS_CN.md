@@ -15,7 +15,7 @@ Linux / macOS:
 Windows:
 
 ```powershell
-scripts\precheck.bat
+scripts\precheck.ps1
 ```
 
 ### 1.2 安装依赖
@@ -44,9 +44,37 @@ cp .env.example .env.production
 - `test` -> `.env.test`
 - `production` / `prod` -> `.env.production`（fallback: `.env.prod`）
 
-## 3. 数据库命令
+## 3. 推荐部署命令
 
-### 3.1 全新数据库初始化（推荐脚本）
+### 3.1 Linux 服务端一键部署
+
+```bash
+./scripts/deploy-server.sh production --db-action auto --yes --service
+```
+
+效果：
+
+- 预检查
+- 依赖安装
+- 构建
+- 自动选择数据库 `init` 或 `patch`
+- 安装并重启 `openchat.service`
+
+### 3.2 Linux 非服务模式部署
+
+```bash
+./scripts/deploy-server.sh production --db-action auto --yes
+```
+
+### 3.3 Windows PowerShell
+
+```powershell
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
+```
+
+## 4. 数据库命令
+
+### 4.1 全新数据库初始化（推荐脚本）
 
 Linux / macOS:
 
@@ -61,7 +89,7 @@ Windows PowerShell:
 .\scripts\init-database.ps1 -Environment development
 ```
 
-### 3.2 存量数据库补丁升级
+### 4.2 存量数据库补丁升级
 
 Linux / macOS:
 
@@ -75,14 +103,14 @@ Windows PowerShell:
 .\scripts\apply-db-patches.ps1 -Environment production
 ```
 
-### 3.3 手工执行（兜底）
+### 4.3 手工执行（兜底）
 
 ```bash
 psql -h <host> -U <user> -d <db_name> -f database/schema.sql
 psql -h <host> -U <user> -d <db_name> -f database/seed.sql
 ```
 
-## 4. 本地开发与构建
+## 5. 本地开发与构建
 
 ```bash
 # 开发模式
@@ -103,7 +131,7 @@ npm run lint
 npm run lint:types
 ```
 
-## 5. Docker 部署命令
+## 6. Docker 部署命令
 
 ```bash
 # 安装并启动（检查依赖、端口、构建镜像）
@@ -132,18 +160,16 @@ npm run lint:types
 ./scripts/docker-deploy.sh prod:deploy
 ```
 
-## 6. 标准发布流程（生产）
+## 7. 标准发布流程（生产）
 
 ```bash
-# 1) 执行数据库补丁（幂等）
+# 推荐：统一部署入口
+./scripts/deploy-server.sh production --db-action patch --yes --service
+
+# 或者手工执行
 ./scripts/apply-db-patches.sh production
-
-# 2) 构建并启动应用
 npm run build
-npm run start:prod
-
-# 3) 健康检查
-curl -f http://<host>:3000/health
+./bin/openchat restart --environment production --host 127.0.0.1 --port 7200
 ```
 
 Docker 生产发布可直接：
@@ -152,11 +178,12 @@ Docker 生产发布可直接：
 ./scripts/docker-deploy.sh prod:deploy
 ```
 
-## 7. 健康检查与诊断
+## 8. 健康检查与诊断
 
 ```bash
 # 接口健康检查
-curl -f http://localhost:3000/health
+curl -f http://127.0.0.1:7200/health
+curl -f http://127.0.0.1:7200/ready
 
 # 综合健康脚本
 ./scripts/health-check.sh
@@ -168,7 +195,7 @@ curl -f http://localhost:3000/health
 ./scripts/check-compat-regression.sh
 ```
 
-## 8. 数据库巡检 SQL
+## 9. 数据库巡检 SQL
 
 ```sql
 -- 查看业务表数量
@@ -186,10 +213,11 @@ ORDER BY applied_at DESC;
 SELECT to_regclass('public.chat_users')      AS chat_users,
        to_regclass('public.chat_conversations') AS chat_conversations,
        to_regclass('public.chat_messages')   AS chat_messages,
-       to_regclass('public.chat_message_receipts') AS chat_message_receipts;
+       to_regclass('public.chat_message_receipts') AS chat_message_receipts,
+       to_regclass('public.chat_message_reactions') AS chat_message_reactions;
 ```
 
-## 9. 备份与恢复
+## 10. 备份与恢复
 
 ```bash
 # 备份

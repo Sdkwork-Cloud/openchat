@@ -21,11 +21,12 @@
 | 测试环境 | `.env.test` | 功能测试，模拟数据 |
 | 生产环境 | `.env.production` | 正式部署，安全加固 |
 
-## 一键安装
+## 推荐主机部署
 
 ```bash
-# 下载并运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
+cp .env.example .env
+# 先编辑 .env
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ## 快速开始
@@ -47,14 +48,11 @@ vim .env
 ### 2. 启动服务
 
 ```bash
-# 开发环境
-./scripts/docker-deploy.sh install
+# Linux 主机服务端部署
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
-# 测试环境
-./scripts/docker-deploy.sh start -e .env.test
-
-# 生产环境
-docker compose -f docker-compose.prod.yml up -d
+# 仅使用仓库运行时包装器
+./scripts/deploy-server.sh production --db-action auto --yes
 ```
 
 ## 开发环境部署
@@ -73,7 +71,7 @@ docker compose --profile database --profile cache --profile im up -d
 
 ```bash
 # 安装依赖
-pnpm install
+npm ci
 
 # 启动数据库和 Redis
 docker compose --profile database --profile cache up -d

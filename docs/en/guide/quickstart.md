@@ -17,8 +17,10 @@ Before starting, ensure your system meets these requirements:
 
 | Software | Version | Description |
 |----------|---------|-------------|
-| Docker | 24.0+ | Container runtime |
-| Docker Compose | 2.0+ | Container orchestration |
+| Node.js | 18+ | Runtime |
+| npm | 9+ | Package manager |
+| PostgreSQL | 15+ | Database |
+| Redis | 7+ | Cache and queues |
 
 ## Pre-installation Check
 
@@ -26,182 +28,79 @@ Before starting, ensure your system meets these requirements:
 
 ```bash [Linux/macOS]
 # Run pre-check script
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 ```
 
 ```powershell [Windows]
 # Run pre-check script
-pnpm run precheck:win
+.\scripts\precheck.ps1
 ```
 
 :::
 
 ## Installation Methods
 
-### Method 1: One-click Install (Recommended)
+### Method 1: Unified Host Deploy (Recommended)
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# Quick install
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# Or clone and install
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
-```
-
-```powershell [Windows]
-# Quick install
-.\scripts\quick-install.bat
-
-# Or PowerShell full install
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
-```
-
-:::
-
-### Method 2: Docker Quick Start
-
-::: code-group
-
-```bash [Linux/macOS]
-# Clone project
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# Start all services with one command
-docker compose -f docker-compose.quick.yml up -d
-
-# Or use npm script
-pnpm run docker:quick
-
-# View service status
-docker compose -f docker-compose.quick.yml ps
-```
-
-```powershell [Windows]
-# Clone project
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# Start all services with one command
-docker compose -f docker-compose.quick.yml up -d
-
-# Or use npm script
-pnpm run docker:quick
-
-# View service status
-docker compose -f docker-compose.quick.yml ps
-```
-
-:::
-
-### Method 3: Docker Dev Environment (Flexible)
-
-Use `docker-compose.yml` for flexible configuration with optional service profiles:
-
-::: code-group
-
-```bash [Linux/macOS]
-# Clone project
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# Configure environment variables
 cp .env.example .env
-vim .env
-
-# Start all services (database+Redis+IM+app)
-docker compose --profile database --profile cache --profile im up -d
-
-# Or use npm script
-pnpm run docker:up
-
-# Start only the app (use external database)
-docker compose up -d
-
-# View service status
-docker compose ps
+# edit .env as needed
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ```powershell [Windows]
-# Clone project
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-
-# Configure environment variables
-copy .env.example .env
-notepad .env
-
-# Start all services (database+Redis+IM+app)
-docker compose --profile database --profile cache --profile im up -d
-
-# Or use npm script
-pnpm run docker:up
-
-# Start only the app (use external database)
-docker compose up -d
-
-# View service status
-docker compose ps
+Copy-Item .env.example .env
+# edit .env as needed
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 :::
 
-### Method 4: Manual Deployment
+### Method 2: Manual Low-Level Deployment
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# Clone project
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# Configure environment
-cp .env.example .env
-vim .env
-
-# Start services
-docker compose up -d
+./scripts/precheck.sh --mode standalone
+npm ci
+npm run build
+./scripts/init-database.sh production --yes
+./scripts/apply-db-patches.sh production
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200
 ```
 
 ```powershell [Windows]
-# Clone project
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# Configure environment
-copy .env.example .env
-notepad .env
-
-# Start services
-docker compose up -d
+.\scripts\precheck.ps1
+npm ci
+npm run build
+.\scripts\init-database.ps1 -Environment production -Yes
+.\scripts\apply-db-patches.ps1 -Environment production
+.\bin\openchat.ps1 start --environment production --host 127.0.0.1 --port 7200
 ```
 
 :::
 
 ## Verify Installation
 
-### Run Installation Tests
+### Check Runtime
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# Quick test
-./scripts/install-test.sh quick
-
-# Full test
-./scripts/install-test.sh full
+./bin/openchat status
+./bin/openchat health
+curl http://127.0.0.1:7200/ready
 ```
 
 ```powershell [Windows]
-# Quick test
-pnpm run test:install
-
-# Full test
-pnpm run test:install:full
+.\bin\openchat.ps1 status
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::
@@ -212,18 +111,19 @@ pnpm run test:install:full
 
 ```bash [Linux/macOS]
 # Health check
-curl http://localhost:3000/health
+curl http://127.0.0.1:7200/health
+curl http://127.0.0.1:7200/ready
 
 # Expected response
-# {"status":"ok","timestamp":"2024-01-15T10:30:00.000Z"}
+# {"status":"ok",...}
 ```
 
 ```powershell [Windows]
 # Health check
-Invoke-WebRequest -Uri http://localhost:3000/health
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 
 # Expected response
-# {"status":"ok","timestamp":"2024-01-15T10:30:00.000Z"}
+# {"status":"ok",...}
 ```
 
 :::
@@ -232,8 +132,8 @@ Invoke-WebRequest -Uri http://localhost:3000/health
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| OpenChat API | http://localhost:3000 | Main API |
-| API Docs | http://localhost:3000/im/v3/docs | Swagger docs |
+| OpenChat API | http://127.0.0.1:7200 | Main API |
+| API Docs | http://127.0.0.1:7200/im/v3/docs | Swagger docs |
 | WukongIM Demo | http://localhost:5172 | IM demo page |
 | WukongIM Admin | http://localhost:5300/web | IM admin panel |
 | Prometheus | http://localhost:9090 | Monitoring |
@@ -348,33 +248,28 @@ OpenChat provides a complete set of operations tools:
 
 ```bash [Linux/macOS]
 # System pre-check
-./scripts/precheck.sh
+./scripts/precheck.sh --mode standalone
 
-# Error diagnosis
-./scripts/diagnose.sh
+# Unified deploy or update
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
-# Auto fix
-./scripts/auto-fix.sh --all
-
-# Log analysis
-./scripts/log-analyzer.sh analyze
-
-# Health monitoring
-./scripts/health-check.sh --monitor
+# Runtime
+./bin/openchat restart
+./bin/openchat status
+./bin/openchat health
 ```
 
 ```powershell [Windows]
 # System pre-check
-pnpm run precheck
+.\scripts\precheck.ps1
 
-# Error diagnosis
-pnpm run diagnose
+# Unified deploy or update
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 
-# Auto fix
-pnpm run auto-fix
-
-# Health monitoring
-pnpm run health:monitor
+# Runtime
+.\bin\openchat.ps1 restart
+.\bin\openchat.ps1 status
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::
@@ -443,13 +338,13 @@ New-NetFirewallRule -DisplayName "OpenChat WS" -Direction Inbound -Port 5200 -Pr
 
 ```powershell [Windows]
 # Check installation status
-pnpm run install:status
+.\scripts\install-manager.ps1 status
 
 # Run diagnosis
-pnpm run diagnose
+.\scripts\precheck.ps1
 
-# Auto fix
-pnpm run auto-fix
+# Runtime health
+.\bin\openchat.ps1 status
 ```
 
 :::

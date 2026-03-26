@@ -1,117 +1,14 @@
-#!/bin/bash
-# ============================================
-# OpenChat - Cross-Platform Startup Script
-# Version: 1.1.0
-# Supports: Linux / macOS / Windows (Git Bash/WSL)
-#
-# Features:
-# - Cross-platform path handling
-# - Automatic port detection and increment
-# - Service lifecycle management
-# - Health checks
-# - Log management
-#
-# Modular components are in lib/ directory
-# ============================================
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-# ============================================
-# Module Loading
-# ============================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+CLI_PATH="${PROJECT_ROOT}/scripts/openchat-cli.cjs"
 
-# Get script directory (works with symlinks)
-get_script_dir() {
-    local source="${BASH_SOURCE[0]}"
-    local dir
+if ! command -v node >/dev/null 2>&1; then
+  echo "[ERROR] Node.js >= 18 is required to run OpenChat." >&2
+  exit 1
+fi
 
-    # Resolve symlinks
-    while [ -L "$source" ]; do
-        dir="$(cd "$(dirname "$source")" && pwd)"
-        source="$(readlink "$source")"
-        [[ $source != /* ]] && source="$dir/$source"
-    done
-
-    dir="$(cd "$(dirname "$source")" && pwd)"
-    echo "$dir"
-}
-
-SCRIPT_DIR="$(get_script_dir)"
-LIB_DIR="${SCRIPT_DIR}/lib"
-
-# Load all modules
-load_modules() {
-    local modules=("config" "logger" "port" "process" "service" "logs" "help")
-    
-    for module in "${modules[@]}"; do
-        local module_path="${LIB_DIR}/${module}.sh"
-        if [ -f "$module_path" ]; then
-            # shellcheck source=/dev/null
-            source "$module_path"
-        else
-            echo "[ERROR] Module not found: $module_path"
-            exit 1
-        fi
-    done
-}
-
-# Load modules
-load_modules
-
-# Initialize configuration
-init_config
-
-# Initialize colors
-init_colors
-
-# Validate installation
-validate_installation
-
-# ============================================
-# Default Configuration
-# ============================================
-NODE_ENV="${NODE_ENV:-$DEFAULT_NODE_ENV}"
-PORT="${PORT:-$DEFAULT_PORT}"
-HOST="${HOST:-$DEFAULT_HOST}"
-
-# ============================================
-# Main Program
-# ============================================
-
-COMMAND="${1:-help}"
-
-# Route commands
-case "$COMMAND" in
-    start)
-        start_service "$PORT" "$HOST" "$NODE_ENV"
-        ;;
-    stop)
-        stop_service
-        ;;
-    restart)
-        restart_service "$PORT" "$HOST" "$NODE_ENV"
-        ;;
-    status)
-        show_status
-        ;;
-    console)
-        console_service "$PORT" "$HOST"
-        ;;
-    health)
-        health_check "$HOST" "$PORT"
-        ;;
-    logs)
-        show_logs
-        ;;
-    clean)
-        clean_logs
-        ;;
-    help|--help|-h)
-        show_help
-        ;;
-    *)
-        log_error "Unknown command: $COMMAND"
-        show_help
-        exit 1
-        ;;
-esac
+exec node "${CLI_PATH}" "$@"

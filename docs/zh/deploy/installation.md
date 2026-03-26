@@ -19,7 +19,7 @@
 | Docker | 24.0+ | 容器运行时 |
 | Docker Compose | 2.0+ | 容器编排 |
 | Node.js | 18+ | 开发模式需要 |
-| pnpm | 8+ | 包管理器 |
+| npm | 9+ | 包管理器 |
 | Git | 2.0+ | 版本控制 |
 
 ## 安装前检查
@@ -30,12 +30,12 @@
 
 ```bash [Linux/macOS]
 # 运行预检查脚本
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 ```
 
 ```powershell [Windows]
 # 运行预检查脚本
-pnpm run precheck:win
+.\scripts\precheck.ps1
 ```
 
 :::
@@ -54,21 +54,19 @@ pnpm run precheck:win
 ::: code-group
 
 ```bash [Linux/macOS]
-# 下载并运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# 或克隆项目后运行
+# 克隆项目后运行统一部署脚本
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
+cp .env.example .env
+# 按需编辑 .env
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ```powershell [Windows]
-# 快速安装
-.\scripts\quick-install.bat
-
-# 或 PowerShell 完整安装
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+# PowerShell 统一部署
+Copy-Item .env.example .env
+# 按需编辑 .env
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 :::
@@ -85,9 +83,6 @@ cd openchat
 # 一条命令启动所有服务
 docker compose -f docker-compose.quick.yml up -d
 
-# 或使用 npm 脚本
-pnpm run docker:quick
-
 # 查看服务状态
 docker compose ps
 
@@ -102,9 +97,6 @@ cd openchat
 
 # 一条命令启动所有服务
 docker compose -f docker-compose.quick.yml up -d
-
-# 或使用 npm 脚本
-pnpm run docker:quick
 
 # 查看服务状态
 docker compose ps
@@ -125,13 +117,13 @@ git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # 安装依赖
-pnpm install
+npm ci
 
 # 配置环境
-cp .env.example .env
+cp .env.example .env.development
 
 # 启动开发服务
-pnpm run dev
+npm run start:dev
 ```
 
 ```powershell [Windows]
@@ -140,13 +132,13 @@ git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # 安装依赖
-pnpm install
+npm ci
 
 # 配置环境
-copy .env.example .env
+Copy-Item .env.example .env.development
 
 # 启动开发服务
-pnpm run dev
+npm run start:dev
 ```
 
 :::
@@ -157,24 +149,15 @@ pnpm run dev
 
 ```bash [Linux/macOS]
 # 健康检查
-curl http://localhost:3000/health
+curl http://127.0.0.1:7200/health
 
-# 运行健康检查脚本
-pnpm run health
-
-# 完整诊断
-pnpm run health:full
+# 运行运行时健康检查
+./bin/openchat health
 ```
 
 ```powershell [Windows]
 # 健康检查
-Invoke-WebRequest -Uri http://localhost:3000/health
-
-# 运行健康检查脚本
-pnpm run health
-
-# 完整诊断
-pnpm run health:full
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::
@@ -190,17 +173,11 @@ pnpm run health:full
 ```bash [Linux/macOS]
 # 使用快速配置
 docker compose -f docker-compose.quick.yml up -d
-
-# 或使用 npm 脚本
-pnpm run docker:quick
 ```
 
 ```powershell [Windows]
 # 使用快速配置
 docker compose -f docker-compose.quick.yml up -d
-
-# 或使用 npm 脚本
-pnpm run docker:quick
 ```
 
 :::
@@ -257,7 +234,7 @@ docker compose -f docker-compose.external-db.yml up -d
 
 ```bash [Linux/macOS]
 # 使用安装脚本
-sudo ./scripts/install.sh standalone
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
 # 或手动安装
 pnpm install
@@ -441,10 +418,10 @@ docker compose restart nginx
 
 ```powershell [Windows]
 # 快速检查
-pnpm run health
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 
 # 完整诊断
-pnpm run health:full
+Invoke-WebRequest -Uri http://127.0.0.1:7200/ready
 ```
 
 :::
@@ -455,13 +432,13 @@ pnpm run health:full
 
 ```bash [Linux/macOS]
 # API 健康检查
-curl http://localhost:3000/health
+curl http://127.0.0.1:7200/health
 
 # 打开前端 API 文档
-open http://localhost:3000/im/v3/docs
+open http://127.0.0.1:7200/im/v3/docs
 
 # 打开管理端 API 文档
-open http://localhost:3000/admin/im/v3/docs
+open http://127.0.0.1:7200/admin/im/v3/docs
 
 # 打开 WukongIM 管理后台
 open http://localhost:5300/web
@@ -469,13 +446,13 @@ open http://localhost:5300/web
 
 ```powershell [Windows]
 # API 健康检查
-Invoke-WebRequest -Uri http://localhost:3000/health
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 
 # 打开前端 API 文档
-Start-Process "http://localhost:3000/im/v3/docs"
+Start-Process "http://127.0.0.1:7200/im/v3/docs"
 
 # 打开管理端 API 文档
-Start-Process "http://localhost:3000/admin/im/v3/docs"
+Start-Process "http://127.0.0.1:7200/admin/im/v3/docs"
 
 # 打开 WukongIM 管理后台
 Start-Process "http://localhost:5300/web"
@@ -491,10 +468,10 @@ Start-Process "http://localhost:5300/web"
 
 ```bash [Linux/macOS]
 # 查看端口占用
-lsof -i :3000
+lsof -i :7200
 
 # 或使用 netstat
-netstat -tlnp | grep 3000
+netstat -tlnp | grep 7200
 
 # 终止占用进程
 kill -9 <PID>
@@ -502,7 +479,7 @@ kill -9 <PID>
 
 ```powershell [Windows]
 # 查看端口占用
-netstat -ano | findstr :3000
+netstat -ano | findstr :7200
 
 # 终止占用进程
 taskkill /PID <PID> /F
@@ -565,22 +542,21 @@ Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 10
 ::: code-group
 
 ```bash [Linux/macOS]
+# 查看服务状态
+systemctl status openchat.service
+
+# 运行时健康检查
+./bin/openchat status
+./bin/openchat health
+
 # 查看日志
-docker compose logs app
-
-# 运行诊断
-./scripts/health-check.sh full
-
-# 尝试自动修复
-./scripts/auto-fix.sh
+tail -f var/logs/stdout.log
 ```
 
 ```powershell [Windows]
-# 查看日志
-docker compose logs app
-
-# 运行诊断
-pnpm run health:full
+# 运行时健康检查
+.\bin\openchat.ps1 status
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::

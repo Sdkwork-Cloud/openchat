@@ -17,8 +17,10 @@
 
 | 软件 | 版本 | 说明 |
 |------|------|------|
-| Docker | 24.0+ | 容器运行时 |
-| Docker Compose | 2.0+ | 容器编排 |
+| Node.js | 18+ | 运行时 |
+| npm | 9+ | 包管理器 |
+| PostgreSQL | 15+ | 数据库 |
+| Redis | 7+ | 缓存与队列 |
 
 ## 安装前检查
 
@@ -26,182 +28,79 @@
 
 ```bash [Linux/macOS]
 # 运行预检查脚本
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 ```
 
 ```powershell [Windows]
 # 运行预检查脚本
-pnpm run precheck:win
+.\scripts\precheck.ps1
 ```
 
 :::
 
 ## 安装方式
 
-### 方式一：一键安装（推荐）
+### 方式一：统一主机部署（推荐）
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# 快速安装
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# 或克隆后安装
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
-```
-
-```powershell [Windows]
-# 快速安装
-.\scripts\quick-install.bat
-
-# 或 PowerShell 完整安装
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
-```
-
-:::
-
-### 方式二：Docker 快速启动
-
-::: code-group
-
-```bash [Linux/macOS]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 一条命令启动所有服务
-docker compose -f docker-compose.quick.yml up -d
-
-# 或使用 npm 脚本
-pnpm run docker:quick
-
-# 查看服务状态
-docker compose -f docker-compose.quick.yml ps
-```
-
-```powershell [Windows]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 一条命令启动所有服务
-docker compose -f docker-compose.quick.yml up -d
-
-# 或使用 npm 脚本
-pnpm run docker:quick
-
-# 查看服务状态
-docker compose -f docker-compose.quick.yml ps
-```
-
-:::
-
-### 方式三：Docker 开发环境（灵活配置）
-
-使用 `docker-compose.yml` 支持灵活配置，可选择性启动服务：
-
-::: code-group
-
-```bash [Linux/macOS]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 配置环境变量
 cp .env.example .env
-vim .env
-
-# 启动所有服务（数据库+Redis+IM+应用）
-docker compose --profile database --profile cache --profile im up -d
-
-# 或使用 npm 脚本
-pnpm run docker:up
-
-# 只启动应用（使用外部数据库）
-docker compose up -d
-
-# 查看服务状态
-docker compose ps
+# 按需编辑 .env
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ```powershell [Windows]
-# 克隆项目
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-
-# 配置环境变量
-copy .env.example .env
-notepad .env
-
-# 启动所有服务（数据库+Redis+IM+应用）
-docker compose --profile database --profile cache --profile im up -d
-
-# 或使用 npm 脚本
-pnpm run docker:up
-
-# 只启动应用（使用外部数据库）
-docker compose up -d
-
-# 查看服务状态
-docker compose ps
+Copy-Item .env.example .env
+# 按需编辑 .env
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 :::
 
-### 方式四：手动部署
+### 方式二：手工低层部署
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 配置环境变量
-cp .env.example .env
-vim .env
-
-# 启动服务
-docker compose up -d
+./scripts/precheck.sh --mode standalone
+npm ci
+npm run build
+./scripts/init-database.sh production --yes
+./scripts/apply-db-patches.sh production
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200
 ```
 
 ```powershell [Windows]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 配置环境变量
-copy .env.example .env
-notepad .env
-
-# 启动服务
-docker compose up -d
+.\scripts\precheck.ps1
+npm ci
+npm run build
+.\scripts\init-database.ps1 -Environment production -Yes
+.\scripts\apply-db-patches.ps1 -Environment production
+.\bin\openchat.ps1 start --environment production --host 127.0.0.1 --port 7200
 ```
 
 :::
 
 ## 验证安装
 
-### 运行安装测试
+### 检查运行状态
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# 快速测试
-./scripts/install-test.sh quick
-
-# 完整测试
-./scripts/install-test.sh full
+./bin/openchat status
+./bin/openchat health
+curl http://127.0.0.1:7200/ready
 ```
 
 ```powershell [Windows]
-# 快速测试
-pnpm run test:install
-
-# 完整测试
-pnpm run test:install:full
+.\bin\openchat.ps1 status
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::
@@ -212,18 +111,19 @@ pnpm run test:install:full
 
 ```bash [Linux/macOS]
 # 测试健康检查
-curl http://localhost:3000/health
+curl http://127.0.0.1:7200/health
+curl http://127.0.0.1:7200/ready
 
 # 预期响应
-# {"status":"ok","timestamp":"2024-01-15T10:30:00.000Z"}
+# {"status":"ok",...}
 ```
 
 ```powershell [Windows]
 # 测试健康检查
-Invoke-WebRequest -Uri http://localhost:3000/health
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 
 # 预期响应
-# {"status":"ok","timestamp":"2024-01-15T10:30:00.000Z"}
+# {"status":"ok",...}
 ```
 
 :::
@@ -232,11 +132,11 @@ Invoke-WebRequest -Uri http://localhost:3000/health
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| OpenChat API | http://localhost:3000 | 主服务 API |
-| 前端 API 文档 | http://localhost:3000/im/v3/docs | 面向应用接入的 Swagger 文档 |
-| 前端 OpenAPI JSON | http://localhost:3000/im/v3/openapi.json | 用于生成 sdkwork-im-sdk 的 schema |
-| 管理端 API 文档 | http://localhost:3000/admin/im/v3/docs | 面向控制面的 Swagger 文档 |
-| 管理端 OpenAPI JSON | http://localhost:3000/admin/im/v3/openapi.json | 管理端 schema |
+| OpenChat API | http://127.0.0.1:7200 | 主服务 API |
+| 前端 API 文档 | http://127.0.0.1:7200/im/v3/docs | 面向应用接入的 Swagger 文档 |
+| 前端 OpenAPI JSON | http://127.0.0.1:7200/im/v3/openapi.json | 用于生成 sdkwork-im-sdk 的 schema |
+| 管理端 API 文档 | http://127.0.0.1:7200/admin/im/v3/docs | 面向控制面的 Swagger 文档 |
+| 管理端 OpenAPI JSON | http://127.0.0.1:7200/admin/im/v3/openapi.json | 管理端 schema |
 | WukongIM Demo | http://localhost:5172 | IM 演示页面 |
 | WukongIM 管理 | http://localhost:5300/web | IM 管理后台 |
 | Prometheus | http://localhost:9090 | 监控面板 |
@@ -351,33 +251,28 @@ OpenChat 提供完整的运维工具集：
 
 ```bash [Linux/macOS]
 # 系统预检查
-./scripts/precheck.sh
+./scripts/precheck.sh --mode standalone
 
-# 错误诊断
-./scripts/diagnose.sh
+# 统一部署或更新
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
-# 自动修复
-./scripts/auto-fix.sh --all
-
-# 日志分析
-./scripts/log-analyzer.sh analyze
-
-# 健康监控
-./scripts/health-check.sh --monitor
+# 运行时
+./bin/openchat restart
+./bin/openchat status
+./bin/openchat health
 ```
 
 ```powershell [Windows]
 # 系统预检查
-pnpm run precheck
+.\scripts\precheck.ps1
 
-# 错误诊断
-pnpm run diagnose
+# 统一部署或更新
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 
-# 自动修复
-pnpm run auto-fix
-
-# 健康监控
-pnpm run health:monitor
+# 运行时
+.\bin\openchat.ps1 restart
+.\bin\openchat.ps1 status
+Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```
 
 :::
@@ -446,13 +341,13 @@ New-NetFirewallRule -DisplayName "OpenChat WS" -Direction Inbound -Port 5200 -Pr
 
 ```powershell [Windows]
 # 检查安装状态
-pnpm run install:status
+.\scripts\install-manager.ps1 status
 
 # 运行诊断
-pnpm run diagnose
+.\scripts\precheck.ps1
 
-# 自动修复
-pnpm run auto-fix
+# 运行时健康检查
+.\bin\openchat.ps1 status
 ```
 
 :::
@@ -469,4 +364,3 @@ pnpm run auto-fix
 - 💬 [GitHub Discussions](https://github.com/Sdkwork-Cloud/openchat/discussions)
 - 🐛 [Issue 报告](https://github.com/Sdkwork-Cloud/openchat/issues)
 - 📧 邮箱: contact@sdkwork.com
-

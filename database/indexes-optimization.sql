@@ -249,8 +249,8 @@ ANALYZE chat_third_party_messages;
 CREATE OR REPLACE VIEW index_usage_stats AS
 SELECT 
     schemaname,
-    tablename,
-    indexname,
+    relname AS tablename,
+    indexrelname AS indexname,
     idx_scan as index_scans,
     idx_tup_read as tuples_read,
     idx_tup_fetch as tuples_fetched,
@@ -306,10 +306,10 @@ SELECT 'Database indexes optimized successfully!' AS status;
 
 -- 显示创建的索引统计
 SELECT 
-    tablename,
-    indexname,
+    relname AS tablename,
+    indexrelname AS indexname,
     pg_size_pretty(pg_relation_size(indexrelid)) as index_size
 FROM pg_stat_user_indexes
 WHERE schemaname = 'public'
-    AND indexname LIKE 'idx_chat_%'
-ORDER BY tablename, indexname;
+    AND indexrelname LIKE 'idx_chat_%'
+ORDER BY relname, indexrelname;

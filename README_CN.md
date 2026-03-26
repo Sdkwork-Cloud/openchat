@@ -64,25 +64,25 @@
 | PostgreSQL | 15+ | 涓绘暟鎹簱锛堝閮級 |
 | Redis | 7+ | 缂撳瓨鍜屾秷鎭槦鍒楋紙澶栭儴锛?|
 
-### 涓€閿畨瑁咃紙鎺ㄨ崘锛?
+### 统一部署（推荐）
 **Linux / macOS:**
 
 ```bash
-# 蹇€熷畨瑁?curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# 鎴栧厠闅嗗悗瀹夎
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
+cp .env.example .env
+# 按需编辑 .env
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 **Windows:**
 
 ```powershell
-# 蹇€熷畨瑁?.\scripts\quick-install.bat
-
-# 鎴?PowerShell
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+Copy-Item .env.example .env
+# 按需编辑 .env
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 ### 瀹夎鍓嶆鏌?
@@ -91,7 +91,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ./scripts/precheck.sh
 
 # Windows
-scripts\precheck.bat
+scripts\precheck.ps1
 ```
 
 瀹夎鍓嶆鏌ヨ剼鏈皢楠岃瘉锛?- 鎿嶄綔绯荤粺鍜屾灦鏋?- 鍐呭瓨鍜岀鐩樼┖闂?- Docker 鍜?Docker Compose
@@ -344,7 +344,7 @@ openchat/
 鈹?  鈹斺攢鈹€ 馃搧 overlays/               # 鐜閰嶇疆
 鈹溾攢鈹€ 馃搧 scripts/                    # 鑴氭湰
 鈹?  鈹溾攢鈹€ quick-start.sh             # 蹇€熷惎鍔?鈹?  鈹溾攢鈹€ install.sh                 # 瀹夎鑴氭湰 (Linux/macOS)
-鈹?  鈹溾攢鈹€ install.bat                # 瀹夎鑴氭湰 (Windows)
+鈹?  鈹溾攢鈹€ install.ps1                # PowerShell 瀹夎鑴氭湰 (Windows)
 鈹?  鈹溾攢鈹€ setup-wizard.sh            # 浜や簰寮忓畨瑁呭悜瀵?鈹?  鈹溾攢鈹€ install-manager.sh         # 瀹夎鐘舵€佺鐞?鈹?  鈹溾攢鈹€ install-test.sh            # 瀹夎楠岃瘉娴嬭瘯
 鈹?  鈹溾攢鈹€ precheck.sh                # 绯荤粺棰勬鏌?鈹?  鈹溾攢鈹€ diagnose.sh                # 閿欒璇婃柇宸ュ叿
 鈹?  鈹溾攢鈹€ auto-fix.sh                # 鑷姩淇宸ュ叿
@@ -674,4 +674,3 @@ OpenChat 鏄紑婧愯蒋浠讹紝浣跨敤 [AGPL-3.0 璁稿彲璇乚(LICENSE)
 漏 2024 Sdkwork Cloud. All rights reserved.
 
 </div>
-

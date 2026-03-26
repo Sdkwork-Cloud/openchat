@@ -22,21 +22,19 @@ OpenChat provides multiple deployment options to meet different scenarios.
 | Kubernetes | Large-scale production, high availability | ⭐⭐⭐ |
 | Traditional | Non-Docker environments | ⭐⭐⭐ |
 
-## One-Click Installation
+## Recommended Host Deployment
 
 ```bash
-# Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# Windows
-.\scripts\quick-install.bat
+cp .env.example .env
+# edit .env first
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ## Quick Selection
 
 ### Development/Testing
 
-Recommended: Docker Compose one-click deployment:
+Recommended: Docker Compose quick deployment:
 
 ```bash
 # Clone the project
@@ -46,13 +44,11 @@ cd openchat
 # Start all services
 docker compose -f docker-compose.quick.yml up -d
 
-# Or use npm script
-pnpm run docker:quick
 ```
 
 ### Production
 
-Recommended: Use production configuration:
+Recommended: use the unified standalone deploy entrypoint on a host with PostgreSQL and Redis available:
 
 ```bash
 # Clone the project
@@ -63,8 +59,8 @@ cd openchat
 cp .env.example .env
 vim .env
 
-# Start with production config
-docker compose -f docker-compose.prod.yml up -d
+# Install, build, init/patch DB automatically, install systemd, restart service
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ## System Requirements
@@ -91,21 +87,15 @@ OpenChat provides a complete set of operations tools:
 
 ```bash
 # Pre-installation check
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 
-# Health check
-pnpm run health
+# Service runtime
+./bin/openchat status
+./bin/openchat health
 
-# Full diagnosis
-pnpm run health:full
-
-# View logs
-pnpm run docker:logs
-
-# Service management
-pnpm run docker:up      # Start services
-pnpm run docker:down    # Stop services
-pnpm run docker:ps      # View status
+# Linux service management
+systemctl status openchat.service
+systemctl restart openchat.service
 ```
 
 ## Next Steps

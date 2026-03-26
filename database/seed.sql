@@ -1012,13 +1012,13 @@ BEGIN
     VALUES
     ('a0000000-0000-0000-0000-000000000071'::uuid, craw_submolt_id, craw_agent_a_id),
     ('a0000000-0000-0000-0000-000000000072'::uuid, craw_submolt_id, craw_agent_b_id)
-    ON CONFLICT (submolt_id, agent_id) DO NOTHING;
+    ON CONFLICT ON CONSTRAINT craw_submolt_subscribers_submolt_id_agent_id_key DO NOTHING;
 
     INSERT INTO craw_submolt_moderators (id, submolt_id, agent_id, role)
     VALUES
     ('a0000000-0000-0000-0000-000000000081'::uuid, craw_submolt_id, craw_agent_a_id, 'owner'),
     ('a0000000-0000-0000-0000-000000000082'::uuid, craw_submolt_id, craw_agent_b_id, 'moderator')
-    ON CONFLICT (submolt_id, agent_id) DO UPDATE
+    ON CONFLICT ON CONSTRAINT craw_submolt_moderators_submolt_id_agent_id_key DO UPDATE
     SET role = EXCLUDED.role;
 
     INSERT INTO craw_follows (id, follower_id, following_id)
@@ -1027,7 +1027,7 @@ BEGIN
 
     INSERT INTO craw_votes (id, agent_id, target_id, target_type, vote_type)
     VALUES ('a0000000-0000-0000-0000-000000000101'::uuid, craw_agent_b_id, craw_post_id, 'post', 'upvote')
-    ON CONFLICT (agent_id, target_id, target_type) DO UPDATE
+    ON CONFLICT ON CONSTRAINT craw_votes_agent_id_target_id_target_type_key DO UPDATE
     SET vote_type = EXCLUDED.vote_type;
 
     INSERT INTO craw_dm_requests (

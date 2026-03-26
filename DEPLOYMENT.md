@@ -2,6 +2,14 @@
 
 This document defines a production-ready deployment flow aligned with current repository scripts and database standards.
 
+For standalone host deployment, the preferred entrypoint is now:
+
+```bash
+./scripts/deploy-server.sh production --db-action auto --yes --service
+```
+
+That command performs precheck, dependency install, build, automatic database init/patch selection, and Linux `systemd` installation/restart in one flow.
+
 ## 1. Deployment Principles
 
 - **Fresh environment**: initialize with `database/schema.sql` (and optional `database/seed.sql`)
@@ -60,21 +68,44 @@ For Docker production rollout:
 ### 5.1 Fresh install
 
 ```bash
-npm install
-cp .env.example .env.development
-# edit .env.development
+cp .env.example .env
+# edit .env
 
-./scripts/init-database.sh development
-npm run start:dev
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
+
+What `--db-action auto` does:
+
+- Chooses `init` when the target database or core app tables do not exist
+- Chooses `patch` when an existing OpenChat database is detected
+
+On Linux, `--service` also regenerates [etc/openchat.service](/opt/source/openchat/etc/openchat.service), installs `/etc/systemd/system/openchat.service`, enables it, and restarts the service.
 
 ### 5.2 Existing DB upgrade
 
 ```bash
-npm install
-./scripts/apply-db-patches.sh production
+./scripts/deploy-server.sh production --db-action patch --yes --service
+```
+
+If you do not want `systemd` management and only want the repository runtime wrapper:
+
+```bash
+./scripts/deploy-server.sh production --db-action auto --yes
+```
+
+This will restart the app through `./bin/openchat`.
+
+### 5.3 Manual low-level commands
+
+If you want to control each phase separately:
+
+```bash
+./scripts/precheck.sh --mode standalone
+npm ci
 npm run build
-npm run start:prod
+./scripts/init-database.sh production --yes
+./scripts/apply-db-patches.sh production
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200
 ```
 
 ## 6. Docker Deployment
@@ -123,7 +154,8 @@ This mode assumes external PostgreSQL / Redis / WukongIM are already available.
 ### 7.1 API health endpoint
 
 ```bash
-curl -f http://localhost:3000/health
+curl -f http://127.0.0.1:7200/health
+curl -f http://127.0.0.1:7200/ready
 ```
 
 ### 7.2 Script-based diagnostics
@@ -166,10 +198,9 @@ pg_restore -h <db_host> -U <db_user> -d <db_name> -v backup_before_release.dump
 ## 9. Release Checklist
 
 - [ ] `.env.production` validated (`DB_*`, `REDIS_*`, `JWT_SECRET`, `WUKONGIM_*`)
-- [ ] `./scripts/apply-db-patches.sh production` executed successfully
-- [ ] `npm run build` completed
-- [ ] service started successfully (`npm run start:prod` or Docker)
-- [ ] `/health` check passed
+- [ ] `./scripts/deploy-server.sh production --db-action patch --yes --service` executed successfully
+- [ ] `openchat.service` or `./bin/openchat status` reports running
+- [ ] `/health` and `/ready` checks passed
 - [ ] key business path smoke-tested (auth, messaging, receipt, conversation sync)
 
 ## 10. Command Handbook

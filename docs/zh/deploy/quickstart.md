@@ -8,10 +8,10 @@
 
 ```bash
 # Linux / macOS
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 
 # Windows
-pnpm run precheck:win
+.\scripts\precheck.ps1
 ```
 
 检查项目包括：
@@ -21,28 +21,26 @@ pnpm run precheck:win
 - 端口可用性
 - 网络连接
 
-## 一键安装（推荐）
+## 统一部署（推荐）
 
 ### Linux / macOS
 
 ```bash
-# 快速安装
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# 或克隆后安装
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
+cp .env.example .env
+# 按需编辑 .env
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ### Windows
 
 ```powershell
-# 快速安装
-.\scripts\quick-install.bat
-
-# 或 PowerShell 完整安装
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+Copy-Item .env.example .env
+# 按需编辑 .env
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 ## Docker 快速启动
@@ -54,9 +52,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```bash
 # 一条命令启动所有服务
 docker compose -f docker-compose.quick.yml up -d
-
-# 或使用 npm 脚本
-pnpm run docker:quick
 
 # 查看服务状态
 docker compose -f docker-compose.quick.yml ps
@@ -73,9 +68,6 @@ docker compose -f docker-compose.quick.yml logs -f
 # 启动所有服务（数据库+Redis+IM+应用）
 docker compose --profile database --profile cache --profile im up -d
 
-# 或使用 npm 脚本
-pnpm run docker:up
-
 # 只启动应用（使用外部数据库）
 docker compose up -d
 
@@ -91,24 +83,20 @@ docker compose logs -f
 ### 1. 检查服务状态
 
 ```bash
-# 查看容器状态
-docker compose ps
+# 查看服务状态
+./bin/openchat status
+./bin/openchat health
 
-# 运行健康检查
-pnpm run health
+# Linux 服务状态
+systemctl status openchat.service
 ```
 
 ### 2. 检查服务健康
 
 ```bash
 # 健康检查
-curl http://localhost:3000/health
-
-# 前端 API 文档
-open http://localhost:3000/im/v3/docs
-
-# 管理端 API 文档
-open http://localhost:3000/admin/im/v3/docs
+curl http://127.0.0.1:7200/health
+curl http://127.0.0.1:7200/ready
 ```
 
 ### 3. 查看日志
@@ -127,10 +115,10 @@ docker compose logs -f app
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| OpenChat API | http://localhost:3000 | 主服务 API |
-| 前端 API 文档 | http://localhost:3000/im/v3/docs | 前端 IM Swagger 文档 |
-| 管理端 API 文档 | http://localhost:3000/admin/im/v3/docs | 管理端 Swagger 文档 |
-| 健康检查 | http://localhost:3000/health | 服务健康状态 |
+| OpenChat API | http://127.0.0.1:7200 | 主服务 API |
+| 前端 API 文档 | http://127.0.0.1:7200/im/v3/docs | 前端 IM Swagger 文档 |
+| 管理端 API 文档 | http://127.0.0.1:7200/admin/im/v3/docs | 管理端 Swagger 文档 |
+| 健康检查 | http://127.0.0.1:7200/health | 服务健康状态 |
 | WukongIM Demo | http://localhost:5172 | IM 演示页面 |
 | WukongIM 管理 | http://localhost:5300/web | IM 管理后台 |
 | Prometheus | http://localhost:9090 | 监控面板 |
@@ -141,22 +129,19 @@ OpenChat 提供完整的运维工具：
 
 ```bash
 # 系统预检查
-./scripts/precheck.sh
+./scripts/precheck.sh --mode standalone
 
-# 完整测试
-./scripts/install-test.sh full
+# 统一部署或更新
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
-# 错误诊断
-./scripts/diagnose.sh
+# 数据库
+./scripts/init-database.sh production --yes
+./scripts/apply-db-patches.sh production
 
-# 自动修复
-./scripts/auto-fix.sh --all
-
-# 日志分析
-./scripts/log-analyzer.sh analyze
-
-# 健康监控
-./scripts/health-check.sh --monitor
+# 运行时
+./bin/openchat restart
+./bin/openchat status
+./bin/openchat health
 ```
 
 ## 常见问题
@@ -177,21 +162,22 @@ OpenChat 提供完整的运维工具：
 ### 服务无法启动
 
 ```bash
-# 运行诊断
-./scripts/diagnose.sh
+# 查看 systemd 状态
+systemctl status openchat.service
 
-# 自动修复
-./scripts/auto-fix.sh --all
+# 查看应用日志
+tail -f var/logs/stdout.log
+tail -f var/logs/stderr.log
 ```
 
 ### 端口被占用
 
 ```bash
 # 检查端口
-lsof -i :3000
+lsof -i :7200
 
 # 修改端口
-PORT=3001 docker compose up -d
+./scripts/deploy-server.sh production --db-action auto --yes --service --port 7300
 ```
 
 ## 下一步

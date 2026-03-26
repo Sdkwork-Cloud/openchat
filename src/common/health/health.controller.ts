@@ -5,6 +5,7 @@ import { Connection } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 import { QueueService } from '../queue/queue.service';
 import { IMProviderService } from '../../modules/im-provider/im-provider.service';
+import { AllowAnonymous } from '../auth/guards/multi-auth.guard';
 
 interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -47,6 +48,7 @@ export class HealthController {
    * 基础健康检查
    * 仅检查应用是否存活
    */
+  @AllowAnonymous()
   @Get('health')
   @ApiOperation({ summary: '健康检查', description: '检查应用是否正常运行' })
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
@@ -60,6 +62,7 @@ export class HealthController {
     };
   }
 
+  @AllowAnonymous()
   @Get('health/detailed')
   @ApiOperation({ summary: '详细健康检查', description: '检查所有依赖服务的健康状态' })
   async checkDetailedHealth(): Promise<HealthStatus> {
@@ -127,6 +130,7 @@ export class HealthController {
    * 就绪检查
    * 用于 K8s 就绪探针
    */
+  @AllowAnonymous()
   @Get('ready')
   @ApiOperation({ summary: '就绪检查', description: '检查应用是否已准备好接收流量' })
   async checkReady(): Promise<{ status: string; checks: any }> {
@@ -148,6 +152,7 @@ export class HealthController {
    * 存活检查
    * 用于 K8s 存活探针
    */
+  @AllowAnonymous()
   @Get('live')
   @ApiOperation({ summary: '存活检查', description: '检查应用是否存活' })
   checkLive(): { status: string; timestamp: string } {

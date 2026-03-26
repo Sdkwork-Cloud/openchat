@@ -1,202 +1,258 @@
-﻿# OpenChat 鏈嶅姟绔畨瑁呮寚鍗楋紙涓枃锛?
-鏈枃妗ｅ熀浜庡綋鍓嶄粨搴撶湡瀹炶剼鏈笌鍛戒护缂栧啓锛岄€傜敤浜庡叏鏂扮幆澧冨畨瑁呬笌瀛橀噺鐜鍗囩骇銆?
-## 1. 鐜瑕佹眰
+# OpenChat 服务端安装与部署指南
 
-- 鎿嶄綔绯荤粺锛歀inux / macOS / Windows锛堟帹鑽?WSL2锛?- Node.js锛?8+
-- PostgreSQL锛?5+
-- Redis锛?+
-- 蹇呰鍛戒护锛歚npm`銆乣psql`銆乣redis-cli`
+本文档基于当前仓库中的真实脚本和已验证流程编写，适用于 Linux / macOS / Windows PowerShell。
 
-## 2. 瀹夎鍩虹渚濊禆锛圲buntu 绀轰緥锛?
+如果你要在 Linux 服务器上以长期运行的服务端模式部署，推荐直接使用新的统一部署脚本：
+
 ```bash
-sudo apt update
-sudo apt install -y postgresql postgresql-contrib redis-server
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
-鍚姩鏈嶅姟骞惰缃紑鏈鸿嚜鍚細
+这条命令会串行完成以下动作：
+
+- 运行环境预检查
+- 准备 `.env`
+- 安装依赖
+- 构建后端
+- 自动判断数据库应该执行 `init` 还是 `patch`
+- 在 Linux 上生成并安装 `systemd` 服务
+- 启用并重启 `openchat.service`
+
+## 1. 环境要求
+
+- Node.js 18+
+- npm
+- PostgreSQL 15+
+- Redis 7+
+- `psql` 命令可用
+- Linux 服务化部署额外需要 `systemd`
+
+Ubuntu 示例：
 
 ```bash
+sudo apt update
+sudo apt install -y nodejs npm postgresql postgresql-contrib redis-server
 sudo systemctl enable --now postgresql
 sudo systemctl enable --now redis-server
 ```
 
-楠岃瘉锛?
+检查基础依赖：
+
 ```bash
-sudo -u postgres psql -c "SELECT version();"
+node -v
+npm -v
+psql --version
 redis-cli ping
 ```
 
-## 3. 鍒涘缓鏁版嵁搴撲笌璐﹀彿
+## 2. 准备环境文件
+
+生产环境推荐：
+
+```bash
+cp .env.example .env
+```
+
+至少确认这些配置项：
+
+```env
+NODE_ENV=production
+HOST=127.0.0.1
+PORT=7200
+
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USERNAME=openchat
+DB_PASSWORD=change_this_password
+DB_NAME=openchat
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+JWT_SECRET=replace_this_with_a_real_secret
+ENCRYPTION_MASTER_KEY=replace_this_with_a_real_key
+```
+
+说明：
+
+- 新部署优先读取 `.env`
+- `deploy-server`、`db init`、`db patch` 都会按照环境名去找 `.env.production` / `.env.development` / `.env.test`，如果找不到则回退到 `.env`
+
+## 3. PostgreSQL 账号与数据库
+
+`db init` 可以自动创建目标数据库，但前提是 `.env` 中的数据库用户本身能够连接 PostgreSQL，并拥有创建数据库的权限。
+
+推荐先创建应用账号：
 
 ```bash
 sudo -u postgres psql
 ```
 
-鎵ц锛?
+执行：
+
 ```sql
-CREATE USER openchat_user WITH PASSWORD 'change_this_password';
-CREATE DATABASE openchat OWNER openchat_user;
+CREATE USER openchat WITH PASSWORD 'change_this_password';
+ALTER USER openchat CREATEDB;
 \q
 ```
 
-## 4. PostgreSQL 杩滅▼璁块棶涓庤璇侊紙鎸夐渶锛?
-鍏堟煡璇㈤厤缃枃浠朵綅缃紝涓嶅啓姝荤増鏈彿鐩綍锛?
-```bash
-sudo -u postgres psql -tAc "SHOW hba_file;"
-sudo -u postgres psql -tAc "SHOW config_file;"
-```
-
-缂栬緫 `pg_hba.conf`锛岃拷鍔狅細
-
-```conf
-host    openchat    openchat_user    0.0.0.0/0    scram-sha-256
-host    openchat    openchat_user    ::/0         scram-sha-256
-```
-
-缂栬緫 `postgresql.conf`锛岀‘璁わ細
-
-```conf
-listen_addresses = '*'
-port = 5432
-```
-
-閲嶅惎 PostgreSQL锛?
-```bash
-sudo systemctl restart postgresql
-```
-
-## 5. 鑾峰彇浠ｇ爜骞跺畨瑁呬緷璧?
-```bash
-git clone <your-openchat-repo-url> openchat-server
-cd openchat-server
-npm install
-```
-
-濡傛灉浣犵殑鐩綍鍚嶄笉鏄?`openchat-server`锛岃鏀逛负瀹為檯鐩綍銆?
-## 6. 閰嶇疆鐜鍙橀噺
-
-寮€鍙戠幆澧冩帹鑽愶細
+如果你不希望授予 `CREATEDB`，也可以手工预建数据库：
 
 ```bash
-cp .env.example .env.development
+sudo -u postgres createdb -O openchat openchat
 ```
 
-缂栬緫 `.env.development`锛岃嚦灏戠‘璁や互涓嬮厤缃細
+## 4. 获取代码
 
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=openchat_user
-DB_PASSWORD=change_this_password
-DB_NAME=openchat
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-```
-
-## 7. 鍒濆鍖栨暟鎹簱锛堝叏鏂版暟鎹簱锛?
-Linux / macOS锛?
 ```bash
-chmod +x scripts/init-database.sh
-./scripts/init-database.sh development
+git clone <your-openchat-repo-url> openchat
+cd openchat
 ```
 
-Windows PowerShell锛?
+## 5. 推荐部署方式
+
+### 5.1 Linux 服务端部署
+
+```bash
+./scripts/deploy-server.sh production --db-action auto --yes --service
+```
+
+参数说明：
+
+- `production`：部署环境
+- `--db-action auto`：自动判断数据库动作
+  - 数据库不存在或业务表不存在时执行 `init`
+  - 已有业务表时执行 `patch`
+- `--yes`：跳过交互确认
+- `--service`：生成并安装 `systemd` 服务
+
+执行成功后可用以下命令确认：
+
+```bash
+systemctl status openchat.service
+./bin/openchat status
+./bin/openchat health
+curl -f http://127.0.0.1:7200/ready
+```
+
+### 5.2 Linux 非服务模式
+
+如果你只想部署并直接用仓库内的运行包装器启动：
+
+```bash
+./scripts/deploy-server.sh production --db-action auto --yes
+```
+
+这会完成安装、构建、数据库动作，并通过 `bin/openchat` 重启运行时。
+
+### 5.3 Windows PowerShell
+
 ```powershell
-.\scripts\init-database.ps1 -Environment development
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
-璇存槑锛?
-- 鑴氭湰浼氭墽琛?`database/schema.sql`
-- 闈炵敓浜х幆澧冨彲閫夋嫨鏄惁瀵煎叆 `database/seed.sql`
-- 鏀寔鐜鍒悕锛歚dev|development`銆乣test`銆乣prod|production`
+说明：
 
-## 8. 瀛橀噺鏁版嵁搴撳崌绾э紙鍦ㄧ嚎琛ヤ竵锛?
-鍙戝竷鏂扮増鏈墠鍏堟墽琛岃ˉ涓侊細
+- Windows 当前推荐 PowerShell 脚本，不再提供 `.bat`
+- `-Service` 参数在 Windows 上不会安装 `systemd`，会被安全跳过
 
-Linux / macOS锛?
+## 6. 数据库单独命令
+
+### 6.1 全新数据库初始化
+
+Linux / macOS:
+
+```bash
+./scripts/init-database.sh production --yes
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\init-database.ps1 -Environment production -Yes
+```
+
+### 6.2 存量数据库补丁
+
+Linux / macOS:
+
 ```bash
 ./scripts/apply-db-patches.sh production
 ```
 
-Windows PowerShell锛?
+Windows PowerShell:
+
 ```powershell
 .\scripts\apply-db-patches.ps1 -Environment production
 ```
 
-璇存槑锛?
-- 琛ヤ竵鏉ユ簮锛歚database/patches/*.sql`
-- 鎵ц璁板綍琛細`chat_schema_migrations`
-- 鏀寔閲嶅鎵ц锛屽凡鎵ц琛ヤ竵浼氳嚜鍔ㄨ烦杩?
-## 9. 鍚姩鏈嶅姟
+说明：
 
-寮€鍙戠幆澧冿細
+- 补丁目录：`database/patches/*.sql`
+- 执行记录表：`chat_schema_migrations`
+- 支持重复执行，已执行补丁会自动跳过
 
-```bash
-npm run start:dev
-```
-
-鐢熶骇鐜锛?
-```bash
-npm run build
-npm run start:prod
-```
-
-## 10. 楠岃瘉瀹夎
+## 7. 常用运行命令
 
 ```bash
-curl -f http://localhost:3000/health
+./bin/openchat start
+./bin/openchat stop
+./bin/openchat restart
+./bin/openchat status
+./bin/openchat health
 ```
 
-鍙€夛細
+查看服务日志：
 
 ```bash
-./scripts/health-check.sh
+tail -f var/logs/stdout.log
+tail -f var/logs/stderr.log
 ```
 
-Swagger 鏂囨。锛?
-- `http://localhost:3000/im/v3/docs`
+## 8. 功能验收
 
-## 11. 甯歌鏁呴殰鎺掓煡
-
-### 11.1 `password authentication failed`
+健康检查：
 
 ```bash
-sudo -u postgres psql -c "ALTER USER openchat_user WITH PASSWORD 'new_password';"
+curl -f http://127.0.0.1:7200/health
+curl -f http://127.0.0.1:7200/ready
 ```
 
-骞跺悓姝ユ洿鏂?`.env.*` 涓殑 `DB_PASSWORD`銆?
-### 11.2 `connection refused`
-
-渚濇妫€鏌ワ細
+如果是非生产环境并导入了种子数据，可验证管理员登录：
 
 ```bash
-sudo systemctl status postgresql
-sudo systemctl status redis-server
-ss -lntp | rg '5432|6379|3000'
+curl -sS \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"OpenChat@123"}' \
+  http://127.0.0.1:7200/auth/login
 ```
 
-### 11.3 `psql: command not found`
+## 9. 常见问题
 
-瀹夎 PostgreSQL 瀹㈡埛绔苟纭鍦?PATH锛?
+### 9.1 `psql was not found in PATH`
+
+安装 PostgreSQL 客户端并确认：
+
 ```bash
 command -v psql
 ```
 
-## 12. 澶囦唤涓庢仮澶?
-澶囦唤锛?
+### 9.2 `password authentication failed`
+
+重置数据库账号密码：
+
 ```bash
-pg_dump -h localhost -U openchat_user -d openchat -F c -b -v -f openchat_backup.dump
+sudo -u postgres psql -c "ALTER USER openchat WITH PASSWORD 'new_password';"
 ```
 
-鎭㈠锛?
-```bash
-pg_restore -h localhost -U openchat_user -d openchat -v openchat_backup.dump
-```
+然后同步更新 `.env` 中的 `DB_PASSWORD`。
 
-## 13. 鍙傝€冩枃妗?
-- 閮ㄧ讲鎸囧崡锛歚DEPLOYMENT.md`
-- 鏁版嵁搴撹鏄庯細`database/README.md`
-- 鍛戒护閫熸煡锛歚docs/COMMANDS_CN.md`
+### 9.3 `permission denied` 或 `systemctl` 失败
 
+`--service` 需要有权限写入 `/etc/systemd/system/openchat.service` 并执行 `systemctl`。如果当前用户没有权限，请使用具备 sudo 权限的账号执行。
+
+## 10. 参考文档
+
+- [DEPLOYMENT.md](/opt/source/openchat/DEPLOYMENT.md)
+- [docs/COMMANDS_CN.md](/opt/source/openchat/docs/COMMANDS_CN.md)
+- [etc/openchat.service](/opt/source/openchat/etc/openchat.service)

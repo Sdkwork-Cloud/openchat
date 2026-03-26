@@ -8,10 +8,10 @@ Before installation, run the check script to verify your system:
 
 ```bash
 # Linux / macOS
-pnpm run precheck
+./scripts/precheck.sh --mode standalone
 
 # Windows
-pnpm run precheck:win
+.\scripts\precheck.ps1
 ```
 
 The check includes:
@@ -21,28 +21,26 @@ The check includes:
 - Port availability
 - Network connectivity
 
-## One-Click Install (Recommended)
+## Unified Deploy (Recommended)
 
 ### Linux / macOS
 
 ```bash
-# Quick install
-curl -fsSL https://raw.githubusercontent.com/Sdkwork-Cloud/openchat/main/scripts/quick-install.sh | bash
-
-# Or clone and install
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-./scripts/quick-install.sh
+cp .env.example .env
+# edit .env as needed
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ### Windows
 
 ```powershell
-# Quick install
-.\scripts\quick-install.bat
-
-# Or PowerShell full install
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+git clone https://github.com/Sdkwork-Cloud/openchat.git
+cd openchat
+Copy-Item .env.example .env
+# edit .env as needed
+.\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
 ## Docker Quick Start
@@ -54,9 +52,6 @@ Use `docker-compose.quick.yml` for one-click startup without additional configur
 ```bash
 # Start all services in one command
 docker compose -f docker-compose.quick.yml up -d
-
-# Or use npm script
-pnpm run docker:quick
 
 # Check service status
 docker compose -f docker-compose.quick.yml ps
@@ -73,9 +68,6 @@ Use `docker-compose.yml` for flexible configuration with profiles:
 # Start all services (database+Redis+IM+app)
 docker compose --profile database --profile cache --profile im up -d
 
-# Or use npm script
-pnpm run docker:up
-
 # Start only the app (use external database)
 docker compose up -d
 
@@ -91,24 +83,20 @@ docker compose logs -f
 ### 1. Check Service Status
 
 ```bash
-# View container status
-docker compose ps
+# Standalone runtime health
+./bin/openchat status
+./bin/openchat health
 
-# Run health check
-pnpm run health
+# Linux service status
+systemctl status openchat.service
 ```
 
 ### 2. Check Service Health
 
 ```bash
 # Health check
-curl http://localhost:3000/health
-
-# App API documentation
-open http://localhost:3000/im/v3/docs
-
-# Admin API documentation
-open http://localhost:3000/admin/im/v3/docs
+curl http://127.0.0.1:7200/health
+curl http://127.0.0.1:7200/ready
 ```
 
 ### 3. View Logs
@@ -127,33 +115,27 @@ After installation, access the following services:
 
 | Service | URL |
 |---------|-----|
-| OpenChat API | http://localhost:3000 |
-| App API Documentation | http://localhost:3000/im/v3/docs |
-| Admin API Documentation | http://localhost:3000/admin/im/v3/docs |
-| Health Check | http://localhost:3000/health |
+| OpenChat API | http://127.0.0.1:7200 |
+| App API Documentation | http://127.0.0.1:7200/im/v3/docs |
+| Admin API Documentation | http://127.0.0.1:7200/admin/im/v3/docs |
+| Health Check | http://127.0.0.1:7200/health |
 | WukongIM Demo | http://localhost:5172 |
 | WukongIM Admin | http://localhost:5300/web |
 
 ## Common Commands
 
 ```bash
-# Start services
-pnpm run docker:up
+# Deploy or update
+./scripts/deploy-server.sh production --db-action auto --yes --service
 
-# Stop services
-pnpm run docker:down
+# Runtime wrapper
+./bin/openchat restart
+./bin/openchat status
+./bin/openchat health
 
-# View logs
-pnpm run docker:logs
-
-# Check status
-pnpm run docker:ps
-
-# Health check
-pnpm run health
-
-# Full diagnosis
-pnpm run health:full
+# Database commands
+./scripts/init-database.sh production --yes
+./scripts/apply-db-patches.sh production
 ```
 
 ## Next Steps
