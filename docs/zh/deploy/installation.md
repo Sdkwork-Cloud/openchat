@@ -251,6 +251,41 @@ pnpm run start:prod
 
 :::
 
+### 4. Nginx + WukongIM 域名入口模式
+
+如果你希望服务器直接以域名方式暴露 OpenChat 和 WukongIM，请执行：
+
+```bash
+./scripts/configure-edge.sh development \
+  --domain im-dev.sdkwork.com \
+  --public-ip <public_ip> \
+  --server-ip <server_ip> \
+  --runtime-environment production
+```
+
+默认环境域名：
+
+- `development` -> `im-dev.sdkwork.com`
+- `test` -> `im-test.sdkwork.com`
+- `production` -> `im.sdkwork.com`
+
+执行后将得到以下入口：
+
+- `https://<domain>/`：OpenChat
+- `wss://<domain>/im/ws`：WukongIM WebSocket
+- `https://<domain>/web/`：WukongIM 管理台
+- `https://<domain>/api/*`：WukongIM 管理接口
+- `<domain>:5100`：WukongIM TCP
+
+同时脚本会：
+
+- 生成并安装 Nginx 站点配置
+- 自动向 `/etc/nginx/nginx.conf` 注入 `stream` include
+- 将 WukongIM HTTP/WS/Manager/TCP 端口切换到本地 `127.0.0.1` 绑定
+- 通过 Nginx `stream` 对外暴露 `5100/tcp`
+- 更新 OpenChat `.env` 中的 `WUKONGIM_*` 配置
+- 重载 Nginx 并重启 OpenChat / WukongIM
+
 ## 环境配置
 
 ### 必需配置项

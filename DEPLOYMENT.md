@@ -108,7 +108,53 @@ npm run build
 ./bin/openchat start --environment production --host 127.0.0.1 --port 7200
 ```
 
-## 6. Docker Deployment
+## 6. Nginx + WuKongIM Edge Configuration
+
+For host deployments that should expose OpenChat and WuKongIM through one domain, use the new edge script:
+
+```bash
+./scripts/configure-edge.sh development \
+  --domain im-dev.sdkwork.com \
+  --public-ip 198.18.0.95 \
+  --server-ip 172.23.3.187 \
+  --runtime-environment production
+```
+
+What this flow does:
+
+- generates environment-specific artifacts under `etc/nginx/`, `etc/wukongim/`, and `etc/openchat/`
+- updates the repository `.env` with domain-based WuKongIM endpoints
+- installs an nginx `server` config for the target domain
+- injects an nginx top-level `stream` include into `/etc/nginx/nginx.conf`
+- publishes WuKongIM TCP through nginx `stream` on port `5100`
+- moves WuKongIM HTTP/WS/manager ports to localhost-only bind ports
+- reloads nginx, restarts WuKongIM, and restarts OpenChat
+
+Verified endpoint layout:
+
+- OpenChat app/API: `https://<domain>/`
+- OpenChat health: `https://<domain>/health`
+- WuKongIM WebSocket: `wss://<domain>/im/ws`
+- WuKongIM manager UI: `https://<domain>/web/`
+- WuKongIM manager API: `https://<domain>/api/*`
+- WuKongIM TCP: `<domain>:5100`
+- Internal-only WuKongIM API: `http://127.0.0.1:15001`
+
+Default domain presets:
+
+- `development` -> `im-dev.sdkwork.com`
+- `test` -> `im-test.sdkwork.com`
+- `production` -> `im.sdkwork.com`
+
+Example commands:
+
+```bash
+./scripts/configure-edge.sh development --public-ip <public_ip> --server-ip <server_ip>
+./scripts/configure-edge.sh test --public-ip <public_ip> --server-ip <server_ip>
+./scripts/configure-edge.sh production --public-ip <public_ip> --server-ip <server_ip>
+```
+
+## 7. Docker Deployment
 
 ### 6.1 Common commands
 
@@ -149,7 +195,7 @@ This mode assumes external PostgreSQL / Redis / WukongIM are already available.
 ./scripts/docker-deploy.sh patch-db
 ```
 
-## 7. Health Check and Diagnostics
+## 8. Health Check and Diagnostics
 
 ### 7.1 API health endpoint
 
@@ -172,7 +218,7 @@ curl -f http://127.0.0.1:7200/ready
 PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1;"
 ```
 
-## 8. Rollback Strategy
+## 9. Rollback Strategy
 
 ### 8.1 Application rollback
 
@@ -195,15 +241,16 @@ Restore if needed:
 pg_restore -h <db_host> -U <db_user> -d <db_name> -v backup_before_release.dump
 ```
 
-## 9. Release Checklist
+## 10. Release Checklist
 
 - [ ] `.env.production` validated (`DB_*`, `REDIS_*`, `JWT_SECRET`, `WUKONGIM_*`)
 - [ ] `./scripts/deploy-server.sh production --db-action patch --yes --service` executed successfully
+- [ ] `./scripts/configure-edge.sh production --public-ip <public_ip> --server-ip <server_ip>` executed if domain ingress is host-managed
 - [ ] `openchat.service` or `./bin/openchat status` reports running
 - [ ] `/health` and `/ready` checks passed
 - [ ] key business path smoke-tested (auth, messaging, receipt, conversation sync)
 
-## 10. Command Handbook
+## 11. Command Handbook
 
 For a full copy-paste command matrix (Linux/macOS + Windows), see:
 

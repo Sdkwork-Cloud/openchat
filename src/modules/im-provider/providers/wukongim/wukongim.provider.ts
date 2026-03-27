@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { IMProviderBase } from '../../im-provider.base';
 import {
@@ -37,7 +38,7 @@ export class WukongIMProvider extends IMProviderBase {
         return this.sendGroupMessage(message);
       }
 
-      const channelId = WukongIMUtils.generatePersonalChannelId(message.from, message.to);
+      const channelId = message.to;
       const payload = WukongIMUtils.createMessagePayload(
         channelId,
         WukongIMChannelType.PERSON,
@@ -104,7 +105,7 @@ export class WukongIMProvider extends IMProviderBase {
         const isGroup = !!msg.roomId;
         const channelId = isGroup
           ? msg.roomId!
-          : WukongIMUtils.generatePersonalChannelId(msg.from, msg.to);
+          : msg.to;
 
         return WukongIMUtils.createMessagePayload(
           channelId,
@@ -451,8 +452,14 @@ export class WukongIMProvider extends IMProviderBase {
     this.validateInitialized();
 
     try {
-      const response = await this.wukongIMClient.getUserToken(userId);
-      return response.token;
+      const token = randomBytes(24).toString('hex');
+      await this.wukongIMClient.upsertUserToken({
+        uid: userId,
+        token,
+        device_flag: 1,
+        device_level: 1,
+      });
+      return token;
     } catch (error: any) {
       this.logger.error('Error generating token:', error.message);
       throw error;

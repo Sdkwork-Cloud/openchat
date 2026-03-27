@@ -617,6 +617,55 @@ describe('sdkwork-im-sdk TypeScript realtime adapter', () => {
     expect(adapter.isConnected()).toBe(false);
   });
 
+  test('adapter keeps nested legacy text payloads emitted by the current OpenChat provider', async () => {
+    const runtime = new FakeWukongimRuntime();
+    const adapter = new OpenChatWukongimAdapter({
+      runtime,
+    });
+    const receivedMessages: Array<Record<string, unknown>> = [];
+
+    adapter.onMessage((message: unknown) => {
+      receivedMessages.push(message as Record<string, unknown>);
+    });
+
+    await adapter.connect({
+      uid: 'user-3',
+      token: 'wk-token',
+      wsUrl: 'ws://im.example.com',
+    });
+
+    runtime.emit('message', {
+      messageId: 'legacy-provider-1',
+      channelId: '2',
+      fromUid: '2',
+      timestamp: 1710000004,
+      content: {
+        type: 'text',
+        content: {
+          text: {
+            text: 'nested legacy text',
+          },
+        },
+      },
+    });
+
+    expect(receivedMessages).toEqual([
+      expect.objectContaining({
+        messageId: 'legacy-provider-1',
+        conversation: {
+          type: 'SINGLE',
+          targetId: '2',
+        },
+        message: {
+          type: 'TEXT',
+          text: {
+            text: 'nested legacy text',
+          },
+        },
+      }),
+    ]);
+  });
+
   test('realtime.onRaw exposes normalized message and event frames without filtering', async () => {
     const backend = createBackendStub();
     const runtime = new FakeWukongimRuntime();

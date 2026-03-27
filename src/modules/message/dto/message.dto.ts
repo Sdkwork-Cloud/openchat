@@ -15,6 +15,7 @@ import {
   ArrayMaxSize,
   IsIn,
   Matches,
+  ValidateIf,
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
 import {
@@ -102,6 +103,29 @@ export enum ConversationType {
 export enum ConversationTransportType {
   SINGLE = "SINGLE",
   GROUP = "GROUP",
+}
+
+function hasVersionedSendMessageEnvelope(
+  value:
+    | {
+        version?: number;
+        conversation?: unknown;
+        message?: unknown;
+        event?: unknown;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return (
+    value.version !== undefined ||
+    value.conversation !== undefined ||
+    value.message !== undefined ||
+    value.event !== undefined
+  );
 }
 
 export class LocationContent {
@@ -517,7 +541,7 @@ export class SendMessage {
     enum: MessageType,
     example: MessageType.TEXT,
   })
-  @IsOptional()
+  @ValidateIf((value: SendMessage) => !hasVersionedSendMessageEnvelope(value))
   @IsEnum(MessageType)
   type?: MessageType;
 
@@ -525,6 +549,7 @@ export class SendMessage {
     description: "消息内容，根据type不同结构不同",
     type: MessageContent,
   })
+  @ValidateIf((value: SendMessage) => !hasVersionedSendMessageEnvelope(value))
   @IsObject()
   @ValidateNested()
   @Type(() => MessageContent)

@@ -156,6 +156,49 @@ curl -f http://127.0.0.1:7200/ready
 - Windows 当前推荐 PowerShell 脚本，不再提供 `.bat`
 - `-Service` 参数在 Windows 上不会安装 `systemd`，会被安全跳过
 
+### 5.4 Linux 域名入口与 WukongIM 一体化配置
+
+如果当前服务器需要把 OpenChat、WukongIM WebSocket、WukongIM TCP 和管理台统一挂到同一个域名，请执行：
+
+```bash
+./scripts/configure-edge.sh development \
+  --domain im-dev.sdkwork.com \
+  --public-ip 198.18.0.95 \
+  --server-ip 172.23.3.187 \
+  --runtime-environment production
+```
+
+这条命令会自动完成：
+
+- 生成 `etc/nginx/`、`etc/wukongim/`、`etc/openchat/` 下的环境化配置文件
+- 更新项目根目录 `.env` 中的 `WUKONGIM_*` 配置
+- 将 WukongIM 容器端口改为仅监听 `127.0.0.1`
+- 安装 Nginx 站点配置
+- 在 `/etc/nginx/nginx.conf` 中注入 `stream` include
+- 对外暴露 `5100/tcp`，并由 Nginx `stream` 转发到本地 WukongIM TCP 端口
+- 重载 Nginx、重启 WukongIM、重启 OpenChat
+
+默认环境域名映射：
+
+- `development` -> `im-dev.sdkwork.com`
+- `test` -> `im-test.sdkwork.com`
+- `production` -> `im.sdkwork.com`
+
+配置完成后的访问方式：
+
+- OpenChat 服务：`https://<domain>/`
+- 健康检查：`https://<domain>/health`
+- WukongIM WebSocket：`wss://<domain>/im/ws`
+- WukongIM 管理台：`https://<domain>/web/`
+- WukongIM 管理接口：`https://<domain>/api/*`
+- WukongIM TCP：`<domain>:5100`
+
+说明：
+
+- `--public-ip` 用于外部访问标识，建议填写域名当前 A 记录指向的公网 IP
+- `--server-ip` 用于 WukongIM 本机/集群内部监听标识，建议填写服务器实际网卡 IP
+- 当前脚本会保留 WukongIM HTTP API 为本机专用：`http://127.0.0.1:15001`
+
 ## 6. 数据库单独命令
 
 ### 6.1 全新数据库初始化
@@ -255,4 +298,5 @@ sudo -u postgres psql -c "ALTER USER openchat WITH PASSWORD 'new_password';"
 
 - [DEPLOYMENT.md](/opt/source/openchat/DEPLOYMENT.md)
 - [docs/COMMANDS_CN.md](/opt/source/openchat/docs/COMMANDS_CN.md)
+- [scripts/configure-edge.sh](/opt/source/openchat/scripts/configure-edge.sh)
 - [etc/openchat.service](/opt/source/openchat/etc/openchat.service)

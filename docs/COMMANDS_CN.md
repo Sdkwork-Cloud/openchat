@@ -72,6 +72,37 @@ cp .env.example .env.production
 .\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
+### 3.4 域名入口、Nginx Stream 与 WukongIM 一键配置
+
+Linux:
+
+```bash
+./scripts/configure-edge.sh development --public-ip <public_ip> --server-ip <server_ip>
+./scripts/configure-edge.sh test --public-ip <public_ip> --server-ip <server_ip>
+./scripts/configure-edge.sh production --public-ip <public_ip> --server-ip <server_ip>
+```
+
+PowerShell:
+
+```powershell
+.\scripts\configure-edge.ps1 development -PublicIp <public_ip> -ServerIp <server_ip>
+.\scripts\configure-edge.ps1 test -PublicIp <public_ip> -ServerIp <server_ip>
+.\scripts\configure-edge.ps1 production -PublicIp <public_ip> -ServerIp <server_ip>
+```
+
+常用参数：
+
+- `--domain` / `-Domain`：显式指定域名
+- `--public-ip` / `-PublicIp`：域名公网 IP
+- `--server-ip` / `-ServerIp`：服务器实际内网或主网卡 IP
+- `--runtime-environment`：OpenChat 运行环境，默认建议 `production`
+
+默认域名：
+
+- `development` -> `im-dev.sdkwork.com`
+- `test` -> `im-test.sdkwork.com`
+- `production` -> `im.sdkwork.com`
+
 ## 4. 数据库命令
 
 ### 4.1 全新数据库初始化（推荐脚本）
@@ -184,6 +215,15 @@ Docker 生产发布可直接：
 # 接口健康检查
 curl -f http://127.0.0.1:7200/health
 curl -f http://127.0.0.1:7200/ready
+
+# 域名入口健康检查（本机 Host 头验证）
+curl -H 'Host: im-dev.sdkwork.com' http://127.0.0.1/health
+
+# HTTPS + SNI 验证
+curl -k --resolve im-dev.sdkwork.com:443:127.0.0.1 https://im-dev.sdkwork.com/health
+
+# WukongIM 管理台验证
+curl -H 'Host: im-dev.sdkwork.com' http://127.0.0.1/web/
 
 # 综合健康脚本
 ./scripts/health-check.sh

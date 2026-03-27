@@ -23,7 +23,8 @@
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "db:drop": "npm run typeorm -- schema:drop",
     "db:sync": "npm run typeorm -- schema:sync",
-    "bench:timeline": "node scripts/timeline-benchmark.js"
+    "bench:timeline": "node scripts/timeline-benchmark.js",
+    "sdk:smoke": "node scripts/sdk-im-smoke.cjs"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

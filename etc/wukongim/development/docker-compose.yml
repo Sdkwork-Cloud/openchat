@@ -1,0 +1,38 @@
+version: '3.7'
+services:
+  wukongim:
+    image: registry.cn-shanghai.aliyuncs.com/wukongim/wukongim:v2
+    container_name: openchat-wukongim-development
+    environment:
+      - WK_CLUSTER_NODEID=1001
+      - WK_CLUSTER_SERVERADDR=172.23.3.187:21110
+      - WK_TRACE_PROMETHEUSAPIURL=http://prometheus:9090
+      - WK_MODE=release
+      - WK_EXTERNAL_IP=198.18.0.95
+      - WK_CLUSTER_APIURL=http://172.23.3.187:15001
+      - WK_INTRANET_TCPADDR=172.23.3.187:15100
+      - WK_TOKENAUTHON=false
+      - WK_WEBHOOK_ENABLED=true
+      - WK_WEBHOOK_URL=https://im-dev.sdkwork.com/webhook/wukongim
+      - WK_WEBHOOK_TIMEOUT=5000
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -Y off -O /dev/null http://localhost:5001/health >/dev/null 2>&1']
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: always
+    volumes:
+      - ./wukongim_data:/root/wukongim
+    ports:
+      - "127.0.0.1:15001:5001"
+      - "127.0.0.1:15100:5100"
+      - "127.0.0.1:15200:5200"
+      - "127.0.0.1:15300:5300"
+      - "127.0.0.1:15172:5172"
+      - "127.0.0.1:21110:11110"
+  prometheus:
+    image: registry.cn-shanghai.aliyuncs.com/wukongim/prometheus:v2.53.1
+    volumes:
+      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+    ports:
+      - "127.0.0.1:19090:9090"

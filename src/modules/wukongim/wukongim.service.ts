@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { WukongIMChannelType } from './wukongim.constants';
 import { WukongIMUtils } from './wukongim.utils';
@@ -24,7 +25,18 @@ export interface CreateUserOptions {
   name?: string;
   avatar?: string;
   token?: string;
+  deviceFlag?: number;
+  deviceLevel?: number;
 }
+
+interface ResolveUserTokenOptions {
+  token?: string;
+  deviceFlag?: number;
+  deviceLevel?: number;
+}
+
+const DEFAULT_WUKONGIM_DEVICE_FLAG = 1;
+const DEFAULT_WUKONGIM_DEVICE_LEVEL = 1;
 
 @Injectable()
 export class WukongIMService {
@@ -153,19 +165,34 @@ export class WukongIMService {
 
   async createOrUpdateUser(options: CreateUserOptions): Promise<any> {
     return this.executeWithMetrics('createOrUpdateUser', options.uid, async () => {
-      return this.wukongIMClient.createUser({
-        uid: options.uid,
-        name: options.name,
-        avatar: options.avatar,
-        token: options.token,
-      });
+      if (!options.token) {
+        this.logger.debug(
+          `Skipping deprecated user profile sync for ${options.uid}; current WukongIM registers users via /user/token`,
+        );
+        return {
+          success: true,
+          skipped: true,
+        };
+      }
+
+      return this.wukongIMClient.upsertUserToken(
+        this.buildUserTokenPayload(options.uid, {
+          token: options.token,
+          deviceFlag: options.deviceFlag,
+          deviceLevel: options.deviceLevel,
+        }),
+      );
     });
   }
 
-  async getUserToken(uid: string): Promise<string> {
+  async getUserToken(
+    uid: string,
+    options: ResolveUserTokenOptions = {},
+  ): Promise<string> {
     return this.executeWithMetrics('getUserToken', uid, async () => {
-      const result = await this.wukongIMClient.getUserToken(uid);
-      return result.token;
+      const payload = this.buildUserTokenPayload(uid, options);
+      await this.wukongIMClient.upsertUserToken(payload);
+      return payload.token;
     });
   }
 
@@ -259,6 +286,18 @@ export class WukongIMService {
 
   async getSystemInfo(): Promise<any> {
     return this.wukongIMClient.getSystemInfo();
+  }
+
+  private buildUserTokenPayload(
+    uid: string,
+    options: ResolveUserTokenOptions = {},
+  ) {
+    return {
+      uid,
+      token: options.token ?? randomBytes(24).toString('hex'),
+      device_flag: options.deviceFlag ?? DEFAULT_WUKONGIM_DEVICE_FLAG,
+      device_level: options.deviceLevel ?? DEFAULT_WUKONGIM_DEVICE_LEVEL,
+    };
   }
 
   // ==================== Private Methods ====================

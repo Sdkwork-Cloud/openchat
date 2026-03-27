@@ -92,6 +92,8 @@ describe('openchat shared cli', () => {
       path.join('scripts', 'install.ps1'),
       path.join('scripts', 'deploy-server.sh'),
       path.join('scripts', 'deploy-server.ps1'),
+      path.join('scripts', 'configure-edge.sh'),
+      path.join('scripts', 'configure-edge.ps1'),
       path.join('scripts', 'quick-install.sh'),
       path.join('scripts', 'quick-install.ps1'),
       path.join('scripts', 'precheck.sh'),

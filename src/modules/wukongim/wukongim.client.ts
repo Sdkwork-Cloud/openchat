@@ -31,6 +31,13 @@ export interface CreateUserPayload {
   token?: string;
 }
 
+export interface UpsertUserTokenPayload {
+  uid: string;
+  token: string;
+  device_flag: number;
+  device_level?: number;
+}
+
 export interface CreateChannelPayload {
   channel_id: string;
   channel_type: WukongIMChannelType;
@@ -149,8 +156,17 @@ export class WukongIMClient implements OnModuleInit {
     return this.get(WUKONGIM_ENDPOINTS.USER_INFO, { uid });
   }
 
-  async getUserToken(uid: string): Promise<any> {
-    return this.post(WUKONGIM_ENDPOINTS.USER_TOKEN, { uid });
+  async upsertUserToken(payload: UpsertUserTokenPayload): Promise<any> {
+    return this.post(WUKONGIM_ENDPOINTS.USER_TOKEN, payload);
+  }
+
+  async getUserToken(
+    payload: string | UpsertUserTokenPayload,
+  ): Promise<any> {
+    return this.post(
+      WUKONGIM_ENDPOINTS.USER_TOKEN,
+      typeof payload === 'string' ? { uid: payload } : payload,
+    );
   }
 
   async updateUserOnlineStatus(uid: string, online: boolean): Promise<any> {

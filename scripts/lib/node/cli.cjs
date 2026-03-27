@@ -15,6 +15,7 @@ const {
 } = require('./runtime.cjs');
 const { runDatabaseInit, runDatabasePatch } = require('./database.cjs');
 const { runDeploy } = require('./deploy.cjs');
+const { runEdge } = require('./edge.cjs');
 const {
   getDefaultInstallMode,
   handleInstallManager,
@@ -75,6 +76,26 @@ function readCommonOptions(flags) {
     initDb: flags['init-db'] === true,
     skipBuild: flags['skip-build'] === true,
     follow: flags.follow === undefined ? undefined : flags.follow !== 'false',
+    domain: flags.domain,
+    install: flags.install === true,
+    openchatPort: flags['openchat-port'] || flags.openchatPort,
+    publicIp: flags['public-ip'] || flags.publicIp,
+    reload: flags.reload === true,
+    restartOpenChat: flags['restart-openchat'] === undefined
+      ? undefined
+      : flags['restart-openchat'] === true,
+    runtimeEnvironment: flags['runtime-environment'] || flags.runtimeEnvironment,
+    serverIp: flags['server-ip'] || flags.serverIp,
+    startWukongim: flags['start-wukongim'] === undefined
+      ? undefined
+      : flags['start-wukongim'] === true,
+    publicTcpPort: flags['public-tcp-port'] || flags.publicTcpPort,
+    wukongApiBindPort: flags['wukong-api-bind-port'] || flags.wukongApiBindPort,
+    wukongTcpBindPort: flags['wukong-tcp-bind-port'] || flags.wukongTcpBindPort,
+    wukongWsBindPort: flags['wukong-ws-bind-port'] || flags.wukongWsBindPort,
+    wukongManagerBindPort: flags['wukong-manager-bind-port'] || flags.wukongManagerBindPort,
+    wukongDemoBindPort: flags['wukong-demo-bind-port'] || flags.wukongDemoBindPort,
+    wukongClusterBindPort: flags['wukong-cluster-bind-port'] || flags.wukongClusterBindPort,
   };
 }
 
@@ -196,6 +217,31 @@ function parseCommand(argv) {
     };
   }
 
+  if (normalizedFirst === 'edge') {
+    const [edgeCommand = 'generate', environmentToken, ...rest] = restTokens;
+    const { flags } = parseFlags(rest);
+    if (edgeCommand === 'help' || flags.help === true) {
+      return {
+        kind: 'help',
+        command: 'help',
+      };
+    }
+    return {
+      kind: 'edge',
+      command: edgeCommand,
+      ...readCommonOptions(flags),
+      environment: normalizeEnvironmentName(flags.environment || flags.env || environmentToken) || 'development',
+      install: flags.install === undefined ? edgeCommand === 'apply' : flags.install === true,
+      reload: flags.reload === undefined ? edgeCommand === 'apply' : flags.reload === true,
+      restartOpenChat: flags['restart-openchat'] === undefined
+        ? edgeCommand === 'apply'
+        : flags['restart-openchat'] === true,
+      startWukongim: flags['start-wukongim'] === undefined
+        ? edgeCommand === 'apply'
+        : flags['start-wukongim'] === true,
+    };
+  }
+
   return {
     kind: 'help',
     command: 'help',
@@ -220,6 +266,7 @@ function showHelp() {
     '  precheck [--mode standalone|docker]',
     '  install [standalone|docker] [development|test|production] [--init-db] [--start] [--yes]',
     '  deploy [development|test|production] [--db-action auto|init|patch|skip] [--service] [--start] [--yes]',
+    '  edge [generate|apply] [development|test|production] [--domain <domain>] [--public-ip <ip>] [--server-ip <ip>] [--install] [--reload]',
     '  quick-install',
     '  install-manager <status|resume|reset>',
     '  db init [development|test|production] [--yes] [--seed]',
@@ -269,6 +316,8 @@ async function dispatch(projectRoot, parsed) {
       return runInstall(projectRoot, parsed);
     case 'deploy':
       return runDeploy(projectRoot, parsed);
+    case 'edge':
+      return runEdge(projectRoot, parsed);
     case 'install-manager':
       return handleInstallManager(projectRoot, parsed);
     default:

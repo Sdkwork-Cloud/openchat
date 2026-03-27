@@ -59,6 +59,7 @@ Deployment helpers in `scripts/` follow the same model:
 
 - `scripts/install.sh` / `scripts/install.ps1`
 - `scripts/deploy-server.sh` / `scripts/deploy-server.ps1`
+- `scripts/configure-edge.sh` / `scripts/configure-edge.ps1`
 - `scripts/quick-install.sh` / `scripts/quick-install.ps1`
 - `scripts/precheck.sh` / `scripts/precheck.ps1`
 - `scripts/init-database.sh` / `scripts/init-database.ps1`

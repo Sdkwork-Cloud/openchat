@@ -51,6 +51,33 @@ npm run build
 ./bin/openchat start --environment production --host 127.0.0.1 --port 7200
 ```
 
+## Nginx And WuKongIM Edge Flow
+
+If this host should expose OpenChat and WuKongIM through a single domain, run:
+
+```bash
+./scripts/configure-edge.sh development \
+  --domain im-dev.sdkwork.com \
+  --public-ip 198.18.0.95 \
+  --server-ip 172.23.3.187 \
+  --runtime-environment production
+```
+
+Default presets:
+
+- `development` -> `im-dev.sdkwork.com`
+- `test` -> `im-test.sdkwork.com`
+- `production` -> `im.sdkwork.com`
+
+Resulting ingress layout:
+
+- OpenChat: `https://<domain>/`
+- WuKongIM WebSocket: `wss://<domain>/im/ws`
+- WuKongIM Manager UI: `https://<domain>/web/`
+- WuKongIM Manager API: `https://<domain>/api/*`
+- WuKongIM TCP: `<domain>:5100`
+- Internal-only WuKongIM API: `http://127.0.0.1:15001`
+
 ## Runtime Management
 
 Repository runtime wrapper:
