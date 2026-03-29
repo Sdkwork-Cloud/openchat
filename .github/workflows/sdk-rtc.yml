@@ -7,13 +7,13 @@ on:
         description: Node.js version for SDK validation
         required: false
         type: string
-        default: '18'
+        default: '24'
   workflow_dispatch:
     inputs:
       node_version:
         description: Node.js version for SDK validation
         required: false
-        default: '18'
+        default: '24'
         type: string
 
 jobs:

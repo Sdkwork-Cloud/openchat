@@ -1,41 +1,43 @@
-import { Module, Provider, Type } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { RouterModule } from '@nestjs/core';
-import { AuthManagerService } from '../auth/auth-manager.service';
-import { MultiAuthGuard } from '../auth/guards/multi-auth.guard';
-import { JwtAuthGuard } from '../../modules/user/guards/jwt-auth.guard';
-import { AuthController } from '../../modules/user/auth.controller';
-import { UserController } from '../../modules/user/controllers/user.controller';
-import { FriendController } from '../../modules/friend/friend.controller';
-import { ContactController } from '../../modules/contact/contact.controller';
-import { MessageController } from '../../modules/message/message.controller';
-import { MessageSearchController } from '../../modules/message/message-search.controller';
-import { GroupController } from '../../modules/group/group.controller';
-import { ConversationController } from '../../modules/conversation/conversation.controller';
-import { RtcAppController } from '../../modules/rtc/rtc-app.controller';
-import { RtcAdminController } from '../../modules/rtc/rtc-admin.controller';
-import { WukongIMAppController } from '../../modules/wukongim/wukongim-app.controller';
-import { WukongIMAdminController } from '../../modules/wukongim/wukongim-admin.controller';
-import { AdminDashboardController } from '../../modules/admin/admin-dashboard.controller';
-import { AdminUsersController } from '../../modules/admin/admin-users.controller';
-import { AdminGroupsController } from '../../modules/admin/admin-groups.controller';
-import { AdminFriendsController } from '../../modules/admin/admin-friends.controller';
-import { AdminMessagesController } from '../../modules/admin/admin-messages.controller';
-import { AdminIotController } from '../../modules/admin/admin-iot.controller';
-import { AdminSystemController } from '../../modules/admin/admin-system.controller';
-import { AIBotController } from '../../modules/ai-bot/ai-bot.controller';
-import { AgentController } from '../../modules/agent/agent.controller';
-import { MemoryController } from '../../modules/agent/memory/memory.controller';
-import { BotController } from '../../modules/bot-platform/controllers/bot.controller';
-import { BotOpenController } from '../../modules/bot-platform/controllers/bot-open.controller';
-import { ThirdPartyController } from '../../modules/third-party/third-party.controller';
-import { IoTController } from '../../modules/iot/iot.controller';
-import { CrawController } from '../../modules/craw/craw.controller';
-import { TimelineController } from '../../modules/timeline/timeline.controller';
+import { Module, Provider, Type } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { RouterModule } from "@nestjs/core";
+import { AuthManagerService } from "../auth/auth-manager.service";
+import { MultiAuthGuard } from "../auth/guards/multi-auth.guard";
+import { JwtAuthGuard } from "../../modules/user/guards/jwt-auth.guard";
+import { AuthController } from "../../modules/user/auth.controller";
+import { UserController } from "../../modules/user/controllers/user.controller";
+import { FriendController } from "../../modules/friend/friend.controller";
+import { ContactController } from "../../modules/contact/contact.controller";
+import { MessageController } from "../../modules/message/message.controller";
+import { MessageSearchController } from "../../modules/message/message-search.controller";
+import { GroupController } from "../../modules/group/group.controller";
+import { ConversationController } from "../../modules/conversation/conversation.controller";
+import { RtcAppController } from "../../modules/rtc/rtc-app.controller";
+import { RtcAdminController } from "../../modules/rtc/rtc-admin.controller";
+import { WukongIMAppController } from "../../modules/wukongim/wukongim-app.controller";
+import { WukongIMAdminController } from "../../modules/wukongim/wukongim-admin.controller";
+import { AdminDashboardController } from "../../modules/admin/admin-dashboard.controller";
+import { AdminUsersController } from "../../modules/admin/admin-users.controller";
+import { AdminGroupsController } from "../../modules/admin/admin-groups.controller";
+import { AdminFriendsController } from "../../modules/admin/admin-friends.controller";
+import { AdminMessagesController } from "../../modules/admin/admin-messages.controller";
+import { AdminIotController } from "../../modules/admin/admin-iot.controller";
+import { AdminSystemController } from "../../modules/admin/admin-system.controller";
+import { AIBotController } from "../../modules/ai-bot/ai-bot.controller";
+import { AgentController } from "../../modules/agent/agent.controller";
+import { MemoryController } from "../../modules/agent/memory/memory.controller";
+import { BotController } from "../../modules/bot-platform/controllers/bot.controller";
+import { BotOpenController } from "../../modules/bot-platform/controllers/bot-open.controller";
+import { ThirdPartyController } from "../../modules/third-party/third-party.controller";
+import { IoTController } from "../../modules/iot/iot.controller";
+import { CrawController } from "../../modules/craw/craw.controller";
+import { TimelineController } from "../../modules/timeline/timeline.controller";
 import {
   IM_ADMIN_API_PREFIX,
   IM_APP_API_PREFIX,
-} from './im-api-surface.constants';
+} from "./im-api-surface.constants";
+import { loadOpenChatEnvironment } from "../config/env-loader";
+import { getEnvFilePaths } from "../config/env-file-paths";
 
 const primitiveConstructorSet = new Set<Function>([
   String,
@@ -45,6 +47,7 @@ const primitiveConstructorSet = new Set<Function>([
   Object,
   Date,
 ]);
+loadOpenChatEnvironment();
 
 export const IM_APP_OPENAPI_CONTROLLERS: Array<Type<unknown>> = [
   AuthController,
@@ -84,7 +87,7 @@ function createNoopProxy(): Record<PropertyKey, unknown> {
   const fn = () => undefined;
   return new Proxy(fn as unknown as Record<PropertyKey, unknown>, {
     get: (_target, property) => {
-      if (property === 'then') {
+      if (property === "then") {
         return undefined;
       }
       return createNoopProxy();
@@ -93,14 +96,12 @@ function createNoopProxy(): Record<PropertyKey, unknown> {
   });
 }
 
-function createStubProviders(
-  controllers: Array<Type<unknown>>,
-): Provider[] {
+function createStubProviders(controllers: Array<Type<unknown>>): Provider[] {
   const providers = new Map<Function, Provider>();
 
   for (const controller of controllers) {
     const dependencies: Function[] =
-      Reflect.getMetadata('design:paramtypes', controller) || [];
+      Reflect.getMetadata("design:paramtypes", controller) || [];
 
     for (const dependency of dependencies) {
       if (!dependency || primitiveConstructorSet.has(dependency)) {
@@ -154,7 +155,7 @@ export class ImOpenApiSchemaAdminModule {}
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', '.env.development'],
+      envFilePath: getEnvFilePaths(),
     }),
     RouterModule.register([
       {

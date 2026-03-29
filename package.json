@@ -7,22 +7,29 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
+    "start:dev": "node scripts/run-with-env.cjs development nest start --watch",
+    "start:test": "node scripts/run-with-env.cjs test nest start",
+    "start:debug": "node scripts/run-with-env.cjs development nest start --debug --watch",
     "start:openapi": "node scripts/start-openapi-server.cjs",
-    "start:prod": "node dist/main",
-    "dev": "nest start --watch",
+    "start:prod": "node scripts/run-with-env.cjs production node dist/main",
+    "dev": "npm run start:dev",
     "lint": "node scripts/run-lint.js",
     "lint:eslint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint:types": "tsc --noEmit",
-    "test": "jest --config jest.config.js",
-    "test:watch": "jest --config jest.config.js --watch",
-    "test:cov": "jest --config jest.config.js --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config jest.config.js --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "node scripts/run-with-env.cjs test jest --config jest.config.js",
+    "test:watch": "node scripts/run-with-env.cjs test jest --config jest.config.js --watch",
+    "test:cov": "node scripts/run-with-env.cjs test jest --config jest.config.js --coverage",
+    "test:debug": "node scripts/run-with-env.cjs test node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config jest.config.js --runInBand",
+    "test:e2e": "node scripts/run-with-env.cjs test jest --config ./test/jest-e2e.json",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "db:drop": "npm run typeorm -- schema:drop",
     "db:sync": "npm run typeorm -- schema:sync",
+    "db:init:dev": "node scripts/openchat-cli.cjs db init development",
+    "db:init:test": "node scripts/openchat-cli.cjs db init test",
+    "db:init:prod": "node scripts/openchat-cli.cjs db init production",
+    "db:patch:dev": "node scripts/openchat-cli.cjs db patch development",
+    "db:patch:test": "node scripts/openchat-cli.cjs db patch test",
+    "db:patch:prod": "node scripts/openchat-cli.cjs db patch production",
     "bench:timeline": "node scripts/timeline-benchmark.js",
     "sdk:smoke": "node scripts/sdk-im-smoke.cjs"
   },
@@ -108,6 +115,6 @@
     "vite-plugin-dts": "^4.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   }
 }

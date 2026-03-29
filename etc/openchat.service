@@ -8,18 +8,32 @@ Type=forking
 User=sdkwork
 Group=sdkwork
 WorkingDirectory=/opt/source/openchat
-EnvironmentFile=/opt/source/openchat/.env
+EnvironmentFile=/opt/source/openchat/.env.production
 Environment=OPENCHAT_HOME=/opt/source/openchat
 Environment=OPENCHAT_CONFIG=/opt/source/openchat/etc/config.json
 Environment=OPENCHAT_LOG_DIR=/opt/source/openchat/var/logs
 Environment=OPENCHAT_DATA_DIR=/opt/source/openchat/var/data
-PIDFile=/opt/source/openchat/var/run/openchat.pid
+PIDFile=/opt/source/openchat/var/run/openchat.production.pid
 GuessMainPID=no
-ExecStart=/opt/source/openchat/bin/openchat start --host 127.0.0.1 --port 7200 --environment production
-ExecStop=/opt/source/openchat/bin/openchat stop
-ExecReload=/opt/source/openchat/bin/openchat restart --host 127.0.0.1 --port 7200 --environment production
+ExecStart=/opt/source/openchat/bin/openchat start --host 127.0.0.1 --port 7200 --environment production --health-timeout-ms 60000 --shutdown-timeout-ms 20000 --strict-port
+ExecStop=/opt/source/openchat/bin/openchat stop --environment production --shutdown-timeout-ms 20000 --force-stop
+ExecReload=/opt/source/openchat/bin/openchat restart --host 127.0.0.1 --port 7200 --environment production --health-timeout-ms 60000 --shutdown-timeout-ms 20000 --strict-port
 Restart=on-failure
 RestartSec=5
+TimeoutStartSec=90
+TimeoutStopSec=30
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+SendSIGKILL=yes
+SuccessExitStatus=143
+StartLimitIntervalSec=120
+StartLimitBurst=10
+LimitNOFILE=65535
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/source/openchat/var
 
 [Install]
 WantedBy=multi-user.target

@@ -28,7 +28,7 @@ $cliPath = Join-Path $projectRoot 'scripts/openchat-cli.cjs'
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 
 if (-not $nodeCommand) {
-    Write-Host '[ERROR] Node.js >= 18 is required to run OpenChat setup wizard.' -ForegroundColor Red
+    Write-Host '[ERROR] Node.js >= 20.19.0 is required to run OpenChat setup wizard.' -ForegroundColor Red
     exit 1
 }
 

@@ -4,11 +4,13 @@
 # ============================================
 
 .PHONY: help install start stop restart status logs clean update \
-        dev test prod external health \
-        db-backup db-restore db-migrate \
+        dev test-env prod external health health-full \
+        db-init db-patch db-backup db-restore db-migrate \
         docker-build docker-push docker-logs \
         test-unit test-e2e test-cov \
-        lint format
+        lint format dev-local dev-db \
+        runtime-start runtime-stop runtime-restart runtime-status runtime-health deploy-standalone \
+        ps up down build pull shell-app shell-db shell-redis stats
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -33,6 +35,7 @@ help:
 	@echo "    make dev            - 开发环境部署"
 	@echo "    make test-env       - 测试环境部署"
 	@echo "    make prod           - 生产环境部署"
+	@echo "    make deploy-standalone - 宿主机部署 (ENV=production|test|development)"
 	@echo "    make external       - 使用外部服务部署"
 	@echo ""
 	@echo "  健康检查:"
@@ -40,9 +43,18 @@ help:
 	@echo "    make health-full    - 完整诊断"
 	@echo ""
 	@echo "  数据库:"
+	@echo "    make db-init        - 初始化数据库 (ENV=development|test|production, SEED=1)"
+	@echo "    make db-patch       - 应用数据库补丁 (ENV=development|test|production)"
 	@echo "    make db-backup      - 备份数据库"
 	@echo "    make db-restore     - 恢复数据库"
 	@echo "    make db-migrate     - 运行迁移"
+	@echo ""
+	@echo "  运行时:"
+	@echo "    make runtime-start  - 安全启动宿主机运行时"
+	@echo "    make runtime-stop   - 安全停止宿主机运行时"
+	@echo "    make runtime-restart - 重启宿主机运行时"
+	@echo "    make runtime-status - 查看宿主机运行时状态"
+	@echo "    make runtime-health - 查看宿主机运行时健康状态"
 	@echo ""
 	@echo "  Docker:"
 	@echo "    make docker-build   - 构建 Docker 镜像"
@@ -97,28 +109,51 @@ update:
 # ============================================
 dev:
 	@echo "开发环境部署..."
-	cp .env.development .env
-	./scripts/docker-deploy.sh install
+	@if [ ! -f .env.development ]; then \
+		cp .env.example .env.development; \
+		echo "已创建 .env.development，请编辑后重新运行"; \
+		exit 1; \
+	fi
+	docker compose --env-file .env.development --profile database --profile cache --profile im up -d
 
 test-env:
 	@echo "测试环境部署..."
-	cp .env.test .env
-	./scripts/docker-deploy.sh start -e .env.test
+	@if [ ! -f .env.test ]; then \
+		cp .env.example .env.test; \
+		echo "已创建 .env.test，请编辑后重新运行"; \
+		exit 1; \
+	fi
+	docker compose --env-file .env.test --profile database --profile cache up -d
 
 prod:
 	@echo "生产环境部署..."
-	@if [ ! -f .env ]; then \
-		cp .env.production .env; \
-		echo "已创建 .env 文件，请编辑配置后重新运行"; \
+	@if [ ! -f .env.production ]; then \
+		cp .env.example .env.production; \
+		echo "已创建 .env.production，请编辑后重新运行"; \
 		exit 1; \
 	fi
-	docker compose -f docker-compose.prod.yml pull
-	docker compose -f docker-compose.prod.yml up -d
-	./scripts/health-check.sh full
+	docker compose --env-file .env.production -f docker-compose.prod.yml pull
+	docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+	OPENCHAT_ENV_FILE=.env.production ./scripts/health-check.sh full
 
 external:
 	@echo "使用外部服务部署..."
 	./scripts/docker-deploy.sh external
+
+deploy-standalone:
+	@echo "宿主机部署..."
+	./scripts/deploy-server.sh $${ENV:-production} --db-action $${DB_ACTION:-auto} --yes \
+		$${SERVICE:+--service} \
+		$${HOST:+--host $$HOST} \
+		$${PORT:+--port $$PORT} \
+		$${HEALTH_HOST:+--health-host $$HEALTH_HOST} \
+		$${HEALTH_TIMEOUT_MS:+--health-timeout-ms $$HEALTH_TIMEOUT_MS} \
+		$${SHUTDOWN_TIMEOUT_MS:+--shutdown-timeout-ms $$SHUTDOWN_TIMEOUT_MS} \
+		$${STRICT_PORT:+--strict-port $$STRICT_PORT} \
+		$${SKIP_HEALTH_CHECK:+--skip-health-check $$SKIP_HEALTH_CHECK} \
+		$${FORCE_STOP:+--force-stop $$FORCE_STOP} \
+		$${SERVICE_USER:+--service-user $$SERVICE_USER} \
+		$${SERVICE_GROUP:+--service-group $$SERVICE_GROUP}
 
 # ============================================
 # 健康检查
@@ -134,6 +169,14 @@ health-full:
 # ============================================
 # 数据库
 # ============================================
+db-init:
+	@echo "初始化数据库..."
+	./scripts/init-database.sh $${ENV:-development} --yes $${SEED:+--seed}
+
+db-patch:
+	@echo "应用数据库补丁..."
+	./scripts/apply-db-patches.sh $${ENV:-development}
+
 db-backup:
 	@echo "备份数据库..."
 	@mkdir -p backups
@@ -151,8 +194,8 @@ db-restore:
 	@echo "恢复完成"
 
 db-migrate:
-	@echo "运行数据库迁移..."
-	docker exec -it openchat npm run migration:run
+	@echo "应用数据库补丁..."
+	$(MAKE) db-patch ENV=$${ENV:-production}
 
 # ============================================
 # Docker
@@ -173,38 +216,72 @@ docker-logs:
 # ============================================
 test-unit:
 	@echo "运行单元测试..."
-	pnpm test
+	npm run test
 
 test-e2e:
 	@echo "运行 E2E 测试..."
-	pnpm test:e2e
+	npm run test:e2e
 
 test-cov:
 	@echo "测试覆盖率..."
-	pnpm test:cov
+	npm run test:cov
 
 # ============================================
 # 代码质量
 # ============================================
 lint:
 	@echo "代码检查..."
-	pnpm lint
+	npm run lint
 
 format:
 	@echo "代码格式化..."
-	pnpm format
+	npm run format
 
 # ============================================
 # 开发
 # ============================================
 dev-local:
 	@echo "本地开发模式..."
-	pnpm install
-	pnpm start:dev
+	npm ci
+	npm run start:dev
 
 dev-db:
 	@echo "启动开发数据库..."
 	docker compose --profile database --profile cache up -d
+
+runtime-start:
+	@echo "启动宿主机运行时..."
+	./bin/openchat start --environment $${ENV:-production} \
+		$${HOST:+--host $$HOST} \
+		$${PORT:+--port $$PORT} \
+		$${HEALTH_HOST:+--health-host $$HEALTH_HOST} \
+		$${HEALTH_TIMEOUT_MS:+--health-timeout-ms $$HEALTH_TIMEOUT_MS} \
+		$${STRICT_PORT:+--strict-port $$STRICT_PORT} \
+		$${SKIP_HEALTH_CHECK:+--skip-health-check $$SKIP_HEALTH_CHECK}
+
+runtime-stop:
+	@echo "停止宿主机运行时..."
+	./bin/openchat stop --environment $${ENV:-production} \
+		$${SHUTDOWN_TIMEOUT_MS:+--shutdown-timeout-ms $$SHUTDOWN_TIMEOUT_MS} \
+		$${FORCE_STOP:+--force-stop $$FORCE_STOP}
+
+runtime-restart:
+	@echo "重启宿主机运行时..."
+	./bin/openchat restart --environment $${ENV:-production} \
+		$${HOST:+--host $$HOST} \
+		$${PORT:+--port $$PORT} \
+		$${HEALTH_HOST:+--health-host $$HEALTH_HOST} \
+		$${HEALTH_TIMEOUT_MS:+--health-timeout-ms $$HEALTH_TIMEOUT_MS} \
+		$${SHUTDOWN_TIMEOUT_MS:+--shutdown-timeout-ms $$SHUTDOWN_TIMEOUT_MS} \
+		$${STRICT_PORT:+--strict-port $$STRICT_PORT} \
+		$${SKIP_HEALTH_CHECK:+--skip-health-check $$SKIP_HEALTH_CHECK} \
+		$${FORCE_STOP:+--force-stop $$FORCE_STOP}
+
+runtime-status:
+	./bin/openchat status --environment $${ENV:-production}
+
+runtime-health:
+	./bin/openchat health --environment $${ENV:-production}
 
 # ============================================
 # 快捷命令

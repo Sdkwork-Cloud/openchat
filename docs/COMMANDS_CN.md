@@ -200,7 +200,7 @@ npm run lint:types
 # 或者手工执行
 ./scripts/apply-db-patches.sh production
 npm run build
-./bin/openchat restart --environment production --host 127.0.0.1 --port 7200
+./bin/openchat restart --environment production --host 127.0.0.1 --port 7200 --strict-port
 ```
 
 Docker 生产发布可直接：
@@ -214,7 +214,7 @@ Docker 生产发布可直接：
 ```bash
 # 接口健康检查
 curl -f http://127.0.0.1:7200/health
-curl -f http://127.0.0.1:7200/ready
+curl -f http://127.0.0.1:7200/health/ready
 
 # 域名入口健康检查（本机 Host 头验证）
 curl -H 'Host: im-dev.sdkwork.com' http://127.0.0.1/health

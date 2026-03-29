@@ -21,6 +21,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U openchat -d openchat"]
       interval: 5s
@@ -83,6 +84,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        NODE_VERSION: ${NODE_VERSION:-24}
     container_name: openchat
     restart: unless-stopped
     depends_on:
@@ -103,7 +106,7 @@ services:
       DB_USERNAME: openchat
       DB_PASSWORD: openchat_password
       DB_NAME: openchat
-      DB_SYNCHRONIZE: "true"
+      DB_SYNCHRONIZE: "false"
       
       # Redis 配置
       REDIS_HOST: redis
@@ -122,10 +125,18 @@ services:
       
       # 外部 IP
       EXTERNAL_IP: ${EXTERNAL_IP:-127.0.0.1}
+      OPENCHAT_STRICT_PORT: "true"
+      OPENCHAT_HEALTH_TIMEOUT_MS: "30000"
+      OPENCHAT_SHUTDOWN_TIMEOUT_MS: "15000"
+      OPENCHAT_FORCE_STOP_ON_TIMEOUT: "true"
+      OPENCHAT_SKIP_HEALTH_CHECK: "false"
     volumes:
       - ./src:/app/src:ro
+      - ./scripts:/app/scripts:ro
       - ./package.json:/app/package.json:ro
       - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./var/logs:/app/var/logs
+      - ./var/data:/app/var/data
     ports:
       - "3000:3000"
     healthcheck:

@@ -1,6 +1,6 @@
 # Configuration Overview
 
-OpenChat supports configuration via config files and environment variables.
+OpenChat supports configuration via config files and environment variables. For runtime deployment, prefer environment-specific files over a single shared `.env`.
 
 ## Configuration Methods
 
@@ -23,10 +23,11 @@ Edit `etc/config.json`:
 
 ### 2. Environment Variables
 
-Via `.env` file or system environment:
+Via environment-specific files or system environment:
 
 ```env
-PORT=3000
+NODE_ENV=development
+PORT=7200
 DB_HOST=localhost
 DB_PORT=5432
 ```
@@ -37,44 +38,41 @@ Environment Variables > Config File > Default Values
 
 ## Configuration Categories
 
-| Category | Description |
-|----------|-------------|
-| [Server Configuration](./server.md) | Basic service, database, Redis, JWT config |
-| [Database Configuration](./database.md) | Connection pool, performance optimization |
-| [WuKongIM Configuration](./wukongim.md) | WukongIM integration config |
-| [RTC Configuration](./rtc.md) | Audio/video call config |
-| [AI Configuration](./ai.md) | AI assistant, LLM config |
+| Category                                | Description                                |
+| --------------------------------------- | ------------------------------------------ |
+| [Server Configuration](./server.md)     | Basic service, database, Redis, JWT config |
+| [Database Configuration](./database.md) | Connection pool, performance optimization  |
+| [WuKongIM Configuration](./wukongim.md) | WukongIM integration config                |
+| [RTC Configuration](./rtc.md)           | Audio/video call config                    |
+| [AI Configuration](./ai.md)             | AI assistant, LLM config                   |
 
 ## Quick Configuration
 
 ### Development Environment
 
 ```bash
-# Copy development config
-cp .env.example .env
+# Review the development profile
+vim .env.development
 
-# Use default config
-docker compose -f docker-compose.quick.yml up -d
+# Use the development profile
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
 ```
 
 ### Production Environment
 
 ```bash
-# Copy production config
-cp .env.example .env
-
-# Edit config (must modify the following)
-vim .env
+# Review the production profile
+vim .env.production
 ```
 
 **Must Modify:**
 
-| Config | Description |
-|--------|-------------|
-| `JWT_SECRET` | JWT secret, at least 32 characters |
-| `DB_PASSWORD` | Database password |
-| `REDIS_PASSWORD` | Redis password |
-| `EXTERNAL_IP` | Server external IP |
+| Config           | Description                        |
+| ---------------- | ---------------------------------- |
+| `JWT_SECRET`     | JWT secret, at least 32 characters |
+| `DB_PASSWORD`    | Database password                  |
+| `REDIS_PASSWORD` | Redis password                     |
+| `EXTERNAL_IP`    | Server external IP                 |
 
 ## Related Links
 

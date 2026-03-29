@@ -15,6 +15,7 @@
 ```
 
 检查项目包括：
+
 - 操作系统和架构
 - 内存和磁盘空间
 - Docker 和 Docker Compose 安装状态
@@ -28,8 +29,7 @@
 ```bash
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-cp .env.example .env
-# 按需编辑 .env
+# 按需编辑 .env.production
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
@@ -38,8 +38,7 @@ cp .env.example .env
 ```powershell
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-Copy-Item .env.example .env
-# 按需编辑 .env
+# 按需编辑 .env.production
 .\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
@@ -60,16 +59,21 @@ docker compose -f docker-compose.quick.yml ps
 docker compose -f docker-compose.quick.yml logs -f
 ```
 
-### 方式二：开发环境启动
+说明：
 
-使用 `docker-compose.yml` 支持灵活配置，需要指定 profiles：
+- `docker-compose.quick.yml` 会在全新 PostgreSQL 卷上自动执行 `schema.sql + seed.sql`。
+- 快速体验模式默认保持 `DB_SYNCHRONIZE=false`，如需变更结构，请执行初始化脚本或增量补丁，不要依赖自动同步。
+
+### 方式二：灵活 Compose 启动
+
+本地全量依赖使用 `docker-compose.yml`，外部 PostgreSQL / Redis 场景使用 `docker-compose.external-db.yml`：
 
 ```bash
 # 启动所有服务（数据库+Redis+IM+应用）
 docker compose --profile database --profile cache --profile im up -d
 
-# 只启动应用（使用外部数据库）
-docker compose up -d
+# 只启动应用（使用外部 PostgreSQL / Redis）
+docker compose -f docker-compose.external-db.yml up -d
 
 # 查看服务状态
 docker compose ps
@@ -80,12 +84,17 @@ docker compose logs -f
 
 ## 验证安装
 
+说明：
+
+- 宿主机部署使用 `.env.production` 时，默认端口是 `7200`。
+- `docker-compose.quick.yml` 快速体验模式下，应用默认暴露 `3000`。
+
 ### 1. 检查服务状态
 
 ```bash
 # 查看服务状态
-./bin/openchat status
-./bin/openchat health
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 
 # Linux 服务状态
 systemctl status openchat.service
@@ -96,32 +105,34 @@ systemctl status openchat.service
 ```bash
 # 健康检查
 curl http://127.0.0.1:7200/health
-curl http://127.0.0.1:7200/ready
+curl http://127.0.0.1:7200/health/ready
 ```
 
 ### 3. 查看日志
 
 ```bash
 # 查看所有日志
-docker compose logs -f
+docker compose -f docker-compose.quick.yml logs -f
 
 # 查看应用日志
-docker compose logs -f app
+docker compose -f docker-compose.quick.yml logs -f app
 ```
 
 ## 访问服务
 
 安装成功后，可以访问以下服务：
 
-| 服务 | 地址 | 说明 |
-|------|------|------|
-| OpenChat API | http://127.0.0.1:7200 | 主服务 API |
-| 前端 API 文档 | http://127.0.0.1:7200/im/v3/docs | 前端 IM Swagger 文档 |
-| 管理端 API 文档 | http://127.0.0.1:7200/admin/im/v3/docs | 管理端 Swagger 文档 |
-| 健康检查 | http://127.0.0.1:7200/health | 服务健康状态 |
-| WukongIM Demo | http://localhost:5172 | IM 演示页面 |
-| WukongIM 管理 | http://localhost:5300/web | IM 管理后台 |
-| Prometheus | http://localhost:9090 | 监控面板 |
+| 服务            | 地址                                   | 说明                 |
+| --------------- | -------------------------------------- | -------------------- |
+| OpenChat API    | http://127.0.0.1:7200                  | 主服务 API           |
+| 前端 API 文档   | http://127.0.0.1:7200/im/v3/docs       | 前端 IM Swagger 文档 |
+| 管理端 API 文档 | http://127.0.0.1:7200/admin/im/v3/docs | 管理端 Swagger 文档  |
+| 健康检查        | http://127.0.0.1:7200/health           | 服务健康状态         |
+| WukongIM Demo   | http://localhost:5172                  | IM 演示页面          |
+| WukongIM 管理   | http://localhost:5300/web              | IM 管理后台          |
+| Prometheus      | http://localhost:9090                  | 监控面板             |
+
+如果使用 Docker 快速体验模式，请把上面的 OpenChat 访问端口从 `7200` 替换为 `3000`。
 
 ## 运维工具
 
@@ -139,9 +150,9 @@ OpenChat 提供完整的运维工具：
 ./scripts/apply-db-patches.sh production
 
 # 运行时
-./bin/openchat restart
-./bin/openchat status
-./bin/openchat health
+./bin/openchat restart --environment production
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 ```
 
 ## 常见问题
@@ -166,8 +177,8 @@ OpenChat 提供完整的运维工具：
 systemctl status openchat.service
 
 # 查看应用日志
-tail -f var/logs/stdout.log
-tail -f var/logs/stderr.log
+tail -f var/logs/production.stdout.log
+tail -f var/logs/production.stderr.log
 ```
 
 ### 端口被占用

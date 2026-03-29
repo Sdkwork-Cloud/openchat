@@ -7,7 +7,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CLI_PATH="${PROJECT_ROOT}/scripts/openchat-cli.cjs"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "[ERROR] Node.js >= 18 is required to configure OpenChat edge services." >&2
+  echo "[ERROR] Node.js >= 20.19.0 is required to configure OpenChat edge services." >&2
   exit 1
 fi
 

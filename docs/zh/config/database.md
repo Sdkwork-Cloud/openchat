@@ -1,281 +1,168 @@
 # 数据库配置
 
-OpenChat 使用 PostgreSQL 作为主数据库，通过 TypeORM 进行数据库操作。
+OpenChat 使用 PostgreSQL 作为主数据库。当前推荐的数据库管理策略是：
 
-## 环境变量配置
+- 新库：执行 `schema.sql`，开发 / 测试环境可额外执行 `seed.sql`
+- 旧库：只执行 `database/patches/*.sql`
+- 默认所有环境都保持 `DB_SYNCHRONIZE=false`
 
-| 变量名 | 说明 | 默认值 | 必填 |
-|--------|------|--------|------|
-| `DB_HOST` | 数据库主机地址 | `localhost` | 是 |
-| `DB_PORT` | 数据库端口 | `5432` | 否 |
-| `DB_USERNAME` | 数据库用户名 | `openchat` | 是 |
-| `DB_PASSWORD` | 数据库密码 | - | 是 |
-| `DB_NAME` | 数据库名称 | `openchat` | 是 |
-| `DB_LOGGING` | SQL 日志开关 | `false` | 否 |
-| `DB_POOL_MAX` | 连接池最大连接数 | `20` | 否 |
-| `DB_POOL_MIN` | 连接池最小连接数 | `5` | 否 |
+## 环境参数
 
-## 连接配置
+| 变量                    | 说明         | 开发默认值          | 测试默认值          | 生产默认值  |
+| ----------------------- | ------------ | ------------------- | ------------------- | ----------- |
+| `DB_HOST`               | 数据库地址   | `127.0.0.1`         | `127.0.0.1`         | `127.0.0.1` |
+| `DB_PORT`               | 数据库端口   | `5432`              | `5432`              | `5432`      |
+| `DB_USERNAME`           | 数据库用户   | `openchat`          | `openchat`          | `openchat`  |
+| `DB_PASSWORD`           | 数据库密码   | `openchat_password` | `openchat_password` | 必须替换    |
+| `DB_NAME`               | 数据库名     | `openchat_dev`      | `openchat_test`     | `openchat`  |
+| `DB_POOL_MIN`           | 最小连接数   | `2`                 | `1`                 | `5`         |
+| `DB_POOL_MAX`           | 最大连接数   | `10`                | `5`                 | `20`        |
+| `DB_CONNECTION_TIMEOUT` | 建连超时     | `10000`             | `5000`              | `15000`     |
+| `DB_IDLE_TIMEOUT`       | 空闲超时     | `300000`            | `60000`             | `300000`    |
+| `DB_ACQUIRE_TIMEOUT`    | 获取连接超时 | `30000`             | `10000`             | `60000`     |
+| `DB_SSL`                | 是否启用 SSL | `false`             | `false`             | 视部署而定  |
+| `DB_LOGGING`            | SQL 日志     | `false`             | `false`             | `false`     |
+| `DB_SYNCHRONIZE`        | 自动同步结构 | `false`             | `false`             | `false`     |
 
-### Docker Compose 配置
+## 初始化策略
 
-```yaml
-# docker-compose.yml
-services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: openchat-postgres
-    environment:
-      POSTGRES_USER: openchat
-      POSTGRES_PASSWORD: openchat_password
-      POSTGRES_DB: openchat
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openchat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+### 新数据库
 
-volumes:
-  postgres_data:
-```
-
-### 环境变量示例
+开发环境：
 
 ```bash
-# .env
-DB_HOST=localhost
+./scripts/init-database.sh development --yes --seed
+# 或 npm run db:init:dev -- --yes --seed
+```
+
+测试环境：
+
+```bash
+./scripts/init-database.sh test --yes --seed
+# 或 npm run db:init:test -- --yes --seed
+```
+
+生产环境：
+
+```bash
+./scripts/init-database.sh production --yes
+# 或 npm run db:init:prod -- --yes
+```
+
+说明：
+
+- `schema.sql` 总是执行
+- `seed.sql` 仅建议在开发 / 测试环境执行
+- `indexes-optimization.sql` 会在初始化脚本中一并执行
+
+### 存量数据库
+
+```bash
+./scripts/apply-db-patches.sh development
+./scripts/apply-db-patches.sh test
+./scripts/apply-db-patches.sh production
+```
+
+等价快捷命令：
+
+```bash
+npm run db:patch:dev
+npm run db:patch:test
+npm run db:patch:prod
+```
+
+补丁特性：
+
+- 按文件名版本号排序执行
+- 自动记录到 `chat_schema_migrations`
+- 已执行补丁自动跳过
+- 文件内容摘要不一致时阻断执行
+
+## 推荐发布顺序
+
+### 开发环境
+
+```bash
+./scripts/init-database.sh development --yes --seed
+npm run start:dev
+```
+
+### 测试环境
+
+```bash
+./scripts/init-database.sh test --yes --seed
+npm run test
+npm run start:test
+```
+
+### 生产环境
+
+```bash
+pg_dump -h <host> -U <user> -d <db> > backup.sql
+./scripts/apply-db-patches.sh production
+npm run build
+npm run start:prod
+```
+
+## 手动执行 SQL
+
+如果不使用脚本，也可以手工执行：
+
+```bash
+psql -h <host> -p <port> -U <user> -d <db_name> -f database/schema.sql
+psql -h <host> -p <port> -U <user> -d <db_name> -f database/seed.sql
+```
+
+生产环境一般跳过 `seed.sql`。
+
+## 连接池建议
+
+| 场景         | 建议                                                  |
+| ------------ | ----------------------------------------------------- |
+| 本地开发     | `DB_POOL_MIN=2`，`DB_POOL_MAX=10`                     |
+| 自动化测试   | `DB_POOL_MIN=1`，`DB_POOL_MAX=5`                      |
+| 中小规模生产 | `DB_POOL_MIN=5`，`DB_POOL_MAX=20`                     |
+| 高并发生产   | 根据 PostgreSQL `max_connections` 与 CPU 评估后再扩大 |
+
+## 外部数据库
+
+如果 PostgreSQL 由外部服务托管，直接修改环境文件：
+
+```bash
+DB_HOST=your-db-host
 DB_PORT=5432
-DB_USERNAME=openchat
-DB_PASSWORD=your_secure_password
+DB_USERNAME=your-user
+DB_PASSWORD=your-password
 DB_NAME=openchat
-DB_LOGGING=false
-DB_POOL_MAX=20
-DB_POOL_MIN=5
-```
-
-## 连接池配置
-
-### 连接池参数
-
-| 参数 | 说明 | 推荐值 |
-|------|------|--------|
-| `DB_POOL_MAX` | 最大连接数 | CPU 核心数 × 2 + 1 |
-| `DB_POOL_MIN` | 最小连接数 | CPU 核心数 |
-| `DB_IDLE_TIMEOUT` | 空闲连接超时(ms) | 30000 |
-| `DB_CONNECTION_TIMEOUT` | 连接超时(ms) | 5000 |
-
-### 性能调优
-
-```bash
-# 高并发场景
-DB_POOL_MAX=50
-DB_POOL_MIN=10
-
-# 低负载场景
-DB_POOL_MAX=10
-DB_POOL_MIN=2
-```
-
-## 数据库初始化
-
-### 初始化方式
-
-OpenChat 新项目默认使用 `schema.sql + seed.sql` 完成初始化，不依赖迁移脚本。
-
-```bash
-# 方案一：执行初始化脚本（推荐）
-./scripts/init-database.sh dev
-
-# 方案二：手动执行 SQL
-psql -U openchat -d openchat -f database/schema.sql
-psql -U openchat -d openchat -f database/seed.sql
-```
-
-存量环境升级建议在发布前执行在线补丁：
-
-```bash
-./scripts/apply-db-patches.sh prod
-```
-
-执行顺序建议：
-1. 先执行 `database/patches/*.sql`（通过补丁脚本）。
-2. 再部署应用新版本。
-
-### 手动初始化
-
-```bash
-# 创建数据库
-createdb -U postgres openchat
-
-# 运行初始化脚本
-psql -U openchat -d openchat -f database/schema.sql
-psql -U openchat -d openchat -f database/seed.sql
-```
-
-## 数据库备份
-
-### 手动备份
-
-```bash
-# 备份整个数据库
-pg_dump -U openchat -d openchat > backup_$(date +%Y%m%d).sql
-
-# 仅备份数据
-pg_dump -U openchat -d openchat --data-only > data_backup.sql
-
-# 仅备份结构
-pg_dump -U openchat -d openchat --schema-only > schema_backup.sql
-```
-
-### 自动备份脚本
-
-```bash
-#!/bin/bash
-# backup.sh
-
-BACKUP_DIR="/var/backups/openchat"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/openchat_${DATE}.sql.gz"
-
-mkdir -p $BACKUP_DIR
-
-pg_dump -U openchat -d openchat | gzip > $BACKUP_FILE
-
-# 保留最近 7 天的备份
-find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
-```
-
-### 恢复数据
-
-```bash
-# 恢复数据库
-psql -U openchat -d openchat < backup_20240115.sql
-```
-
-## 数据库监控
-
-### 健康检查
-
-```sql
--- 查看连接数
-SELECT count(*) FROM pg_stat_activity;
-
--- 查看活跃连接
-SELECT pid, usename, application_name, state, query 
-FROM pg_stat_activity 
-WHERE state = 'active';
-
--- 查看数据库大小
-SELECT pg_size_pretty(pg_database_size('openchat'));
-
--- 查看表大小
-SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) 
-FROM pg_catalog.pg_statio_user_tables 
-ORDER BY pg_total_relation_size(relid) DESC;
-```
-
-### 性能优化
-
-```sql
--- 分析查询性能
-EXPLAIN ANALYZE SELECT * FROM messages WHERE conversation_id = 'xxx';
-
--- 更新统计信息
-ANALYZE messages;
-
--- 重建索引
-REINDEX TABLE messages;
-```
-
-## 外部数据库配置
-
-### 使用外部 PostgreSQL
-
-```bash
-# .env
-DB_HOST=your-db-host.com
-DB_PORT=5432
-DB_USERNAME=openchat
-DB_PASSWORD=your_password
-DB_NAME=openchat
-```
-
-### Docker Compose 外部数据库
-
-```yaml
-# docker-compose.external-db.yml
-services:
-  app:
-    environment:
-      - DB_HOST=your-db-host
-      - DB_PORT=5432
-      - DB_USERNAME=openchat
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=openchat
-```
-
-## 安全配置
-
-### 数据库用户权限
-
-```sql
--- 创建只读用户
-CREATE USER openchat_readonly WITH PASSWORD 'password';
-GRANT CONNECT ON DATABASE openchat TO openchat_readonly;
-GRANT USAGE ON SCHEMA public TO openchat_readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO openchat_readonly;
-
--- 创建读写用户
-CREATE USER openchat_readwrite WITH PASSWORD 'password';
-GRANT CONNECT ON DATABASE openchat TO openchat_readwrite;
-GRANT USAGE ON SCHEMA public TO openchat_readwrite;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO openchat_readwrite;
-```
-
-### SSL 连接
-
-```bash
-# .env
 DB_SSL=true
-DB_SSL_CA=/path/to/ca-cert
-DB_SSL_CERT=/path/to/client-cert
-DB_SSL_KEY=/path/to/client-key
+DB_SSL_REJECT_UNAUTHORIZED=true
 ```
 
-## 故障排除
+## 巡检与备份
 
-### 连接失败
+连通性检查：
 
 ```bash
-# 检查数据库是否运行
-docker compose ps postgres
-
-# 检查连接
-psql -h localhost -U openchat -d openchat
-
-# 查看日志
-docker compose logs postgres
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1"
 ```
 
-### 性能问题
+数据库备份：
 
 ```bash
-# 查看慢查询
-SELECT query, calls, total_time, mean_time 
-FROM pg_stat_statements 
-ORDER BY mean_time DESC 
-LIMIT 10;
-
-# 查看锁等待
-SELECT * FROM pg_locks WHERE NOT granted;
+pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-## 相关链接
+最近补丁记录：
 
-- [服务端配置](./server.md)
-- [部署指南](../deploy/docker.md)
-- [PostgreSQL 官方文档](https://www.postgresql.org/docs/)
+```sql
+SELECT filename, version, checksum, applied_at
+FROM chat_schema_migrations
+ORDER BY applied_at DESC;
+```
+
+## 建议
+
+- 不要把结构变更依赖在 `DB_SYNCHRONIZE` 上。
+- 开发、测试、生产必须使用独立数据库名。
+- 发布前务必备份生产库。
+- 历史补丁文件只新增，不覆写。

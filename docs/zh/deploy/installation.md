@@ -1,652 +1,309 @@
 # OpenChat Server 安装指南
 
-本指南将帮助您在不同平台上安装和配置 OpenChat Server。
+本指南覆盖开发、测试、生产三种运行环境的安装、初始化、启动和验证流程。
 
 ## 系统要求
 
-### 硬件要求
+### 硬件建议
 
-| 环境 | CPU | 内存 | 磁盘 |
-|------|-----|------|------|
-| 开发环境 | 2核 | 4GB | 20GB |
-| 测试环境 | 4核 | 8GB | 50GB |
-| 生产环境 | 8核+ | 16GB+ | 100GB+ |
+| 环境 | CPU      | 内存       | 磁盘            |
+| ---- | -------- | ---------- | --------------- |
+| 开发 | 2 核     | 4 GB       | 20 GB           |
+| 测试 | 4 核     | 8 GB       | 50 GB           |
+| 生产 | 8 核以上 | 16 GB 以上 | 100 GB 以上 SSD |
 
 ### 软件要求
 
-| 软件 | 版本要求 | 说明 |
-|------|---------|------|
-| Docker | 24.0+ | 容器运行时 |
-| Docker Compose | 2.0+ | 容器编排 |
-| Node.js | 18+ | 开发模式需要 |
-| npm | 9+ | 包管理器 |
-| Git | 2.0+ | 版本控制 |
+| 软件                    | 要求                          |
+| ----------------------- | ----------------------------- |
+| Node.js                 | `>= 20.19.0`，推荐 `24.x`     |
+| npm                     | `>= 10`                       |
+| PostgreSQL              | `15+`                         |
+| Redis                   | `7+`                          |
+| Docker / Docker Compose | 容器模式可选，推荐 `24+ / 2+` |
+| psql                    | 数据库初始化与补丁脚本依赖    |
+| redis-cli               | 健康检查推荐安装              |
 
 ## 安装前检查
 
-在安装前，建议运行检查脚本验证系统环境：
+宿主机部署前，建议先执行预检查：
 
 ::: code-group
 
 ```bash [Linux/macOS]
-# 运行预检查脚本
 ./scripts/precheck.sh --mode standalone
 ```
 
 ```powershell [Windows]
-# 运行预检查脚本
 .\scripts\precheck.ps1
 ```
 
 :::
 
-检查项目包括：
-- ✅ 操作系统和架构
-- ✅ 内存和磁盘空间
-- ✅ Docker 和 Docker Compose 安装状态
-- ✅ 端口可用性
-- ✅ 网络连接
+## 环境文件准备
 
-## 快速安装
+仓库已经自带三套环境模板：
 
-### 方式一：一键安装脚本 (推荐)
+| 环境 | 文件               | 默认用途           |
+| ---- | ------------------ | ------------------ |
+| 开发 | `.env.development` | 本地调试、接口开发 |
+| 测试 | `.env.test`        | 自动化测试、联调   |
+| 生产 | `.env.production`  | 正式部署           |
 
-::: code-group
+如需自定义环境，可从 `.env.example` 复制新文件。
 
-```bash [Linux/macOS]
-# 克隆项目后运行统一部署脚本
+### 必改项
+
+所有环境至少应检查这些变量：
+
+```bash
+NODE_ENV=
+HOST=
+PORT=
+DB_HOST=
+DB_PORT=
+DB_USERNAME=
+DB_PASSWORD=
+DB_NAME=
+REDIS_HOST=
+REDIS_PORT=
+JWT_SECRET=
+WUKONGIM_ENABLED=
+```
+
+生产环境必须额外确认：
+
+```bash
+REDIS_PASSWORD=
+CORS_ORIGINS=
+EXTERNAL_IP=
+LOG_FILE_ENABLED=true
+LOG_FILE_DIR=./var/logs
+```
+
+## 通用安装步骤
+
+### 1. 克隆项目并安装依赖
+
+```bash
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-cp .env.example .env
-# 按需编辑 .env
+npm ci
+```
+
+### 2. 启动依赖服务
+
+开发环境：
+
+```bash
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
+```
+
+说明：
+
+- 默认构建镜像使用 Node.js `24.x`，可通过 `NODE_VERSION` 覆盖。
+- 容器模式也保持 `DB_SYNCHRONIZE=false`，依赖 `schema.sql + seed.sql + patches` 管理结构。
+
+测试环境：
+
+```bash
+docker compose --env-file .env.test --profile database --profile cache up -d
+```
+
+生产环境如果依赖外部 PostgreSQL / Redis / WuKongIM，则只需保证连接信息正确，不必启动本地容器。
+
+### 3. 初始化数据库
+
+新库初始化：
+
+```bash
+./scripts/init-database.sh development --yes --seed
+./scripts/init-database.sh test --yes --seed
+./scripts/init-database.sh production --yes
+```
+
+等价的 npm 快捷命令：
+
+```bash
+npm run db:init:dev -- --yes --seed
+npm run db:init:test -- --yes --seed
+npm run db:init:prod -- --yes
+```
+
+已有数据库升级：
+
+```bash
+./scripts/apply-db-patches.sh development
+./scripts/apply-db-patches.sh test
+./scripts/apply-db-patches.sh production
+```
+
+等价快捷命令：
+
+```bash
+npm run db:patch:dev
+npm run db:patch:test
+npm run db:patch:prod
+```
+
+## 开发环境安装
+
+### 典型流程
+
+```bash
+npm ci
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
+./scripts/init-database.sh development --yes --seed
+npm run start:dev
+```
+
+### 验证
+
+```bash
+curl http://127.0.0.1:7200/health
+./scripts/health-check.sh quick
+```
+
+### 适用场景
+
+- API 开发
+- 本地问题复现
+- Swagger / OpenAPI 浏览
+
+## 测试环境安装
+
+### 典型流程
+
+```bash
+npm ci
+docker compose --env-file .env.test --profile database --profile cache up -d
+./scripts/init-database.sh test --yes --seed
+npm run test
+npm run test:e2e
+```
+
+需要独立启动测试服务时：
+
+```bash
+npm run start:test
+curl http://127.0.0.1:7201/health
+```
+
+### 适用场景
+
+- CI / 本地自动化测试
+- 联调环境
+- 与开发环境隔离的数据验证
+
+## 生产环境安装
+
+### 1. 编辑生产配置
+
+重点替换：
+
+```bash
+DB_PASSWORD=replace-with-strong-password
+REDIS_PASSWORD=replace-with-strong-password
+JWT_SECRET=replace-with-at-least-32-characters-secret
+CORS_ORIGINS=https://your-domain.example.com
+EXTERNAL_IP=your-public-ip
+```
+
+### 2. 构建应用
+
+```bash
+npm ci
+npm run build
+```
+
+### 3. 发布前执行数据库补丁
+
+```bash
+./scripts/apply-db-patches.sh production
+```
+
+### 4. 启动服务
+
+宿主机运行：
+
+```bash
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200 --strict-port
+```
+
+安装为系统服务：
+
+```bash
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
-```powershell [Windows]
-# PowerShell 统一部署
-Copy-Item .env.example .env
-# 按需编辑 .env
-.\scripts\deploy-server.ps1 production -DbAction auto -Yes
+Docker Compose 运行：
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 ```
 
-:::
+### 5. 生产验证
 
-### 方式二：Docker 快速启动
-
-::: code-group
-
-```bash [Linux/macOS]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 一条命令启动所有服务
-docker compose -f docker-compose.quick.yml up -d
-
-# 查看服务状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f
+```bash
+OPENCHAT_ENV_FILE=.env.production ./scripts/health-check.sh full
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 ```
 
-```powershell [Windows]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
+推荐补充命令：
 
-# 一条命令启动所有服务
-docker compose -f docker-compose.quick.yml up -d
-
-# 查看服务状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f
+```bash
+make runtime-start ENV=production
+make runtime-stop ENV=production
+make deploy-standalone ENV=production SERVICE=1
 ```
 
-:::
+## 外部依赖模式
 
-### 方式三：本地开发模式
-
-::: code-group
-
-```bash [Linux/macOS]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 安装依赖
-npm ci
-
-# 配置环境
-cp .env.example .env.development
-
-# 启动开发服务
-npm run start:dev
-```
-
-```powershell [Windows]
-# 克隆项目
-git clone https://github.com/Sdkwork-Cloud/openchat.git
-cd openchat
-
-# 安装依赖
-npm ci
-
-# 配置环境
-Copy-Item .env.example .env.development
-
-# 启动开发服务
-npm run start:dev
-```
-
-:::
-
-### 验证安装
-
-::: code-group
-
-```bash [Linux/macOS]
-# 健康检查
-curl http://127.0.0.1:7200/health
-
-# 运行运行时健康检查
-./bin/openchat health
-```
-
-```powershell [Windows]
-# 健康检查
-Invoke-WebRequest -Uri http://127.0.0.1:7200/health
-```
-
-:::
-
-## 安装模式详解
-
-### 1. Docker 快速模式 (推荐新手)
-
-最简单的安装方式，适合快速体验和开发测试。
-
-::: code-group
-
-```bash [Linux/macOS]
-# 使用快速配置
-docker compose -f docker-compose.quick.yml up -d
-```
-
-```powershell [Windows]
-# 使用快速配置
-docker compose -f docker-compose.quick.yml up -d
-```
-
-:::
-
-**特点：**
-- ✅ 自动安装所有依赖服务
-- ✅ 开箱即用
-- ✅ 易于管理和维护
-
-### 2. 外部服务模式
-
-使用外部数据库和 Redis，适合生产环境。
-
-::: code-group
-
-```bash [Linux/macOS]
-# 配置外部服务
-cp .env.example .env
-
-# 编辑配置文件
-vim .env
-```
-
-```powershell [Windows]
-# 配置外部服务
-copy .env.example .env
-
-# 编辑配置文件
-notepad .env
-```
-
-:::
-
-配置内容：
+如果数据库、Redis、WuKongIM 由外部托管，仅需在环境文件中调整地址：
 
 ```bash
 DB_HOST=your-db-host
-DB_PORT=5432
 REDIS_HOST=your-redis-host
-REDIS_PORT=6379
+WUKONGIM_API_URL=http://your-wukongim:5001
+WUKONGIM_TCP_ADDR=your-wukongim:5100
+WUKONGIM_WS_URL=ws://your-wukongim:5200
 ```
 
-启动服务：
+容器场景可以配合：
 
 ```bash
 docker compose -f docker-compose.external-db.yml up -d
 ```
 
-### 3. 独立服务模式
+## 安装后检查
 
-直接在服务器上运行，适合需要精细控制的场景。
-
-::: code-group
-
-```bash [Linux/macOS]
-# 使用安装脚本
-./scripts/deploy-server.sh production --db-action auto --yes --service
-
-# 或手动安装
-pnpm install
-pnpm run build
-pnpm run start:prod
-```
-
-```powershell [Windows]
-# 手动安装
-pnpm install
-pnpm run build
-pnpm run start:prod
-```
-
-:::
-
-### 4. Nginx + WukongIM 域名入口模式
-
-如果你希望服务器直接以域名方式暴露 OpenChat 和 WukongIM，请执行：
+快速健康检查：
 
 ```bash
-./scripts/configure-edge.sh development \
-  --domain im-dev.sdkwork.com \
-  --public-ip <public_ip> \
-  --server-ip <server_ip> \
-  --runtime-environment production
-```
-
-默认环境域名：
-
-- `development` -> `im-dev.sdkwork.com`
-- `test` -> `im-test.sdkwork.com`
-- `production` -> `im.sdkwork.com`
-
-执行后将得到以下入口：
-
-- `https://<domain>/`：OpenChat
-- `wss://<domain>/im/ws`：WukongIM WebSocket
-- `https://<domain>/web/`：WukongIM 管理台
-- `https://<domain>/api/*`：WukongIM 管理接口
-- `<domain>:5100`：WukongIM TCP
-
-同时脚本会：
-
-- 生成并安装 Nginx 站点配置
-- 自动向 `/etc/nginx/nginx.conf` 注入 `stream` include
-- 将 WukongIM HTTP/WS/Manager/TCP 端口切换到本地 `127.0.0.1` 绑定
-- 通过 Nginx `stream` 对外暴露 `5100/tcp`
-- 更新 OpenChat `.env` 中的 `WUKONGIM_*` 配置
-- 重载 Nginx 并重启 OpenChat / WukongIM
-
-## 环境配置
-
-### 必需配置项
-
-创建 `.env` 文件并配置以下内容：
-
-```bash
-# 服务器 IP（音视频通话需要）
-EXTERNAL_IP=your-server-ip
-
-# 数据库配置
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=openchat
-DB_PASSWORD=your-secure-password
-DB_NAME=openchat
-
-# Redis 配置
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=your-secure-password
-
-# JWT 密钥（至少 32 字符）
-JWT_SECRET=your-jwt-secret-at-least-32-characters
-```
-
-### 可选配置项
-
-```bash
-# 悟空IM 配置
-WUKONGIM_API_URL=http://localhost:5001
-WUKONGIM_TCP_ADDR=localhost:5100
-WUKONGIM_WS_URL=ws://localhost:5200
-WUKONGIM_TOKEN_AUTH=false
-
-# 日志配置
-LOG_LEVEL=info
-LOG_FORMAT=json
-
-# 安全配置
-CORS_ORIGINS=https://your-domain.com
-RATE_LIMIT_MAX=100
-```
-
-## 安装后配置
-
-### 1. 安全配置
-
-::: code-group
-
-```bash [Linux/macOS]
-# 生成强密码
-openssl rand -base64 24
-
-# 生成 JWT 密钥
-openssl rand -base64 32
-
-# 更新 .env 文件
-vim .env
-```
-
-```powershell [Windows]
-# 生成强密码 (需要 OpenSSL)
-openssl rand -base64 24
-
-# 或使用 PowerShell
-[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
-
-# 更新 .env 文件
-notepad .env
-```
-
-:::
-
-### 2. 防火墙配置
-
-::: code-group
-
-```bash [Linux (firewalld)]
-# 开放必要端口
-firewall-cmd --permanent --add-port=3000/tcp
-firewall-cmd --permanent --add-port=5001/tcp
-firewall-cmd --permanent --add-port=5100/tcp
-firewall-cmd --permanent --add-port=5200/tcp
-
-# 重载防火墙
-firewall-cmd --reload
-```
-
-```bash [Linux (ufw)]
-# 开放必要端口
-sudo ufw allow 3000/tcp
-sudo ufw allow 5001/tcp
-sudo ufw allow 5100/tcp
-sudo ufw allow 5200/tcp
-
-# 启用防火墙
-sudo ufw enable
-```
-
-```powershell [Windows]
-# 开放必要端口 (管理员权限)
-New-NetFirewallRule -DisplayName "OpenChat API" -Direction Inbound -Port 3000 -Protocol TCP -Action Allow
-New-NetFirewallRule -DisplayName "WukongIM API" -Direction Inbound -Port 5001 -Protocol TCP -Action Allow
-New-NetFirewallRule -DisplayName "WukongIM TCP" -Direction Inbound -Port 5100 -Protocol TCP -Action Allow
-New-NetFirewallRule -DisplayName "WukongIM WS" -Direction Inbound -Port 5200 -Protocol TCP -Action Allow
-```
-
-:::
-
-### 3. SSL 配置
-
-::: code-group
-
-```bash [Linux/macOS]
-# 创建 SSL 目录
-mkdir -p etc/nginx/ssl
-
-# 复制证书
-cp your-cert.pem etc/nginx/ssl/cert.pem
-cp your-key.pem etc/nginx/ssl/key.pem
-
-# 启用 HTTPS 配置
-mv etc/nginx/conf.d/ssl.conf.example etc/nginx/conf.d/ssl.conf
-
-# 重启 Nginx
-docker compose restart nginx
-```
-
-```powershell [Windows]
-# 创建 SSL 目录
-New-Item -ItemType Directory -Force -Path etc\nginx\ssl
-
-# 复制证书
-copy your-cert.pem etc\nginx\ssl\cert.pem
-copy your-key.pem etc\nginx\ssl\key.pem
-
-# 启用 HTTPS 配置
-Rename-Item etc\nginx\conf.d\ssl.conf.example ssl.conf
-
-# 重启 Nginx
-docker compose restart nginx
-```
-
-:::
-
-## 验证安装
-
-### 健康检查
-
-::: code-group
-
-```bash [Linux/macOS]
-# 快速检查
 ./scripts/health-check.sh quick
+```
 
-# 完整诊断
+完整诊断：
+
+```bash
 ./scripts/health-check.sh full
+```
 
-# 检查特定服务
+单项检查：
+
+```bash
+./scripts/health-check.sh config
 ./scripts/health-check.sh database
 ./scripts/health-check.sh redis
+./scripts/health-check.sh app
 ./scripts/health-check.sh wukongim
 ```
 
-```powershell [Windows]
-# 快速检查
-Invoke-WebRequest -Uri http://127.0.0.1:7200/health
+## 常见建议
 
-# 完整诊断
-Invoke-WebRequest -Uri http://127.0.0.1:7200/ready
-```
-
-:::
-
-### 访问测试
-
-::: code-group
-
-```bash [Linux/macOS]
-# API 健康检查
-curl http://127.0.0.1:7200/health
-
-# 打开前端 API 文档
-open http://127.0.0.1:7200/im/v3/docs
-
-# 打开管理端 API 文档
-open http://127.0.0.1:7200/admin/im/v3/docs
-
-# 打开 WukongIM 管理后台
-open http://localhost:5300/web
-```
-
-```powershell [Windows]
-# API 健康检查
-Invoke-WebRequest -Uri http://127.0.0.1:7200/health
-
-# 打开前端 API 文档
-Start-Process "http://127.0.0.1:7200/im/v3/docs"
-
-# 打开管理端 API 文档
-Start-Process "http://127.0.0.1:7200/admin/im/v3/docs"
-
-# 打开 WukongIM 管理后台
-Start-Process "http://localhost:5300/web"
-```
-
-:::
-
-## 常见问题
-
-### 端口被占用
-
-::: code-group
-
-```bash [Linux/macOS]
-# 查看端口占用
-lsof -i :7200
-
-# 或使用 netstat
-netstat -tlnp | grep 7200
-
-# 终止占用进程
-kill -9 <PID>
-```
-
-```powershell [Windows]
-# 查看端口占用
-netstat -ano | findstr :7200
-
-# 终止占用进程
-taskkill /PID <PID> /F
-```
-
-:::
-
-### 数据库连接失败
-
-::: code-group
-
-```bash [Linux/macOS]
-# 检查数据库状态
-docker compose ps postgres
-
-# 查看数据库日志
-docker compose logs postgres
-
-# 测试连接
-docker exec -it openchat-postgres psql -U openchat -d openchat
-```
-
-```powershell [Windows]
-# 检查数据库状态
-docker compose ps postgres
-
-# 查看数据库日志
-docker compose logs postgres
-
-# 测试连接
-docker exec -it openchat-postgres psql -U openchat -d openchat
-```
-
-:::
-
-### 内存不足
-
-::: code-group
-
-```bash [Linux/macOS]
-# 查看资源使用
-docker stats
-
-# 查看系统内存
-free -h
-```
-
-```powershell [Windows]
-# 查看资源使用
-docker stats
-
-# 查看系统内存
-Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 10
-```
-
-:::
-
-### 服务无法启动
-
-::: code-group
-
-```bash [Linux/macOS]
-# 查看服务状态
-systemctl status openchat.service
-
-# 运行时健康检查
-./bin/openchat status
-./bin/openchat health
-
-# 查看日志
-tail -f var/logs/stdout.log
-```
-
-```powershell [Windows]
-# 运行时健康检查
-.\bin\openchat.ps1 status
-Invoke-WebRequest -Uri http://127.0.0.1:7200/health
-```
-
-:::
-
-## 升级
-
-::: code-group
-
-```bash [Linux/macOS]
-# 备份数据
-make db-backup
-
-# 拉取最新代码
-git pull
-
-# 更新服务
-make update
-```
-
-```powershell [Windows]
-# 备份数据
-pnpm run db:backup
-
-# 拉取最新代码
-git pull
-
-# 更新服务
-pnpm run update
-```
-
-:::
-
-## 卸载
-
-::: code-group
-
-```bash [Linux/macOS]
-# 使用安装脚本卸载
-./scripts/install.sh uninstall
-
-# 或手动卸载
-docker compose down -v
-rm -rf /opt/openchat
-```
-
-```powershell [Windows]
-# 手动卸载
-docker compose down -v
-Remove-Item -Recurse -Force .\data
-```
-
-:::
-
-## 下一步
-
-- [配置说明](../config/) - 详细配置参数
-- [API 文档](../api/) - API 接口文档
-- [项目概览](../guide/overview.md) - 了解项目架构
+- 默认推荐所有环境都保持 `DB_SYNCHRONIZE=false`。
+- 新库使用 `schema.sql + seed.sql`，旧库只执行 `patches/*.sql`。
+- 测试环境应使用独立数据库和独立 Redis DB。
+- 生产环境发布顺序建议固定为“备份 -> 补丁 -> 发布 -> 健康检查”。
+- 生产环境建议开启 `OPENCHAT_STRICT_PORT=true`，并使用运行时包装器或 Systemd 管理启停。

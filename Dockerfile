@@ -6,10 +6,12 @@
 # ============================================
 # 基础镜像
 # ============================================
-FROM node:18-alpine AS base
+ARG NODE_VERSION=24
+FROM node:${NODE_VERSION}-alpine AS base
 
 # 安装必要工具
 RUN apk add --no-cache \
+    bash \
     curl \
     tzdata \
     && rm -rf /var/cache/apk/*
@@ -58,6 +60,8 @@ FROM dependencies AS development
 
 # 复制配置文件
 COPY tsconfig.json ./
+COPY src ./src
+COPY scripts ./scripts
 
 # 设置环境变量
 ENV NODE_ENV=development
@@ -81,7 +85,7 @@ FROM base AS production-deps
 COPY package*.json ./
 
 # 安装生产依赖
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # ============================================
 # 生产镜像
@@ -106,6 +110,7 @@ COPY --from=builder --chown=openchat:openchat /app/package*.json ./
 
 # 复制启动脚本
 COPY bin/openchat ./bin/
+COPY --chown=openchat:openchat scripts ./scripts
 RUN chmod +x ./bin/openchat
 
 # 复制配置文件
@@ -142,6 +147,7 @@ FROM dependencies AS test
 COPY tsconfig.json ./
 COPY jest.config.js ./
 COPY src ./src
+COPY scripts ./scripts
 COPY test ./test
 
 # 设置环境变量

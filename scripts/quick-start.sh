@@ -6,6 +6,10 @@
 
 set -e
 
+ENV_FILE=".env.quickstart"
+BASE_ENV_FILE=".env.development"
+COMPOSE_FILE="docker-compose.quick.yml"
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -38,8 +42,8 @@ check_docker() {
         exit 1
     fi
     
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "未找到 docker-compose，请先安装"
+    if ! docker compose version &> /dev/null; then
+        log_error "未找到 docker compose，请先安装 Docker Compose 插件"
         log_info "安装指南: https://docs.docker.com/compose/install/"
         exit 1
     fi
@@ -79,21 +83,24 @@ get_server_ip() {
 setup_env() {
     log_info "配置环境变量..."
     
-    if [ ! -f ".env" ]; then
-        cp .env.example .env
+    if [ ! -f "$ENV_FILE" ]; then
+        if [ -f "$BASE_ENV_FILE" ]; then
+            cp "$BASE_ENV_FILE" "$ENV_FILE"
+        else
+            cp .env.example "$ENV_FILE"
+        fi
         
         # 更新环境变量
-        sed -i "s/EXTERNAL_IP=127.0.0.1/EXTERNAL_IP=$EXTERNAL_IP/" .env
-        sed -i "s/INTERNAL_IP=wukongim/INTERNAL_IP=$INTERNAL_IP/" .env
+        sed -i "s/^EXTERNAL_IP=.*/EXTERNAL_IP=$EXTERNAL_IP/" "$ENV_FILE"
         
         # 生成随机JWT密钥
         JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-        sed -i "s/your-jwt-secret-key-change-this-in-production/$JWT_SECRET/" .env
+        sed -i "s/^JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" "$ENV_FILE"
         
         log_success "环境变量配置完成"
-        log_warn "请编辑 .env 文件修改默认密码"
+        log_warn "如需自定义，请编辑 $ENV_FILE"
     else
-        log_warn ".env 文件已存在，跳过配置"
+        log_warn "$ENV_FILE 已存在，跳过初始化"
     fi
 }
 
@@ -110,7 +117,7 @@ setup_directories() {
 pull_images() {
     log_info "拉取 Docker 镜像..."
     
-    docker-compose pull
+    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull
     
     log_success "镜像拉取完成"
 }
@@ -119,7 +126,7 @@ pull_images() {
 start_services() {
     log_info "启动服务..."
     
-    docker-compose up -d
+    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
     
     log_success "服务启动完成"
 }
@@ -130,7 +137,7 @@ wait_for_services() {
     
     echo -n "等待 PostgreSQL"
     for i in {1..30}; do
-        if docker-compose exec -T postgres pg_isready -U openchat -d openchat &> /dev/null; then
+        if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres pg_isready -U openchat -d openchat &> /dev/null; then
             echo " ✓"
             break
         fi
@@ -140,7 +147,7 @@ wait_for_services() {
     
     echo -n "等待 Redis"
     for i in {1..30}; do
-        if docker-compose exec -T redis redis-cli ping &> /dev/null; then
+        if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T redis redis-cli -a redis_password ping &> /dev/null; then
             echo " ✓"
             break
         fi
@@ -193,13 +200,13 @@ show_access_info() {
     echo "  • 5001  - 悟空IM HTTP API (仅限内网)"
     echo
     echo "常用命令:"
-    echo "  • 查看日志:    docker-compose logs -f"
-    echo "  • 停止服务:    docker-compose down"
-    echo "  • 重启服务:    docker-compose restart"
-    echo "  • 查看状态:    docker-compose ps"
+    echo "  • 查看日志:    docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f"
+    echo "  • 停止服务:    docker compose --env-file $ENV_FILE -f $COMPOSE_FILE down"
+    echo "  • 重启服务:    docker compose --env-file $ENV_FILE -f $COMPOSE_FILE restart"
+    echo "  • 查看状态:    docker compose --env-file $ENV_FILE -f $COMPOSE_FILE ps"
     echo
     echo "安全提示:"
-    echo "  ⚠️  生产环境请修改 .env 文件中的默认密码"
+    echo "  ⚠️  快速体验环境文件: $ENV_FILE"
     echo "  ⚠️  建议配置防火墙，限制 5001 端口仅内网访问"
     echo "  ⚠️  建议启用 HTTPS"
     echo

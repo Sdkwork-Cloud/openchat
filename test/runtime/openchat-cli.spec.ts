@@ -114,6 +114,42 @@ describe('openchat shared cli', () => {
     }
   });
 
+  test('powershell wrappers expose advanced runtime and deploy flags', () => {
+    const runtimeWrapper = readFileSync(
+      path.join(process.cwd(), 'bin', 'openchat.ps1'),
+      'utf8',
+    );
+    const deployWrapper = readFileSync(
+      path.join(process.cwd(), 'scripts', 'deploy-server.ps1'),
+      'utf8',
+    );
+    const installWrapper = readFileSync(
+      path.join(process.cwd(), 'scripts', 'install.ps1'),
+      'utf8',
+    );
+
+    expect(runtimeWrapper).toContain("'^-(HealthTimeoutMs|health-timeout-ms)$'");
+    expect(runtimeWrapper).toContain("'^-(ShutdownTimeoutMs|shutdown-timeout-ms)$'");
+    expect(runtimeWrapper).toContain("'^-(StrictPort|strict-port)$'");
+    expect(runtimeWrapper).toContain("'^-(ForceStop|force-stop)$'");
+    expect(runtimeWrapper).toContain("'^-(SkipHealthCheck|skip-health-check)$'");
+    expect(runtimeWrapper).toContain("'^-(EnvFile|env-file)$'");
+
+    expect(deployWrapper).toContain("'^-(ServiceUser|service-user)$'");
+    expect(deployWrapper).toContain("'^-(ServiceGroup|service-group)$'");
+    expect(deployWrapper).toContain("'^-(HealthHost|health-host)$'");
+    expect(deployWrapper).toContain("'^-(HealthTimeoutMs|health-timeout-ms)$'");
+    expect(deployWrapper).toContain("'^-(ShutdownTimeoutMs|shutdown-timeout-ms)$'");
+    expect(deployWrapper).toContain("'^-(StrictPort|strict-port)$'");
+    expect(deployWrapper).toContain("'^-(ForceStop|force-stop)$'");
+    expect(deployWrapper).toContain("'^-(EnvFile|env-file)$'");
+
+    expect(installWrapper).toContain("'^-(HealthTimeoutMs|health-timeout-ms)$'");
+    expect(installWrapper).toContain("'^-(ShutdownTimeoutMs|shutdown-timeout-ms)$'");
+    expect(installWrapper).toContain("'^-(StrictPort|strict-port)$'");
+    expect(installWrapper).toContain("'^-(SkipHealthCheck|skip-health-check)$'");
+  });
+
   test('windows support is PowerShell-only and does not ship batch wrappers', () => {
     for (const relativePath of [
       path.join('scripts', 'install.bat'),
@@ -141,8 +177,9 @@ describe('openchat shared cli', () => {
     );
 
     expect(systemdUnit).toContain('Type=forking');
-    expect(systemdUnit).toContain('PIDFile=/opt/source/openchat/var/run/openchat.pid');
+    expect(systemdUnit).toContain('EnvironmentFile=/opt/source/openchat/.env.production');
+    expect(systemdUnit).toContain('PIDFile=/opt/source/openchat/var/run/openchat.production.pid');
     expect(systemdUnit).toContain('/opt/source/openchat/bin/openchat start');
-    expect(systemdUnit).toContain('/opt/source/openchat/bin/openchat stop');
+    expect(systemdUnit).toContain('/opt/source/openchat/bin/openchat stop --environment production');
   });
 });

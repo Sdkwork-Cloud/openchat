@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -17,6 +17,7 @@ TEST_PASSED=0
 TEST_FAILED=0
 TEST_SKIPPED=0
 TEST_RESULTS=()
+ENV_FILE=""
 
 log_test() {
     local name="$1"
@@ -48,6 +49,208 @@ print_header() {
     echo -e "${CYAN}║              OpenChat 安装测试工具                              ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+}
+
+resolve_env_file() {
+    local requested="${OPENCHAT_ENV_FILE:-}"
+    local node_env="${NODE_ENV:-}"
+
+    if [[ -n "$requested" && -f "$requested" ]]; then
+        echo "$requested"
+        return 0
+    fi
+
+    case "${node_env,,}" in
+        development|dev)
+            for candidate in "${PROJECT_ROOT}/.env.development" "${PROJECT_ROOT}/.env.dev" "${PROJECT_ROOT}/.env"; do
+                [[ -f "$candidate" ]] && echo "$candidate" && return 0
+            done
+            ;;
+        test)
+            for candidate in "${PROJECT_ROOT}/.env.test" "${PROJECT_ROOT}/.env"; do
+                [[ -f "$candidate" ]] && echo "$candidate" && return 0
+            done
+            ;;
+        production|prod)
+            for candidate in "${PROJECT_ROOT}/.env.production" "${PROJECT_ROOT}/.env.prod" "${PROJECT_ROOT}/.env"; do
+                [[ -f "$candidate" ]] && echo "$candidate" && return 0
+            done
+            ;;
+    esac
+
+    for candidate in \
+        "${PROJECT_ROOT}/.env" \
+        "${PROJECT_ROOT}/.env.development" \
+        "${PROJECT_ROOT}/.env.dev" \
+        "${PROJECT_ROOT}/.env.test" \
+        "${PROJECT_ROOT}/.env.production" \
+        "${PROJECT_ROOT}/.env.prod"; do
+        [[ -f "$candidate" ]] && echo "$candidate" && return 0
+    done
+
+    return 1
+}
+
+read_env_value() {
+    local key="$1"
+
+    if [[ -n "${!key+x}" ]]; then
+        printf '%s\n' "${!key}"
+        return 0
+    fi
+
+    local env_file="${ENV_FILE:-}"
+    if [[ -n "$env_file" && -f "$env_file" ]] && grep -q "^${key}=" "$env_file" 2>/dev/null; then
+        awk -F= -v lookup_key="$key" '$1 == lookup_key { print substr($0, index($0, "=") + 1); exit }' "$env_file"
+        return 0
+    fi
+
+    return 1
+}
+
+get_env_value() {
+    local key="$1"
+    local default_value="${2:-}"
+    local value
+
+    if value=$(read_env_value "$key"); then
+        printf '%s\n' "$value"
+        return 0
+    fi
+
+    printf '%s\n' "$default_value"
+}
+
+normalize_bind_host() {
+    local host="${1:-127.0.0.1}"
+
+    case "$host" in
+        ""|0.0.0.0|::|[::]|localhost)
+            printf '%s\n' "127.0.0.1"
+            ;;
+        *)
+            printf '%s\n' "$host"
+            ;;
+    esac
+}
+
+docker_ready() {
+    command -v docker &>/dev/null && docker info &>/dev/null
+}
+
+docker_container_exists() {
+    local container="$1"
+    docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Fxq "$container"
+}
+
+docker_container_running() {
+    local container="$1"
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -Fxq "$container"
+}
+
+resolve_container_name() {
+    local candidate
+
+    for candidate in "$@"; do
+        if docker_container_exists "$candidate"; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+resolve_container_host_port() {
+    local container="$1"
+    local internal_port="$2"
+    local mapping
+
+    mapping=$(docker port "$container" "$internal_port" 2>/dev/null | head -1)
+    [[ -n "$mapping" ]] || return 1
+
+    mapping="${mapping##*:}"
+    mapping="${mapping%% *}"
+    printf '%s\n' "$mapping"
+}
+
+resolve_api_base_url() {
+    if [[ -n "${API_URL:-}" ]]; then
+        printf '%s\n' "${API_URL}"
+        return 0
+    fi
+
+    local app_container=""
+    local app_port=""
+    local host
+    local port
+
+    if docker_ready; then
+        app_container=$(resolve_container_name openchat openchat-server || true)
+        if [[ -n "$app_container" ]] && docker_container_running "$app_container"; then
+            app_port=$(resolve_container_host_port "$app_container" "3000/tcp" || true)
+        fi
+    fi
+
+    if [[ -n "$app_port" ]]; then
+        printf '%s\n' "http://127.0.0.1:${app_port}"
+        return 0
+    fi
+
+    host=$(normalize_bind_host "$(get_env_value HOST 127.0.0.1)")
+    port=$(get_env_value PORT 7200)
+    printf '%s\n' "http://${host}:${port}"
+}
+
+resolve_service_port() {
+    local env_key="$1"
+    local default_port="$2"
+    shift 2
+
+    local container=""
+    local mapped_port=""
+
+    if docker_ready; then
+        container=$(resolve_container_name "$@" || true)
+        if [[ -n "$container" ]] && docker_container_running "$container"; then
+            case "$container" in
+                openchat|openchat-server)
+                    mapped_port=$(resolve_container_host_port "$container" "3000/tcp" || true)
+                    ;;
+                openchat-postgres)
+                    mapped_port=$(resolve_container_host_port "$container" "5432/tcp" || true)
+                    ;;
+                openchat-redis)
+                    mapped_port=$(resolve_container_host_port "$container" "6379/tcp" || true)
+                    ;;
+            esac
+        fi
+    fi
+
+    if [[ -n "$mapped_port" ]]; then
+        printf '%s\n' "$mapped_port"
+        return 0
+    fi
+
+    get_env_value "$env_key" "$default_port"
+}
+
+port_is_listening() {
+    local port="$1"
+
+    if command -v lsof &>/dev/null && lsof -iTCP:"$port" -sTCP:LISTEN &>/dev/null; then
+        return 0
+    fi
+
+    if command -v ss &>/dev/null && ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"; then
+        return 0
+    fi
+
+    if command -v netstat &>/dev/null && netstat -tuln 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"; then
+        return 0
+    fi
+
+    return 1
 }
 
 test_docker_installed() {
@@ -98,11 +301,21 @@ test_required_files() {
     
     local required_files=(
         "docker-compose.yml"
+        "docker-compose.quick.yml"
         "Dockerfile"
-        ".env"
+        ".env.example"
+        ".env.development"
+        ".env.test"
+        ".env.production"
         "package.json"
-        "nest-cli.json"
         "tsconfig.json"
+        "database/schema.sql"
+        "database/seed.sql"
+        "scripts/deploy-server.sh"
+        "scripts/init-database.sh"
+        "scripts/apply-db-patches.sh"
+        "scripts/run-with-env.cjs"
+        "bin/openchat"
     )
     
     for file in "${required_files[@]}"; do
@@ -116,8 +329,10 @@ test_required_files() {
     local required_dirs=(
         "src"
         "scripts"
+        "database/patches"
         "var/logs"
-        "var/uploads"
+        "var/run"
+        "var/data"
     )
     
     for dir in "${required_dirs[@]}"; do
@@ -132,14 +347,14 @@ test_required_files() {
 test_env_configuration() {
     echo -e "\n${BLUE}=== 环境配置测试 ===${NC}"
     
-    local env_file="${PROJECT_ROOT}/.env"
+    local env_file="${ENV_FILE}"
     
     if [[ ! -f "$env_file" ]]; then
-        log_test "环境配置文件" "FAIL" ".env 文件不存在"
+        log_test "环境配置文件" "FAIL" "未找到可用环境文件"
         return 1
     fi
     
-    log_test "环境配置文件存在" "PASS"
+    log_test "环境配置文件存在" "PASS" "$env_file"
     
     local required_vars=(
         "NODE_ENV"
@@ -180,65 +395,88 @@ test_env_configuration() {
 
 test_containers() {
     echo -e "\n${BLUE}=== 容器测试 ===${NC}"
-    
-    local containers=("openchat-server" "openchat-postgres" "openchat-redis")
-    
-    for container in "${containers[@]}"; do
-        if docker ps --filter "name=${container}" --filter "status=running" -q | grep -q .; then
-            log_test "容器运行: ${container}" "PASS"
-            
-            local health
-            health=$(docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || echo "unknown")
-            
-            case "$health" in
-                "healthy")
-                    log_test "容器健康: ${container}" "PASS"
-                    ;;
-                "unhealthy")
-                    log_test "容器健康: ${container}" "FAIL" "容器状态不健康"
-                    ;;
-                "starting")
-                    log_test "容器健康: ${container}" "SKIP" "容器正在启动中"
-                    ;;
-                *)
-                    log_test "容器健康: ${container}" "SKIP" "无健康检查配置"
-                    ;;
-            esac
-        else
-            if docker ps -a --filter "name=${container}" -q | grep -q .; then
-                local status
-                status=$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null)
-                log_test "容器运行: ${container}" "FAIL" "容器状态: ${status}"
-            else
-                log_test "容器运行: ${container}" "SKIP" "容器不存在"
-            fi
-        fi
-    done
+
+    if ! docker_ready; then
+        log_test "容器检查" "SKIP" "Docker 未安装或未运行"
+        return 0
+    fi
+
+    check_container_status "openchat" openchat openchat-server
+    check_container_status "openchat-postgres" openchat-postgres
+    check_container_status "openchat-redis" openchat-redis
+    check_container_status "openchat-wukongim" openchat-wukongim
+}
+
+check_container_status() {
+    local display_name="$1"
+    shift
+
+    local container
+    container=$(resolve_container_name "$@" || true)
+
+    if [[ -z "$container" ]]; then
+        log_test "容器运行: ${display_name}" "SKIP" "容器不存在"
+        return 0
+    fi
+
+    if docker_container_running "$container"; then
+        log_test "容器运行: ${container}" "PASS"
+
+        local health
+        health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$container" 2>/dev/null || echo "unknown")
+
+        case "$health" in
+            "healthy")
+                log_test "容器健康: ${container}" "PASS"
+                ;;
+            "unhealthy")
+                log_test "容器健康: ${container}" "FAIL" "容器状态不健康"
+                ;;
+            "starting")
+                log_test "容器健康: ${container}" "SKIP" "容器正在启动中"
+                ;;
+            *)
+                log_test "容器健康: ${container}" "SKIP" "无健康检查配置"
+                ;;
+        esac
+    else
+        local status
+        status=$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || echo "unknown")
+        log_test "容器运行: ${container}" "FAIL" "容器状态: ${status}"
+    fi
 }
 
 test_database_connection() {
     echo -e "\n${BLUE}=== 数据库测试 ===${NC}"
-    
-    local db_container="openchat-postgres"
-    
-    if ! docker ps --filter "name=${db_container}" --filter "status=running" -q | grep -q .; then
+
+    if ! docker_ready; then
+        log_test "数据库连接" "SKIP" "Docker 未安装或未运行"
+        return 0
+    fi
+
+    local db_container
+    db_container=$(resolve_container_name openchat-postgres || true)
+
+    if [[ -z "$db_container" ]] || ! docker_container_running "$db_container"; then
         log_test "数据库连接" "SKIP" "数据库容器未运行"
         return 0
     fi
-    
-    if docker exec "${db_container}" pg_isready -U postgres &>/dev/null; then
+
+    local db_user
+    local db_password
+    local db_name
+    db_user=$(get_env_value DB_USERNAME openchat)
+    db_password=$(get_env_value DB_PASSWORD openchat_password)
+    db_name=$(get_env_value DB_NAME openchat)
+
+    if docker exec -e PGPASSWORD="${db_password}" "${db_container}" pg_isready -h 127.0.0.1 -U "${db_user}" -d "${db_name}" &>/dev/null; then
         log_test "数据库就绪" "PASS"
     else
         log_test "数据库就绪" "FAIL" "数据库未就绪"
         return 1
     fi
-    
-    local env_file="${PROJECT_ROOT}/.env"
-    local db_name
-    db_name=$(grep "^DB_NAME=" "$env_file" 2>/dev/null | cut -d'=' -f2)
-    db_name="${db_name:-openchat}"
-    
-    if docker exec "${db_container}" psql -U postgres -d "$db_name" -c "SELECT 1" &>/dev/null; then
+
+    if docker exec -e PGPASSWORD="${db_password}" "${db_container}" psql -h 127.0.0.1 -U "${db_user}" -d "${db_name}" -c "SELECT 1" &>/dev/null; then
         log_test "数据库连接" "PASS"
     else
         log_test "数据库连接" "FAIL" "无法连接到数据库"
@@ -246,7 +484,8 @@ test_database_connection() {
     fi
     
     local tables
-    tables=$(docker exec "${db_container}" psql -U postgres -d "$db_name" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'" 2>/dev/null | tr -d ' ')
+    tables=$(docker exec -e PGPASSWORD="${db_password}" "${db_container}" psql -h 127.0.0.1 -U "${db_user}" -d "${db_name}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'" 2>/dev/null | tr -d ' ')
+    tables="${tables:-0}"
     
     if [[ "$tables" -gt 0 ]]; then
         log_test "数据库表" "PASS" "表数量: ${tables}"
@@ -257,44 +496,64 @@ test_database_connection() {
 
 test_redis_connection() {
     echo -e "\n${BLUE}=== Redis测试 ===${NC}"
-    
-    local redis_container="openchat-redis"
-    
-    if ! docker ps --filter "name=${redis_container}" --filter "status=running" -q | grep -q .; then
+
+    if ! docker_ready; then
+        log_test "Redis连接" "SKIP" "Docker 未安装或未运行"
+        return 0
+    fi
+
+    local redis_container
+    redis_container=$(resolve_container_name openchat-redis || true)
+
+    if [[ -z "$redis_container" ]] || ! docker_container_running "$redis_container"; then
         log_test "Redis连接" "SKIP" "Redis容器未运行"
         return 0
     fi
-    
+
+    local redis_password=""
+    local -a redis_auth_args=()
+
     if docker exec "${redis_container}" redis-cli ping 2>/dev/null | grep -q "PONG"; then
         log_test "Redis连接" "PASS"
     else
-        log_test "Redis连接" "FAIL" "Redis未响应"
-        return 1
+        redis_password=$(get_env_value REDIS_PASSWORD "")
+        if [[ -z "$redis_password" ]]; then
+            redis_password="redis_password"
+        fi
+        redis_auth_args=(-a "$redis_password")
+
+        if docker exec "${redis_container}" redis-cli "${redis_auth_args[@]}" ping 2>/dev/null | grep -q "PONG"; then
+            log_test "Redis连接" "PASS"
+        else
+            log_test "Redis连接" "FAIL" "Redis未响应"
+            return 1
+        fi
     fi
-    
+
     local test_key="__openchat_test__"
     local test_value="test_$(date +%s)"
-    
-    docker exec "${redis_container}" redis-cli SET "$test_key" "$test_value" EX 10 &>/dev/null
+
+    docker exec "${redis_container}" redis-cli "${redis_auth_args[@]}" SET "$test_key" "$test_value" EX 10 &>/dev/null
     local retrieved
-    retrieved=$(docker exec "${redis_container}" redis-cli GET "$test_key" 2>/dev/null)
+    retrieved=$(docker exec "${redis_container}" redis-cli "${redis_auth_args[@]}" GET "$test_key" 2>/dev/null)
     
     if [[ "$retrieved" == "$test_value" ]]; then
         log_test "Redis读写" "PASS"
-        docker exec "${redis_container}" redis-cli DEL "$test_key" &>/dev/null
+        docker exec "${redis_container}" redis-cli "${redis_auth_args[@]}" DEL "$test_key" &>/dev/null
     else
         log_test "Redis读写" "FAIL" "读写测试失败"
     fi
     
     local memory
-    memory=$(docker exec "${redis_container}" redis-cli INFO memory 2>/dev/null | grep "used_memory_human" | cut -d: -f2 | tr -d '\r')
+    memory=$(docker exec "${redis_container}" redis-cli "${redis_auth_args[@]}" INFO memory 2>/dev/null | grep "used_memory_human" | cut -d: -f2 | tr -d '\r')
     log_test "Redis内存使用" "PASS" "使用: ${memory}"
 }
 
 test_api_endpoints() {
     echo -e "\n${BLUE}=== API端点测试 ===${NC}"
-    
-    local base_url="${API_URL:-http://localhost:3000}"
+
+    local base_url
+    base_url=$(resolve_api_base_url)
     local timeout=5
     
     local response
@@ -332,26 +591,35 @@ test_api_endpoints() {
 
 test_network() {
     echo -e "\n${BLUE}=== 网络测试 ===${NC}"
-    
-    local networks=("openchat-network" "openchat_default")
-    local network_found=false
-    
-    for network in "${networks[@]}"; do
-        if docker network inspect "$network" &>/dev/null; then
-            log_test "Docker网络: ${network}" "PASS"
-            network_found=true
-            break
+
+    if docker_ready; then
+        local networks=("openchat-network" "openchat_default")
+        local network_found=false
+
+        for network in "${networks[@]}"; do
+            if docker network inspect "$network" &>/dev/null; then
+                log_test "Docker网络: ${network}" "PASS"
+                network_found=true
+                break
+            fi
+        done
+
+        if [[ "$network_found" == false ]]; then
+            log_test "Docker网络" "FAIL" "OpenChat网络不存在"
         fi
-    done
-    
-    if [[ "$network_found" == false ]]; then
-        log_test "Docker网络" "FAIL" "OpenChat网络不存在"
+    else
+        log_test "Docker网络" "SKIP" "Docker 未安装或未运行"
     fi
-    
-    local ports=("3000" "5432" "6379")
-    
+
+    local ports=(
+        "$(resolve_service_port PORT 7200 openchat openchat-server)"
+        "$(resolve_service_port DB_PORT 5432 openchat-postgres)"
+        "$(resolve_service_port REDIS_PORT 6379 openchat-redis)"
+    )
+
+    local port
     for port in "${ports[@]}"; do
-        if lsof -i ":${port}" &>/dev/null || netstat -tuln 2>/dev/null | grep -q ":${port}"; then
+        if port_is_listening "$port"; then
             log_test "端口监听: ${port}" "PASS"
         else
             log_test "端口监听: ${port}" "FAIL" "端口未监听"
@@ -373,9 +641,13 @@ test_disk_space() {
         log_test "磁盘空间" "FAIL" "可用: ${available}GB (空间不足)"
     fi
     
-    local docker_usage
-    docker_usage=$(docker system df 2>/dev/null | grep "Images" | awk '{print $3}' | head -1)
-    log_test "Docker镜像空间" "PASS" "使用: ${docker_usage}"
+    if docker_ready; then
+        local docker_usage
+        docker_usage=$(docker system df 2>/dev/null | grep "Images" | awk '{print $3}' | head -1)
+        log_test "Docker镜像空间" "PASS" "使用: ${docker_usage}"
+    else
+        log_test "Docker镜像空间" "SKIP" "Docker 未安装或未运行"
+    fi
 }
 
 test_permissions() {
@@ -383,9 +655,9 @@ test_permissions() {
     
     local dirs=(
         "${PROJECT_ROOT}/var/logs"
-        "${PROJECT_ROOT}/var/uploads"
-        "${PROJECT_ROOT}/var/postgres"
-        "${PROJECT_ROOT}/var/redis"
+        "${PROJECT_ROOT}/var/run"
+        "${PROJECT_ROOT}/var/data"
+        "${PROJECT_ROOT}/database"
     )
     
     for dir in "${dirs[@]}"; do
@@ -587,6 +859,7 @@ EOF
 
 main() {
     mkdir -p "${LOG_DIR}"
+    ENV_FILE="$(resolve_env_file || true)"
     
     local command="${1:-full}"
     

@@ -1,12 +1,10 @@
-﻿#!/bin/bash
+#!/usr/bin/env bash
 
-# ============================================
-# OpenChat 鏈嶅姟鍋ュ悍妫€鏌ュ拰璇婃柇鑴氭湰
-# ============================================
+set -euo pipefail
 
-set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# 棰滆壊瀹氫箟
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -14,392 +12,385 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# 閰嶇疆
-APP_URL="${APP_URL:-http://localhost:3000}"
+FAILURES=0
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+print_line() {
+  echo -e "${CYAN}=========================================${NC}"
+}
+
+print_header() {
+  echo
+  print_line
+  echo -e "${BLUE}$1${NC}"
+  print_line
+}
+
+mark_ok() {
+  echo -e "${GREEN}OK${NC} $1"
+}
+
+mark_warn() {
+  echo -e "${YELLOW}WARN${NC} $1"
+}
+
+mark_fail() {
+  echo -e "${RED}FAIL${NC} $1"
+  FAILURES=$((FAILURES + 1))
+}
+
+probe_http() {
+  local url="$1"
+  curl -fsS --max-time 3 "$url" >/dev/null 2>&1
+}
+
+probe_tcp() {
+  local host="$1"
+  local port="$2"
+
+  if command_exists nc; then
+    nc -z "$host" "$port" >/dev/null 2>&1
+    return $?
+  fi
+
+  return 1
+}
+
+resolve_env_file() {
+  local requested="${OPENCHAT_ENV_FILE:-}"
+  local node_env="${NODE_ENV:-}"
+
+  if [[ -n "$requested" && -f "$requested" ]]; then
+    echo "$requested"
+    return 0
+  fi
+
+  if [[ -n "$node_env" ]]; then
+    case "${node_env,,}" in
+      development|dev)
+        for candidate in "$PROJECT_ROOT/.env.development" "$PROJECT_ROOT/.env.dev" "$PROJECT_ROOT/.env"; do
+          [[ -f "$candidate" ]] && echo "$candidate" && return 0
+        done
+        ;;
+      test)
+        for candidate in "$PROJECT_ROOT/.env.test" "$PROJECT_ROOT/.env"; do
+          [[ -f "$candidate" ]] && echo "$candidate" && return 0
+        done
+        ;;
+      production|prod)
+        for candidate in "$PROJECT_ROOT/.env.production" "$PROJECT_ROOT/.env.prod" "$PROJECT_ROOT/.env"; do
+          [[ -f "$candidate" ]] && echo "$candidate" && return 0
+        done
+        ;;
+    esac
+  fi
+
+  for candidate in \
+    "$PROJECT_ROOT/.env" \
+    "$PROJECT_ROOT/.env.development" \
+    "$PROJECT_ROOT/.env.dev" \
+    "$PROJECT_ROOT/.env.test" \
+    "$PROJECT_ROOT/.env.production" \
+    "$PROJECT_ROOT/.env.prod"; do
+    [[ -f "$candidate" ]] && echo "$candidate" && return 0
+  done
+
+  return 1
+}
+
+ENV_FILE="$(resolve_env_file || true)"
+if [[ -n "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+APP_HOST="${APP_HOST:-${HOST:-127.0.0.1}}"
+APP_PORT="${APP_PORT:-${PORT:-7200}}"
+APP_URL="${APP_URL:-http://${APP_HOST}:${APP_PORT}}"
+RUNTIME_ENVIRONMENT="${NODE_ENV:-production}"
+
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
+DB_USERNAME="${DB_USERNAME:-openchat}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+DB_NAME="${DB_NAME:-openchat}"
+
 REDIS_HOST="${REDIS_HOST:-localhost}"
 REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+
 WUKONGIM_URL="${WUKONGIM_API_URL:-http://localhost:5001}"
 
-# 鎵撳嵃鍒嗛殧绾?print_line() {
-    echo -e "${CYAN}=========================================${NC}"
-}
+check_config() {
+  print_header "Configuration"
 
-# 鎵撳嵃鏍囬
-print_header() {
-    echo ""
-    print_line
-    echo -e "${BLUE}$1${NC}"
-    print_line
-}
+  if [[ -n "$ENV_FILE" ]]; then
+    mark_ok "Loaded environment file: $ENV_FILE"
+  else
+    mark_warn "No environment file found. Using process environment only."
+  fi
 
-# 妫€鏌ユ湇鍔℃槸鍚﹁繍琛?check_service() {
-    local service=$1
-    local port=$2
-    local url=$3
-    
-    echo -n "妫€鏌?$service ... "
-    
-    if [ -n "$url" ]; then
-        if curl -sf "$url" > /dev/null 2>&1; then
-            echo -e "${GREEN}鉁?杩愯涓?{NC}"
-            return 0
-        else
-            echo -e "${RED}鉁?涓嶅彲鐢?{NC}"
-            return 1
-        fi
-    elif [ -n "$port" ]; then
-        if nc -z localhost "$port" 2>/dev/null; then
-            echo -e "${GREEN}鉁?杩愯涓?{NC}"
-            return 0
-        else
-            echo -e "${RED}鉁?鏈繍琛?{NC}"
-            return 1
-        fi
-    fi
-    
-    echo -e "${YELLOW}? 鏈煡${NC}"
-    return 1
-}
+  local required_vars=(
+    "DB_HOST"
+    "DB_PORT"
+    "DB_USERNAME"
+    "DB_NAME"
+    "REDIS_HOST"
+    "REDIS_PORT"
+    "JWT_SECRET"
+  )
 
-# 妫€鏌?Docker 瀹瑰櫒鐘舵€?check_docker_containers() {
-    print_header "Docker 瀹瑰櫒鐘舵€?
-    
-    local containers=("openchat" "openchat-postgres" "openchat-redis" "openchat-wukongim")
-    local all_running=true
-    
-    for container in "${containers[@]}"; do
-        local status=$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || echo "not_found")
-        local health=$(docker inspect -f '{{.State.Health.Status}}' "$container" 2>/dev/null || echo "none")
-        
-        echo -n "  $container: "
-        
-        if [ "$status" = "running" ]; then
-            if [ "$health" != "none" ] && [ "$health" != "" ]; then
-                if [ "$health" = "healthy" ]; then
-                    echo -e "${GREEN}杩愯涓?(鍋ュ悍)${NC}"
-                else
-                    echo -e "${YELLOW}杩愯涓?($health)${NC}"
-                fi
-            else
-                echo -e "${GREEN}杩愯涓?{NC}"
-            fi
-        else
-            echo -e "${RED}鏈繍琛?($status)${NC}"
-            all_running=false
-        fi
-    done
-    
-    if [ "$all_running" = true ]; then
-        return 0
+  for var_name in "${required_vars[@]}"; do
+    if [[ -n "${!var_name:-}" ]]; then
+      mark_ok "Configured: $var_name"
     else
-        return 1
+      mark_fail "Missing required variable: $var_name"
     fi
+  done
 }
 
-# 妫€鏌ョ鍙?check_ports() {
-    print_header "绔彛妫€鏌?
-    
-    local ports=(
-        "3000:搴旂敤鏈嶅姟"
-        "5432:PostgreSQL"
-        "6379:Redis"
-        "5001:WukongIM API"
-        "5100:WukongIM TCP"
-        "5200:WukongIM WS"
-    )
-    
-    for item in "${ports[@]}"; do
-        local port="${item%%:*}"
-        local desc="${item##*:}"
-        
-        echo -n "  绔彛 $port ($desc): "
-        if nc -z localhost "$port" 2>/dev/null; then
-            echo -e "${GREEN}寮€鏀?{NC}"
-        else
-            echo -e "${YELLOW}鏈紑鏀?{NC}"
-        fi
-    done
-}
+check_ports() {
+  print_header "Ports"
 
-# 妫€鏌ュ簲鐢ㄥ仴搴风姸鎬?check_app_health() {
-    print_header "搴旂敤鍋ュ悍妫€鏌?
-    
-    echo -n "  搴旂敤鍋ュ悍绔偣: "
-    if curl -sf "$APP_URL/health" > /dev/null 2>&1; then
-        echo -e "${GREEN}姝ｅ父${NC}"
-        
-        # 鑾峰彇璇︾粏鍋ュ悍淇℃伅
-        echo ""
-        echo "  鍋ュ悍璇︽儏:"
-        curl -s "$APP_URL/health" | grep -o '"status":"[^"]*"' | sed 's/^/    /'
+  local entries=(
+    "127.0.0.1:${APP_PORT}:OpenChat"
+    "${DB_HOST}:${DB_PORT}:PostgreSQL"
+    "${REDIS_HOST}:${REDIS_PORT}:Redis"
+  )
+
+  if [[ -n "${WUKONGIM_API_URL:-}" ]]; then
+    local wukong_host
+    local wukong_port
+    wukong_host="$(echo "$WUKONGIM_URL" | sed -E 's#^https?://([^/:]+).*#\1#')"
+    wukong_port="$(echo "$WUKONGIM_URL" | sed -nE 's#^https?://[^/:]+:([0-9]+).*$#\1#p')"
+    wukong_port="${wukong_port:-80}"
+    entries+=("${wukong_host}:${wukong_port}:WukongIM")
+  fi
+
+  for entry in "${entries[@]}"; do
+    local host="${entry%%:*}"
+    local rest="${entry#*:}"
+    local port="${rest%%:*}"
+    local name="${entry##*:}"
+
+    if probe_tcp "$host" "$port"; then
+      mark_ok "${name} is reachable on ${host}:${port}"
     else
-        echo -e "${RED}寮傚父${NC}"
-        echo -e "  ${YELLOW}鎻愮ず: 搴旂敤鍙兘姝ｅ湪鍚姩鎴栭厤缃湁闂${NC}"
+      mark_warn "${name} is not reachable on ${host}:${port}"
     fi
-    
-    echo ""
-    echo -n "  API 鏂囨。: "
-    if curl -sf "$APP_URL/im/v3/docs" > /dev/null 2>&1; then
-        echo -e "${GREEN}鍙敤${NC}"
-    else
-        echo -e "${YELLOW}涓嶅彲鐢?{NC}"
-    fi
+  done
 }
 
-# 妫€鏌ユ暟鎹簱杩炴帴
+check_app_health() {
+  print_header "Application"
+
+  if probe_http "${APP_URL%/}/health"; then
+    mark_ok "Health endpoint responded: ${APP_URL%/}/health"
+  else
+    mark_fail "Health endpoint is unavailable: ${APP_URL%/}/health"
+  fi
+
+  if probe_http "${APP_URL%/}/im/v3/docs"; then
+    mark_ok "OpenAPI docs responded: ${APP_URL%/}/im/v3/docs"
+  else
+    mark_warn "OpenAPI docs are unavailable: ${APP_URL%/}/im/v3/docs"
+  fi
+}
+
+check_runtime() {
+  print_header "Runtime"
+
+  if [[ ! -x "$PROJECT_ROOT/bin/openchat" ]]; then
+    mark_warn "Runtime wrapper is unavailable: $PROJECT_ROOT/bin/openchat"
+    return 0
+  fi
+
+  if "$PROJECT_ROOT/bin/openchat" status --environment "$RUNTIME_ENVIRONMENT" >/dev/null 2>&1; then
+    mark_ok "Runtime status command succeeded for environment ${RUNTIME_ENVIRONMENT}"
+  else
+    mark_warn "Runtime status command reported an issue for environment ${RUNTIME_ENVIRONMENT}"
+  fi
+
+  if "$PROJECT_ROOT/bin/openchat" health --environment "$RUNTIME_ENVIRONMENT" >/dev/null 2>&1; then
+    mark_ok "Runtime health command succeeded for environment ${RUNTIME_ENVIRONMENT}"
+  else
+    mark_warn "Runtime health command reported an issue for environment ${RUNTIME_ENVIRONMENT}"
+  fi
+}
+
 check_database() {
-    print_header "鏁版嵁搴撹繛鎺ユ鏌?
-    
-    echo -n "  PostgreSQL 杩炴帴: "
-    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
-        echo -e "${GREEN}姝ｅ父${NC}"
-        
-        # 鑾峰彇鏁版嵁搴撲俊鎭?        echo ""
-        echo "  鏁版嵁搴撲俊鎭?"
-        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" 2>/dev/null | head -20 | sed 's/^/    /'
-    else
-        echo -e "${RED}寮傚父${NC}"
-        echo -e "  ${YELLOW}鎻愮ず: 妫€鏌?DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD 閰嶇疆${NC}"
-    fi
+  print_header "Database"
+
+  if ! command_exists psql; then
+    mark_fail "psql is not available in PATH"
+    return 0
+  fi
+
+  if PGPASSWORD="$DB_PASSWORD" psql \
+    -h "$DB_HOST" \
+    -p "$DB_PORT" \
+    -U "$DB_USERNAME" \
+    -d "$DB_NAME" \
+    -v ON_ERROR_STOP=1 \
+    -tAc "SELECT 1" >/dev/null 2>&1; then
+    mark_ok "PostgreSQL connection succeeded (${DB_USERNAME}@${DB_HOST}:${DB_PORT}/${DB_NAME})"
+  else
+    mark_fail "PostgreSQL connection failed (${DB_USERNAME}@${DB_HOST}:${DB_PORT}/${DB_NAME})"
+  fi
 }
 
-# 妫€鏌?Redis 杩炴帴
 check_redis() {
-    print_header "Redis 杩炴帴妫€鏌?
-    
-    echo -n "  Redis 杩炴帴: "
-    if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -a "$REDIS_PASSWORD" ping > /dev/null 2>&1; then
-        echo -e "${GREEN}姝ｅ父${NC}"
-        
-        # 鑾峰彇 Redis 淇℃伅
-        echo ""
-        echo "  Redis 淇℃伅:"
-        redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -a "$REDIS_PASSWORD" info | grep -E "^(redis_version|connected_clients|used_memory_human)" | sed 's/^/    /'
-    else
-        echo -e "${RED}寮傚父${NC}"
-        echo -e "  ${YELLOW}鎻愮ず: 妫€鏌?REDIS_HOST, REDIS_PORT, REDIS_PASSWORD 閰嶇疆${NC}"
-    fi
+  print_header "Redis"
+
+  if ! command_exists redis-cli; then
+    mark_fail "redis-cli is not available in PATH"
+    return 0
+  fi
+
+  local redis_args=("-h" "$REDIS_HOST" "-p" "$REDIS_PORT")
+  if [[ -n "$REDIS_PASSWORD" ]]; then
+    redis_args+=("-a" "$REDIS_PASSWORD")
+  fi
+
+  if redis-cli "${redis_args[@]}" ping >/dev/null 2>&1; then
+    mark_ok "Redis connection succeeded (${REDIS_HOST}:${REDIS_PORT})"
+  else
+    mark_fail "Redis connection failed (${REDIS_HOST}:${REDIS_PORT})"
+  fi
 }
 
-# 妫€鏌?WukongIM 杩炴帴
 check_wukongim() {
-    print_header "WukongIM 杩炴帴妫€鏌?
-    
-    echo -n "  WukongIM API: "
-    if curl -sf "$WUKONGIM_URL/health" > /dev/null 2>&1; then
-        echo -e "${GREEN}姝ｅ父${NC}"
-        
-        # 鑾峰彇 WukongIM 淇℃伅
-        echo ""
-        echo "  WukongIM 淇℃伅:"
-        curl -s "$WUKONGIM_URL/varz" 2>/dev/null | grep -oE '"(online_user_count|channel_count)":[^,]*' | sed 's/^/    /' || echo "    鏃犳硶鑾峰彇璇︾粏淇℃伅"
+  print_header "WukongIM"
+
+  if [[ "${WUKONGIM_ENABLED:-true}" == "false" ]]; then
+    mark_warn "WukongIM is disabled by configuration"
+    return 0
+  fi
+
+  if probe_http "${WUKONGIM_URL%/}/health"; then
+    mark_ok "WukongIM health endpoint responded: ${WUKONGIM_URL%/}/health"
+  else
+    mark_warn "WukongIM health endpoint is unavailable: ${WUKONGIM_URL%/}/health"
+  fi
+}
+
+check_docker_containers() {
+  print_header "Docker"
+
+  if ! command_exists docker; then
+    mark_warn "docker command is not available"
+    return 0
+  fi
+
+  if ! docker info >/dev/null 2>&1; then
+    mark_warn "Docker daemon is unavailable or current user has no permission"
+    return 0
+  fi
+
+  local containers=(
+    "openchat"
+    "openchat-postgres"
+    "openchat-redis"
+    "openchat-wukongim"
+  )
+
+  for container in "${containers[@]}"; do
+    local status
+    status="$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || echo 'missing')"
+    if [[ "$status" == "running" ]]; then
+      mark_ok "Container running: $container"
+    elif [[ "$status" == "missing" ]]; then
+      mark_warn "Container not found: $container"
     else
-        echo -e "${RED}寮傚父${NC}"
-        echo -e "  ${YELLOW}鎻愮ず: 妫€鏌?WUKONGIM_API_URL 閰嶇疆鎴?WukongIM 鏈嶅姟鏄惁鍚姩${NC}"
+      mark_warn "Container status for $container: $status"
     fi
+  done
 }
 
-# 妫€鏌ョ綉缁滆繛鎺?check_network() {
-    print_header "缃戠粶杩為€氭€?
-    
-    local hosts=(
-        "google.com:浜掕仈缃戣繛鎺?
-        "$DB_HOST:鏁版嵁搴撲富鏈?
-        "$REDIS_HOST:Redis涓绘満"
-    )
-    
-    for item in "${hosts[@]}"; do
-        local host="${item%%:*}"
-        local desc="${item##*:}"
-        
-        echo -n "  $desc: "
-        if ping -c 1 -W 2 "$host" > /dev/null 2>&1 || nc -z "$host" 443 2>/dev/null; then
-            echo -e "${GREEN}鍙揪${NC}"
-        else
-            echo -e "${YELLOW}涓嶅彲杈?{NC}"
-        fi
-    done
+run_quick_check() {
+  print_header "OpenChat Quick Check"
+  check_config
+  check_runtime
+  check_app_health
 }
 
-# 妫€鏌ユ棩蹇楅敊璇?check_logs() {
-    print_header "鏈€杩戦敊璇棩蹇?
-    
-    local containers=("openchat" "openchat-postgres" "openchat-redis" "openchat-wukongim")
-    
-    for container in "${containers[@]}"; do
-        local errors=$(docker logs --tail 20 "$container" 2>&1 | grep -iE "(error|fatal|exception)" | tail -5)
-        
-        if [ -n "$errors" ]; then
-            echo ""
-            echo -e "  ${RED}$container 閿欒:${NC}"
-            echo "$errors" | sed 's/^/    /'
-        fi
-    done
-}
-
-# 妫€鏌ヨ祫婧愪娇鐢?check_resources() {
-    print_header "璧勬簮浣跨敤鎯呭喌"
-    
-    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" | grep -E "(CONTAINER|openchat|postgres|redis|wukongim)" | sed 's/^/  /'
-}
-
-# 妫€鏌ラ厤缃畬鏁存€?check_config() {
-    print_header "閰嶇疆妫€鏌?
-    
-    local required_vars=(
-        "DB_HOST:鏁版嵁搴撲富鏈?
-        "DB_PORT:鏁版嵁搴撶鍙?
-        "DB_USERNAME:鏁版嵁搴撶敤鎴?
-        "DB_PASSWORD:鏁版嵁搴撳瘑鐮?
-        "REDIS_HOST:Redis涓绘満"
-        "REDIS_PORT:Redis绔彛"
-        "JWT_SECRET:JWT瀵嗛挜"
-    )
-    
-    local missing=()
-    
-    for item in "${required_vars[@]}"; do
-        local var="${item%%:*}"
-        local desc="${item##*:}"
-        
-        echo -n "  $desc: "
-        if [ -n "${!var}" ]; then
-            echo -e "${GREEN}宸查厤缃?{NC}"
-        else
-            echo -e "${RED}鏈厤缃?($var)${NC}"
-            missing+=("$var")
-        fi
-    done
-    
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo ""
-        echo -e "  ${YELLOW}鎻愮ず: 缂哄皯蹇呰閰嶇疆锛岃妫€鏌?.env 鏂囦欢${NC}"
-    fi
-}
-
-# 瀹屾暣璇婃柇
 run_full_diagnosis() {
-    print_header "OpenChat 瀹屾暣璇婃柇"
-    
-    echo -e "${BLUE}寮€濮嬭瘖鏂?..${NC}"
-    echo ""
-    
-    check_docker_containers
-    echo ""
-    
-    check_ports
-    echo ""
-    
-    check_config
-    echo ""
-    
-    check_app_health
-    echo ""
-    
-    check_database
-    echo ""
-    
-    check_redis
-    echo ""
-    
-    check_wukongim
-    echo ""
-    
-    check_network
-    echo ""
-    
-    check_resources
-    echo ""
-    
-    check_logs
-    
-    print_header "璇婃柇瀹屾垚"
+  print_header "OpenChat Full Diagnosis"
+  check_config
+  check_runtime
+  check_ports
+  check_app_health
+  check_database
+  check_redis
+  check_wukongim
+  check_docker_containers
 }
 
-# 蹇€熸鏌?run_quick_check() {
-    echo -e "${BLUE}OpenChat 蹇€熸鏌?{NC}"
-    echo ""
-    
-    check_docker_containers
-    echo ""
-    
-    check_app_health
-}
-
-# 鏄剧ず甯姪
 show_help() {
-    echo -e "${BLUE}OpenChat 鍋ュ悍妫€鏌ュ拰璇婃柇鑴氭湰${NC}"
-    echo ""
-    echo "鐢ㄦ硶: $0 [閫夐」]"
-    echo ""
-    echo "閫夐」:"
-    echo "  full         杩愯瀹屾暣璇婃柇"
-    echo "  quick        蹇€熸鏌?
-    echo "  containers   妫€鏌ュ鍣ㄧ姸鎬?
-    echo "  ports        妫€鏌ョ鍙?
-    echo "  app          妫€鏌ュ簲鐢?
-    echo "  database     妫€鏌ユ暟鎹簱"
-    echo "  redis        妫€鏌?Redis"
-    echo "  wukongim     妫€鏌?WukongIM"
-    echo "  config       妫€鏌ラ厤缃?
-    echo "  resources    妫€鏌ヨ祫婧?
-    echo "  logs         妫€鏌ユ棩蹇?
-    echo "  help         鏄剧ず甯姪"
-    echo ""
-    echo "绀轰緥:"
-    echo "  $0 full          # 瀹屾暣璇婃柇"
-    echo "  $0 quick        # 蹇€熸鏌?
-    echo "  $0 database     # 妫€鏌ユ暟鎹簱"
+  cat <<'EOF'
+OpenChat health check
+
+Usage:
+  ./scripts/health-check.sh [quick|full|config|runtime|ports|app|database|redis|wukongim|containers|help]
+
+Environment:
+  OPENCHAT_ENV_FILE=/path/to/.env.production ./scripts/health-check.sh full
+
+Notes:
+  - The script loads OPENCHAT_ENV_FILE first when provided.
+  - Otherwise it resolves .env.<environment> from NODE_ENV and falls back to .env.
+  - quick checks configuration, runtime wrapper state, and /health.
+  - full runs configuration, runtime wrapper, ports, app, database, Redis, WukongIM, and Docker checks.
+EOF
 }
 
-# 涓诲懡浠?COMMAND="${1:-quick}"
+COMMAND="${1:-quick}"
 
 case "$COMMAND" in
-    full)
-        run_full_diagnosis
-        ;;
-    quick)
-        run_quick_check
-        ;;
-    containers)
-        check_docker_containers
-        ;;
-    ports)
-        check_ports
-        ;;
-    app)
-        check_app_health
-        ;;
-    database)
-        check_database
-        ;;
-    redis)
-        check_redis
-        ;;
-    wukongim)
-        check_wukongim
-        ;;
-    config)
-        check_config
-        ;;
-    resources)
-        check_resources
-        ;;
-    logs)
-        check_logs
-        ;;
-    network)
-        check_network
-        ;;
-    help|--help|-h)
-        show_help
-        ;;
-    *)
-        echo -e "${RED}鏈煡鍛戒护: $COMMAND${NC}"
-        show_help
-        exit 1
-        ;;
+  quick)
+    run_quick_check
+    ;;
+  full)
+    run_full_diagnosis
+    ;;
+  config)
+    check_config
+    ;;
+  runtime)
+    check_runtime
+    ;;
+  ports)
+    check_ports
+    ;;
+  app)
+    check_app_health
+    ;;
+  database)
+    check_database
+    ;;
+  redis)
+    check_redis
+    ;;
+  wukongim)
+    check_wukongim
+    ;;
+  containers)
+    check_docker_containers
+    ;;
+  help|--help|-h)
+    show_help
+    ;;
+  *)
+    mark_fail "Unknown command: $COMMAND"
+    show_help
+    ;;
 esac
 
+if [[ "$FAILURES" -gt 0 ]]; then
+  exit 1
+fi

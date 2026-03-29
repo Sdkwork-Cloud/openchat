@@ -1,6 +1,7 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue, Job } from 'bullmq';
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue, Job } from "bullmq";
+import { parseBooleanValue } from "../config/env-loader";
 
 /**
  * 消息任务数据
@@ -32,7 +33,7 @@ export interface NotificationJobData {
 export interface ConversationJobData {
   userId: string;
   targetId: string;
-  type: 'single' | 'group';
+  type: "single" | "group";
   messageId: string;
   content: string;
   messageTime: Date;
@@ -59,15 +60,19 @@ export class QueueService {
   private readonly enabled: boolean;
 
   constructor(
-    @Optional() @InjectQueue('message') private readonly messageQueue?: Queue,
-    @Optional() @InjectQueue('notification') private readonly notificationQueue?: Queue,
-    @Optional() @InjectQueue('conversation') private readonly conversationQueue?: Queue,
-    @Optional() @InjectQueue('webhook') private readonly webhookQueue?: Queue,
-    @Optional() @InjectQueue('cleanup') private readonly cleanupQueue?: Queue,
+    @Optional() @InjectQueue("message") private readonly messageQueue?: Queue,
+    @Optional()
+    @InjectQueue("notification")
+    private readonly notificationQueue?: Queue,
+    @Optional()
+    @InjectQueue("conversation")
+    private readonly conversationQueue?: Queue,
+    @Optional() @InjectQueue("webhook") private readonly webhookQueue?: Queue,
+    @Optional() @InjectQueue("cleanup") private readonly cleanupQueue?: Queue,
   ) {
-    this.enabled = process.env.QUEUE_ENABLED !== 'false';
+    this.enabled = parseBooleanValue(process.env.QUEUE_ENABLED, true);
     if (!this.enabled) {
-      this.logger.log('QueueService running in synchronous fallback mode');
+      this.logger.log("QueueService running in synchronous fallback mode");
     }
   }
 
@@ -79,7 +84,10 @@ export class QueueService {
    * 发送消息任务入队
    * 当队列禁用时，直接同步处理
    */
-  async enqueueMessage(data: MessageJobData, delay?: number): Promise<Job | any> {
+  async enqueueMessage(
+    data: MessageJobData,
+    delay?: number,
+  ): Promise<Job | any> {
     if (!this.enabled) {
       // 降级：同步处理
       this.logger.debug(`Processing message ${data.messageId} synchronously`);
@@ -90,10 +98,12 @@ export class QueueService {
       };
     }
 
-    const job = await this.messageQueue!.add('send', data, {
+    const job = await this.messageQueue!.add("send", data, {
       priority: data.priority || 5,
       delay,
-      jobId: data.clientSeq ? `msg:${data.fromUserId}:${data.clientSeq}` : undefined,
+      jobId: data.clientSeq
+        ? `msg:${data.fromUserId}:${data.clientSeq}`
+        : undefined,
     });
 
     this.logger.debug(`Message job ${job.id} enqueued`);
@@ -103,10 +113,14 @@ export class QueueService {
   /**
    * 批量发送消息任务
    */
-  async enqueueMessagesBatch(dataArray: MessageJobData[]): Promise<Job[] | any[]> {
+  async enqueueMessagesBatch(
+    dataArray: MessageJobData[],
+  ): Promise<Job[] | any[]> {
     if (!this.enabled) {
       // 降级：同步处理
-      this.logger.debug(`Processing ${dataArray.length} messages synchronously`);
+      this.logger.debug(
+        `Processing ${dataArray.length} messages synchronously`,
+      );
       return dataArray.map((data) => ({
         id: `sync-${Date.now()}-${data.messageId}`,
         data,
@@ -116,11 +130,13 @@ export class QueueService {
 
     const jobs = await this.messageQueue!.addBulk(
       dataArray.map((data) => ({
-        name: 'send',
+        name: "send",
         data,
         opts: {
           priority: data.priority || 5,
-          jobId: data.clientSeq ? `msg:${data.fromUserId}:${data.clientSeq}` : undefined,
+          jobId: data.clientSeq
+            ? `msg:${data.fromUserId}:${data.clientSeq}`
+            : undefined,
         },
       })),
     );
@@ -136,7 +152,10 @@ export class QueueService {
   /**
    * 发送通知任务入队
    */
-  async enqueueNotification(data: NotificationJobData, delay?: number): Promise<Job | any> {
+  async enqueueNotification(
+    data: NotificationJobData,
+    delay?: number,
+  ): Promise<Job | any> {
     if (!this.enabled) {
       this.logger.debug(`Processing notification synchronously`);
       return {
@@ -146,7 +165,7 @@ export class QueueService {
       };
     }
 
-    const job = await this.notificationQueue!.add('notify', data, {
+    const job = await this.notificationQueue!.add("notify", data, {
       priority: data.priority || 3,
       delay,
     });
@@ -165,19 +184,23 @@ export class QueueService {
     batchSize: number = 100,
   ): Promise<Job[] | any[]> {
     if (!this.enabled) {
-      this.logger.debug(`Processing ${userIds.length} notifications synchronously`);
-      return [{
-        id: `sync-${Date.now()}`,
-        data: { userIds, event, data },
-        returnvalue: { success: true, sync: true },
-      }];
+      this.logger.debug(
+        `Processing ${userIds.length} notifications synchronously`,
+      );
+      return [
+        {
+          id: `sync-${Date.now()}`,
+          data: { userIds, event, data },
+          returnvalue: { success: true, sync: true },
+        },
+      ];
     }
 
     const batches = this.chunkArray(userIds, batchSize);
     const jobs: Job[] = [];
 
     for (const batch of batches) {
-      const job = await this.notificationQueue!.add('notify', {
+      const job = await this.notificationQueue!.add("notify", {
         userIds: batch,
         event,
         data,
@@ -186,7 +209,9 @@ export class QueueService {
       jobs.push(job);
     }
 
-    this.logger.debug(`${jobs.length} notification jobs enqueued for ${userIds.length} users`);
+    this.logger.debug(
+      `${jobs.length} notification jobs enqueued for ${userIds.length} users`,
+    );
     return jobs;
   }
 
@@ -197,7 +222,9 @@ export class QueueService {
   /**
    * 会话更新任务入队
    */
-  async enqueueConversationUpdate(data: ConversationJobData): Promise<Job | any> {
+  async enqueueConversationUpdate(
+    data: ConversationJobData,
+  ): Promise<Job | any> {
     if (!this.enabled) {
       this.logger.debug(`Processing conversation update synchronously`);
       return {
@@ -207,7 +234,7 @@ export class QueueService {
       };
     }
 
-    const job = await this.conversationQueue!.add('update', data, {
+    const job = await this.conversationQueue!.add("update", data, {
       priority: 4,
     });
 
@@ -226,21 +253,25 @@ export class QueueService {
     messageTime: Date,
   ): Promise<Job[] | any[]> {
     if (!this.enabled) {
-      this.logger.debug(`Processing ${memberIds.length} conversation updates synchronously`);
-      return [{
-        id: `sync-${Date.now()}`,
-        data: { groupId, memberIds, messageId, content, messageTime },
-        returnvalue: { success: true, sync: true },
-      }];
+      this.logger.debug(
+        `Processing ${memberIds.length} conversation updates synchronously`,
+      );
+      return [
+        {
+          id: `sync-${Date.now()}`,
+          data: { groupId, memberIds, messageId, content, messageTime },
+          returnvalue: { success: true, sync: true },
+        },
+      ];
     }
 
     const jobs = await this.conversationQueue!.addBulk(
       memberIds.map((userId) => ({
-        name: 'update',
+        name: "update",
         data: {
           userId,
           targetId: groupId,
-          type: 'group',
+          type: "group",
           messageId,
           content,
           messageTime,
@@ -261,7 +292,10 @@ export class QueueService {
   /**
    * Webhook 任务入队
    */
-  async enqueueWebhook(data: WebhookJobData, delay?: number): Promise<Job | any> {
+  async enqueueWebhook(
+    data: WebhookJobData,
+    delay?: number,
+  ): Promise<Job | any> {
     if (!this.enabled) {
       this.logger.debug(`Processing webhook synchronously`);
       return {
@@ -271,12 +305,12 @@ export class QueueService {
       };
     }
 
-    const job = await this.webhookQueue!.add('send', data, {
+    const job = await this.webhookQueue!.add("send", data, {
       priority: 2,
       delay,
       attempts: data.retryCount || 3,
       backoff: {
-        type: 'exponential',
+        type: "exponential",
         delay: 5000,
       },
     });
@@ -292,7 +326,11 @@ export class QueueService {
   /**
    * 添加清理任务
    */
-  async scheduleCleanup(type: string, data: any, cron?: string): Promise<Job | any> {
+  async scheduleCleanup(
+    type: string,
+    data: any,
+    cron?: string,
+  ): Promise<Job | any> {
     if (!this.enabled) {
       this.logger.debug(`Cleanup task scheduled (sync mode): ${type}`);
       return {
@@ -303,9 +341,13 @@ export class QueueService {
     }
 
     if (cron) {
-      return this.cleanupQueue!.add('cleanup', { type, data }, { repeat: { pattern: cron } });
+      return this.cleanupQueue!.add(
+        "cleanup",
+        { type, data },
+        { repeat: { pattern: cron } },
+      );
     }
-    return this.cleanupQueue!.add('cleanup', { type, data });
+    return this.cleanupQueue!.add("cleanup", { type, data });
   }
 
   // ========================
@@ -367,7 +409,14 @@ export class QueueService {
   /**
    * 清空队列
    */
-  async cleanQueue(queueName: 'message' | 'notification' | 'conversation' | 'webhook' | 'cleanup') {
+  async cleanQueue(
+    queueName:
+      | "message"
+      | "notification"
+      | "conversation"
+      | "webhook"
+      | "cleanup",
+  ) {
     if (!this.enabled) {
       this.logger.warn(`Cannot clean queue ${queueName}: BullMQ is disabled`);
       return;
@@ -382,9 +431,9 @@ export class QueueService {
     };
 
     const queue = queueMap[queueName];
-    await queue.clean(0, 0, 'completed');
-    await queue.clean(0, 0, 'failed');
-    await queue.clean(0, 0, 'wait');
+    await queue.clean(0, 0, "completed");
+    await queue.clean(0, 0, "failed");
+    await queue.clean(0, 0, "wait");
 
     this.logger.log(`${queueName} queue cleaned`);
   }
@@ -392,7 +441,7 @@ export class QueueService {
   /**
    * 暂停队列
    */
-  async pauseQueue(queueName: 'message' | 'notification' | 'conversation') {
+  async pauseQueue(queueName: "message" | "notification" | "conversation") {
     if (!this.enabled) {
       this.logger.warn(`Cannot pause queue ${queueName}: BullMQ is disabled`);
       return;
@@ -411,7 +460,7 @@ export class QueueService {
   /**
    * 恢复队列
    */
-  async resumeQueue(queueName: 'message' | 'notification' | 'conversation') {
+  async resumeQueue(queueName: "message" | "notification" | "conversation") {
     if (!this.enabled) {
       this.logger.warn(`Cannot resume queue ${queueName}: BullMQ is disabled`);
       return;

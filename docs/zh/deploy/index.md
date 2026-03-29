@@ -1,397 +1,163 @@
 # 部署指南
 
-本指南介绍 OpenChat 在不同环境下的部署方式。
+本指南给出 OpenChat 在开发、测试、生产三种环境下的推荐部署方式。当前仓库已经内置 `.env.development`、`.env.test`、`.env.production`，不再要求把配置手工复制为 `.env` 才能运行。
 
 ## 快速导航
 
-| 文档 | 说明 |
-|------|------|
-| [安装指南](./installation.md) | 详细安装步骤和系统要求 |
-| [Docker 部署](./docker.md) | Docker 部署详解 |
-| [Kubernetes 部署](./kubernetes.md) | 集群部署指南 |
-| [传统部署](./traditional.md) | 非 Docker 部署方式 |
-| [快速部署](./quickstart.md) | 快速体验部署 |
-| [监控与告警](./monitoring.md) | Prometheus/Grafana 与告警模板 |
+| 文档                               | 说明                               |
+| ---------------------------------- | ---------------------------------- |
+| [安装指南](./installation.md)      | 从零安装、初始化数据库、按环境启动 |
+| [传统部署](./traditional.md)       | 宿主机 / Systemd / PM2 部署        |
+| [Docker 部署](./docker.md)         | 容器化部署                         |
+| [Kubernetes 部署](./kubernetes.md) | 集群部署                           |
+| [监控与告警](./monitoring.md)      | Prometheus / Grafana / 告警        |
 
-## 环境说明
+## 环境矩阵
 
-| 环境 | 配置文件 | 说明 |
-|------|---------|------|
-| 开发环境 | `.env.development` | 本地开发，详细日志 |
-| 测试环境 | `.env.test` | 功能测试，模拟数据 |
-| 生产环境 | `.env.production` | 正式部署，安全加固 |
+| 环境 | 环境文件           | 默认端口 | 默认数据库      | Redis DB  | 默认特征                              |
+| ---- | ------------------ | -------- | --------------- | --------- | ------------------------------------- |
+| 开发 | `.env.development` | `7200`   | `openchat_dev`  | `0 / 1`   | 启用队列、Redis Adapter、WuKongIM     |
+| 测试 | `.env.test`        | `7201`   | `openchat_test` | `10 / 11` | 默认关闭队列、Redis Adapter、WuKongIM |
+| 生产 | `.env.production`  | `7200`   | `openchat`      | `0 / 1`   | 强密码、文件日志、显式域名与公网 IP   |
 
-## 推荐主机部署
+环境文件加载顺序：
 
-```bash
-cp .env.example .env
-# 先编辑 .env
-./scripts/deploy-server.sh production --db-action auto --yes --service
-```
+- `NODE_ENV=development|dev`：`.env.development` -> `.env.dev` -> `.env`
+- `NODE_ENV=test`：`.env.test` -> `.env`
+- `NODE_ENV=production|prod`：`.env.production` -> `.env.prod` -> `.env`
 
-## 快速开始
+## 推荐方案
 
-### 1. 准备环境配置
+### 本地开发
 
 ```bash
-# 复制对应环境的配置文件
-cp .env.development .env    # 开发环境
-# 或
-cp .env.test .env           # 测试环境
-# 或
-cp .env.production .env     # 生产环境
-
-# 编辑配置
-vim .env
-```
-
-### 2. 启动服务
-
-```bash
-# Linux 主机服务端部署
-./scripts/deploy-server.sh production --db-action auto --yes --service
-
-# 仅使用仓库运行时包装器
-./scripts/deploy-server.sh production --db-action auto --yes
-```
-
-## 开发环境部署
-
-### 使用 Docker Compose
-
-```bash
-# 启动所有服务
-docker compose --profile database --profile cache --profile im up -d
-
-# 或使用脚本
-./scripts/docker-deploy.sh install
-```
-
-### 本地开发（不使用 Docker）
-
-```bash
-# 安装依赖
 npm ci
-
-# 启动数据库和 Redis
-docker compose --profile database --profile cache up -d
-
-# 运行应用
-pnpm start:dev
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
+./scripts/init-database.sh development --yes --seed
+npm run start:dev
 ```
 
-### 开发环境特点
-
-- 详细的调试日志
-- 启用 Swagger API 文档
-- 数据库同步模式开启
-- 较低的资源限制
-
-## 测试环境部署
-
-### 配置说明
+### 测试联调
 
 ```bash
-# 使用测试环境配置
-cp .env.test .env
-
-# 启动服务
-./scripts/docker-deploy.sh start -e .env.test
+npm ci
+docker compose --env-file .env.test --profile database --profile cache up -d
+./scripts/init-database.sh test --yes --seed
+npm run test
+npm run start:test
 ```
 
-### 测试环境特点
-
-- 独立的测试数据库
-- 模拟外部服务
-- 较短的 Token 过期时间
-- 启用 Prometheus 监控
-
-### 运行测试
+### 生产部署
 
 ```bash
-# 单元测试
-pnpm test
-
-# E2E 测试
-pnpm test:e2e
-
-# 测试覆盖率
-pnpm test:cov
+# 先编辑 .env.production，替换密码、JWT 密钥、域名、公网 IP
+./scripts/apply-db-patches.sh production
+npm ci
+npm run build
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200 --strict-port
 ```
 
-## 生产环境部署
-
-### 前置要求
-
-- Docker 24.0+
-- Docker Compose 2.0+
-- 至少 8GB 内存
-- 至少 50GB 磁盘空间
-- SSL 证书（可选）
-
-### 1. 准备配置
+如果需要直接把服务注册为宿主机服务，可使用：
 
 ```bash
-# 复制生产环境配置
-cp .env.production .env
-
-# 编辑配置（必须修改以下项）
-vim .env
+./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
-**必须修改的配置项：**
+## Makefile 快捷入口
 
 ```bash
-# 服务器 IP
-EXTERNAL_IP=your-server-ip
-
-# 数据库密码（强密码）
-DB_PASSWORD=your-strong-password
-
-# Redis 密码（强密码）
-REDIS_PASSWORD=your-strong-password
-
-# JWT 密钥（至少 32 字符）
-JWT_SECRET=your-jwt-secret-at-least-32-characters
-
-# CORS 允许的域名
-CORS_ORIGINS=https://your-domain.com
+make dev
+make test-env
+make prod
+make deploy-standalone ENV=production DB_ACTION=auto SERVICE=1
+make db-init ENV=development SEED=1
+make db-patch ENV=production
+make runtime-start ENV=production
+make runtime-stop ENV=production
+make runtime-status ENV=production
+make runtime-health ENV=production
+make health
+make health-full
 ```
 
-### 2. 生成密钥
+对应行为：
+
+- `make dev`：用 `.env.development` 启动开发容器栈
+- `make test-env`：用 `.env.test` 启动测试依赖栈
+- `make prod`：用 `.env.production` 启动生产 compose
+- `make deploy-standalone`：执行宿主机安装 / 构建 / 数据库处理 / 启动，可选注册 Systemd
+- `make db-init`：初始化指定环境数据库
+- `make db-patch`：执行指定环境数据库补丁
+- `make runtime-start|stop|status|health`：按环境安全管理宿主机运行时
+
+## 环境处理原则
+
+### 开发环境
+
+- 可以保留本地地址和默认开发密码，但不要提交个人私有配置。
+- 推荐使用 `schema.sql + seed.sql` 初始化新库。
+- 如果本地不启 WuKongIM，把 `WUKONGIM_ENABLED=false`。
+
+### 测试环境
+
+- 保持独立数据库和独立 Redis DB，避免污染开发数据。
+- 默认关闭队列与 Redis Adapter，减少对完整基础设施的依赖。
+- 推荐每轮集成测试前重建数据库，避免脏状态影响结果。
+
+### 生产环境
+
+- 必须替换 `DB_PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`CORS_ORIGINS`、`EXTERNAL_IP`。
+- 不要使用 `seed.sql`。
+- 不要开启 `DB_SYNCHRONIZE`，只允许执行基线 SQL 与增量补丁。
+- 发布顺序建议固定为“备份数据库 -> 执行补丁 -> 部署新版本 -> 健康检查”。
+- 建议保持 `OPENCHAT_STRICT_PORT=true`、`OPENCHAT_SKIP_HEALTH_CHECK=false`，避免端口漂移和未就绪即对外提供服务。
+
+## 运行时文件与安全启停
+
+使用 `./bin/openchat` 或 `make runtime-*` 时，运行状态会按环境隔离：
+
+- `var/run/openchat.development.pid`
+- `var/run/openchat.test.pid`
+- `var/run/openchat.production.pid`
+- `var/run/openchat.<env>.runtime.json`
+- `var/logs/<env>.stdout.log`
+- `var/logs/<env>.stderr.log`
+
+运行时包装器具备这些安全能力：
+
+- 启动时先检查端口策略，生产环境默认建议严格端口模式
+- 启动成功前会轮询 `/health`
+- 停止时会校验 PID 对应进程命令行，避免误杀无关进程
+- 先发 `SIGTERM`，超时后才按配置决定是否 `SIGKILL`
+
+## 高可用部署建议
+
+- 至少准备独立的生产 PostgreSQL、Redis、WuKongIM，不与开发 / 测试共用。
+- 应用节点建议监听内网地址，通过 Nginx / Caddy / 云 LB 暴露。
+- 建议将 `deploy-server.sh` 与 Systemd 配合，统一重启策略、超时、句柄上限和最小权限。
+- 若需要不停机升级，采用双节点或多节点部署，通过反向代理摘流 / 加回实现滚动发布。
+- 监控至少覆盖 `/health`、进程状态、数据库连接、Redis 可达性、日志增长和磁盘剩余空间。
+
+## 外部依赖服务
+
+如果数据库、Redis、WuKongIM 由外部系统托管，只需要在对应环境文件里修改连接项即可：
 
 ```bash
-# 生成 JWT 密钥
-openssl rand -base64 32
-
-# 生成数据库密码
-openssl rand -base64 24
-```
-
-### 3. 配置 SSL（可选）
-
-```bash
-# 创建 SSL 目录
-mkdir -p etc/nginx/ssl
-
-# 复制证书
-cp your-cert.pem etc/nginx/ssl/cert.pem
-cp your-key.pem etc/nginx/ssl/key.pem
-```
-
-### 4. 启动服务
-
-```bash
-# 拉取镜像
-docker compose -f docker-compose.prod.yml pull
-
-# 启动服务
-docker compose -f docker-compose.prod.yml up -d
-
-# 检查状态
-./scripts/health-check.sh full
-```
-
-### 生产环境特点
-
-- 内部网络隔离
-- Nginx 反向代理
-- SSL/TLS 支持
-- Prometheus 监控
-- 资源限制配置
-- 日志轮转
-
-## 使用外部服务
-
-### 使用外部数据库
-
-```bash
-# .env 配置
 DB_HOST=your-db-host
-DB_PORT=5432
-DB_USERNAME=your-user
-DB_PASSWORD=your-password
-DB_NAME=openchat
-
-# 使用外部数据库配置启动
-docker compose -f docker-compose.external-db.yml up -d
-```
-
-### 使用外部 Redis
-
-```bash
-# .env 配置
 REDIS_HOST=your-redis-host
-REDIS_PORT=6379
-REDIS_PASSWORD=your-password
-
-# 启动
-docker compose -f docker-compose.external-db.yml up -d
-```
-
-### 使用外部 WukongIM
-
-```bash
-# .env 配置
 WUKONGIM_API_URL=http://your-wukongim:5001
 WUKONGIM_TCP_ADDR=your-wukongim:5100
 WUKONGIM_WS_URL=ws://your-wukongim:5200
+```
 
-# 启动
+容器场景可继续使用：
+
+```bash
 docker compose -f docker-compose.external-db.yml up -d
 ```
 
-## 部署脚本命令
-
-```bash
-# 查看帮助
-./scripts/docker-deploy.sh --help
-
-# 安装并启动
-./scripts/docker-deploy.sh install
-
-# 启动服务
-./scripts/docker-deploy.sh start
-
-# 停止服务
-./scripts/docker-deploy.sh stop
-
-# 重启服务
-./scripts/docker-deploy.sh restart
-
-# 查看状态
-./scripts/docker-deploy.sh status
-
-# 查看日志
-./scripts/docker-deploy.sh logs
-
-# 使用外部服务
-./scripts/docker-deploy.sh external
-
-# 使用指定 profiles
-./scripts/docker-deploy.sh profiles -p database,cache
-
-# 更新服务
-./scripts/docker-deploy.sh update
-
-# 清理数据
-./scripts/docker-deploy.sh clean
-```
-
-## 健康检查
-
-```bash
-# 快速检查
-./scripts/health-check.sh quick
-
-# 完整诊断
-./scripts/health-check.sh full
-
-# 检查特定服务
-./scripts/health-check.sh database
-./scripts/health-check.sh redis
-./scripts/health-check.sh wukongim
-./scripts/health-check.sh app
-```
-
-## 数据备份与恢复
-
-### 备份
-
-```bash
-# 备份数据库
-docker exec openchat-postgres pg_dump -U openchat openchat > backup_$(date +%Y%m%d).sql
-
-# 备份 Redis
-docker exec openchat-redis redis-cli -a your-password BGSAVE
-docker cp openchat-redis:/data/dump.rdb ./redis_backup_$(date +%Y%m%d).rdb
-```
-
-### 恢复
-
-```bash
-# 恢复数据库
-cat backup.sql | docker exec -i openchat-postgres psql -U openchat openchat
-
-# 恢复 Redis
-docker cp ./redis_backup.rdb openchat-redis:/data/dump.rdb
-docker compose restart redis
-```
-
-## 故障排除
-
-### 常见问题
-
-#### 服务无法启动
-
-```bash
-# 检查日志
-docker compose logs app
-
-# 运行诊断
-./scripts/health-check.sh full
-
-# 检查端口
-./scripts/health-check.sh ports
-```
-
-#### 数据库连接失败
-
-```bash
-# 检查数据库状态
-docker compose ps postgres
-
-# 测试连接
-docker exec -it openchat-postgres psql -U openchat -d openchat
-```
-
-#### 内存不足
-
-```bash
-# 查看资源使用
-docker stats
-
-# 调整资源限制
-# 编辑 .env 文件中的 *_MEMORY_LIMIT 配置
-```
-
-## 监控与日志
-
-### Prometheus 监控
-
-```bash
-# 启动监控
-docker compose --profile monitoring up -d
-
-# 访问 Prometheus
-# http://localhost:9090
-```
-
-### 日志查看
-
-```bash
-# 所有日志
-docker compose logs -f
-
-# 特定服务日志
-docker compose logs -f app
-docker compose logs -f postgres
-docker compose logs -f redis
-docker compose logs -f wukongim
-```
-
-## 安全建议
-
-1. **修改默认密码**：所有密码必须使用强密码
-2. **启用 SSL**：生产环境必须使用 HTTPS
-3. **配置防火墙**：只开放必要端口
-4. **定期备份**：设置自动备份计划
-5. **更新依赖**：定期更新 Docker 镜像
-6. **监控告警**：配置 Prometheus 告警规则
-
 ## 下一步
 
-- [Docker 部署详解](./docker.md) - Docker 部署详细说明
-- [配置说明](../config/) - 完整配置参数
-- [API 文档](../api/) - API 接口文档
-- [监控与告警](./monitoring.md) - 指标、告警与仪表盘模板
+- 查看 [安装指南](./installation.md) 获取完整初始化步骤
+- 查看 [传统部署](./traditional.md) 获取宿主机部署与运维方式
+- 查看 [数据库配置](../config/database.md) 获取数据库参数与初始化策略

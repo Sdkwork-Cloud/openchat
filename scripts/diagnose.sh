@@ -19,6 +19,7 @@ NC='\033[0m'
 ISSUES=()
 WARNINGS=()
 SUGGESTIONS=()
+ENV_FILE=""
 
 # 日志函数
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -26,6 +27,49 @@ log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error() { echo -e "${RED}[✗]${NC} $1"; }
 log_diag() { echo -e "${CYAN}[DIAG]${NC} $1"; }
+
+resolve_env_file() {
+    local requested="${OPENCHAT_ENV_FILE:-}"
+    local node_env="${NODE_ENV:-}"
+
+    if [ -n "$requested" ] && [ -f "$requested" ]; then
+        echo "$requested"
+        return 0
+    fi
+
+    case "${node_env,,}" in
+        development|dev)
+            for candidate in ".env.development" ".env.dev" ".env"; do
+                [ -f "$candidate" ] && echo "$candidate" && return 0
+            done
+            ;;
+        test)
+            for candidate in ".env.test" ".env"; do
+                [ -f "$candidate" ] && echo "$candidate" && return 0
+            done
+            ;;
+        production|prod)
+            for candidate in ".env.production" ".env.prod" ".env"; do
+                [ -f "$candidate" ] && echo "$candidate" && return 0
+            done
+            ;;
+    esac
+
+    for candidate in ".env" ".env.development" ".env.dev" ".env.test" ".env.production" ".env.prod"; do
+        [ -f "$candidate" ] && echo "$candidate" && return 0
+    done
+
+    return 1
+}
+
+load_env_file() {
+    if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
+        set -a
+        # shellcheck disable=SC1090
+        . "$ENV_FILE"
+        set +a
+    fi
+}
 
 # 显示横幅
 show_banner() {
@@ -180,9 +224,7 @@ diagnose_database() {
     echo -e "${BOLD}━━━ 数据库诊断 ━━━${NC}"
     
     # 加载环境变量
-    if [ -f ".env" ]; then
-        export $(grep -v '^#' .env | xargs)
-    fi
+    load_env_file
     
     # 检查数据库连接
     log_diag "检查数据库连接..."
@@ -252,9 +294,7 @@ diagnose_redis() {
     echo -e "${BOLD}━━━ Redis 诊断 ━━━${NC}"
     
     # 加载环境变量
-    if [ -f ".env" ]; then
-        export $(grep -v '^#' .env | xargs)
-    fi
+    load_env_file
     
     # 检查 Redis 连接
     log_diag "检查 Redis 连接..."
@@ -373,14 +413,14 @@ diagnose_config() {
     echo
     echo -e "${BOLD}━━━ 配置诊断 ━━━${NC}"
     
-    # 检查 .env 文件
-    log_diag "检查 .env 文件..."
-    if [ ! -f ".env" ]; then
-        log_error ".env 文件不存在"
-        add_issue ".env 文件不存在" "复制模板: cp .env.example .env"
+    # 检查环境文件
+    log_diag "检查环境文件..."
+    if [ -z "$ENV_FILE" ] || [ ! -f "$ENV_FILE" ]; then
+        log_error "未找到可用环境文件"
+        add_issue "未找到环境文件" "请创建并检查 .env.development / .env.test / .env.production"
         return 1
     fi
-    log_success ".env 文件存在"
+    log_success "环境文件存在: $ENV_FILE"
     
     # 检查必要配置
     log_diag "检查必要配置项..."
@@ -388,21 +428,21 @@ diagnose_config() {
     local missing_vars=()
     
     for var in "${required_vars[@]}"; do
-        if ! grep -q "^$var=" .env 2>/dev/null; then
+        if ! grep -q "^$var=" "$ENV_FILE" 2>/dev/null; then
             missing_vars+=("$var")
         fi
     done
     
     if [ ${#missing_vars[@]} -gt 0 ]; then
         log_error "缺少配置项: ${missing_vars[*]}"
-        add_issue "缺少必要配置项" "编辑 .env 文件添加缺失配置"
+        add_issue "缺少必要配置项" "编辑环境文件 $ENV_FILE 添加缺失配置"
     else
         log_success "所有必要配置项已设置"
     fi
     
     # 检查 JWT 密钥强度
     log_diag "检查 JWT 密钥强度..."
-    local jwt_secret=$(grep "^JWT_SECRET=" .env 2>/dev/null | cut -d= -f2)
+    local jwt_secret=$(grep "^JWT_SECRET=" "$ENV_FILE" 2>/dev/null | cut -d= -f2)
     if [ ${#jwt_secret} -lt 32 ]; then
         log_warn "JWT 密钥长度不足 (${#jwt_secret} 字符)"
         add_warning "JWT 密钥建议至少 32 个字符"
@@ -412,7 +452,7 @@ diagnose_config() {
     
     # 检查默认密码
     log_diag "检查默认密码..."
-    local db_password=$(grep "^DB_PASSWORD=" .env 2>/dev/null | cut -d= -f2)
+    local db_password=$(grep "^DB_PASSWORD=" "$ENV_FILE" 2>/dev/null | cut -d= -f2)
     if [[ "$db_password" == *"password"* ]] || [[ "$db_password" == *"123456"* ]] || [[ "$db_password" == *"admin"* ]]; then
         log_warn "检测到弱密码"
         add_warning "数据库密码过于简单，建议修改"
@@ -420,13 +460,13 @@ diagnose_config() {
     
     # 检查文件权限
     log_diag "检查文件权限..."
-    if [ -f ".env" ]; then
-        local env_perms=$(stat -c %a .env 2>/dev/null || stat -f %OLp .env 2>/dev/null)
+    if [ -f "$ENV_FILE" ]; then
+        local env_perms=$(stat -c %a "$ENV_FILE" 2>/dev/null || stat -f %OLp "$ENV_FILE" 2>/dev/null)
         if [ "$env_perms" != "600" ]; then
-            log_warn ".env 文件权限过于开放 ($env_perms)"
-            add_warning "建议设置 .env 权限为 600: chmod 600 .env"
+            log_warn "环境文件权限过于开放 ($env_perms)"
+            add_warning "建议设置环境文件权限为 600: chmod 600 $ENV_FILE"
         else
-            log_success ".env 文件权限正确"
+            log_success "环境文件权限正确"
         fi
     fi
 }
@@ -548,6 +588,7 @@ generate_report() {
 # ============================================
 main() {
     show_banner
+    ENV_FILE="$(resolve_env_file || true)"
     
     # 执行所有诊断
     diagnose_docker

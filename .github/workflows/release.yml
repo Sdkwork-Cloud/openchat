@@ -5,7 +5,7 @@ on:
     types: [published]
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '24'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -65,6 +65,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

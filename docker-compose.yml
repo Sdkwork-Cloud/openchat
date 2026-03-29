@@ -69,23 +69,42 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
     profiles:
       - cache
-    command: >
-      redis-server
-      --appendonly yes
-      --requirepass ${REDIS_PASSWORD:-redis_password}
-      --maxmemory ${REDIS_MAX_MEMORY:-256mb}
-      --maxmemory-policy ${REDIS_MAX_MEMORY_POLICY:-allkeys-lru}
-      --timeout 0
-      --tcp-keepalive 300
-      --save 900 1
-      --save 300 10
-      --save 60 10000
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ -n "${REDIS_PASSWORD}" ]; then
+          exec redis-server \
+            --appendonly yes \
+            --requirepass "${REDIS_PASSWORD}" \
+            --maxmemory ${REDIS_MAX_MEMORY:-256mb} \
+            --maxmemory-policy ${REDIS_MAX_MEMORY_POLICY:-allkeys-lru} \
+            --timeout 0 \
+            --tcp-keepalive 300 \
+            --save 900 1 \
+            --save 300 10 \
+            --save 60 10000
+        fi
+
+        exec redis-server \
+          --appendonly yes \
+          --maxmemory ${REDIS_MAX_MEMORY:-256mb} \
+          --maxmemory-policy ${REDIS_MAX_MEMORY_POLICY:-allkeys-lru} \
+          --timeout 0 \
+          --tcp-keepalive 300 \
+          --save 900 1 \
+          --save 300 10 \
+          --save 60 10000
     volumes:
       - redis_data:/data
     ports:
       - "${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_password}", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"${REDIS_PASSWORD}\" ]; then redis-cli -a \"${REDIS_PASSWORD}\" ping; else redis-cli ping; fi",
+        ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -224,7 +243,7 @@ services:
       dockerfile: Dockerfile
       target: ${BUILD_TARGET:-development}
       args:
-        NODE_VERSION: ${NODE_VERSION:-18}
+        NODE_VERSION: ${NODE_VERSION:-24}
     container_name: openchat
     restart: ${RESTART_POLICY:-unless-stopped}
     depends_on:
@@ -245,7 +264,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-openchat}
       DB_PASSWORD: ${DB_PASSWORD:-openchat_password}
       DB_NAME: ${DB_NAME:-openchat}
-      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-true}
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-false}
       DB_LOGGING: ${DB_LOGGING:-false}
       # 连接池配置
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
@@ -257,7 +276,7 @@ services:
       # Redis 配置 - 支持外部 Redis
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password}
+      REDIS_PASSWORD: ${REDIS_PASSWORD-}
       REDIS_DB: ${REDIS_DB:-0}
       REDIS_QUEUE_DB: ${REDIS_QUEUE_DB:-1}
       # Redis 连接配置
@@ -283,12 +302,18 @@ services:
       # 日志配置
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-json}
+      OPENCHAT_STRICT_PORT: ${OPENCHAT_STRICT_PORT:-true}
+      OPENCHAT_HEALTH_TIMEOUT_MS: ${OPENCHAT_HEALTH_TIMEOUT_MS:-30000}
+      OPENCHAT_SHUTDOWN_TIMEOUT_MS: ${OPENCHAT_SHUTDOWN_TIMEOUT_MS:-15000}
+      OPENCHAT_FORCE_STOP_ON_TIMEOUT: ${OPENCHAT_FORCE_STOP_ON_TIMEOUT:-true}
+      OPENCHAT_SKIP_HEALTH_CHECK: ${OPENCHAT_SKIP_HEALTH_CHECK:-false}
       
       # 外部 IP 配置
       EXTERNAL_IP: ${EXTERNAL_IP:-127.0.0.1}
       INTERNAL_IP: ${INTERNAL_IP:-127.0.0.1}
     volumes:
       - ./src:/app/src:ro
+      - ./scripts:/app/scripts:ro
       - ./package.json:/app/package.json:ro
       - ./tsconfig.json:/app/tsconfig.json:ro
       - ./var/logs:/app/var/logs

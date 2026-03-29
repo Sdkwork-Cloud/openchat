@@ -4,10 +4,10 @@
 
 ## Supported Entrypoints
 
-| Script | Platform | Notes |
-|------|------|------|
-| `bin/openchat` | Linux / macOS | POSIX shell wrapper |
-| `bin/openchat.ps1` | Windows PowerShell / PowerShell 7 | Windows entrypoint |
+| Script             | Platform                          | Notes               |
+| ------------------ | --------------------------------- | ------------------- |
+| `bin/openchat`     | Linux / macOS                     | POSIX shell wrapper |
+| `bin/openchat.ps1` | Windows PowerShell / PowerShell 7 | Windows entrypoint  |
 
 Windows support is PowerShell-only. Batch wrappers are intentionally removed.
 
@@ -31,20 +31,20 @@ Both wrappers forward the same runtime commands:
 
 ```bash
 ./bin/openchat help
-./bin/openchat start
-PORT=8080 ./bin/openchat restart
-./bin/openchat status
-./bin/openchat logs
+./bin/openchat start --environment development
+PORT=8080 ./bin/openchat restart --environment production
+./bin/openchat status --environment production
+./bin/openchat logs --environment production
 ```
 
 ### Windows PowerShell
 
 ```powershell
 .\bin\openchat.ps1 help
-.\bin\openchat.ps1 start
-.\bin\openchat.ps1 restart --port 8080
-.\bin\openchat.ps1 status
-.\bin\openchat.ps1 logs
+.\bin\openchat.ps1 start --environment development
+.\bin\openchat.ps1 restart --environment production --port 8080
+.\bin\openchat.ps1 status --environment production
+.\bin\openchat.ps1 logs --environment production
 ```
 
 ## Implementation Model

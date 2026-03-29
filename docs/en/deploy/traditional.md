@@ -4,7 +4,7 @@ This page documents the current host-based deployment flow for OpenChat without 
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 20.19.0+
 - npm
 - PostgreSQL 15+
 - Redis 7+
@@ -22,7 +22,7 @@ For a Linux server deployment managed by `systemd`, use:
 This command will:
 
 - run standalone prechecks
-- prepare `.env`
+- prepare `.env.production`
 - install dependencies
 - build the backend
 - choose database `init` or `patch` automatically
@@ -46,9 +46,8 @@ If you want to control each phase yourself:
 ./scripts/precheck.sh --mode standalone
 npm ci
 npm run build
-./scripts/init-database.sh production --yes
 ./scripts/apply-db-patches.sh production
-./bin/openchat start --environment production --host 127.0.0.1 --port 7200
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200 --strict-port
 ```
 
 ## Nginx And WuKongIM Edge Flow
@@ -83,11 +82,11 @@ Resulting ingress layout:
 Repository runtime wrapper:
 
 ```bash
-./bin/openchat start
-./bin/openchat stop
-./bin/openchat restart
-./bin/openchat status
-./bin/openchat health
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200 --strict-port
+./bin/openchat stop --environment production
+./bin/openchat restart --environment production
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 ```
 
 Linux service management:
@@ -102,7 +101,7 @@ systemctl enable openchat.service
 
 ```bash
 curl -f http://127.0.0.1:7200/health
-curl -f http://127.0.0.1:7200/ready
+curl -f http://127.0.0.1:7200/health/ready
 ```
 
 ## Next Steps

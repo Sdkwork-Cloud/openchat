@@ -8,12 +8,14 @@ const {
   detectExternalIp,
   detectPlatformLabel,
   ensureDirectory,
+  getCanonicalEnvironmentFileName,
   getDiskFreeGigabytes,
   logInfo,
   logSuccess,
   logWarn,
   normalizeEnvironmentName,
   readJsonFile,
+  resolveEnvironmentContext,
   runCommand,
   writeJsonFile,
 } = require('./shared.cjs');
@@ -42,7 +44,22 @@ function clearInstallState(projectRoot) {
   }
 }
 
-function updateEnvFile(filePath, updates) {
+function shouldReplaceEnvValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  return [
+    'replace-with',
+    'your-',
+    'changeme',
+    'example.com',
+    'placeholder',
+  ].some((token) => normalized.includes(token));
+}
+
+function updateEnvFile(filePath, updates, options = {}) {
   const original = fs.readFileSync(filePath, 'utf8').split(/\r?\n/u);
   const remaining = new Set(Object.keys(updates));
   const nextLines = original.map((line) => {
@@ -53,6 +70,12 @@ function updateEnvFile(filePath, updates) {
 
     const key = match[1];
     if (!remaining.has(key)) {
+      return line;
+    }
+
+    const currentValue = line.slice(line.indexOf('=') + 1).trim();
+    if (!options.overwrite && !shouldReplaceEnvValue(currentValue)) {
+      remaining.delete(key);
       return line;
     }
 
@@ -68,16 +91,20 @@ function updateEnvFile(filePath, updates) {
 }
 
 function ensureEnvFile(projectRoot, options = {}) {
-  const envFile = path.join(projectRoot, '.env');
+  const environment = normalizeEnvironmentName(options.environment || 'development') || 'development';
+  const envFile = path.join(projectRoot, getCanonicalEnvironmentFileName(environment));
+  const legacyEnvFile = path.join(projectRoot, '.env');
   if (!fs.existsSync(envFile)) {
     const examplePath = path.join(projectRoot, '.env.example');
-    if (!fs.existsSync(examplePath)) {
+    if (fs.existsSync(legacyEnvFile)) {
+      fs.copyFileSync(legacyEnvFile, envFile);
+    } else if (fs.existsSync(examplePath)) {
+      fs.copyFileSync(examplePath, envFile);
+    } else {
       throw new Error(`Missing environment template: ${examplePath}`);
     }
-    fs.copyFileSync(examplePath, envFile);
   }
 
-  const environment = normalizeEnvironmentName(options.environment || 'development') || 'development';
   const externalIp = detectExternalIp();
   updateEnvFile(envFile, {
     NODE_ENV: environment,
@@ -86,6 +113,8 @@ function ensureEnvFile(projectRoot, options = {}) {
     USE_EXTERNAL_REDIS: options.mode === 'standalone' ? 'true' : 'false',
     DB_HOST: options.mode === 'standalone' ? 'localhost' : 'postgres',
     REDIS_HOST: options.mode === 'standalone' ? 'localhost' : 'redis',
+    HOST: environment === 'production' ? '0.0.0.0' : '127.0.0.1',
+    PORT: environment === 'test' ? '7201' : '7200',
   });
 
   return envFile;
@@ -109,7 +138,7 @@ async function runPrecheck(projectRoot, options = {}) {
   }
 
   if (!commandExists('node')) {
-    failures.push('Node.js >= 18 is required');
+    failures.push('Node.js >= 20.19.0 is required');
   }
   if (!commandExists('npm')) {
     failures.push('npm is required');
@@ -210,13 +239,16 @@ async function runInstall(projectRoot, options = {}) {
 
   ensureProjectDirectories(projectRoot);
   const envFile = ensureEnvFile(projectRoot, { mode, environment });
+  const envContext = resolveEnvironmentContext(projectRoot, environment, {
+    envFile,
+  });
   logSuccess(`Environment file ready: ${envFile}`);
 
   if (mode === 'docker') {
     const composeArgs =
       options.command === 'quick-install'
-        ? ['compose', '-f', 'docker-compose.quick.yml', 'up', '-d']
-        : ['compose', 'up', '-d'];
+        ? ['compose', '--env-file', envFile, '-f', 'docker-compose.quick.yml', 'up', '-d']
+        : ['compose', '--env-file', envFile, 'up', '-d'];
     runLocalCommand(projectRoot, 'docker', composeArgs);
     saveInstallState(projectRoot, {
       status: 'installed',
@@ -246,8 +278,15 @@ async function runInstall(projectRoot, options = {}) {
   if (options.start) {
     await startRuntime(projectRoot, {
       environment,
-      host: process.env.HOST || '0.0.0.0',
-      port: process.env.PORT || '7200',
+      envFile,
+      host: envContext.values.HOST,
+      port: envContext.values.PORT,
+      healthHost: envContext.values.APP_HOST,
+      healthTimeoutMs: options.healthTimeoutMs,
+      shutdownTimeoutMs: options.shutdownTimeoutMs,
+      strictPort: options.strictPort,
+      forceStop: options.forceStop,
+      skipHealthCheck: options.skipHealthCheck,
     });
   }
 

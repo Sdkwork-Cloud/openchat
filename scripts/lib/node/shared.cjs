@@ -51,6 +51,19 @@ function normalizeEnvironmentName(value) {
   }
 }
 
+function getCanonicalEnvironmentFileName(environment) {
+  switch (normalizeEnvironmentName(environment)) {
+    case 'development':
+      return '.env.development';
+    case 'test':
+      return '.env.test';
+    case 'production':
+      return '.env.production';
+    default:
+      return '.env';
+  }
+}
+
 function resolveEnvironmentFile(projectRoot, value) {
   const normalized = value === undefined ? null : normalizeEnvironmentName(value);
   if (value !== undefined && !normalized) {
@@ -79,6 +92,44 @@ function resolveEnvironmentFile(projectRoot, value) {
   }
 
   return null;
+}
+
+function resolveEnvironmentContext(
+  projectRoot,
+  requestedEnvironment,
+  options = {},
+) {
+  const fallbackEnvironment = normalizeEnvironmentName(options.fallbackEnvironment)
+    || 'development';
+  const environment = normalizeEnvironmentName(
+    requestedEnvironment || options.baseEnv?.NODE_ENV,
+  ) || fallbackEnvironment;
+
+  let envFile = null;
+  if (options.envFile) {
+    envFile = path.isAbsolute(options.envFile)
+      ? options.envFile
+      : path.join(projectRoot, options.envFile);
+
+    if (!fs.existsSync(envFile)) {
+      throw new Error(`Environment file does not exist: ${envFile}`);
+    }
+  } else {
+    envFile = resolveEnvironmentFile(projectRoot, environment);
+  }
+
+  const fileValues = envFile ? loadEnvFile(envFile) : {};
+  const baseEnv = options.baseEnv || process.env;
+
+  return {
+    environment,
+    envFile,
+    values: {
+      ...fileValues,
+      ...baseEnv,
+      NODE_ENV: environment,
+    },
+  };
 }
 
 function parseEnvFile(content) {
@@ -153,8 +204,38 @@ function ensureDirectory(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function parsePort(value, fallback) {
+function parseBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (['true', '1', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['false', '0', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+function parseInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function parsePort(value, fallback) {
+  const parsed = parseInteger(value, fallback);
   if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535) {
     return parsed;
   }
@@ -190,6 +271,30 @@ function killProcess(pid) {
       }
       return;
     }
+  }
+
+  process.kill(pid, 'SIGKILL');
+}
+
+function sendSignal(pid, signal = 'SIGTERM') {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return;
+  }
+
+  process.kill(pid, signal);
+}
+
+function forceKillProcess(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    const taskKill = runCommand('taskkill', ['/PID', String(pid), '/T', '/F']);
+    if (taskKill.error || taskKill.status !== 0) {
+      throw taskKill.error || new Error(taskKill.stderr || 'taskkill failed');
+    }
+    return;
   }
 
   process.kill(pid, 'SIGKILL');
@@ -368,6 +473,60 @@ function probeHttpStatus(url) {
   });
 }
 
+async function waitForHttpHealthy(url, options = {}) {
+  const timeoutMs = parseInteger(options.timeoutMs, 30000);
+  const intervalMs = parseInteger(options.intervalMs, 1000);
+  const startedAt = Date.now();
+  let attempts = 0;
+  let lastStatus = 0;
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    attempts += 1;
+    // eslint-disable-next-line no-await-in-loop
+    lastStatus = await probeHttpStatus(url);
+    if (lastStatus >= 200 && lastStatus < 400) {
+      return {
+        attempts,
+        healthy: true,
+        lastStatus,
+      };
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(intervalMs);
+  }
+
+  return {
+    attempts,
+    healthy: false,
+    lastStatus,
+  };
+}
+
+function readProcessCommandLine(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return '';
+  }
+
+  const procPath = path.join('/proc', String(pid), 'cmdline');
+  if (fs.existsSync(procPath)) {
+    try {
+      return fs.readFileSync(procPath, 'utf8').replace(/\u0000+/gu, ' ').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  if (process.platform !== 'win32' && commandExists('ps')) {
+    const result = runCommand('ps', ['-p', String(pid), '-o', 'command=']);
+    if (result.status === 0) {
+      return String(result.stdout || '').trim();
+    }
+  }
+
+  return '';
+}
+
 module.exports = {
   assertCommandSucceeded,
   checkPortAvailable,
@@ -376,8 +535,10 @@ module.exports = {
   detectExternalIp,
   detectPlatformLabel,
   ensureDirectory,
+  forceKillProcess,
   findAvailablePort,
   followFile,
+  getCanonicalEnvironmentFileName,
   getDiskFreeGigabytes,
   isProcessRunning,
   killProcess,
@@ -388,16 +549,22 @@ module.exports = {
   logWarn,
   normalizeEnvironmentName,
   parseEnvFile,
+  parseBoolean,
+  parseInteger,
   parsePort,
   probeHttpStatus,
   prompt,
   quoteSqlIdentifier,
   quoteSqlLiteral,
   readJsonFile,
+  readProcessCommandLine,
+  resolveEnvironmentContext,
   resolveEnvironmentFile,
   runCommand,
+  sendSignal,
   sleep,
   tailLines,
   waitForExit,
+  waitForHttpHealthy,
   writeJsonFile,
 };

@@ -246,13 +246,14 @@ export class WsMessageCommandService {
           timestamp: Date.now(),
           retryCount: 0,
         };
-        await this.wsAckRetryService.storePendingAck(pendingAckInfo)
-          .then(() => {
-            ackQueued = true;
-          })
-          .catch((error) => {
-            this.logger.warn(`Failed to store pending ACK for message ${persistedMessageId}: ${error?.message || error}`);
-          });
+        try {
+          await this.wsAckRetryService.storePendingAck(pendingAckInfo);
+          ackQueued = true;
+        } catch (error) {
+          this.logger.warn(
+            `Failed to store pending ACK for message ${persistedMessageId}: ${error?.message || error}`,
+          );
+        }
       }
 
       client.emit(

@@ -47,16 +47,14 @@ Before starting, ensure your system meets these requirements:
 ```bash [Linux/macOS]
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-cp .env.example .env
-# edit .env as needed
+# edit .env.production as needed
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ```powershell [Windows]
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-Copy-Item .env.example .env
-# edit .env as needed
+# edit .env.production as needed
 .\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
@@ -70,18 +68,16 @@ Copy-Item .env.example .env
 ./scripts/precheck.sh --mode standalone
 npm ci
 npm run build
-./scripts/init-database.sh production --yes
 ./scripts/apply-db-patches.sh production
-./bin/openchat start --environment production --host 127.0.0.1 --port 7200
+./bin/openchat start --environment production --host 127.0.0.1 --port 7200 --strict-port
 ```
 
 ```powershell [Windows]
 .\scripts\precheck.ps1
 npm ci
 npm run build
-.\scripts\init-database.ps1 -Environment production -Yes
 .\scripts\apply-db-patches.ps1 -Environment production
-.\bin\openchat.ps1 start --environment production --host 127.0.0.1 --port 7200
+.\bin\openchat.ps1 start --environment production --host 127.0.0.1 --port 7200 --strict-port
 ```
 
 :::
@@ -93,9 +89,9 @@ npm run build
 ::: code-group
 
 ```bash [Linux/macOS]
-./bin/openchat status
-./bin/openchat health
-curl http://127.0.0.1:7200/ready
+./bin/openchat status --environment production
+./bin/openchat health --environment production
+curl http://127.0.0.1:7200/health/ready
 ```
 
 ```powershell [Windows]
@@ -112,7 +108,7 @@ Invoke-WebRequest -Uri http://127.0.0.1:7200/health
 ```bash [Linux/macOS]
 # Health check
 curl http://127.0.0.1:7200/health
-curl http://127.0.0.1:7200/ready
+curl http://127.0.0.1:7200/health/ready
 
 # Expected response
 # {"status":"ok",...}
@@ -254,9 +250,9 @@ OpenChat provides a complete set of operations tools:
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 
 # Runtime
-./bin/openchat restart
-./bin/openchat status
-./bin/openchat health
+./bin/openchat restart --environment production
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 ```
 
 ```powershell [Windows]

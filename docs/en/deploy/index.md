@@ -4,29 +4,28 @@ OpenChat provides multiple deployment options to meet different scenarios.
 
 ## Quick Navigation
 
-| Document | Description |
-|----------|-------------|
-| [Installation Guide](./installation.md) | Detailed installation steps and system requirements |
-| [Docker Deployment](./docker.md) | Docker deployment guide |
-| [Kubernetes Deployment](./kubernetes.md) | Cluster deployment guide |
-| [Traditional Deployment](./traditional.md) | Non-Docker deployment |
-| [Quick Start](./quickstart.md) | Quick experience deployment |
-| [Monitoring and Alerting](./monitoring.md) | Prometheus/Grafana templates and alert rules |
+| Document                                   | Description                                         |
+| ------------------------------------------ | --------------------------------------------------- |
+| [Installation Guide](./installation.md)    | Detailed installation steps and system requirements |
+| [Docker Deployment](./docker.md)           | Docker deployment guide                             |
+| [Kubernetes Deployment](./kubernetes.md)   | Cluster deployment guide                            |
+| [Traditional Deployment](./traditional.md) | Non-Docker deployment                               |
+| [Quick Start](./quickstart.md)             | Quick experience deployment                         |
+| [Monitoring and Alerting](./monitoring.md) | Prometheus/Grafana templates and alert rules        |
 
 ## Deployment Methods
 
-| Method | Use Case | Complexity |
-|--------|----------|------------|
-| Docker Compose | Development, testing, small-scale production | ⭐ |
-| Docker Standalone | Production with existing infrastructure | ⭐⭐ |
-| Kubernetes | Large-scale production, high availability | ⭐⭐⭐ |
-| Traditional | Non-Docker environments | ⭐⭐⭐ |
+| Method            | Use Case                                     | Complexity |
+| ----------------- | -------------------------------------------- | ---------- |
+| Docker Compose    | Development, testing, small-scale production | ⭐         |
+| Docker Standalone | Production with existing infrastructure      | ⭐⭐       |
+| Kubernetes        | Large-scale production, high availability    | ⭐⭐⭐     |
+| Traditional       | Non-Docker environments                      | ⭐⭐⭐     |
 
 ## Recommended Host Deployment
 
 ```bash
-cp .env.example .env
-# edit .env first
+# edit .env.production first
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
@@ -56,8 +55,7 @@ git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
 
 # Configure environment
-cp .env.example .env
-vim .env
+vim .env.production
 
 # Install, build, init/patch DB automatically, install systemd, restart service
 ./scripts/deploy-server.sh production --db-action auto --yes --service
@@ -66,20 +64,20 @@ vim .env
 ## System Requirements
 
 | Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| CPU | 2 cores | 4 cores |
-| Memory | 4 GB | 8 GB |
-| Disk | 20 GB | 50 GB SSD |
+| --------- | ------- | ----------- |
+| CPU       | 2 cores | 4 cores     |
+| Memory    | 4 GB    | 8 GB        |
+| Disk      | 20 GB   | 50 GB SSD   |
 
 ## Software Dependencies
 
-| Software | Version | Description |
-|----------|---------|-------------|
-| Docker | 24.0+ | Container runtime |
-| Docker Compose | 2.0+ | Container orchestration |
-| Node.js | 18+ | Required for standalone deployment |
-| PostgreSQL | 15+ | Required for external database |
-| Redis | 7+ | Required for external cache |
+| Software       | Version  | Description                        |
+| -------------- | -------- | ---------------------------------- |
+| Docker         | 24.0+    | Container runtime                  |
+| Docker Compose | 2.0+     | Container orchestration            |
+| Node.js        | 20.19.0+ | Required for standalone deployment |
+| PostgreSQL     | 15+      | Required for external database     |
+| Redis          | 7+       | Required for external cache        |
 
 ## Operations Tools
 
@@ -90,8 +88,8 @@ OpenChat provides a complete set of operations tools:
 ./scripts/precheck.sh --mode standalone
 
 # Service runtime
-./bin/openchat status
-./bin/openchat health
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 
 # Linux service management
 systemctl status openchat.service

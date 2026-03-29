@@ -1,26 +1,26 @@
 # OpenChat Server Installation Guide
 
-This guide will help you install and configure OpenChat Server on different platforms.
+This guide covers installation, initialization, startup, and verification for development, test, and production environments.
 
 ## System Requirements
 
 ### Hardware Requirements
 
-| Environment | CPU | Memory | Disk |
-|-------------|-----|--------|------|
-| Development | 2 cores | 4GB | 20GB |
-| Testing | 4 cores | 8GB | 50GB |
-| Production | 8+ cores | 16GB+ | 100GB+ |
+| Environment | CPU      | Memory | Disk   |
+| ----------- | -------- | ------ | ------ |
+| Development | 2 cores  | 4GB    | 20GB   |
+| Testing     | 4 cores  | 8GB    | 50GB   |
+| Production  | 8+ cores | 16GB+  | 100GB+ |
 
 ### Software Requirements
 
-| Software | Version | Description |
-|----------|---------|-------------|
-| Docker | 24.0+ | Container runtime |
-| Docker Compose | 2.0+ | Container orchestration |
-| Node.js | 18+ | Required for dev mode |
-| npm | 9+ | Package manager |
-| Git | 2.0+ | Version control |
+| Software       | Version | Description             |
+| -------------- | ------- | ----------------------- |
+| Docker         | 24.0+      | Container runtime                     |
+| Docker Compose | 2.0+       | Container orchestration               |
+| Node.js        | 20.19.0+   | Required by the current backend stack |
+| npm            | 10+        | Package manager                       |
+| Git            | 2.0+       | Version control                       |
 
 ## Pre-installation Check
 
@@ -41,6 +41,7 @@ Before installation, run the check script to verify your system environment:
 :::
 
 Check items include:
+
 - ✅ OS and architecture
 - ✅ Memory and disk space
 - ✅ Docker and Docker Compose status
@@ -57,15 +58,13 @@ Check items include:
 # Clone and run the unified deploy script
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-cp .env.example .env
-# edit .env as needed
+# edit .env.production as needed
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
 ```powershell [Windows]
 # PowerShell unified deploy
-Copy-Item .env.example .env
-# edit .env as needed
+# edit .env.production as needed
 .\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
@@ -84,10 +83,10 @@ cd openchat
 docker compose -f docker-compose.quick.yml up -d
 
 # View service status
-docker compose ps
+docker compose -f docker-compose.quick.yml ps
 
 # View logs
-docker compose logs -f
+docker compose -f docker-compose.quick.yml logs -f
 ```
 
 ```powershell [Windows]
@@ -99,13 +98,15 @@ cd openchat
 docker compose -f docker-compose.quick.yml up -d
 
 # View service status
-docker compose ps
+docker compose -f docker-compose.quick.yml ps
 
 # View logs
-docker compose logs -f
+docker compose -f docker-compose.quick.yml logs -f
 ```
 
 :::
+
+`docker-compose.quick.yml` is intended for quick validation. It initializes a fresh database from `schema.sql + seed.sql` and keeps `DB_SYNCHRONIZE=false` by default.
 
 ### Method 3: Local Development Mode
 
@@ -119,8 +120,8 @@ cd openchat
 # Install dependencies
 npm ci
 
-# Configure environment
-cp .env.example .env.development
+# Review the bundled development environment file
+sed -n '1,40p' .env.development
 
 # Start dev server
 npm run start:dev
@@ -134,8 +135,8 @@ cd openchat
 # Install dependencies
 npm ci
 
-# Configure environment
-Copy-Item .env.example .env.development
+# Review the bundled development environment file
+Get-Content .env.development | Select-Object -First 40
 
 # Start dev server
 npm run start:dev
@@ -152,7 +153,7 @@ npm run start:dev
 curl http://127.0.0.1:7200/health
 
 # Runtime wrapper health check
-./bin/openchat health
+./bin/openchat health --environment production
 ```
 
 ```powershell [Windows]
@@ -182,10 +183,12 @@ docker compose -f docker-compose.quick.yml up -d
 
 :::
 
-**Features:**
+Features:
+
 - ✅ Auto-install all dependencies
 - ✅ Ready to use out of the box
 - ✅ Easy to manage and maintain
+- ✅ Safe default database behavior with `DB_SYNCHRONIZE=false`
 
 ### 2. External Services Mode
 
@@ -195,18 +198,18 @@ Use external database and Redis, suitable for production.
 
 ```bash [Linux/macOS]
 # Configure external services
-cp .env.example .env
+cp .env.example .env.production
 
 # Edit config file
-vim .env
+vim .env.production
 ```
 
 ```powershell [Windows]
 # Configure external services
-copy .env.example .env
+Copy-Item .env.example .env.production
 
 # Edit config file
-notepad .env
+notepad .env.production
 ```
 
 :::
@@ -233,20 +236,20 @@ Run directly on server, suitable for scenarios requiring fine control.
 ::: code-group
 
 ```bash [Linux/macOS]
-# Use install script
+# Use the unified deploy script
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 
 # Or manual install
-pnpm install
-pnpm run build
-pnpm run start:prod
+npm ci
+npm run build
+npm run start:prod
 ```
 
 ```powershell [Windows]
 # Manual install
-pnpm install
-pnpm run build
-pnpm run start:prod
+npm ci
+npm run build
+npm run start:prod
 ```
 
 :::
@@ -255,7 +258,7 @@ pnpm run start:prod
 
 ### Required Configuration
 
-Create a `.env` file with the following content:
+Choose the environment file that matches your operating mode and update it with the following values:
 
 ```bash
 # Server IP (required for audio/video calls)
@@ -308,8 +311,8 @@ openssl rand -base64 24
 # Generate JWT secret
 openssl rand -base64 32
 
-# Update .env file
-vim .env
+# Update .env.production
+vim .env.production
 ```
 
 ```powershell [Windows]
@@ -319,8 +322,8 @@ openssl rand -base64 24
 # Or use PowerShell
 [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
 
-# Update .env file
-notepad .env
+# Update .env.production
+notepad .env.production
 ```
 
 :::
@@ -546,11 +549,11 @@ Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 10
 systemctl status openchat.service
 
 # Runtime health
-./bin/openchat status
-./bin/openchat health
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 
 # View logs
-tail -f var/logs/stdout.log
+tail -f var/logs/production.stdout.log
 ```
 
 ```powershell [Windows]
@@ -572,19 +575,16 @@ make db-backup
 # Pull latest code
 git pull
 
-# Update services
-make update
+# Apply patches and redeploy safely
+./scripts/deploy-server.sh production --db-action patch --yes --service
 ```
 
 ```powershell [Windows]
-# Backup data
-pnpm run db:backup
-
 # Pull latest code
 git pull
 
-# Update services
-pnpm run update
+# Apply patches and redeploy safely
+.\scripts\deploy-server.ps1 production -DbAction patch -Yes
 ```
 
 :::

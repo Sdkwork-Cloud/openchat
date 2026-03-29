@@ -165,7 +165,7 @@ install_docker_compose() {
 install_nodejs() {
     log_step "安装 Node.js..."
     
-    local NODE_VERSION=${1:-18}
+    local NODE_VERSION=${1:-24}
     
     case $OS in
         ubuntu|debian)

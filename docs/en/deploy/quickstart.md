@@ -15,6 +15,7 @@ Before installation, run the check script to verify your system:
 ```
 
 The check includes:
+
 - Operating system and architecture
 - Memory and disk space
 - Docker and Docker Compose status
@@ -28,8 +29,7 @@ The check includes:
 ```bash
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-cp .env.example .env
-# edit .env as needed
+# edit .env.production as needed
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 ```
 
@@ -38,8 +38,7 @@ cp .env.example .env
 ```powershell
 git clone https://github.com/Sdkwork-Cloud/openchat.git
 cd openchat
-Copy-Item .env.example .env
-# edit .env as needed
+# edit .env.production as needed
 .\scripts\deploy-server.ps1 production -DbAction auto -Yes
 ```
 
@@ -60,16 +59,21 @@ docker compose -f docker-compose.quick.yml ps
 docker compose -f docker-compose.quick.yml logs -f
 ```
 
-### Option 2: Dev Environment
+Notes:
 
-Use `docker-compose.yml` for flexible configuration with profiles:
+- `docker-compose.quick.yml` now initializes a fresh PostgreSQL volume with `schema.sql + seed.sql`.
+- The quick-start stack keeps `DB_SYNCHRONIZE=false` by default. Use `init-database` or SQL patches instead of schema auto-sync.
+
+### Option 2: Flexible Compose Startup
+
+Use `docker-compose.yml` for a local full stack, or `docker-compose.external-db.yml` when PostgreSQL and Redis are provided externally:
 
 ```bash
 # Start all services (database+Redis+IM+app)
 docker compose --profile database --profile cache --profile im up -d
 
-# Start only the app (use external database)
-docker compose up -d
+# Start only the app (use external database / Redis)
+docker compose -f docker-compose.external-db.yml up -d
 
 # Check service status
 docker compose ps
@@ -80,12 +84,17 @@ docker compose logs -f
 
 ## Verify Installation
 
+Note:
+
+- Host deployments managed by `.env.production` use port `7200` by default.
+- `docker-compose.quick.yml` exposes the app on port `3000` by default.
+
 ### 1. Check Service Status
 
 ```bash
 # Standalone runtime health
-./bin/openchat status
-./bin/openchat health
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 
 # Linux service status
 systemctl status openchat.service
@@ -96,31 +105,33 @@ systemctl status openchat.service
 ```bash
 # Health check
 curl http://127.0.0.1:7200/health
-curl http://127.0.0.1:7200/ready
+curl http://127.0.0.1:7200/health/ready
 ```
 
 ### 3. View Logs
 
 ```bash
 # View all logs
-docker compose logs -f
+docker compose -f docker-compose.quick.yml logs -f
 
 # View specific service logs
-docker compose logs -f openchat
+docker compose -f docker-compose.quick.yml logs -f app
 ```
 
 ## Access Services
 
 After installation, access the following services:
 
-| Service | URL |
-|---------|-----|
-| OpenChat API | http://127.0.0.1:7200 |
-| App API Documentation | http://127.0.0.1:7200/im/v3/docs |
+| Service                 | URL                                    |
+| ----------------------- | -------------------------------------- |
+| OpenChat API            | http://127.0.0.1:7200                  |
+| App API Documentation   | http://127.0.0.1:7200/im/v3/docs       |
 | Admin API Documentation | http://127.0.0.1:7200/admin/im/v3/docs |
-| Health Check | http://127.0.0.1:7200/health |
-| WukongIM Demo | http://localhost:5172 |
-| WukongIM Admin | http://localhost:5300/web |
+| Health Check            | http://127.0.0.1:7200/health           |
+| WukongIM Demo           | http://localhost:5172                  |
+| WukongIM Admin          | http://localhost:5300/web              |
+
+For the Docker quick-start profile, replace `7200` with `3000` for OpenChat URLs.
 
 ## Common Commands
 
@@ -129,9 +140,9 @@ After installation, access the following services:
 ./scripts/deploy-server.sh production --db-action auto --yes --service
 
 # Runtime wrapper
-./bin/openchat restart
-./bin/openchat status
-./bin/openchat health
+./bin/openchat restart --environment production
+./bin/openchat status --environment production
+./bin/openchat health --environment production
 
 # Database commands
 ./scripts/init-database.sh production --yes

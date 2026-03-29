@@ -9,6 +9,7 @@ function Convert-ToCliArgs {
     foreach ($item in $InputArgs) {
         switch -Regex ($item) {
             '^-(Environment|env)$' { $output.Add('--environment'); continue }
+            '^-(EnvFile|env-file)$' { $output.Add('--env-file'); continue }
             default { $output.Add($item) }
         }
     }
@@ -22,7 +23,7 @@ $cliPath = Join-Path $projectRoot 'scripts/openchat-cli.cjs'
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 
 if (-not $nodeCommand) {
-    Write-Host '[ERROR] Node.js >= 18 is required to run OpenChat database commands.' -ForegroundColor Red
+    Write-Host '[ERROR] Node.js >= 20.19.0 is required to run OpenChat database commands.' -ForegroundColor Red
     exit 1
 }
 

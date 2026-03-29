@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MessageStatus } from '../../modules/message/message.interface';
 import { MessageReceiptService } from '../../modules/message/message-receipt.service';
 import { MessageService } from '../../modules/message/message.service';
@@ -13,7 +14,7 @@ describe('WsMessageCommandService', () => {
   let messageReceiptService: { upsertReceipt: jest.Mock };
   let ackRetryService: { storePendingAck: jest.Mock };
   let groupAuthorizationService: { isUserGroupMember: jest.Mock };
-  let eventEmitter: { emit: jest.Mock };
+  let eventEmitter: EventEmitter2;
 
   beforeEach(() => {
     messageService = {
@@ -28,9 +29,8 @@ describe('WsMessageCommandService', () => {
     groupAuthorizationService = {
       isUserGroupMember: jest.fn().mockResolvedValue(true),
     };
-    eventEmitter = {
-      emit: jest.fn(),
-    };
+    eventEmitter = new EventEmitter2();
+    jest.spyOn(eventEmitter, 'emit');
 
     service = new WsMessageCommandService(
       messageService as unknown as MessageService,

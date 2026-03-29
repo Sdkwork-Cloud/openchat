@@ -21,18 +21,18 @@ cd openchat
 ### 2. 配置环境变量
 
 ```bash
-# 复制环境配置模板
-cp .env.example .env
+# 开发环境建议编辑 .env.development
+vim .env.development
 
-# 编辑配置
-vim .env
+# 生产环境建议编辑 .env.production
+# vim .env.production
 ```
 
 ### 3. 启动服务
 
 ```bash
 # 启动所有服务（开发模式）
-docker compose up -d
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
 
 # 或使用部署脚本
 ./scripts/docker-deploy.sh install
@@ -51,10 +51,10 @@ docker compose up -d
 
 ```bash
 # 启动所有服务
-docker compose up -d
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
 
 # 或使用 profiles 选择性启动
-docker compose --profile database --profile cache --profile im up -d
+docker compose --env-file .env.development --profile database --profile cache --profile im up -d
 ```
 
 ### 生产环境
@@ -62,7 +62,7 @@ docker compose --profile database --profile cache --profile im up -d
 使用 `docker-compose.prod.yml`：
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 ```
 
 ### 使用外部服务
@@ -71,7 +71,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 ```bash
 # 配置外部数据库连接
-vim .env
+vim .env.production
 
 # 设置外部服务配置
 USE_EXTERNAL_DB=true
@@ -84,7 +84,7 @@ USE_EXTERNAL_WK=true
 WUKONGIM_API_URL=http://your-wukongim-host:5001
 
 # 启动
-docker compose -f docker-compose.external-db.yml up -d
+docker compose --env-file .env.production -f docker-compose.external-db.yml up -d
 ```
 
 ### 使用部署脚本
@@ -104,12 +104,12 @@ docker compose -f docker-compose.external-db.yml up -d
 
 使用 Docker Compose profiles 可以灵活选择启动的服务：
 
-| Profile | 包含服务 | 说明 |
-|--------|---------|------|
-| `database` | PostgreSQL | 数据库服务 |
-| `cache` | Redis | 缓存服务 |
-| `im` | WukongIM | IM 服务 |
-| `monitoring` | Prometheus | 监控服务 |
+| Profile      | 包含服务   | 说明       |
+| ------------ | ---------- | ---------- |
+| `database`   | PostgreSQL | 数据库服务 |
+| `cache`      | Redis      | 缓存服务   |
+| `im`         | WukongIM   | IM 服务    |
+| `monitoring` | Prometheus | 监控服务   |
 
 ```bash
 # 只启动应用（需要外部服务）
@@ -129,65 +129,65 @@ docker compose --profile database --profile cache --profile im --profile monitor
 
 ### 数据库配置
 
-| 环境变量 | 说明 | 默认值 |
-|---------|------|-------|
-| `DB_HOST` | 数据库主机 | `localhost` |
-| `DB_PORT` | 数据库端口 | `5432` |
-| `DB_USERNAME` | 数据库用户名 | `openchat` |
-| `DB_PASSWORD` | 数据库密码 | - |
-| `DB_NAME` | 数据库名称 | `openchat` |
-| `USE_EXTERNAL_DB` | 使用外部数据库 | `false` |
+| 环境变量          | 说明           | 默认值      |
+| ----------------- | -------------- | ----------- |
+| `DB_HOST`         | 数据库主机     | `localhost` |
+| `DB_PORT`         | 数据库端口     | `5432`      |
+| `DB_USERNAME`     | 数据库用户名   | `openchat`  |
+| `DB_PASSWORD`     | 数据库密码     | -           |
+| `DB_NAME`         | 数据库名称     | `openchat`  |
+| `USE_EXTERNAL_DB` | 使用外部数据库 | `false`     |
 
 ### Redis 配置
 
-| 环境变量 | 说明 | 默认值 |
-|---------|------|-------|
-| `REDIS_HOST` | Redis 主机 | `localhost` |
-| `REDIS_PORT` | Redis 端口 | `6379` |
-| `REDIS_PASSWORD` | Redis 密码 | - |
-| `REDIS_DB` | Redis 数据库编号 | `0` |
-| `USE_EXTERNAL_REDIS` | 使用外部 Redis | `false` |
+| 环境变量             | 说明             | 默认值      |
+| -------------------- | ---------------- | ----------- |
+| `REDIS_HOST`         | Redis 主机       | `localhost` |
+| `REDIS_PORT`         | Redis 端口       | `6379`      |
+| `REDIS_PASSWORD`     | Redis 密码       | -           |
+| `REDIS_DB`           | Redis 数据库编号 | `0`         |
+| `USE_EXTERNAL_REDIS` | 使用外部 Redis   | `false`     |
 
 ## WukongIM 配置
 
 ### 应用端配置
 
-| 环境变量 | 说明 | 默认值 |
-|---------|------|-------|
-| `WUKONGIM_API_URL` | API 地址 | `http://localhost:5001` |
-| `WUKONGIM_TCP_ADDR` | TCP 地址 | `localhost:5100` |
-| `WUKONGIM_WS_URL` | WebSocket 地址 | `ws://localhost:5200` |
-| `WUKONGIM_MANAGER_URL` | 管理地址 | `http://localhost:5300` |
-| `WUKONGIM_TOKEN_AUTH` | Token 认证 | `false` |
-| `WUKONGIM_TIMEOUT` | 请求超时 | `10000` |
-| `WUKONGIM_APP_KEY` | 应用标识 | - |
-| `WUKONGIM_APP_SECRET` | 应用密钥 | - |
-| `USE_EXTERNAL_WK` | 使用外部 IM | `false` |
+| 环境变量               | 说明           | 默认值                  |
+| ---------------------- | -------------- | ----------------------- |
+| `WUKONGIM_API_URL`     | API 地址       | `http://localhost:5001` |
+| `WUKONGIM_TCP_ADDR`    | TCP 地址       | `localhost:5100`        |
+| `WUKONGIM_WS_URL`      | WebSocket 地址 | `ws://localhost:5200`   |
+| `WUKONGIM_MANAGER_URL` | 管理地址       | `http://localhost:5300` |
+| `WUKONGIM_TOKEN_AUTH`  | Token 认证     | `false`                 |
+| `WUKONGIM_TIMEOUT`     | 请求超时       | `10000`                 |
+| `WUKONGIM_APP_KEY`     | 应用标识       | -                       |
+| `WUKONGIM_APP_SECRET`  | 应用密钥       | -                       |
+| `USE_EXTERNAL_WK`      | 使用外部 IM    | `false`                 |
 
 ### WukongIM 服务端配置
 
-| 环境变量 | 说明 | 默认值 |
-|---------|------|-------|
-| `WK_CLUSTER_NODEID` | 集群节点ID | `1001` |
-| `WK_MODE` | 运行模式 | `release` |
-| `WK_CONN_MAX` | 最大连接数 | `10000` |
-| `WK_CHANNEL_MAX` | 最大频道数 | `1000` |
-| `WK_MSG_MAX_SIZE` | 消息最大大小 | `4096` |
-| `WK_STORE_TYPE` | 存储类型 | `sqlite` |
-| `WK_REDIS_HOST` | Redis 主机 | - |
-| `WK_TOKEN_SECRET` | Token 密钥 | - |
-| `WK_WEBHOOK_ENABLED` | Webhook 启用 | `false` |
-| `WK_WEBHOOK_URL` | Webhook URL | - |
+| 环境变量             | 说明         | 默认值    |
+| -------------------- | ------------ | --------- |
+| `WK_CLUSTER_NODEID`  | 集群节点ID   | `1001`    |
+| `WK_MODE`            | 运行模式     | `release` |
+| `WK_CONN_MAX`        | 最大连接数   | `10000`   |
+| `WK_CHANNEL_MAX`     | 最大频道数   | `1000`    |
+| `WK_MSG_MAX_SIZE`    | 消息最大大小 | `4096`    |
+| `WK_STORE_TYPE`      | 存储类型     | `sqlite`  |
+| `WK_REDIS_HOST`      | Redis 主机   | -         |
+| `WK_TOKEN_SECRET`    | Token 密钥   | -         |
+| `WK_WEBHOOK_ENABLED` | Webhook 启用 | `false`   |
+| `WK_WEBHOOK_URL`     | Webhook URL  | -         |
 
 ### WukongIM 端口说明
 
-| 端口 | 用途 |
-|------|------|
-| 5001 | HTTP API |
-| 5100 | TCP 协议 |
-| 5200 | WebSocket |
-| 5300 | 管理接口 |
-| 11110 | 集群通信 |
+| 端口  | 用途      |
+| ----- | --------- |
+| 5001  | HTTP API  |
+| 5100  | TCP 协议  |
+| 5200  | WebSocket |
+| 5300  | 管理接口  |
+| 11110 | 集群通信  |
 
 ### 使用外部 WukongIM
 
@@ -355,11 +355,11 @@ ls database/schema.sql database/seed.sql
 
 Docker Compose 配置了以下数据卷：
 
-| 卷名 | 用途 |
-|------|------|
+| 卷名            | 用途            |
+| --------------- | --------------- |
 | `postgres_data` | PostgreSQL 数据 |
-| `redis_data` | Redis 数据 |
-| `wukongim_data` | WukongIM 数据 |
+| `redis_data`    | Redis 数据      |
+| `wukongim_data` | WukongIM 数据   |
 
 ## 故障排除
 
