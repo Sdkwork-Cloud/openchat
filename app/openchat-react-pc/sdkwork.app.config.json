@@ -1,0 +1,130 @@
+{
+  "app": {
+    "key": "openchat-react-pc",
+    "name": "OpenChat React PC",
+    "description": null,
+    "appType": "APP_REACT",
+    "versionSource": "package.json",
+    "packageName": null,
+    "bundleId": null
+  },
+  "backend": {
+    "profileKey": "backend-root-admin",
+    "ownerMode": "tenant",
+    "grantMode": "current",
+    "platform": "WEB",
+    "appId": "10001",
+    "tenantId": "20001",
+    "organizationId": null
+  },
+  "publish": {
+    "status": "ACTIVE",
+    "installSkill": {
+      "name": "sdkwork-skills-app"
+    },
+    "platforms": [
+      "WEB",
+      "DESKTOP",
+      "DESKTOP_WINDOWS",
+      "DESKTOP_MACOS",
+      "DESKTOP_LINUX"
+    ],
+    "installPlatforms": [
+      "WEB",
+      "DESKTOP",
+      "DESKTOP_WINDOWS",
+      "DESKTOP_MACOS",
+      "DESKTOP_LINUX"
+    ],
+    "defaultPackageId": "web-production",
+    "config": {
+      "workspaceRoot": "apps/openchat/app/openchat-react-pc",
+      "framework": "react-tauri",
+      "managedBy": "apps/scripts/app-update-create.mjs"
+    }
+  },
+  "environments": {
+    "development": {
+      "accessUrl": "https://api-dev.sdkwork.com/apps/openchat-react-pc",
+      "deployEnv": "development",
+      "deployUrl": "https://api-dev.sdkwork.com/apps/openchat-react-pc"
+    },
+    "test": {
+      "accessUrl": "https://api-test.sdkwork.com/apps/openchat-react-pc",
+      "deployEnv": "test",
+      "deployUrl": "https://api-test.sdkwork.com/apps/openchat-react-pc"
+    },
+    "production": {
+      "accessUrl": "https://api.sdkwork.com/apps/openchat-react-pc",
+      "deployEnv": "production",
+      "deployUrl": "https://api.sdkwork.com/apps/openchat-react-pc"
+    }
+  },
+  "artifacts": {
+    "packages": [
+      {
+        "id": "web-production",
+        "name": "OpenChat React PC Web Bundle",
+        "sourceType": "WEB_URL",
+        "packageFormat": "ZIP",
+        "platform": "WEB",
+        "urlTemplate": "https://cdn.sdkwork.com/apps/openchat-react-pc/{env}/{version}/web.zip",
+        "enabled": true
+      },
+      {
+        "id": "desktop-windows",
+        "name": "OpenChat React PC Windows Bundle",
+        "sourceType": "BINARY_URL",
+        "packageFormat": "ZIP",
+        "platform": "DESKTOP_WINDOWS",
+        "urlTemplate": "https://cdn.sdkwork.com/apps/openchat-react-pc/{env}/{version}/windows-x64.zip",
+        "enabled": true
+      },
+      {
+        "id": "desktop-macos",
+        "name": "OpenChat React PC macOS Bundle",
+        "sourceType": "BINARY_URL",
+        "packageFormat": "DMG",
+        "platform": "DESKTOP_MACOS",
+        "urlTemplate": "https://cdn.sdkwork.com/apps/openchat-react-pc/{env}/{version}/macos-universal.dmg",
+        "enabled": true
+      },
+      {
+        "id": "desktop-linux",
+        "name": "OpenChat React PC Linux Bundle",
+        "sourceType": "BINARY_URL",
+        "packageFormat": "APPIMAGE",
+        "platform": "DESKTOP_LINUX",
+        "urlTemplate": "https://cdn.sdkwork.com/apps/openchat-react-pc/{env}/{version}/linux-x64.AppImage",
+        "enabled": true
+      }
+    ],
+    "runtimePayloads": {
+      "TAURI": {
+        "manifestUrl": "https://cdn.sdkwork.com/apps/openchat-react-pc/{env}/tauri/latest.json",
+        "channel": "{env}"
+      }
+    },
+    "metadata": {
+      "workspaceRoot": "apps/openchat/app/openchat-react-pc",
+      "framework": "react-tauri",
+      "packageManager": "pnpm"
+    }
+  },
+  "release": {
+    "channel": "STABLE",
+    "titleTemplate": "OpenChat React PC {version}",
+    "summaryTemplate": "OpenChat React PC release {version} for {env}",
+    "highlights": [
+      "Unified pnpm app:update-create publish pipeline",
+      "PlusApp metadata synchronized automatically",
+      "Desktop runtime payloads standardized",
+      "Web access URLs kept in sync per environment"
+    ],
+    "forceUpdate": false,
+    "metadata": {
+      "ownerMode": "tenant",
+      "framework": "react-tauri"
+    }
+  }
+}

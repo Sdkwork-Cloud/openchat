@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "app:update-create": "node ../../../scripts/app-update-create.mjs",
     "dev": "pnpm --filter @openchat/opencat-admin-web dev",
     "prepare:shared-sdk": "node ../../sdkwork-im-admin-sdk/bin/materialize-typescript-workspace.mjs",
     "build": "pnpm prepare:shared-sdk && pnpm --filter @openchat/opencat-admin-web build",

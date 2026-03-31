@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "app:update-create": "node ../../../scripts/app-update-create.mjs",
     "dev": "vite --mode development",
     "dev:test": "vite --mode test",
     "dev:prod": "vite --mode production",

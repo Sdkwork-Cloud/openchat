@@ -1,0 +1,89 @@
+{
+  "app": {
+    "key": "openchat-app",
+    "name": "OpenChat App",
+    "description": null,
+    "appType": "APP_REACT",
+    "versionSource": "package.json",
+    "packageName": null,
+    "bundleId": null
+  },
+  "backend": {
+    "profileKey": "backend-root-admin",
+    "ownerMode": "tenant",
+    "grantMode": "current",
+    "platform": "WEB",
+    "appId": "10001",
+    "tenantId": "20001",
+    "organizationId": null
+  },
+  "publish": {
+    "status": "ACTIVE",
+    "installSkill": {
+      "name": "sdkwork-skills-app"
+    },
+    "platforms": [
+      "WEB"
+    ],
+    "installPlatforms": [
+      "WEB"
+    ],
+    "defaultPackageId": "web-production",
+    "config": {
+      "workspaceRoot": "apps/openchat/app/openchat",
+      "framework": "react-web",
+      "managedBy": "apps/scripts/app-update-create.mjs"
+    }
+  },
+  "environments": {
+    "development": {
+      "accessUrl": "https://api-dev.sdkwork.com/apps/openchat-app",
+      "deployEnv": "development",
+      "deployUrl": "https://api-dev.sdkwork.com/apps/openchat-app"
+    },
+    "test": {
+      "accessUrl": "https://api-test.sdkwork.com/apps/openchat-app",
+      "deployEnv": "test",
+      "deployUrl": "https://api-test.sdkwork.com/apps/openchat-app"
+    },
+    "production": {
+      "accessUrl": "https://api.sdkwork.com/apps/openchat-app",
+      "deployEnv": "production",
+      "deployUrl": "https://api.sdkwork.com/apps/openchat-app"
+    }
+  },
+  "artifacts": {
+    "packages": [
+      {
+        "id": "web-production",
+        "name": "OpenChat App Web Bundle",
+        "sourceType": "WEB_URL",
+        "packageFormat": "ZIP",
+        "platform": "WEB",
+        "urlTemplate": "https://cdn.sdkwork.com/apps/openchat-app/{env}/{version}/web.zip",
+        "enabled": true
+      }
+    ],
+    "runtimePayloads": {},
+    "metadata": {
+      "workspaceRoot": "apps/openchat/app/openchat",
+      "framework": "react-web",
+      "packageManager": "pnpm"
+    }
+  },
+  "release": {
+    "channel": "STABLE",
+    "titleTemplate": "OpenChat App {version}",
+    "summaryTemplate": "OpenChat App release {version} for {env}",
+    "highlights": [
+      "Unified pnpm app:update-create publish pipeline",
+      "PlusApp metadata synchronized automatically",
+      "Web access URLs kept in sync per environment"
+    ],
+    "forceUpdate": false,
+    "metadata": {
+      "ownerMode": "tenant",
+      "framework": "react-web"
+    }
+  }
+}
