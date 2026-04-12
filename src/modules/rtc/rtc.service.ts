@@ -1449,7 +1449,7 @@ export class RTCService implements RTCManager {
       throw new ForbiddenException('Only room participants can stop recording');
     }
 
-    let record: RTCVideoRecord | null = null;
+    let record: RTCVideoRecord | null | undefined;
     if (options.recordId) {
       record = await this.rtcVideoRecordRepository.findOne({
         where: { id: options.recordId, roomId, isDeleted: false },

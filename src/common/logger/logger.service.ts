@@ -1,4 +1,4 @@
-import { Injectable, Scope, LoggerService, ConsoleLogger } from '@nestjs/common';
+import { Injectable, Scope, LoggerService } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getRequestId } from '../middleware/request-tracing.middleware';
 

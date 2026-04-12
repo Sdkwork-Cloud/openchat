@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { AIBotEntity, BotMessageEntity } from './ai-bot.entity';
 import { AIBot, BotMessage, BotManager, AIService } from './ai-bot.interface';
 import { DefaultAIService } from './default-ai.service';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 @Injectable()
 export class AIBotService implements BotManager {
@@ -113,7 +114,7 @@ export class AIBotService implements BotManager {
     } catch (error) {
       // 更新状态为失败
       savedMessage.status = 'failed';
-      savedMessage.response = `Error processing message: ${error.message}`;
+      savedMessage.response = `Error processing message: ${getErrorMessage(error)}`;
       savedMessage = await this.botMessageRepository.save(savedMessage);
     }
     

@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLogEntity, AuditAction, AuditResult } from '../entities/audit-log.entity';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface AuditLogData {
   userId?: string;

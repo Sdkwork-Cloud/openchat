@@ -84,7 +84,7 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    for (const [queueName, interval] of this.processingIntervals) {
+    for (const [, interval] of this.processingIntervals) {
       clearInterval(interval);
     }
   }
@@ -243,7 +243,7 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
 
   async consume<T = any>(
     queueName: string,
-    options?: ConsumeOptions,
+    _options?: ConsumeOptions,
   ): Promise<Message<T> | null> {
     const queue = this.queues.get(queueName);
     if (!queue) {

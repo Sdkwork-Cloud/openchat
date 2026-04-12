@@ -1,0 +1,23 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "websocketPort": 8084,
+    "mqttPort": 1883,
+    "udpPort": 8888
+  },
+  "connection": {
+    "maxConnections": 1000,
+    "maxIdleTime": 300000
+  },
+  "audio": {
+    "format": "opus",
+    "sampleRate": 24000
+  },
+  "security": {
+    "jwtExpiry": 3600
+  },
+  "plugin": {
+    "enabled": true,
+    "dir": "D:\\javasource\\spring-ai-plus\\spring-ai-plus-business\\apps\\openchat\\src\\modules\\iot\\xiaozhi\\plugins"
+  }
+}

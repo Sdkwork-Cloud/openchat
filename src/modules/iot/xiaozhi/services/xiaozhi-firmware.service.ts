@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 /**
  * 固件信息接口
@@ -107,7 +108,7 @@ export class XiaoZhiFirmwareService implements OnModuleInit {
           // 假设文件名为: firmware-{hardware}-{version}.bin
           const match = file.match(/firmware-(\w+)-(\d+\.\d+\.\d+)(?:-(\w+))?\.(bin|bin\.gz)/);
           if (match) {
-            const [, hardwareVersion, version, variant, extension] = match;
+            const [, hardwareVersion, version] = match;
             const firmwareInfo: FirmwareInfo = {
               version,
               filename: file,
@@ -153,7 +154,7 @@ export class XiaoZhiFirmwareService implements OnModuleInit {
         stream.on('error', () => {
           resolve('');
         });
-      } catch (error) {
+      } catch {
         resolve('');
       }
     });
@@ -256,7 +257,7 @@ export class XiaoZhiFirmwareService implements OnModuleInit {
         firmwareVersion: 'unknown',
         status: 'failed',
         progress: 0,
-        error: error.message,
+        error: getErrorMessage(error),
         startTime: Date.now(),
         lastUpdate: Date.now(),
       };

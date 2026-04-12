@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
+const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { resolveEnvironmentContext } = require("./lib/node/shared.cjs");
 
 const [, , nodeEnv, command, ...args] = process.argv;
 
@@ -11,13 +13,15 @@ if (!nodeEnv || !command) {
   process.exit(1);
 }
 
+const projectRoot = path.resolve(__dirname, "..");
+const envContext = resolveEnvironmentContext(projectRoot, nodeEnv, {
+  fallbackEnvironment: nodeEnv,
+});
+
 const child = spawn(command, args, {
   stdio: "inherit",
   shell: process.platform === "win32",
-  env: {
-    ...process.env,
-    NODE_ENV: nodeEnv,
-  },
+  env: envContext.values,
 });
 
 child.on("exit", (code, signal) => {

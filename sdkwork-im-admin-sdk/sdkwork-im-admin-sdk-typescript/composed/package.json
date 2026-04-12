@@ -23,7 +23,7 @@
     "typecheck": "node ../../../node_modules/typescript/bin/tsc -p tsconfig.build.json --noEmit"
   },
   "dependencies": {
-    "@sdkwork/im-admin-backend-sdk": "file:../generated/server-openapi",
-    "@sdkwork/im-backend-sdk": "file:../../../sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi"
+    "@sdkwork/im-admin-backend-sdk": "file:..\\generated\\server-openapi",
+    "@sdkwork/im-backend-sdk": "file:..\\..\\..\\sdkwork-im-sdk\\sdkwork-im-sdk-typescript\\generated\\server-openapi"
   }
 }

@@ -7,8 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ApiResponseDto } from '../dto/response.dto';
-import { BusinessException, BusinessErrorCode, ErrorCodeToHttpStatus } from '../exceptions/business.exception';
+import { BusinessException, ErrorCodeToHttpStatus } from '../exceptions/business.exception';
 
 interface ErrorDetail {
   code: string | number;

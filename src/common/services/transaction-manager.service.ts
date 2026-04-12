@@ -145,7 +145,7 @@ export class TransactionManager implements OnModuleDestroy {
   async executeNested<T>(
     parentContext: TransactionContext,
     callback: TransactionCallback<T>,
-    options?: TransactionOptions,
+    _options?: TransactionOptions,
   ): Promise<TransactionResult<T>> {
     const savepointName = `savepoint_${Date.now()}`;
 

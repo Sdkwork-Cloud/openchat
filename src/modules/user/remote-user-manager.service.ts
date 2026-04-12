@@ -56,7 +56,7 @@ export class RemoteUserManagerService implements UserManager {
       return response?.data;
     } catch (error) {
       this.logger.error('Failed to create user:', error);
-      throw new Error('Failed to create user');
+      throw Object.assign(new Error('Failed to create user'), { cause: error });
     }
   }
 

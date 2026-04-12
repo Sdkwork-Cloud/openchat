@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Friend } from './friend.entity';
 import { FriendRequest } from './friend-request.entity';
 import { FriendManager } from './friend.interface';

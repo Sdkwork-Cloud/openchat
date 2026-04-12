@@ -43,6 +43,11 @@ export interface MemoryFilters {
   maxImportance?: number;
 }
 
+export interface HybridSearchOptions {
+  threshold?: number;
+  type?: string;
+}
+
 export interface MemorySearchResult {
   memory: MemoryEntry;
   score: number;
@@ -98,7 +103,12 @@ export interface AdvancedMemoryStore extends MemoryStore {
   deleteBySession(sessionId: string): Promise<void>;
   semanticSearch(query: string, agentId: string, limit?: number): Promise<MemorySearchResult[]>;
   fullTextSearch(query: string, agentId: string, limit?: number): Promise<MemorySearchResult[]>;
-  hybridSearch(query: string, agentId: string, limit?: number): Promise<MemorySearchResult[]>;
+  hybridSearch(
+    query: string,
+    agentId: string,
+    limit?: number,
+    options?: HybridSearchOptions,
+  ): Promise<MemorySearchResult[]>;
   count(agentId: string): Promise<number>;
   getStats(agentId: string): Promise<MemoryStats>;
 }

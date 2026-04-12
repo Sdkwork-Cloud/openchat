@@ -1,42 +1,10 @@
-import { Controller, Get, Query, UseGuards, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiProperty } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
+import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../user/decorators/current-user.decorator';
-import { MessageSearchService, MessageSearchResult } from './message-search.service';
+import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 import { Message } from './message.entity';
+import { MessageSearchResult, MessageSearchService } from './message-search.service';
 
-/**
- * 消息搜索请求 DTO
- */
-class SearchMessagesDto {
-  @ApiProperty({ description: '搜索关键词', required: true })
-  keyword: string;
-
-  @ApiProperty({ description: '目标ID（用户ID或群ID）', required: false })
-  targetId?: string;
-
-  @ApiProperty({ description: '会话类型：single/group', required: false })
-  type?: 'single' | 'group';
-
-  @ApiProperty({ description: '消息类型', required: false })
-  messageType?: string;
-
-  @ApiProperty({ description: '开始时间', required: false })
-  startTime?: string;
-
-  @ApiProperty({ description: '结束时间', required: false })
-  endTime?: string;
-
-  @ApiProperty({ description: '页码', required: false })
-  page?: number;
-
-  @ApiProperty({ description: '每页数量', required: false })
-  pageSize?: number;
-}
-
-/**
- * 消息搜索控制器
- */
 @ApiTags('message-search')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
@@ -44,9 +12,6 @@ class SearchMessagesDto {
 export class MessageSearchController {
   constructor(private readonly messageSearchService: MessageSearchService) {}
 
-  /**
-   * 搜索消息
-   */
   @Get()
   @ApiOperation({ summary: '搜索消息', description: '使用关键词搜索消息内容' })
   async search(
@@ -69,13 +34,10 @@ export class MessageSearchController {
       startTime: startTimeStr ? new Date(startTimeStr) : undefined,
       endTime: endTimeStr ? new Date(endTimeStr) : undefined,
       page,
-      pageSize: Math.min(pageSize || 20, 100), // 限制最大100条
+      pageSize: Math.min(pageSize || 20, 100),
     });
   }
 
-  /**
-   * 快速搜索
-   */
   @Get('quick')
   @ApiOperation({ summary: '快速搜索', description: '快速搜索最近的消息' })
   async quickSearch(
@@ -86,9 +48,6 @@ export class MessageSearchController {
     return this.messageSearchService.quickSearch(userId, keyword, Math.min(limit || 20, 50));
   }
 
-  /**
-   * 搜索特定会话的消息
-   */
   @Get('conversation')
   @ApiOperation({ summary: '搜索会话消息', description: '在特定会话中搜索消息' })
   async searchInConversation(
@@ -109,9 +68,6 @@ export class MessageSearchController {
     );
   }
 
-  /**
-   * 获取消息统计
-   */
   @Get('stats')
   @ApiOperation({ summary: '消息统计', description: '获取用户的消息统计信息' })
   async getMessageStats(

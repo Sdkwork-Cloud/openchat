@@ -308,13 +308,12 @@ export class PaginationService {
 
     // 检查是否多取了一条（用于判断是否有下一页）
     let data = entities;
-    let hasNext = false;
+    const hasNext = entities.length > limit
+      ? true
+      : page * limit < (total || 0);
 
     if (entities.length > limit) {
       data = entities.slice(0, limit);
-      hasNext = true;
-    } else {
-      hasNext = page * limit < (total || 0);
     }
 
     const totalPages = options.includeTotal !== false && total ? Math.ceil(total / limit) : undefined;
@@ -502,6 +501,11 @@ export function Paginate(options?: {
   defaultLimit?: number;
   includeTotal?: boolean;
 }) {
+  type PaginatedMethodThis = {
+    paginationService?: PaginationService;
+    extractPaginationOptions?: () => PaginationOptions;
+  };
+
   return function (
     target: any,
     propertyKey: string,
@@ -509,8 +513,8 @@ export function Paginate(options?: {
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
-      const paginationService = (this as any).paginationService as PaginationService;
+    descriptor.value = async function (this: PaginatedMethodThis, ...args: any[]) {
+      const paginationService = this.paginationService;
       
       if (!paginationService) {
         return originalMethod.apply(this, args);
@@ -522,6 +526,7 @@ export function Paginate(options?: {
         defaultLimit: options?.defaultLimit || 20,
         includeTotal: options?.includeTotal ?? true,
       };
+      void paginationOptions;
 
       return originalMethod.apply(this, args);
     };

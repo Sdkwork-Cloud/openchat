@@ -297,6 +297,7 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
   private distributedEventsReady = false;
   private distributedEventsSetupPromise?: Promise<void>;
   private distributedEventsChannel?: string;
+  private isShuttingDown = false;
 
   constructor(
     @Optional() private readonly redisService?: RedisService,
@@ -327,6 +328,12 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    this.isShuttingDown = true;
+
+    if (this.distributedEventsSetupPromise) {
+      await this.distributedEventsSetupPromise.catch(() => undefined);
+    }
+
     if (this.redisService && this.distributedEventsChannel) {
       try {
         await this.redisService.unsubscribe(this.distributedEventsChannel);
@@ -346,6 +353,7 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
     this.subscriptions.clear();
   }
 
+  /* eslint-disable no-irregular-whitespace */
   /**
    * 闂備礁鎲￠悷锕傚垂閻㈢數鍗氶梺鍨儑椤╂煡鎮楅敐鍌涙珕妞?
    */
@@ -630,6 +638,10 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
   /**
    * 婵犵數鍋為幐鎼佸箠濡　鏋嶉幖娣灮椤╂煡鎮楅敐鍌涙珕妞?
    */
+  /* eslint-enable no-irregular-whitespace */
+  /**
+   * Clear persisted events from the event store.
+   */
   async clearEvents(aggregateId?: string): Promise<void> {
     await this.eventStore.clear(aggregateId);
   }
@@ -752,7 +764,7 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureDistributedEventsSetup(reason: string): Promise<void> {
-    if (!this.redisService || this.distributedEventsReady) {
+    if (this.isShuttingDown || !this.redisService || this.distributedEventsReady) {
       return;
     }
 
@@ -767,6 +779,9 @@ export class EventBusService implements OnModuleInit, OnModuleDestroy {
         this.distributedEventsReady = true;
         this.logger.log(`Distributed event subscription ready (${reason})`);
       } catch (error) {
+        if (this.isShuttingDown) {
+          return;
+        }
         this.logger.error(`Failed to initialize distributed event subscription (${reason}):`, error);
         throw error;
       } finally {

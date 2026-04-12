@@ -13,7 +13,7 @@ import { ValidationPipe, Logger, INestApplication, Type } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
-import * as compression from "compression";
+import compression from "compression";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis, RedisOptions } from "ioredis";
@@ -45,7 +45,6 @@ import {
 } from "./common/http/im-openapi-schema.module";
 import {
   ErrorCode,
-  ErrorModule,
   ErrorSeverity,
   getErrorSolution,
   mapSystemErrorToErrorCode,
@@ -881,7 +880,7 @@ function setupGracefulShutdown(app: INestApplication) {
     gracefulShutdown("UNCAUGHT_EXCEPTION");
   });
 
-  process.on("unhandledRejection", (reason, promise) => {
+  process.on("unhandledRejection", (reason, _promise) => {
     printModuleError("Application", "UnhandledRejection", String(reason));
   });
 }

@@ -289,7 +289,7 @@ class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  async upload(file: Buffer, key: string, options?: UploadOptions): Promise<UploadResult> {
+  async upload(file: Buffer, key: string, _options?: UploadOptions): Promise<UploadResult> {
     const filePath = path.join(this.config.basePath!, key);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, file);
@@ -327,7 +327,7 @@ class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  async getUrl(key: string, expiresIn?: number): Promise<string> {
+  async getUrl(key: string, _expiresIn?: number): Promise<string> {
     return `/storage/${key}`;
   }
 
@@ -400,7 +400,7 @@ class S3StorageProvider implements StorageProvider {
 
   constructor(private readonly config: StorageConfig) {}
 
-  async upload(file: Buffer, key: string, options?: UploadOptions): Promise<UploadResult> {
+  async upload(file: Buffer, key: string, _options?: UploadOptions): Promise<UploadResult> {
     this.logger.debug(`S3 upload: ${key}`);
     return {
       key,
@@ -409,31 +409,31 @@ class S3StorageProvider implements StorageProvider {
     };
   }
 
-  async download(key: string): Promise<Buffer> {
+  async download(_key: string): Promise<Buffer> {
     throw new Error('S3 provider not implemented');
   }
 
-  async delete(key: string): Promise<boolean> {
-    this.logger.debug(`S3 delete: ${key}`);
+  async delete(_key: string): Promise<boolean> {
+    this.logger.debug('S3 delete invoked');
     return true;
   }
 
-  async exists(key: string): Promise<boolean> {
+  async exists(_key: string): Promise<boolean> {
     return true;
   }
 
-  async getUrl(key: string, expiresIn?: number): Promise<string> {
+  async getUrl(key: string, _expiresIn?: number): Promise<string> {
     if (this.config.cdnDomain) {
       return `https://${this.config.cdnDomain}/${key}`;
     }
     return `https://${this.config.bucket}.s3.${this.config.region}.amazonaws.com/${key}`;
   }
 
-  async getMetadata(key: string): Promise<FileMetadata | null> {
+  async getMetadata(_key: string): Promise<FileMetadata | null> {
     return null;
   }
 
-  async list(prefix?: string): Promise<FileListItem[]> {
+  async list(_prefix?: string): Promise<FileListItem[]> {
     return [];
   }
 }
@@ -444,7 +444,7 @@ class OSSStorageProvider implements StorageProvider {
 
   constructor(private readonly config: StorageConfig) {}
 
-  async upload(file: Buffer, key: string, options?: UploadOptions): Promise<UploadResult> {
+  async upload(file: Buffer, key: string, _options?: UploadOptions): Promise<UploadResult> {
     this.logger.debug(`OSS upload: ${key}`);
     return {
       key,
@@ -453,30 +453,30 @@ class OSSStorageProvider implements StorageProvider {
     };
   }
 
-  async download(key: string): Promise<Buffer> {
+  async download(_key: string): Promise<Buffer> {
     throw new Error('OSS provider not implemented');
   }
 
-  async delete(key: string): Promise<boolean> {
+  async delete(_key: string): Promise<boolean> {
     return true;
   }
 
-  async exists(key: string): Promise<boolean> {
+  async exists(_key: string): Promise<boolean> {
     return true;
   }
 
-  async getUrl(key: string, expiresIn?: number): Promise<string> {
+  async getUrl(key: string, _expiresIn?: number): Promise<string> {
     if (this.config.cdnDomain) {
       return `https://${this.config.cdnDomain}/${key}`;
     }
     return `https://${this.config.bucket}.oss-${this.config.region}.aliyuncs.com/${key}`;
   }
 
-  async getMetadata(key: string): Promise<FileMetadata | null> {
+  async getMetadata(_key: string): Promise<FileMetadata | null> {
     return null;
   }
 
-  async list(prefix?: string): Promise<FileListItem[]> {
+  async list(_prefix?: string): Promise<FileListItem[]> {
     return [];
   }
 }
@@ -487,7 +487,7 @@ class COSStorageProvider implements StorageProvider {
 
   constructor(private readonly config: StorageConfig) {}
 
-  async upload(file: Buffer, key: string, options?: UploadOptions): Promise<UploadResult> {
+  async upload(file: Buffer, key: string, _options?: UploadOptions): Promise<UploadResult> {
     this.logger.debug(`COS upload: ${key}`);
     return {
       key,
@@ -496,30 +496,30 @@ class COSStorageProvider implements StorageProvider {
     };
   }
 
-  async download(key: string): Promise<Buffer> {
+  async download(_key: string): Promise<Buffer> {
     throw new Error('COS provider not implemented');
   }
 
-  async delete(key: string): Promise<boolean> {
+  async delete(_key: string): Promise<boolean> {
     return true;
   }
 
-  async exists(key: string): Promise<boolean> {
+  async exists(_key: string): Promise<boolean> {
     return true;
   }
 
-  async getUrl(key: string, expiresIn?: number): Promise<string> {
+  async getUrl(key: string, _expiresIn?: number): Promise<string> {
     if (this.config.cdnDomain) {
       return `https://${this.config.cdnDomain}/${key}`;
     }
     return `https://${this.config.bucket}.cos.${this.config.region}.myqcloud.com/${key}`;
   }
 
-  async getMetadata(key: string): Promise<FileMetadata | null> {
+  async getMetadata(_key: string): Promise<FileMetadata | null> {
     return null;
   }
 
-  async list(prefix?: string): Promise<FileListItem[]> {
+  async list(_prefix?: string): Promise<FileListItem[]> {
     return [];
   }
 }

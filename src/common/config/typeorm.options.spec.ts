@@ -1,5 +1,6 @@
 import {
   createTypeOrmDataSourceOptions,
+  createTypeOrmModuleOptions,
   resolveDatabaseConfig,
 } from "./typeorm.options";
 import { TYPEORM_ENTITIES } from "./typeorm.entities";
@@ -87,5 +88,16 @@ describe("typeorm.options", () => {
     expect(options.entities).toContain(RTCCallSession);
     expect(options.entities).toContain(RTCCallParticipant);
     expect(options.entities).toContain(AgentMemory);
+  });
+
+  it("uses fail-fast retry settings for test environment module options", () => {
+    const options = createTypeOrmModuleOptions({
+      NODE_ENV: "test",
+    } as NodeJS.ProcessEnv);
+
+    expect(options).toMatchObject({
+      retryAttempts: 1,
+      retryDelay: 0,
+    });
   });
 });

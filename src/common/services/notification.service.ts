@@ -1,7 +1,7 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventBusService, EventTypeConstants } from '../events/event-bus.service';
-import { QueueService, NotificationJobData } from '../queue/queue.service';
+import { QueueService } from '../queue/queue.service';
 
 export interface NotificationChannel {
   type: 'push' | 'email' | 'sms' | 'in_app' | 'websocket';
@@ -144,7 +144,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
   async sendToTopic(
     topic: string,
     payload: NotificationPayload,
-    options?: NotificationOptions,
+    _options?: NotificationOptions,
   ): Promise<NotificationResult> {
     const notificationId = this.generateNotificationId();
 
@@ -206,7 +206,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
     return notificationId;
   }
 
-  async cancel(notificationId: string): Promise<boolean> {
+  async cancel(_notificationId: string): Promise<boolean> {
     return true;
   }
 
@@ -272,7 +272,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
   private async sendPush(
     userId: string,
     payload: NotificationPayload,
-    options?: NotificationOptions,
+    _options?: NotificationOptions,
   ): Promise<boolean> {
     this.logger.debug(`Push notification sent to user ${userId}: ${payload.title}`);
     return true;

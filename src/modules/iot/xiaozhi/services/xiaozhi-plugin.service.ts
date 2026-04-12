@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventBusService, EventType, EventPriority } from '../../../../common/events/event-bus.service';
+import { EventBusService } from '../../../../common/events/event-bus.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -126,7 +126,7 @@ export class XiaoZhiPluginService implements OnModuleInit, OnModuleDestroy {
   /**
    * 从文件加载插件
    */
-  private async loadPluginFromFile(pluginPath: string, packageJson?: any): Promise<void> {
+  private async loadPluginFromFile(pluginPath: string, _packageJson?: any): Promise<void> {
     try {
       // 动态导入插件
       const pluginModule = await import(pluginPath);

@@ -3,6 +3,7 @@ import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WukongIMService } from './wukongim.service';
 import { WukongIMClient } from './wukongim.client';
+import { WukongIMTokenService } from './wukongim-token.service';
 import { Message } from '../message/message.entity';
 import { MessageReceipt } from '../message/message-receipt.entity';
 import { MetricsModule } from '../../common/metrics/metrics.module';
@@ -16,7 +17,7 @@ import { MetricsModule } from '../../common/metrics/metrics.module';
     TypeOrmModule.forFeature([Message, MessageReceipt]),
     MetricsModule,
   ],
-  providers: [WukongIMClient, WukongIMService],
-  exports: [WukongIMClient, WukongIMService],
+  providers: [WukongIMClient, WukongIMService, WukongIMTokenService],
+  exports: [WukongIMClient, WukongIMService, WukongIMTokenService],
 })
 export class WukongIMModule {}

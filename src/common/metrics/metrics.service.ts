@@ -1,6 +1,4 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Redis } from 'ioredis';
 import { Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';

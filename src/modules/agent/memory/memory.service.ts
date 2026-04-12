@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MemoryManagerService } from './memory-manager.service';
-import { MemoryEntry, MemoryQuery, MemorySearchResult, SessionMessage } from './memory.interface';
-import { MemoryType, MemorySource } from './memory.entity';
+import { MemoryEntry, MemorySearchResult, SessionMessage } from './memory.interface';
 
 @Injectable()
 export class MemoryService {

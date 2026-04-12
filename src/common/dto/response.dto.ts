@@ -9,8 +9,6 @@
 
 import { applyDecorators, Type } from '@nestjs/common';
 import { ApiExtraModels, ApiOkResponse, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, IsBoolean, IsDateString, IsArray, ValidateNested } from 'class-validator';
-import { Type as TransformType } from 'class-transformer';
 
 /**
  * 响应元数据

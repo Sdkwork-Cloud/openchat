@@ -44,8 +44,6 @@ export class CacheProtectionService {
     nullTtl: number,
     lockTimeout: number,
   ): Promise<T | null> {
-    const lockKey = `lock:${key}`;
-    
     const existingLock = this.locks.get(key);
     if (existingLock) {
       return existingLock;

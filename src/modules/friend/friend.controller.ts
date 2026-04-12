@@ -7,7 +7,6 @@ import {
   Body,
   Query,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,12 +19,10 @@ import { CurrentUser } from '../user/decorators/current-user.decorator';
 import { UserEntity } from '../user/entities/user.entity';
 import {
   SendFriendRequestDto,
-  HandleFriendRequestDto,
   FriendRequestQueryDto,
 } from './dto/friend.dto';
 import {
   ApiSuccessResponse,
-  ApiPagedResponse,
   ApiBadRequestResponse,
   ApiNotFoundResponse,
 } from '../../common/decorators/response.decorator';
@@ -34,7 +31,6 @@ import {
   Audit,
   AuditCreate,
   AuditDelete,
-  AuditUpdate,
 } from '../../common/interceptors/audit.interceptor';
 import { AuditAction } from '../../common/entities/audit-log.entity';
 import { RateLimitAuth } from '../../common/decorators/rate-limit.decorator';

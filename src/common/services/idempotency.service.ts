@@ -61,7 +61,7 @@ export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
     const strategy = options?.strategy || 'return_cached';
     const fullKey = this.buildKey(key, options);
 
-    const existingRecord = await this.getRecord<T>(fullKey);
+    const existingRecord = await this.getRecord(fullKey);
 
     if (existingRecord) {
       if (existingRecord.status === 'completed') {
@@ -163,7 +163,7 @@ export class IdempotencyService implements OnModuleInit, OnModuleDestroy {
     return buildCacheKey('idempotency', scope, key);
   }
 
-  private async getRecord<T>(key: string): Promise<IdempotencyRecord | null> {
+  private async getRecord(key: string): Promise<IdempotencyRecord | null> {
     try {
       const data = await this.redisService.get(key);
       if (!data) return null;

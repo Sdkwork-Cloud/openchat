@@ -15,6 +15,7 @@ type ConfigServiceMock = {
 type RedisServiceMock = {
   publish: jest.Mock;
   subscribe: jest.Mock;
+  unsubscribe: jest.Mock;
   getClient: jest.Mock;
 };
 
@@ -50,6 +51,7 @@ describe('EventBusService', () => {
       subscribe: jest.fn(async (_channel: string, callback?: (message: string, channel?: string) => void) => {
         distributedMessageHandler = callback;
       }),
+      unsubscribe: jest.fn(async () => undefined),
       getClient: jest.fn(() => ({ publish: clientPublish })),
     };
 
@@ -269,5 +271,30 @@ describe('EventBusService', () => {
 
     expect(events).toHaveLength(3);
     expect(stats.storedEventCount).toBe(3);
+  });
+
+  it('should suppress distributed setup errors once shutdown starts', async () => {
+    let rejectSubscribe: ((reason?: unknown) => void) | undefined;
+    redisServiceMock.subscribe.mockImplementationOnce(
+      async () =>
+        await new Promise<void>((_resolve, reject) => {
+          rejectSubscribe = reject;
+        }),
+    );
+
+    const loggerErrorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    service.subscribe<IEvent<{ value: number }>>(EventTypeConstants.CUSTOM_EVENT, jest.fn());
+    await flushMicrotasks();
+
+    const destroyPromise = service.onModuleDestroy();
+    rejectSubscribe?.(new Error('Connection is closed'));
+    await destroyPromise;
+    await flushMicrotasks();
+
+    expect(loggerErrorSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('Failed to initialize distributed event subscription'),
+      expect.anything(),
+    );
   });
 });

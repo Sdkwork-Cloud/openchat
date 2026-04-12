@@ -154,9 +154,14 @@ curl http://127.0.0.1:7200/health
 Run tests with the test environment:
 
 ```bash
+npm run test:env:status
+npm run test:env:up
+npm run db:init:test -- --yes --seed
 npm run test
 npm run test:e2e
 ```
+
+`npm run test:env:*` is the cross-platform way to manage the Docker-backed PostgreSQL and Redis test dependencies on Windows, Linux, and macOS.
 
 If you need to boot the server with test configuration:
 
@@ -228,6 +233,14 @@ OPENCHAT_ENV_FILE=.env.production ./scripts/health-check.sh full
 
 ## Docker and Makefile Shortcuts
 
+Cross-platform test dependency management now prefers:
+
+```bash
+npm run test:env:status
+npm run test:env:up
+npm run test:env:down
+```
+
 Docker deployment helpers still exist for containerized environments:
 
 ```bash
@@ -271,6 +284,9 @@ The `Makefile` now uses the same environment-aware workflow as the repository ro
 | `npm run test`          | Run unit tests                                   |
 | `npm run test:e2e`      | Run e2e tests                                    |
 | `npm run test:cov`      | Run coverage                                     |
+| `npm run test:env:up`   | Start Docker-backed PostgreSQL and Redis for E2E |
+| `npm run test:env:down` | Stop Docker-backed PostgreSQL and Redis for E2E  |
+| `npm run test:env:status` | Show E2E dependency status                     |
 | `npm run db:init:dev`   | Development database initialization shortcut     |
 | `npm run db:init:test`  | Test database initialization shortcut            |
 | `npm run db:init:prod`  | Production database initialization shortcut      |

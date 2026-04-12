@@ -79,7 +79,7 @@ export class ImportService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async import<T = any>(
+  async import(
     filepath: string,
     options: ImportOptions,
   ): Promise<ImportResult> {
@@ -94,7 +94,7 @@ export class ImportService implements OnModuleInit, OnModuleDestroy {
     };
 
     const content = await fs.promises.readFile(filepath, 'utf8');
-    let records: any[] = [];
+    let records: any[];
 
     switch (options.format) {
       case 'csv':
@@ -378,18 +378,10 @@ export class ImportService implements OnModuleInit, OnModuleDestroy {
 
     if (lines.length === 0) return [];
 
-    let headers: string[] = [];
-    let startIndex = 0;
-
-    if (hasHeaders) {
-      headers = this.parseCsvLine(lines[0], delimiter);
-      startIndex = 1;
-    } else if (options.fields) {
-      headers = options.fields;
-    } else {
-      const firstLineFields = this.parseCsvLine(lines[0], delimiter);
-      headers = firstLineFields.map((_, i) => `field_${i}`);
-    }
+    const startIndex = hasHeaders ? 1 : 0;
+    const headers = hasHeaders
+      ? this.parseCsvLine(lines[0], delimiter)
+      : options.fields || this.parseCsvLine(lines[0], delimiter).map((_, i) => `field_${i}`);
 
     const records: any[] = [];
 
@@ -452,7 +444,7 @@ export class ImportService implements OnModuleInit, OnModuleDestroy {
     return lines.map(line => JSON.parse(line));
   }
 
-  private parseXml(content: string, options: ImportOptions): any[] {
+  private parseXml(content: string, _options: ImportOptions): any[] {
     const records: any[] = [];
     const recordTag = 'record';
 

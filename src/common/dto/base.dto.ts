@@ -126,7 +126,7 @@ export abstract class BatchCreateDto<T extends CreateDto> extends BatchDto<T> {
   @ApiProperty({ description: '创建项列表', type: [Object] })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type((options) => {
+  @Type((_options) => {
     // 动态类型需要在子类中指定
     return Object;
   })
@@ -140,7 +140,7 @@ export abstract class BatchUpdateDto<T extends UpdateDto> extends BatchDto<T> {
   @ApiProperty({ description: '更新项列表', type: [Object] })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type((options) => {
+  @Type((_options) => {
     // 动态类型需要在子类中指定
     return Object;
   })
@@ -629,7 +629,7 @@ export class NumberRangeDto extends BaseDto {
 /**
  * 创建枚举 DTO 工厂
  */
-export function createEnumDto<T extends Record<string | number, string | number>>(enumType: T, defaultKey?: keyof T) {
+export function createEnumDto<T extends Record<string | number, string | number>>(enumType: T, _defaultKey?: keyof T) {
   abstract class EnumDto extends BaseDto {
     @ApiProperty({ description: '枚举值', enum: enumType })
     @IsString()

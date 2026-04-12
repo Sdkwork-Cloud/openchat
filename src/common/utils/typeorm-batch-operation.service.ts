@@ -12,10 +12,6 @@ interface BatchUpdateOptions {
   whereField?: string;
 }
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
-
 /**
  * TypeORM 批量操作服务
  * 专门用于 TypeORM 实体的高效批量操作

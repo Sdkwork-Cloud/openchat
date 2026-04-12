@@ -22,6 +22,7 @@ const {
   runInstall,
   runPrecheck,
 } = require('./install.cjs');
+const { runTestEnvironment } = require('./test-environment.cjs');
 
 const RUNTIME_COMMANDS = new Set([
   'start',
@@ -147,6 +148,23 @@ function parseCommand(argv) {
       command: databaseCommand,
       ...readCommonOptions(flags),
       environment: normalizeEnvironmentName(flags.environment || flags.env || environmentToken) || 'development',
+    };
+  }
+
+  if (normalizedFirst === 'test-env') {
+    const [testEnvironmentCommand = 'status', ...rest] = restTokens;
+    const { flags } = parseFlags(rest);
+    if (testEnvironmentCommand === 'help' || flags.help === true) {
+      return {
+        kind: 'help',
+        command: 'help',
+      };
+    }
+    return {
+      kind: 'test-environment',
+      command: testEnvironmentCommand,
+      ...readCommonOptions(flags),
+      environment: 'test',
     };
   }
 
@@ -286,6 +304,7 @@ function showHelp() {
     '  install-manager <status|resume|reset>',
     '  db init [development|test|production] [--yes] [--seed]',
     '  db patch [development|test|production]',
+    '  test-env <up|down|status> [--env-file <path>]',
   ];
 
   process.stdout.write(`${lines.join('\n')}\n`);
@@ -324,6 +343,8 @@ async function dispatch(projectRoot, parsed) {
       }
       showHelp();
       return 1;
+    case 'test-environment':
+      return runTestEnvironment(projectRoot, parsed);
     case 'install':
       if (parsed.command === 'precheck') {
         return runPrecheck(projectRoot, parsed);

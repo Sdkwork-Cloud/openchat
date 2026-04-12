@@ -48,11 +48,9 @@ export class CompressionMiddleware implements NestMiddleware {
       return next();
     }
 
-    const originalWrite = res.write.bind(res);
     const originalEnd = res.end.bind(res);
 
     const chunks: Buffer[] = [];
-    let size = 0;
 
     const shouldCompress = (contentType: string): boolean => {
       const compressibleTypes = [
@@ -122,17 +120,16 @@ export class CompressionMiddleware implements NestMiddleware {
           default:
             return data;
         }
-      } catch (error) {
+      } catch {
         // 压缩失败时返回原始数据
         return data;
       }
     };
 
-    (res as any).write = function (chunk: any, ...args: any[]): boolean {
+    (res as any).write = function (chunk: any): boolean {
       if (chunk) {
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         chunks.push(buffer);
-        size += buffer.length;
       }
       return true;
     };
@@ -141,7 +138,6 @@ export class CompressionMiddleware implements NestMiddleware {
       if (chunk) {
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         chunks.push(buffer);
-        size += buffer.length;
       }
 
       const data = Buffer.concat(chunks);
@@ -153,15 +149,15 @@ export class CompressionMiddleware implements NestMiddleware {
         if (compressed.length < data.length) {
           res.setHeader('Content-Length', compressed.length.toString());
           res.removeHeader('Transfer-Encoding');
-          originalEnd(compressed);
+          originalEnd(compressed, ...args);
         } else {
           res.setHeader('Content-Length', data.length.toString());
-          originalEnd(data);
+          originalEnd(data, ...args);
         }
-      } catch (error) {
+      } catch {
         // 压缩失败，返回原始数据
         res.setHeader('Content-Length', data.length.toString());
-        originalEnd(data);
+        originalEnd(data, ...args);
       }
 
       return res;

@@ -199,7 +199,7 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
     context.logger.info('Remote user center extension deactivated');
   }
 
-  async onConfigChange(oldConfig: any, newConfig: any): Promise<void> {
+  async onConfigChange(_oldConfig: any, _newConfig: any): Promise<void> {
     this.remoteConfig = this.loadConfig();
     this.context?.logger.info('Remote user center config reloaded');
   }
@@ -349,7 +349,7 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
         refreshToken: response.refreshToken,
         expiresIn: response.expiresIn,
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: '刷新令牌已过期',
@@ -378,7 +378,7 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
     }
   }
 
-  async getUserById(userId: string, options?: UserQueryOptions): Promise<UserInfo | null> {
+  async getUserById(userId: string, _options?: UserQueryOptions): Promise<UserInfo | null> {
     try {
       const endpoint = this.endpoints.getUser.replace('{id}', userId);
       const response = await this.request('GET', endpoint);
@@ -389,7 +389,7 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
     }
   }
 
-  async getUserByUsername(username: string, options?: UserQueryOptions): Promise<UserInfo | null> {
+  async getUserByUsername(username: string, _options?: UserQueryOptions): Promise<UserInfo | null> {
     try {
       const response = await this.request('GET', '/users/by-username', { username });
       return response.user ? this.mapUserInfo(response.user) : null;
@@ -398,7 +398,7 @@ export class RemoteUserCenterExtension implements IUserCenterExtension {
     }
   }
 
-  async getUsers(userIds: string[], options?: UserQueryOptions): Promise<UserInfo[]> {
+  async getUsers(userIds: string[], _options?: UserQueryOptions): Promise<UserInfo[]> {
     if (!userIds.length) return [];
 
     try {

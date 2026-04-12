@@ -247,7 +247,7 @@ export class ThrottleStrategyService implements OnModuleInit, OnModuleDestroy {
       buckets: Map<string, TokenBucket | LeakyBucket | WindowCounter>;
     },
     key: string,
-    context: any,
+    _context: any,
   ): ThrottleResult {
     const now = Date.now();
     let bucket = throttle.buckets.get(key) as TokenBucket | undefined;
@@ -293,7 +293,7 @@ export class ThrottleStrategyService implements OnModuleInit, OnModuleDestroy {
       buckets: Map<string, TokenBucket | LeakyBucket | WindowCounter>;
     },
     key: string,
-    context: any,
+    _context: any,
   ): ThrottleResult {
     const now = Date.now();
     let bucket = throttle.buckets.get(key) as LeakyBucket | undefined;
@@ -339,7 +339,7 @@ export class ThrottleStrategyService implements OnModuleInit, OnModuleDestroy {
       buckets: Map<string, TokenBucket | LeakyBucket | WindowCounter>;
     },
     key: string,
-    context: any,
+    _context: any,
   ): ThrottleResult {
     const now = Date.now();
     const windowMs = throttle.options.windowMs;
@@ -386,7 +386,7 @@ export class ThrottleStrategyService implements OnModuleInit, OnModuleDestroy {
       buckets: Map<string, TokenBucket | LeakyBucket | WindowCounter>;
     },
     key: string,
-    context: any,
+    _context: any,
   ): ThrottleResult {
     const now = Date.now();
     const windowMs = throttle.options.windowMs;
@@ -428,7 +428,7 @@ export class ThrottleStrategyService implements OnModuleInit, OnModuleDestroy {
       stats: { throttledRequests: number; totalRequests: number };
     },
     key: string,
-    context: any,
+    _context: any,
   ): ThrottleResult {
     const throttleRate = throttle.stats.totalRequests > 0
       ? throttle.stats.throttledRequests / throttle.stats.totalRequests

@@ -1,4 +1,14 @@
-import { Injectable, ForbiddenException, Logger, Inject, forwardRef, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  Logger,
+  Inject,
+  forwardRef,
+  BadRequestException,
+  NotFoundException,
+  Optional,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource, SelectQueryBuilder, FindOptionsWhere } from 'typeorm';
@@ -150,13 +160,15 @@ type SendMessagePayload = Omit<MessageInterface, 'id' | 'uuid' | 'status' | 'cre
 };
 
 @Injectable()
-export class MessageService implements MessageManager {
+export class MessageService implements MessageManager, OnModuleDestroy {
   private readonly logger = new Logger(MessageService.name);
   private readonly receiptStatusRank: Record<ReceiptStatus, number> = {
     [MessageStatus.SENT]: 0,
     [MessageStatus.DELIVERED]: 1,
     [MessageStatus.READ]: 2,
   };
+  private readonly pendingBackgroundTasks = new Set<Promise<void>>();
+  private isShuttingDown = false;
 
   constructor(
     @InjectRepository(Message) private messageRepository: Repository<Message>,
@@ -175,6 +187,11 @@ export class MessageService implements MessageManager {
     private configService: ConfigService,
     @Optional() private readonly prometheusService?: PrometheusService,
   ) {}
+
+  async onModuleDestroy(): Promise<void> {
+    this.isShuttingDown = true;
+    await this.drainPendingBackgroundTasks();
+  }
 
   /**
    * 发送消息（支持事务）
@@ -218,7 +235,7 @@ export class MessageService implements MessageManager {
       };
     }
 
-    let messageSeq = 0;
+    let messageSeq: number | undefined;
     try {
       const conversationSeqKey = this.getConversationSequenceKey(
         messageData.fromUserId,
@@ -239,7 +256,7 @@ export class MessageService implements MessageManager {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-    let savedMessage: Message | null = null;
+    let savedMessage: Message | undefined;
 
     try {
       // 3.1 创建消息记录
@@ -319,6 +336,26 @@ export class MessageService implements MessageManager {
       };
     }
 
+    if (!this.isImDispatchEnabled()) {
+      savedMessage.status = MessageStatus.SENT;
+      savedMessage.extra = {
+        ...(savedMessage.extra || {}),
+        imDispatchMode: 'local-only',
+      };
+      const updatedMessage = await this.messageRepository.save(savedMessage);
+
+      await this.ensureInitialSentReceipts(updatedMessage).catch((error) => {
+        this.logger.warn(`Failed to initialize sent receipts for ${updatedMessage.id}: ${error?.message || error}`);
+      });
+
+      this.scheduleConversationUpdate(updatedMessage);
+
+      return {
+        success: true,
+        message: updatedMessage,
+      };
+    }
+
     // 4. 异步发送消息到 IM 系统（不在事务中，避免长时间占用连接）
     try {
       const imMessage: Omit<IMMessage, 'id' | 'timestamp' | 'status'> = {
@@ -353,9 +390,7 @@ export class MessageService implements MessageManager {
       });
 
       // 异步更新会话（不阻塞响应）
-      this.updateConversationForMessageOptimized(updatedMessage).catch(error => {
-        this.logger.error('Failed to update conversation:', error);
-      });
+      this.scheduleConversationUpdate(updatedMessage);
 
       return {
         success: true,
@@ -1137,6 +1172,29 @@ export class MessageService implements MessageManager {
   /**
    * 更新或创建会话
    */
+  private scheduleConversationUpdate(message: Message): void {
+    let task!: Promise<void>;
+    task = this.updateConversationForMessageOptimized(message)
+      .catch((error) => {
+        if (this.isShuttingDown) {
+          return;
+        }
+
+        this.logger.error('Failed to update conversation:', error);
+      })
+      .finally(() => {
+        this.pendingBackgroundTasks.delete(task);
+      });
+
+    this.pendingBackgroundTasks.add(task);
+  }
+
+  private async drainPendingBackgroundTasks(): Promise<void> {
+    while (this.pendingBackgroundTasks.size > 0) {
+      await Promise.allSettled([...this.pendingBackgroundTasks]);
+    }
+  }
+
   private async updateOrCreateConversation(
     userId: string,
     targetId: string,
@@ -1864,7 +1922,7 @@ export class MessageService implements MessageManager {
         } else {
           queryBuilder.andWhere('message.createdAt > :cursorDate', { cursorDate });
         }
-      } catch (error) {
+      } catch {
         throw new BadRequestException('Invalid cursor format');
       }
     }
@@ -2275,7 +2333,7 @@ export class MessageService implements MessageManager {
   ): Promise<ConversationSeqAckBatchResult> {
     const syncScope: 'user' | 'device' = options?.deviceId ? 'device' : 'user';
     const batchStartedAt = Date.now();
-    let batchStatus: 'success' | 'partial' | 'failure' = 'failure';
+    let batchStatus: 'success' | 'partial' | 'failure' | undefined;
     let failedItemsForMetrics = 0;
 
     try {
@@ -2334,10 +2392,11 @@ export class MessageService implements MessageManager {
       batchStatus = 'failure';
       throw error;
     } finally {
-      this.prometheusService?.incrementMessageSeqAckBatch(syncScope, batchStatus);
+      const finalBatchStatus = batchStatus ?? 'failure';
+      this.prometheusService?.incrementMessageSeqAckBatch(syncScope, finalBatchStatus);
       this.prometheusService?.observeMessageSeqAckBatchDuration(
         syncScope,
-        batchStatus,
+        finalBatchStatus,
         Date.now() - batchStartedAt,
       );
       this.prometheusService?.observeMessageSeqAckBatchFailedItems(syncScope, failedItemsForMetrics);
@@ -2606,6 +2665,15 @@ export class MessageService implements MessageManager {
       return this.imProviderService.sendGroupMessage(imMessage);
     }
     return this.imProviderService.sendMessage(imMessage);
+  }
+
+  private isImDispatchEnabled(): boolean {
+    const rawEnabled = this.configService.get<string | boolean>('WUKONGIM_ENABLED', 'true');
+    if (typeof rawEnabled === 'boolean') {
+      return rawEnabled;
+    }
+
+    return !['false', '0', 'no', 'off'].includes(rawEnabled.trim().toLowerCase());
   }
 
   /**

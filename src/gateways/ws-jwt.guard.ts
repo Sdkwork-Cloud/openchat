@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/commo
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Socket } from 'socket.io';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 interface WsJwtPayload {
   userId?: string;
@@ -55,7 +56,7 @@ export class WsJwtGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      this.logger.warn(`WebSocket JWT validation failed: ${error.message}`);
+      this.logger.warn(`WebSocket JWT validation failed: ${getErrorMessage(error)}`);
       const client: Socket = context.switchToWs().getClient<Socket>();
       client.disconnect(true);
       return false;

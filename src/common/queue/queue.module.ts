@@ -1,4 +1,4 @@
-import { Module, Global, DynamicModule, Logger, Inject } from "@nestjs/common";
+import { Module, Global, DynamicModule, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
 import { Redis } from "ioredis";
@@ -30,7 +30,7 @@ export class QueueModule {
       imports: [
         BullModule.forRootAsync({
           inject: [ConfigService, REDIS_CLIENT],
-          useFactory: (configService: ConfigService, redisClient: Redis) => ({
+          useFactory: (configService: ConfigService, _redisClient: Redis) => ({
             connection: {
               host: configService.get("REDIS_HOST", "localhost"),
               port: configService.get("REDIS_PORT", 6379),

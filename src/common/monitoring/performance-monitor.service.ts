@@ -423,7 +423,6 @@ export class PerformanceMonitorService implements OnModuleInit, OnModuleDestroy 
   exportPrometheus(): string {
     const metrics = this.getMetrics();
     const lines: string[] = [];
-    const timestamp = Date.now();
     
     // CPU 指标
     lines.push('# HELP node_cpu_usage_percent CPU usage percentage');

@@ -1,6 +1,6 @@
 import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
-import { AnyMediaResource, ImageMediaResource } from '../im-provider/media-resource.interface';
+import { ImageMediaResource } from '../im-provider/media-resource.interface';
 
 export type ContactType = 'user' | 'group';
 export type ContactSource = 'friend' | 'group' | 'manual';

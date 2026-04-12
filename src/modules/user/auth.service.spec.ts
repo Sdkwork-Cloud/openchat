@@ -15,6 +15,7 @@ describe('AuthService', () => {
   let service: AuthService;
 
   const mockLocalUserManager = {
+    getUserByUsername: jest.fn(),
     getUserByUsernameWithPassword: jest.fn(),
     getUserById: jest.fn(),
     createUser: jest.fn(),
@@ -41,6 +42,7 @@ describe('AuthService', () => {
   const mockUserSyncService = {
     syncUserToIM: jest.fn().mockResolvedValue(undefined),
     syncUserOnLogin: jest.fn().mockResolvedValue(undefined),
+    syncUserOnRegister: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockVerificationCodeService = {
@@ -82,6 +84,8 @@ describe('AuthService', () => {
     mockUserSyncService.syncUserToIM.mockResolvedValue(undefined);
     mockUserSyncService.syncUserOnLogin.mockReset();
     mockUserSyncService.syncUserOnLogin.mockResolvedValue(undefined);
+    mockUserSyncService.syncUserOnRegister.mockReset();
+    mockUserSyncService.syncUserOnRegister.mockResolvedValue(undefined);
     mockPermissionService.getUserRoles.mockReset();
     mockPermissionService.getUserRoles.mockResolvedValue([]);
     mockPermissionService.getUserPermissions.mockReset();
@@ -221,6 +225,47 @@ describe('AuthService', () => {
           roles: ['admin'],
         }),
         expect.any(Object),
+      );
+    });
+  });
+
+  describe('register', () => {
+    it('should persist missing phone as null instead of empty string when registering with email only', async () => {
+      mockVerificationCodeService.verifyCodeByTarget.mockResolvedValue(true);
+      mockLocalUserManager.getUserByUsername.mockResolvedValue(null);
+      mockLocalUserManager.getUserRepository.mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(null),
+      });
+      mockLocalUserManager.createUser.mockImplementation(async (userData: any) => ({
+        id: 'user-1',
+        uuid: '10000000-0000-0000-0000-000000000099',
+        username: userData.username,
+        email: userData.email,
+        phone: userData.phone,
+        nickname: userData.nickname,
+        password: userData.password,
+        roles: userData.roles,
+        avatar: null,
+        status: userData.status,
+        resources: null,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      await service.register({
+        username: 'new_user',
+        password: 'OpenChat@123',
+        nickname: 'New User',
+        email: 'new_user@example.com',
+        code: '123456',
+      } as any);
+
+      expect(mockLocalUserManager.createUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'new_user@example.com',
+          phone: null,
+        }),
       );
     });
   });

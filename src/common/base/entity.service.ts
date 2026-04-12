@@ -91,7 +91,7 @@ export abstract class BaseEntityService<T extends BaseEntity & ObjectLiteral> {
         const entities = this.repository.create(batch);
         const saved = await this.repository.save(entities);
         success.push(...saved);
-      } catch (error) {
+      } catch {
         for (const dto of batch) {
           try {
             const entity = this.repository.create(dto);

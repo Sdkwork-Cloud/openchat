@@ -99,7 +99,7 @@ export type MapKeys<T, K extends string> = {
  */
 export type UnionToTuple<U, T extends any[] = []> = (
   (U extends any ? (t: U) => U : never) extends infer V
-    ? V extends (t: infer W) => infer _
+    ? V extends (t: infer W) => unknown
       ? UnionToTuple<Exclude<U, W>, [W, ...T]>
       : T
     : T

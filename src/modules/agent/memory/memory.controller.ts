@@ -77,7 +77,17 @@ export class MemoryController {
       throw new HttpException('Query parameter "q" is required', HttpStatus.BAD_REQUEST);
     }
 
-    return this.memoryManager.hybridSearch(query.trim(), agentId, Math.min(limit || 10, 100));
+    const normalizedThreshold = Number(threshold);
+
+    return this.memoryManager.hybridSearch(
+      query.trim(),
+      agentId,
+      Math.min(limit || 10, 100),
+      {
+        threshold: Number.isFinite(normalizedThreshold) ? normalizedThreshold : undefined,
+        type,
+      },
+    );
   }
 
   @Get('semantic-search')

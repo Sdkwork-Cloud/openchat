@@ -2,8 +2,7 @@
  * 小智协议类型定义
  */
 
-import * as WebSocket from 'ws';
-import * as mqtt from 'mqtt';
+import WebSocket from 'ws';
 import * as dgram from 'dgram';
 
 /**

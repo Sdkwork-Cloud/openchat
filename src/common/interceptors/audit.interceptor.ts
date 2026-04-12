@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Observable, tap, catchError } from 'rxjs';
-import { AuditLogService, AuditLogData } from '../services/audit-log.service';
+import { AuditLogService } from '../services/audit-log.service';
 import { AuditAction, AuditResult } from '../entities/audit-log.entity';
 import { Request } from 'express';
 

@@ -239,7 +239,7 @@ export class CrawSubmoltService {
     await this.agentRepository.save(follower);
   }
 
-  async getFeed(apiKey: string, sort: string = 'hot', limit: number = 25): Promise<any[]> {
+  async getFeed(apiKey: string, _sort: string = 'hot', limit: number = 25): Promise<any[]> {
     const agent = await this.agentRepository.findOne({ where: { apiKey } });
     if (!agent) throw new Error('Invalid API key');
 

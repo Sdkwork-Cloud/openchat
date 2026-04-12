@@ -282,7 +282,7 @@ export class SecurityAuditService implements OnModuleInit {
     return attempts.filter((t) => Date.now() - t < 3600000).length;
   }
 
-  private determineSeverity(type: SecurityEventType, context: SecurityContext): SecuritySeverity {
+  private determineSeverity(type: SecurityEventType, _context: SecurityContext): SecuritySeverity {
     switch (type) {
       case 'brute_force_attempt':
       case 'session_hijacking_attempt':

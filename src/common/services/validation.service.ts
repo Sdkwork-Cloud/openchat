@@ -264,9 +264,10 @@ export class ValidationService {
         return new RegExp(rule.value).test(value);
       case 'enum':
         return rule.value.includes(value);
-      case 'custom':
+      case 'custom': {
         const customValidator = this.customValidators.get(rule.value);
         return customValidator ? await customValidator.validate(value) : false;
+      }
       default:
         return true;
     }

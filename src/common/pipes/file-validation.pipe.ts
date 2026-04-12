@@ -5,7 +5,7 @@
  * @framework
  */
 
-import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
+import { PipeTransform, Injectable, ArgumentMetadata } from '@nestjs/common';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
 
 /**
@@ -53,7 +53,7 @@ export class FileValidationPipe implements PipeTransform<ExpressFile | ExpressFi
 
   transform(
     value: ExpressFile | ExpressFile[] | undefined,
-    metadata: ArgumentMetadata,
+    _metadata: ArgumentMetadata,
   ): ExpressFile | ExpressFile[] | undefined {
     // 检查是否必需
     if (!value) {

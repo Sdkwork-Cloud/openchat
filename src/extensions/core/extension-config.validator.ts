@@ -11,7 +11,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IExtension,
   ExtensionConfig,
-  ExtensionCapabilities,
   ConfigFieldSchema,
 } from './extension.interface';
 

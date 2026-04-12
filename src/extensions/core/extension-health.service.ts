@@ -8,9 +8,10 @@
  * 4. 自动恢复不健康的插件
  */
 
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { EXTENSIONS_OPTIONS, ExtensionsModuleOptions } from '../extensions.options';
 import { ExtensionRegistry } from './extension-registry.service';
 import { ExtensionLifecycleManager } from './extension-lifecycle.manager';
 import {
@@ -90,12 +91,17 @@ export class ExtensionHealthService implements OnModuleInit, OnModuleDestroy {
     private readonly extensionRegistry: ExtensionRegistry,
     private readonly lifecycleManager: ExtensionLifecycleManager,
     private readonly configService: ConfigService,
+    @Optional()
+    @Inject(EXTENSIONS_OPTIONS)
+    private readonly moduleOptions?: ExtensionsModuleOptions,
   ) {
     this.config = {
-      enabled: this.configService.get<boolean>('EXTENSION_HEALTH_CHECK_ENABLED', true),
+      enabled: this.moduleOptions?.enableHealthCheck
+        ?? this.configService.get<boolean>('EXTENSION_HEALTH_CHECK_ENABLED', true),
       interval: this.configService.get<number>('EXTENSION_HEALTH_CHECK_INTERVAL', 60000),
       unhealthyThreshold: this.configService.get<number>('EXTENSION_UNHEALTHY_THRESHOLD', 3),
-      autoRecovery: this.configService.get<boolean>('EXTENSION_AUTO_RECOVERY', true),
+      autoRecovery: this.moduleOptions?.enableAutoRecovery
+        ?? this.configService.get<boolean>('EXTENSION_AUTO_RECOVERY', true),
       recoveryRetries: this.configService.get<number>('EXTENSION_RECOVERY_RETRIES', 3),
       recoveryInterval: this.configService.get<number>('EXTENSION_RECOVERY_INTERVAL', 5000),
     };

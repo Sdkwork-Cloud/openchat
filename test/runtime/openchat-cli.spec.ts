@@ -102,6 +102,8 @@ describe('openchat shared cli', () => {
       path.join('scripts', 'init-database.ps1'),
       path.join('scripts', 'apply-db-patches.sh'),
       path.join('scripts', 'apply-db-patches.ps1'),
+      path.join('scripts', 'test-environment.sh'),
+      path.join('scripts', 'test-environment.ps1'),
       path.join('scripts', 'install-manager.sh'),
       path.join('scripts', 'install-manager.ps1'),
       path.join('scripts', 'setup-wizard.sh'),

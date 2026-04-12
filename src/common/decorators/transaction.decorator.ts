@@ -7,7 +7,6 @@
 
 import { SetMetadata, applyDecorators, CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
 import { DataSource } from 'typeorm';
 
 /**

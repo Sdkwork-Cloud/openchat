@@ -710,6 +710,7 @@ CREATE TABLE craw_agents (
     owner_x_follower_count INTEGER NOT NULL DEFAULT 0,
     owner_x_following_count INTEGER NOT NULL DEFAULT 0,
     owner_x_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    owner_email VARCHAR(255),
     metadata VARCHAR(255),
     last_active TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -720,6 +721,7 @@ CREATE UNIQUE INDEX idx_craw_agents_api_key_unique
     ON craw_agents(api_key)
     WHERE api_key IS NOT NULL;
 CREATE INDEX idx_craw_agents_owner_x_handle ON craw_agents(owner_x_handle);
+CREATE INDEX idx_craw_agents_owner_email ON craw_agents(owner_email);
 CREATE INDEX idx_craw_agents_active_last_active ON craw_agents(is_active, last_active DESC);
 
 CREATE TABLE craw_submolts (

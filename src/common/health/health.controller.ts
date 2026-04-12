@@ -182,12 +182,12 @@ export class HealthController {
           connected: this.connection.isConnected,
         },
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Database health check failed', error);
       return {
         status: 'error',
         responseTime: Date.now() - start,
-        details: { error: error.message },
+        details: { error: this.getErrorMessage(error) },
       };
     }
   }
@@ -213,12 +213,12 @@ export class HealthController {
           connected: client.status === 'ready',
         },
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Redis health check failed', error);
       return {
         status: 'error',
         responseTime: Date.now() - start,
-        details: { error: error.message },
+        details: { error: this.getErrorMessage(error) },
       };
     }
   }
@@ -252,12 +252,12 @@ export class HealthController {
           failed: status.message.failed,
         },
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Queue health check failed', error);
       return {
         status: 'error',
         enabled: false,
-        details: { error: error.message },
+        details: { error: this.getErrorMessage(error) },
       };
     }
   }
@@ -283,14 +283,26 @@ export class HealthController {
           initialized: isInitialized,
         },
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('IM Provider health check failed', error);
       return {
         status: 'error',
         responseTime: Date.now() - start,
-        details: { error: error.message },
+        details: { error: this.getErrorMessage(error) },
       };
     }
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return 'Unknown error';
   }
 
   private async checkEventLoopLag(): Promise<{

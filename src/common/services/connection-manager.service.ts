@@ -3,7 +3,7 @@
  * 管理所有外部服务连接，确保连接复用和资源优化
  */
 
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Inject, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis, { RedisOptions } from 'ioredis';
 
@@ -316,7 +316,7 @@ export class ConnectionManager implements OnModuleInit, OnModuleDestroy {
       try {
         await client.ping();
         results.push({ name, status: 'healthy', latency: Date.now() - start });
-      } catch (error) {
+      } catch {
         results.push({ name, status: 'unhealthy', latency: Date.now() - start });
       }
     }

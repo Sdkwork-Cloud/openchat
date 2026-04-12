@@ -1,5 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
+import { IMProviderModule } from '../im-provider/im-provider.module';
 import { Message } from '../message/message.entity';
 import { MessageReceipt } from '../message/message-receipt.entity';
 import { WukongIMModule } from './wukongim.module';
@@ -24,6 +25,7 @@ describe('WukongIMWebhookModule', () => {
           ]),
         }),
         WukongIMModule,
+        IMProviderModule,
       ]),
     );
   });

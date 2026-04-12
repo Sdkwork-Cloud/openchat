@@ -54,6 +54,12 @@ npm run db:init:test -- --yes --seed
 npm run db:init:prod -- --yes
 ```
 
+说明:
+
+- `npm run db:init:test` 会优先使用宿主机 `psql`。
+- 如果宿主机未安装 `psql`，但 `.env.test` 中配置了 `POSTGRES_CONTAINER_NAME` 且 Docker 可用，CLI 会自动回退到 `docker exec <container> psql`。
+- 推荐先执行 `npm run test:env:up` 再初始化测试库。
+
 ## 执行在线补丁
 
 Linux / macOS：

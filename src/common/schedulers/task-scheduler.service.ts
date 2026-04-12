@@ -40,10 +40,22 @@ export interface TaskContext {
   scheduledTime: Date;
   actualTime: Date;
   runCount: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type TaskHandler = (context: TaskContext) => Promise<void>;
+
+interface PausedTaskState {
+  remainingDelay?: number;
+}
+
+type ScheduledMethod = (...args: unknown[]) => unknown;
+type TimerRef = ReturnType<typeof globalThis.setTimeout>;
+
+interface ScheduledDecoratorTarget {
+  constructor: { name: string };
+  taskScheduler?: TaskSchedulerService;
+}
 
 @Injectable()
 export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -51,8 +63,10 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly tasks = new Map<string, ScheduledTask>();
   private readonly handlers = new Map<string, TaskHandler>();
   private readonly cronJobs = new Map<string, CronJob<null, null>>();
-  private readonly intervals = new Map<string, NodeJS.Timeout>();
-  private readonly timeouts = new Map<string, NodeJS.Timeout>();
+  private readonly intervals = new Map<string, TimerRef>();
+  private readonly timeouts = new Map<string, TimerRef>();
+  private readonly retryTimeouts = new Map<string, TimerRef>();
+  private readonly pausedTasks = new Map<string, PausedTaskState>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -72,24 +86,33 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const [id, interval] of this.intervals) {
-      clearInterval(interval);
+      globalThis.clearInterval(interval);
       this.logger.debug(`Cleared interval: ${id}`);
     }
 
     for (const [id, timeout] of this.timeouts) {
-      clearTimeout(timeout);
+      globalThis.clearTimeout(timeout);
       this.logger.debug(`Cleared timeout: ${id}`);
+    }
+
+    for (const [id, timeout] of this.retryTimeouts) {
+      globalThis.clearTimeout(timeout);
+      this.logger.debug(`Cleared retry timeout: ${id}`);
     }
 
     this.cronJobs.clear();
     this.intervals.clear();
     this.timeouts.clear();
+    this.retryTimeouts.clear();
+    this.pausedTasks.clear();
     this.tasks.clear();
+    this.handlers.clear();
 
     this.logger.log('All scheduled tasks stopped');
   }
 
   schedule(handler: TaskHandler, options: ScheduleOptions): string {
+    this.validateScheduleOptions(options);
     const taskId = options.name || this.generateTaskId();
 
     if (this.tasks.has(taskId)) {
@@ -130,9 +153,12 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private setupCronTask(taskId: string, options: ScheduleOptions): void {
+    const cronExpression = this.requireCronExpression(options.cron);
     const job = new CronJob<null, null>(
-      options.cron!,
-      () => this.executeTask(taskId),
+      cronExpression,
+      () => {
+        void this.executeTask(taskId);
+      },
       null,
       true,
       options.timezone || null,
@@ -149,38 +175,74 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private setupIntervalTask(taskId: string, options: ScheduleOptions): void {
+    const intervalMs = this.requirePositiveInterval(options.interval);
     if (options.runOnInit) {
-      this.executeTask(taskId);
+      void this.executeTask(taskId);
     }
 
-    const interval = setInterval(() => this.executeTask(taskId), options.interval!);
+    const interval = globalThis.setInterval(() => {
+      void this.executeTask(taskId);
+    }, intervalMs);
     this.intervals.set(taskId, interval);
-  }
 
-  private setupTimeoutTask(taskId: string, options: ScheduleOptions): void {
-    const timeout = setTimeout(() => {
-      this.executeTask(taskId);
-      this.timeouts.delete(taskId);
-    }, options.delay!);
-
-    this.timeouts.set(taskId, timeout);
-  }
-
-  private setupOnceTask(taskId: string, options: ScheduleOptions): void {
-    let delay = options.delay || 0;
-
-    if (options.startDate) {
-      delay = Math.max(0, options.startDate.getTime() - Date.now());
+    const task = this.tasks.get(taskId);
+    if (task) {
+      task.nextRun = new Date(Date.now() + intervalMs);
     }
+  }
 
-    const timeout = setTimeout(async () => {
-      await this.executeTask(taskId);
+  private setupTimeoutTask(taskId: string, options: ScheduleOptions, delayOverride?: number): void {
+    const delay = delayOverride ?? this.requireNonNegativeDelay(
+      options.delay,
+      'Timeout tasks require a non-negative delay',
+    );
+
+    const timeout = globalThis.setTimeout(() => {
+      void this.executeTask(taskId);
       this.timeouts.delete(taskId);
-      this.tasks.delete(taskId);
-      this.handlers.delete(taskId);
+      const task = this.tasks.get(taskId);
+      if (task) {
+        task.nextRun = undefined;
+      }
     }, delay);
 
     this.timeouts.set(taskId, timeout);
+
+    const task = this.tasks.get(taskId);
+    if (task) {
+      task.nextRun = new Date(Date.now() + delay);
+    }
+  }
+
+  private setupOnceTask(taskId: string, options: ScheduleOptions, delayOverride?: number): void {
+    let delay = delayOverride ?? this.requireNonNegativeDelay(
+      options.delay ?? 0,
+      'Once tasks require a non-negative delay',
+    );
+
+    if (delayOverride === undefined && options.startDate) {
+      const startDate = this.requireValidDate(options.startDate, 'Once tasks require a valid startDate');
+      delay = Math.max(0, startDate.getTime() - Date.now());
+    }
+
+    const timeout = globalThis.setTimeout(async () => {
+      await this.executeTask(taskId);
+      this.timeouts.delete(taskId);
+
+      const task = this.tasks.get(taskId);
+      if (task?.status === 'completed') {
+        this.tasks.delete(taskId);
+        this.handlers.delete(taskId);
+        this.pausedTasks.delete(taskId);
+      }
+    }, delay);
+
+    this.timeouts.set(taskId, timeout);
+
+    const task = this.tasks.get(taskId);
+    if (task) {
+      task.nextRun = new Date(Date.now() + delay);
+    }
   }
 
   cancel(taskId: string): boolean {
@@ -189,23 +251,11 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
 
-    if (this.cronJobs.has(taskId)) {
-      this.cronJobs.get(taskId)!.stop();
-      this.cronJobs.delete(taskId);
-    }
-
-    if (this.intervals.has(taskId)) {
-      clearInterval(this.intervals.get(taskId)!);
-      this.intervals.delete(taskId);
-    }
-
-    if (this.timeouts.has(taskId)) {
-      clearTimeout(this.timeouts.get(taskId)!);
-      this.timeouts.delete(taskId);
-    }
+    this.clearTaskResources(taskId);
 
     this.tasks.delete(taskId);
     this.handlers.delete(taskId);
+    this.pausedTasks.delete(taskId);
 
     this.logger.log(`Task cancelled: ${taskId}`);
     return true;
@@ -213,15 +263,35 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   pause(taskId: string): boolean {
     const task = this.tasks.get(taskId);
-    if (!task || task.status === 'paused') {
+    if (!task || task.status !== 'pending') {
       return false;
     }
 
     if (this.cronJobs.has(taskId)) {
-      this.cronJobs.get(taskId)!.stop();
+      const job = this.cronJobs.get(taskId);
+      if (job) {
+        job.stop();
+      }
+    } else if (this.intervals.has(taskId)) {
+      const interval = this.intervals.get(taskId);
+      if (interval) {
+        globalThis.clearInterval(interval);
+        this.intervals.delete(taskId);
+      }
+    } else if (this.timeouts.has(taskId)) {
+      const timeout = this.timeouts.get(taskId);
+      if (timeout) {
+        globalThis.clearTimeout(timeout);
+        this.timeouts.delete(taskId);
+      }
+
+      this.pausedTasks.set(taskId, {
+        remainingDelay: this.getRemainingDelay(task),
+      });
     }
 
     task.status = 'paused';
+    task.nextRun = undefined;
     this.logger.log(`Task paused: ${taskId}`);
     return true;
   }
@@ -233,10 +303,23 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (this.cronJobs.has(taskId)) {
-      this.cronJobs.get(taskId)!.start();
+      const job = this.cronJobs.get(taskId);
+      if (job) {
+        job.start();
+        task.nextRun = job.nextDate().toJSDate();
+      }
+    } else if (task.type === 'interval') {
+      this.setupIntervalTask(taskId, task.options);
+    } else if (task.type === 'timeout') {
+      const pausedState = this.pausedTasks.get(taskId);
+      this.setupTimeoutTask(taskId, task.options, pausedState?.remainingDelay);
+    } else if (task.type === 'once') {
+      const pausedState = this.pausedTasks.get(taskId);
+      this.setupOnceTask(taskId, task.options, pausedState?.remainingDelay);
     }
 
     task.status = 'pending';
+    this.pausedTasks.delete(taskId);
     this.logger.log(`Task resumed: ${taskId}`);
     return true;
   }
@@ -272,6 +355,11 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (task.status === 'paused') {
+      this.logger.debug(`Task execution skipped because it is paused: ${taskId}`);
+      return;
+    }
+
     const startTime = Date.now();
     task.status = 'running';
     task.lastRun = new Date();
@@ -298,46 +386,163 @@ export class TaskSchedulerService implements OnModuleInit, OnModuleDestroy {
           : (task.averageDuration * (task.runCount - 1) + duration) / task.runCount;
 
       if (this.cronJobs.has(taskId)) {
-        task.nextRun = this.cronJobs.get(taskId)!.nextDate().toJSDate();
+        const job = this.cronJobs.get(taskId);
+        if (job) {
+          task.nextRun = job.nextDate().toJSDate();
+        }
+      } else if (task.type === 'interval' && task.options.interval !== undefined) {
+        task.nextRun = new Date(Date.now() + task.options.interval);
       }
 
       this.logger.debug(`Task completed: ${taskId}, duration: ${duration}ms`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       task.errorCount++;
-      task.lastError = error.message;
+      task.lastError = this.getErrorMessage(error);
       task.status = 'failed';
 
-      this.logger.error(`Task failed: ${taskId}, error: ${error.message}`);
+      this.logger.error(`Task failed: ${taskId}, error: ${task.lastError}`);
 
       if (task.options.recoverable && task.errorCount < (task.options.maxRetries || 3)) {
         const retryDelay = task.options.retryDelay || 5000;
         this.logger.log(`Scheduling retry for task: ${taskId} in ${retryDelay}ms`);
 
-        setTimeout(() => {
+        const retryTimeout = globalThis.setTimeout(() => {
+          this.retryTimeouts.delete(taskId);
           task.status = 'pending';
-          this.executeTask(taskId);
+          void this.executeTask(taskId);
         }, retryDelay);
+
+        this.retryTimeouts.set(taskId, retryTimeout);
       }
     }
   }
 
+  private validateScheduleOptions(options: ScheduleOptions): void {
+    switch (options.type) {
+      case 'cron':
+        this.requireCronExpression(options.cron);
+        break;
+      case 'interval':
+        this.requirePositiveInterval(options.interval);
+        break;
+      case 'timeout':
+        this.requireNonNegativeDelay(options.delay, 'Timeout tasks require a non-negative delay');
+        break;
+      case 'once':
+        if (options.startDate) {
+          this.requireValidDate(options.startDate, 'Once tasks require a valid startDate');
+        }
+        if (options.delay !== undefined) {
+          this.requireNonNegativeDelay(options.delay, 'Once tasks require a non-negative delay');
+        }
+        break;
+    }
+  }
+
+  private requireCronExpression(cron: string | undefined): string {
+    if (typeof cron !== 'string' || cron.trim().length === 0) {
+      throw new Error('Cron tasks require a cron expression');
+    }
+
+    return cron;
+  }
+
+  private requirePositiveInterval(interval: number | undefined): number {
+    if (typeof interval !== 'number' || !Number.isFinite(interval) || interval <= 0) {
+      throw new Error('Interval tasks require a positive interval');
+    }
+
+    return interval;
+  }
+
+  private requireNonNegativeDelay(delay: number | undefined, errorMessage: string): number {
+    if (typeof delay !== 'number' || !Number.isFinite(delay) || delay < 0) {
+      throw new Error(errorMessage);
+    }
+
+    return delay;
+  }
+
+  private requireValidDate(date: Date, errorMessage: string): Date {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      throw new Error(errorMessage);
+    }
+
+    return date;
+  }
+
+  private clearTaskResources(taskId: string): void {
+    const cronJob = this.cronJobs.get(taskId);
+    if (cronJob) {
+      cronJob.stop();
+      this.cronJobs.delete(taskId);
+    }
+
+    const interval = this.intervals.get(taskId);
+    if (interval) {
+      globalThis.clearInterval(interval);
+      this.intervals.delete(taskId);
+    }
+
+    const timeout = this.timeouts.get(taskId);
+    if (timeout) {
+      globalThis.clearTimeout(timeout);
+      this.timeouts.delete(taskId);
+    }
+
+    const retryTimeout = this.retryTimeouts.get(taskId);
+    if (retryTimeout) {
+      globalThis.clearTimeout(retryTimeout);
+      this.retryTimeouts.delete(taskId);
+    }
+  }
+
+  private getRemainingDelay(task: ScheduledTask): number {
+    if (!task.nextRun) {
+      return task.options.delay ?? 0;
+    }
+
+    return Math.max(0, task.nextRun.getTime() - Date.now());
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return 'Unknown error';
+  }
+
   private generateTaskId(): string {
-    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 }
 
 export function Scheduled(options: ScheduleOptions) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: object,
+    propertyKey: string | symbol,
+    descriptor: TypedPropertyDescriptor<ScheduledMethod>,
+  ) {
     const originalMethod = descriptor.value;
-    const taskName = options.name || `${target.constructor.name}.${propertyKey}`;
+    if (!originalMethod) {
+      return descriptor;
+    }
 
-    descriptor.value = async function (...args: any[]) {
+    const decoratorTarget = target as ScheduledDecoratorTarget;
+    const taskName = options.name || `${decoratorTarget.constructor.name}.${String(propertyKey)}`;
+
+    descriptor.value = async function (...args: unknown[]) {
       return originalMethod.apply(this, args);
     };
 
-    const taskScheduler = (target as any).taskScheduler as TaskSchedulerService;
+    const taskScheduler = decoratorTarget.taskScheduler;
     if (taskScheduler) {
-      taskScheduler.schedule(descriptor.value, { ...options, name: taskName });
+      taskScheduler.schedule(descriptor.value as unknown as TaskHandler, { ...options, name: taskName });
     }
 
     return descriptor;

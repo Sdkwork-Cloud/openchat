@@ -12,6 +12,7 @@
     "types": ["vite/client", "node"],
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@openchat/opencat-admin-*": ["./packages/opencat-admin-*/src/index.ts"]

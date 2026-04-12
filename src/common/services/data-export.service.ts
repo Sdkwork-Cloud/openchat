@@ -12,7 +12,7 @@ export interface ExportOptions {
   fields?: ExportField[];
   includeHeaders?: boolean;
   dateFormat?: string;
-  encoding?: string;
+  encoding?: NodeJS.BufferEncoding;
   delimiter?: string;
 }
 
@@ -91,14 +91,18 @@ export class DataExportService {
     let rowCount = 0;
     const chunks: T[] = [];
     const batchSize = 1000;
+    let isFirstBatch = true;
 
     try {
+      await this.ensureExportDir();
+
       for await (const row of dataStream) {
         chunks.push(row);
         rowCount++;
 
         if (chunks.length >= batchSize) {
-          await this.processBatch(chunks, filePath, options, rowCount === batchSize);
+          await this.processBatch(chunks, filePath, options, isFirstBatch);
+          isFirstBatch = false;
           chunks.length = 0;
         }
 
@@ -106,7 +110,16 @@ export class DataExportService {
       }
 
       if (chunks.length > 0) {
-        await this.processBatch(chunks, filePath, options, rowCount <= batchSize);
+        await this.processBatch(chunks, filePath, options, isFirstBatch);
+        isFirstBatch = false;
+      }
+
+      if (options.format === 'json') {
+        if (rowCount === 0) {
+          await fs.writeFile(filePath, '[]');
+        } else {
+          await fs.appendFile(filePath, '\n]');
+        }
       }
 
       const stats = await fs.stat(filePath);
@@ -193,7 +206,7 @@ export class DataExportService {
     );
 
     const csvContent = headers + transformedData.join('\n');
-    await fs.writeFile(filePath, csvContent, { encoding: (options.encoding || 'utf-8') as BufferEncoding });
+    await fs.writeFile(filePath, csvContent, { encoding: options.encoding || 'utf-8' });
 
     const stats = await fs.stat(filePath);
 
@@ -220,7 +233,7 @@ export class DataExportService {
       : data;
 
     const jsonContent = JSON.stringify(transformedData, null, 2);
-    await fs.writeFile(filePath, jsonContent, { encoding: (options.encoding || 'utf-8') as BufferEncoding });
+    await fs.writeFile(filePath, jsonContent, { encoding: options.encoding || 'utf-8' });
 
     const stats = await fs.stat(filePath);
 
@@ -256,7 +269,7 @@ export class DataExportService {
 
     xmlContent += '</records>';
 
-    await fs.writeFile(filePath, xmlContent, { encoding: (options.encoding || 'utf-8') as BufferEncoding });
+    await fs.writeFile(filePath, xmlContent, { encoding: options.encoding || 'utf-8' });
 
     const stats = await fs.stat(filePath);
 
@@ -315,9 +328,15 @@ export class DataExportService {
 
       await fs.appendFile(filePath, content + rows.join('\n') + '\n');
     } else if (options.format === 'json') {
+      const transformedBatch = fields.length > 0
+        ? batch.map((row) => this.transformRow(row, fields))
+        : batch;
+      const jsonEntries = transformedBatch
+        .map((row) => JSON.stringify(row, null, 2))
+        .join(',\n');
       const jsonContent = isFirstBatch
-        ? JSON.stringify(batch, null, 2)
-        : ',' + JSON.stringify(batch, null, 2).slice(1, -1);
+        ? `[\n${jsonEntries}`
+        : `,\n${jsonEntries}`;
 
       await fs.appendFile(filePath, jsonContent);
     }

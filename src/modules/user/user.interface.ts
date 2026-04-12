@@ -1,4 +1,4 @@
-import { AnyMediaResource, ImageMediaResource } from '../im-provider/media-resource.interface';
+import { AnyMediaResource } from '../im-provider/media-resource.interface';
 
 export class User {
   id: string;

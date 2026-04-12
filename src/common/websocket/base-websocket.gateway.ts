@@ -14,7 +14,6 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
-  MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
@@ -146,7 +145,7 @@ export abstract class BaseWebSocketGateway
   /**
    * 网关初始化后
    */
-  afterInit(server: Server) {
+  afterInit(_server: Server) {
     this.logger.log('WebSocket Gateway initialized');
     
     if (this.options.enableHeartbeat) {
@@ -441,8 +440,6 @@ export abstract class BaseWebSocketGateway
     const connectionInfo = this.connections.get(clientId);
     if (!connectionInfo) return false;
 
-    const now = Date.now();
-    const oneSecondAgo = now - 1000;
     
     // 简化实现：实际应该使用滑动窗口
     connectionInfo.messageCount++;

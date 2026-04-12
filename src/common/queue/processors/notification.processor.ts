@@ -62,7 +62,7 @@ export class NotificationProcessor extends WorkerHost {
   /**
    * 处理推送通知（APNs/FCM）
    */
-  private async handlePushNotification(data: NotificationJobData): Promise<any> {
+  private async handlePushNotification(_data: NotificationJobData): Promise<any> {
     // 推送通知逻辑
     // 集成 APNs (iOS) 或 FCM (Android)
     return {
@@ -110,9 +110,9 @@ export class NotificationProcessor extends WorkerHost {
    * 发送单条通知（实际项目中实现）
    */
   private async sendNotification(
-    userId: string,
-    event: string,
-    data: any,
+    _userId: string,
+    _event: string,
+    _data: any,
   ): Promise<void> {
     // 模拟通知发送
     await new Promise((resolve) => setTimeout(resolve, 1));

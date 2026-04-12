@@ -1,13 +1,10 @@
 import { bootstrap } from './bootstrap';
-import { Logger } from '@nestjs/common';
 import {
   ErrorCode,
   ErrorSeverity,
   mapSystemErrorToErrorCode,
   getErrorSolution,
 } from './common/constants/error-codes';
-
-const logger = new Logger('Bootstrap');
 
 function handleStartupError(error: Error): void {
   const errorMsg = error.message || '';

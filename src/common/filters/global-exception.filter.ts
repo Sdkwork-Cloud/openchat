@@ -76,7 +76,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   private buildErrorDetail(exception: unknown, request: Request): ErrorDetail {
     const timestamp = new Date().toISOString();
-    const path = request.url;
+    const path = request.originalUrl || request.url;
     const method = request.method;
     const requestId = (request as any).requestId;
 
@@ -294,8 +294,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return 'An error occurred';
   }
 
-  private logError(errorDetail: ErrorDetail, exception: unknown): void {
-    const { severity, module, errorCode, errorType, message, path, method, solution } = errorDetail;
+  private logError(errorDetail: ErrorDetail, _exception: unknown): void {
+    const { severity } = errorDetail;
 
     if (severity === ErrorSeverity.CRITICAL) {
       this.printCriticalError(errorDetail);

@@ -3,6 +3,11 @@ packages:
   - '../../sdkwork-im-admin-sdk/sdkwork-im-admin-sdk-typescript/composed'
   - '../../sdkwork-im-admin-sdk/sdkwork-im-admin-sdk-typescript/generated/server-openapi'
   - '../../sdkwork-im-sdk/sdkwork-im-sdk-typescript/generated/server-openapi'
+  - '../../../../sdk/sdkwork-sdk-commons/sdkwork-sdk-common-typescript'
+
+catalog:
+  typescript: ^6.0.2
+  vite-plugin-dts: ^4.5.4
 
 ignoredBuiltDependencies:
   - esbuild

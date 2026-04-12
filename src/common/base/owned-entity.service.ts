@@ -1,7 +1,6 @@
 import {
   Injectable,
   Logger,
-  NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
 import {
@@ -16,8 +15,8 @@ import { BaseEntity } from '../base.entity';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
 import { EventBusService, EventTypeConstants, EventPriority } from '../events/event-bus.service';
 import { CacheService } from '../services/cache.service';
-import { PaginationDto, CursorPaginationDto } from '../dto/pagination.dto';
-import { PagedResponseDto, CursorResponseDto } from '../dto/response.dto';
+import { PaginationDto } from '../dto/pagination.dto';
+import { PagedResponseDto } from '../dto/response.dto';
 
 export interface OwnedEntity {
   ownerId: string;
@@ -51,7 +50,7 @@ export abstract class OwnedEntityService<T extends BaseEntity & ObjectLiteral & 
     const saved = await this.repository.save(entity);
     
     this.emitEvent(`${this.entityName.toLowerCase()}.created`, saved);
-    this.invalidateCache(saved.id);
+    await this.invalidateCache(saved.id);
     
     return saved;
   }
@@ -149,7 +148,7 @@ export abstract class OwnedEntityService<T extends BaseEntity & ObjectLiteral & 
       changes: dto,
       previousValues,
     });
-    this.invalidateCache(id);
+    await this.invalidateCache(id);
     
     return updated;
   }
@@ -168,7 +167,7 @@ export abstract class OwnedEntityService<T extends BaseEntity & ObjectLiteral & 
     }
     
     this.emitEvent(`${this.entityName.toLowerCase()}.deleted`, { entity });
-    this.invalidateCache(id);
+    await this.invalidateCache(id);
   }
 
   async restore(id: string, ownerId: string): Promise<T> {
@@ -187,7 +186,7 @@ export abstract class OwnedEntityService<T extends BaseEntity & ObjectLiteral & 
     const restored = await this.findOneByIdOrFail(id);
     
     this.emitEvent(`${this.entityName.toLowerCase()}.restored`, { entity: restored });
-    this.invalidateCache(id);
+    await this.invalidateCache(id);
     
     return restored;
   }
@@ -219,7 +218,7 @@ export abstract class OwnedEntityService<T extends BaseEntity & ObjectLiteral & 
       previousOwnerId: currentOwnerId,
       newOwnerId,
     });
-    this.invalidateCache(id);
+    await this.invalidateCache(id);
     
     return updated;
   }

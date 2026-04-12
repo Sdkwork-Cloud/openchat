@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThan } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { Message } from '../../modules/message/message.entity';
 import { MessageStatus } from '../../modules/message/message.interface';
 import { IMProviderService } from '../../modules/im-provider/im-provider.service';

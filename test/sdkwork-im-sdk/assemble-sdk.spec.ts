@@ -149,24 +149,24 @@ describe('assemble-sdk script', () => {
     const rtcApi = readFileSync(path.join(flutterGeneratedRoot, 'rtc.dart'), 'utf8');
 
     expect(messagesApi).toContain('Future<dynamic> messageControllerDelete');
-    expect(messagesApi).toContain("return await _client.delete(ApiPaths.backendPath('/messages/\${id}'));");
+    expect(messagesApi).toContain("return await _client.delete(ApiPaths.backendPath('/messages/${id}'));");
     expect(messagesApi).toContain('Future<dynamic> messageControllerRecall');
-    expect(messagesApi).toContain("return await _client.post(ApiPaths.backendPath('/messages/\${id}/recall'));");
+    expect(messagesApi).toContain("return await _client.post(ApiPaths.backendPath('/messages/${id}/recall'));");
 
     expect(conversationsApi).toContain('Future<dynamic> conversationControllerPin');
-    expect(conversationsApi).toContain("return await _client.put(ApiPaths.backendPath('/conversations/\${id}/pin'), body: body, contentType: 'application/json');");
+    expect(conversationsApi).toContain("return await _client.put(ApiPaths.backendPath('/conversations/${id}/pin'), body: body, contentType: 'application/json');");
     expect(conversationsApi).toContain('Future<dynamic> conversationControllerClearUnreadCount');
-    expect(conversationsApi).toContain("return await _client.put(ApiPaths.backendPath('/conversations/\${id}/read'));");
+    expect(conversationsApi).toContain("return await _client.put(ApiPaths.backendPath('/conversations/${id}/read'));");
 
     expect(groupsApi).toContain('Future<dynamic> groupControllerAddToBlacklist');
-    expect(groupsApi).toContain("return await _client.post(ApiPaths.backendPath('/groups/\${groupId}/blacklist'), body: body, contentType: 'application/json');");
+    expect(groupsApi).toContain("return await _client.post(ApiPaths.backendPath('/groups/${groupId}/blacklist'), body: body, contentType: 'application/json');");
     expect(groupsApi).toContain('Future<dynamic> groupControllerMuteMember');
-    expect(groupsApi).toContain("return await _client.put(ApiPaths.backendPath('/groups/\${groupId}/members/\${userId}/mute'), body: body, contentType: 'application/json');");
+    expect(groupsApi).toContain("return await _client.put(ApiPaths.backendPath('/groups/${groupId}/members/${userId}/mute'), body: body, contentType: 'application/json');");
 
     expect(rtcApi).toContain('Future<dynamic> appControllerEndRoom');
-    expect(rtcApi).toContain("return await _client.put(ApiPaths.backendPath('/rtc/rooms/\${id}/end'));");
+    expect(rtcApi).toContain("return await _client.put(ApiPaths.backendPath('/rtc/rooms/${id}/end'));");
     expect(rtcApi).toContain('Future<dynamic> appControllerRemoveParticipant');
-    expect(rtcApi).toContain("return await _client.delete(ApiPaths.backendPath('/rtc/rooms/\${id}/participants/\${userId}'));");
+    expect(rtcApi).toContain("return await _client.delete(ApiPaths.backendPath('/rtc/rooms/${id}/participants/${userId}'));");
   });
 
   test('hardens the generated typescript workspace to avoid auth header literal narrowing bugs', () => {

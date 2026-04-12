@@ -59,6 +59,7 @@ describe('RTCService', () => {
       mockDataSource as any,
       mockConfigService,
       undefined,
+      undefined,
       prometheusService as any,
     );
 

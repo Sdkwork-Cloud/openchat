@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { DeviceConnection, DeviceState, ConnectionState, TransportType, XiaoZhiProtocolVersion, BinaryProtocolVersion } from '../xiaozhi.types';
+import { DeviceConnection, DeviceState, ConnectionState, XiaoZhiProtocolVersion, BinaryProtocolVersion } from '../xiaozhi.types';
 import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 

@@ -1,4 +1,4 @@
-import { AnyMediaResource, ImageMediaResource } from '../im-provider/media-resource.interface';
+import { ImageMediaResource } from '../im-provider/media-resource.interface';
 
 /**
  * 联系人类型

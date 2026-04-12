@@ -9,9 +9,6 @@ import { VerificationCodeService } from './verification-code.service';
 import { RegisterDto, LoginDto, ForgotPasswordDto, SendVerificationCodeDto, VerifyVerificationCodeDto } from './dto/auth.dto';
 import {
   JWT_CONFIG,
-  PASSWORD_CONFIG,
-  UserStatus,
-  AUTH_ERRORS,
   VerificationCodeType,
 } from '../../common/constants';
 import { TokenBlacklistService } from '../../common/auth/token-blacklist.service';
@@ -19,6 +16,7 @@ import { PermissionService } from '../../common/services/permission.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { ConversationService } from '../conversation/conversation.service';
 import { randomUUID } from 'crypto';
+import { sanitizeUser } from './sanitize-user.util';
 
 interface JwtTokenPayload {
   userId?: string;
@@ -110,10 +108,8 @@ export class AuthService {
       this.logger.error('Failed to sync user login to IM:', error);
     });
 
-    const { password, ...userWithoutPassword } = user;
-
     return {
-      user: userWithoutPassword as Omit<UserEntity, 'password'>,
+      user: sanitizeUser(user),
       token,
       refreshToken,
       expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
@@ -156,10 +152,8 @@ export class AuthService {
       const newToken = await this.generateToken(user, deviceId);
       const newRefreshToken = await this.generateRefreshToken(user, deviceId);
 
-      const { password, ...userWithoutPassword } = user;
-
       return {
-        user: userWithoutPassword as Omit<UserEntity, 'password'>,
+        user: sanitizeUser(user),
         token: newToken,
         refreshToken: newRefreshToken,
         expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
@@ -642,8 +636,8 @@ export class AuthService {
     // 创建新用户
     const user = await this.localUserManager.createUser({
       username,
-      email: email || '',
-      phone: phone || '',
+      email: email || null,
+      phone: phone || null,
       password: hashedPassword,
       roles: ['user'],
       nickname,
@@ -658,10 +652,8 @@ export class AuthService {
     const token = await this.generateToken(user);
     const refreshToken = await this.generateRefreshToken(user);
 
-    const { password: _, ...userWithoutPassword } = user as UserEntity;
-
     return {
-      user: userWithoutPassword as Omit<UserEntity, 'password'>,
+      user: sanitizeUser(user as UserEntity),
       token,
       refreshToken,
       expiresIn: this.parseExpiresIn(this.jwtExpiresIn),
@@ -705,8 +697,6 @@ export class AuthService {
         error: '用户不存在',
       };
     }
-
-    const resetToken = await this.generateToken(user);
 
     let message = '';
     if (email) {

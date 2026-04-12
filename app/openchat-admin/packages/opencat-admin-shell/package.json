@@ -20,16 +20,16 @@
     "@openchat/opencat-admin-system": "workspace:*",
     "@openchat/opencat-admin-ui": "workspace:*",
     "@openchat/opencat-admin-users": "workspace:*",
-    "@tanstack/react-query": "^5.90.20",
-    "i18next": "^25.8.0",
-    "lucide-react": "^0.546.0",
-    "motion": "^12.35.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-i18next": "^16.5.4",
-    "react-router-dom": "^6.20.0",
+    "@tanstack/react-query": "^5.96.2",
+    "i18next": "^26.0.3",
+    "lucide-react": "^1.7.0",
+    "motion": "^12.38.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-i18next": "^17.0.2",
+    "react-router-dom": "^7.14.0",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.1.14"
+    "tailwindcss": "^4.2.2"
   },
   "exports": {
     ".": "./src/index.ts"

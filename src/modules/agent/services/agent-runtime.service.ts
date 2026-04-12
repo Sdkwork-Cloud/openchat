@@ -3,8 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Agent,
-  AgentSession,
-  AgentMessage,
   ChatMessage,
   ChatRequest,
   ChatResponse,
@@ -13,7 +11,6 @@ import {
   Skill,
   ToolCall,
   AgentEventType,
-  AgentEvent,
   ExecutionState,
   ExecutionContext,
   ExecutionStep,
@@ -23,6 +20,7 @@ import { LLMProviderFactory } from '../providers/llm-provider.factory';
 import { ToolRegistry } from '../tools/tool-registry.service';
 import { SkillRegistry } from '../skills/skill-registry.service';
 import { MemoryManagerService } from '../memory/memory-manager.service';
+import { getErrorMessage, toError } from '@/common/utils/error.util';
 
 export interface AgentRuntime {
   id: string;
@@ -254,7 +252,7 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
         sessionId,
         userId,
         executionId,
-        error: error.message,
+        error: getErrorMessage(error),
       });
 
       throw error;
@@ -433,7 +431,7 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
         sessionId,
         userId,
         executionId,
-        error: error.message,
+        error: getErrorMessage(error),
       });
 
       throw error;
@@ -501,7 +499,7 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.emitEvent(runtime, AgentEventType.SKILL_FAILED, {
         skillId,
-        error: error.message,
+        error: getErrorMessage(error),
         sessionId,
         userId,
         executionId,
@@ -545,7 +543,7 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
   private async prepareMessages(
     runtime: AgentRuntime,
     request: ChatRequest,
-    executionContext?: ExecutionContext,
+    _executionContext?: ExecutionContext,
   ): Promise<ChatMessage[]> {
     const messages: ChatMessage[] = [];
 
@@ -635,11 +633,11 @@ export class AgentRuntimeService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       step.state = ExecutionState.FAILED;
       step.endTime = Date.now();
-      step.error = error;
+      step.error = toError(error);
 
       this.emitEvent(runtime, AgentEventType.TOOL_FAILED, {
         toolName: toolCall.function.name,
-        error: error.message,
+        error: getErrorMessage(error),
         sessionId,
         userId,
         executionId: executionContext.id,

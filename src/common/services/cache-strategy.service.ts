@@ -359,7 +359,7 @@ export class CacheStrategyService implements OnModuleInit, OnModuleDestroy {
         keyToEvict = cache.accessOrder[0];
         break;
 
-      case 'lfu':
+      case 'lfu': {
         let minAccessCount = Infinity;
         for (const [key, entry] of cache.entries) {
           if (entry.accessCount < minAccessCount) {
@@ -368,12 +368,13 @@ export class CacheStrategyService implements OnModuleInit, OnModuleDestroy {
           }
         }
         break;
+      }
 
       case 'fifo':
         keyToEvict = cache.accessOrder[0];
         break;
 
-      case 'ttl':
+      case 'ttl': {
         let earliestExpiry = Infinity;
         for (const [key, entry] of cache.entries) {
           if (entry.expiresAt && entry.expiresAt < earliestExpiry) {
@@ -385,6 +386,7 @@ export class CacheStrategyService implements OnModuleInit, OnModuleDestroy {
           keyToEvict = cache.accessOrder[0];
         }
         break;
+      }
 
       case 'adaptive':
         keyToEvict = this.selectAdaptiveEviction(cache);

@@ -7,6 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DeviceConnection, DeviceState, ConnectionState } from '../xiaozhi.types';
 import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import { XiaoZhiFirmwareService } from './xiaozhi-firmware.service';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 @Injectable()
 export class XiaoZhiMessageService {
@@ -53,7 +54,7 @@ export class XiaoZhiMessageService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: messageType,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
           type: 'message_error'
@@ -218,7 +219,7 @@ export class XiaoZhiMessageService {
       this.logger.error(`Failed to handle MCP message:`, error);
       // 发送错误响应
       if (message.payload && message.payload.id) {
-        this.sendMcpResponse(deviceId, connection, message.payload.id, { error: error.message });
+        this.sendMcpResponse(deviceId, connection, message.payload.id, { error: getErrorMessage(error) });
       }
     }
   }
@@ -246,7 +247,7 @@ export class XiaoZhiMessageService {
   /**
    * 处理获取设备信息
    */
-  private async handleGetDeviceInfo(deviceId: string, connection: DeviceConnection, params: any): Promise<any> {
+  private async handleGetDeviceInfo(deviceId: string, connection: DeviceConnection, _params: any): Promise<any> {
     return {
       deviceId,
       deviceName: connection.deviceName || `Device-${deviceId.substring(0, 8)}`,
@@ -383,7 +384,7 @@ export class XiaoZhiMessageService {
   /**
    * 处理获取固件升级状态
    */
-  private async handleGetFirmwareStatus(deviceId: string, connection: DeviceConnection, params: any): Promise<any> {
+  private async handleGetFirmwareStatus(deviceId: string, _connection: DeviceConnection, _params: any): Promise<any> {
     const upgradeState = this.firmwareService.getUpgradeState(deviceId);
     if (upgradeState) {
       return {
@@ -405,7 +406,7 @@ export class XiaoZhiMessageService {
   /**
    * 处理获取音频配置
    */
-  private async handleGetAudioConfig(deviceId: string, connection: DeviceConnection, params: any): Promise<any> {
+  private async handleGetAudioConfig(deviceId: string, connection: DeviceConnection, _params: any): Promise<any> {
     return connection.audioParams || {
       format: 'opus',
       sample_rate: 16000,
@@ -502,7 +503,7 @@ export class XiaoZhiMessageService {
       this.logger.error(`Failed to send message to device ${deviceId}:`, error);
       this.eventBusService.publish(EventTypeConstants.CUSTOM_EVENT, {
         deviceId,
-        error: error.message,
+        error: getErrorMessage(error),
         messageType: message.type,
         type: 'system_error'
       });

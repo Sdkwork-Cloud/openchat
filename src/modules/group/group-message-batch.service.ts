@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { ConversationEntity } from '../conversation/conversation.entity';
 import { GroupMember } from './group-member.entity';
 import { RedisService } from '../../common/redis/redis.service';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 /**
  * 批量操作结果
@@ -92,7 +93,7 @@ export class GroupMessageBatchService {
         success: false,
         processed: 0,
         failed: 0,
-        errors: [error.message],
+        errors: [getErrorMessage(error)],
       };
     }
   }
@@ -272,7 +273,7 @@ export class GroupMessageBatchService {
         success: false,
         processed: 0,
         failed: groupIds.length,
-        errors: [error.message],
+        errors: [getErrorMessage(error)],
       };
     }
   }
@@ -349,7 +350,7 @@ export class GroupMessageBatchService {
           processed++;
         } catch (error) {
           failed++;
-          errors.push(`User ${userId}: ${error.message}`);
+          errors.push(`User ${userId}: ${getErrorMessage(error)}`);
         }
       });
 

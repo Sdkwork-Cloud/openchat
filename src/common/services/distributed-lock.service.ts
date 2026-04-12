@@ -414,7 +414,7 @@ export class DistributedLockService implements OnModuleDestroy {
     lockName: string,
     fullLockName: string,
     options: Required<LockOptions>,
-    lockValue?: string,
+    _lockValue?: string,
   ): LockInstance & { renewInterval?: NodeJS.Timeout } {
     const now = Date.now();
     const lock: LockInstance & { renewInterval?: NodeJS.Timeout } = {

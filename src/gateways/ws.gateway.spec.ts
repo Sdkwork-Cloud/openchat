@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { Redis } from 'ioredis';
 import { RedisService } from '../common/redis/redis.service';
 import { MessageService } from '../modules/message/message.service';
@@ -47,6 +47,16 @@ function asSocket(client: MockSocket): Socket {
 describe('WSGateway', () => {
   let gateway: WSGateway;
   let redisService: {
+    registerServer: jest.Mock;
+    updateServerHeartbeat: jest.Mock;
+    cleanupOfflineUsers: jest.Mock;
+    acquireLock: jest.Mock;
+    subscribe: jest.Mock;
+    unsubscribe: jest.Mock;
+    publish: jest.Mock;
+    nextUserPresenceVersion: jest.Mock;
+    increment: jest.Mock;
+    decrement: jest.Mock;
     getJson: jest.Mock;
     get: jest.Mock;
     del: jest.Mock;
@@ -82,8 +92,22 @@ describe('WSGateway', () => {
   let eventBusService: { subscribe: jest.Mock };
   let customEventHandler: ((event: any) => void) | undefined;
 
+  const flushMicrotasks = async (): Promise<void> => {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  };
+
   beforeEach(() => {
     redisService = {
+      registerServer: jest.fn().mockResolvedValue(undefined),
+      updateServerHeartbeat: jest.fn().mockResolvedValue(undefined),
+      cleanupOfflineUsers: jest.fn().mockResolvedValue([]),
+      acquireLock: jest.fn().mockResolvedValue(false),
+      subscribe: jest.fn().mockResolvedValue(undefined),
+      unsubscribe: jest.fn().mockResolvedValue(undefined),
+      publish: jest.fn().mockResolvedValue(undefined),
+      nextUserPresenceVersion: jest.fn().mockResolvedValue(1),
+      increment: jest.fn().mockResolvedValue(1),
+      decrement: jest.fn().mockResolvedValue(0),
       getJson: jest.fn(),
       get: jest.fn(),
       del: jest.fn(),
@@ -191,6 +215,31 @@ describe('WSGateway', () => {
       groupService,
       eventBusService,
     );
+  });
+
+  it('should wait for pending initialization before destroying gateway resources', async () => {
+    let resolveRegister: (() => void) | undefined;
+    redisService.registerServer.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRegister = resolve;
+        }),
+    );
+
+    void gateway.afterInit({} as Server);
+
+    let destroyResolved = false;
+    const destroyPromise = Promise.resolve(gateway.onModuleDestroy()).then(() => {
+      destroyResolved = true;
+    });
+
+    await flushMicrotasks();
+    expect(destroyResolved).toBe(false);
+
+    resolveRegister?.();
+    await destroyPromise;
+
+    expect(destroyResolved).toBe(true);
   });
 
   describe('handleSyncAckSeq', () => {

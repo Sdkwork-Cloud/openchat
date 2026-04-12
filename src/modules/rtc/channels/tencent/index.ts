@@ -368,7 +368,6 @@ export class TencentRTCChannel extends RTCChannelBase {
       buffer.writeUInt16BE(roomStringBuffer.length, offset);
       offset += 2;
       roomStringBuffer.copy(buffer, offset);
-      offset += roomStringBuffer.length;
     }
     return buffer.toString('base64');
   }

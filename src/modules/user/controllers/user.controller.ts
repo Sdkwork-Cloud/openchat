@@ -1,7 +1,8 @@
-import { Controller, Get, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '../services/user.service';
 import { MultiAuthGuard, RequireScopes } from '../../../common/auth/guards/multi-auth.guard';
+import { sanitizeUser } from '../sanitize-user.util';
 
 /**
  * 更新用户资料 DTO
@@ -34,9 +35,7 @@ export class UserController {
     if (!user) {
       return null;
     }
-    // 移除密码字段
-    const { password, ...userWithoutPassword } = user as any;
-    return userWithoutPassword;
+    return sanitizeUser(user);
   }
 
   /**
@@ -51,9 +50,7 @@ export class UserController {
     if (!user) {
       return null;
     }
-    // 移除密码字段
-    const { password, ...userWithoutPassword } = user as any;
-    return userWithoutPassword;
+    return sanitizeUser(user);
   }
 
   /**
@@ -78,9 +75,7 @@ export class UserController {
       return null;
     }
 
-    // 移除密码字段
-    const { password, ...userWithoutPassword } = updatedUser as any;
-    return userWithoutPassword;
+    return sanitizeUser(updatedUser);
   }
 
   /**

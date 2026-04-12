@@ -11,12 +11,12 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { toError } from '@/common/utils/error.util';
 import {
   IExtension,
   ExtensionType,
   ExtensionStatus,
   ExtensionPriority,
-  ExtensionMeta,
   ExtensionConfig,
   ExtensionContext,
   ExtensionLogger,
@@ -160,7 +160,7 @@ export class ExtensionRegistry implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       await this.setStatus(extension, ExtensionStatus.ERROR);
       await this.eventEmitter.emitAsync(ExtensionEvent.ERROR, { extensionId, error });
-      throw new ExtensionError(extensionId, 'LOAD_FAILED', `Failed to load extension '${extensionId}'`, error);
+      throw new ExtensionError(extensionId, 'LOAD_FAILED', `Failed to load extension '${extensionId}'`, toError(error));
     }
   }
 
@@ -199,7 +199,7 @@ export class ExtensionRegistry implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       await this.setStatus(extension, ExtensionStatus.ERROR);
       await this.eventEmitter.emitAsync(ExtensionEvent.ERROR, { extensionId, error });
-      throw new ExtensionError(extensionId, 'UNLOAD_FAILED', `Failed to unload extension '${extensionId}'`, error);
+      throw new ExtensionError(extensionId, 'UNLOAD_FAILED', `Failed to unload extension '${extensionId}'`, toError(error));
     }
   }
 
@@ -240,7 +240,7 @@ export class ExtensionRegistry implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       await this.setStatus(extension, ExtensionStatus.ERROR);
       await this.eventEmitter.emitAsync(ExtensionEvent.ERROR, { extensionId, error });
-      throw new ExtensionError(extensionId, 'ACTIVATE_FAILED', `Failed to activate extension '${extensionId}'`, error);
+      throw new ExtensionError(extensionId, 'ACTIVATE_FAILED', `Failed to activate extension '${extensionId}'`, toError(error));
     }
   }
 
@@ -275,7 +275,7 @@ export class ExtensionRegistry implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       await this.setStatus(extension, ExtensionStatus.ERROR);
       await this.eventEmitter.emitAsync(ExtensionEvent.ERROR, { extensionId, error });
-      throw new ExtensionError(extensionId, 'DEACTIVATE_FAILED', `Failed to deactivate extension '${extensionId}'`, error);
+      throw new ExtensionError(extensionId, 'DEACTIVATE_FAILED', `Failed to deactivate extension '${extensionId}'`, toError(error));
     }
   }
 

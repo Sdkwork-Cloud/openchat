@@ -79,7 +79,7 @@ export class MessageProcessor extends WorkerHost {
   /**
    * 模拟消息发送（实际项目中替换为真实逻辑）
    */
-  private async simulateMessageSend(data: MessageJobData): Promise<void> {
+  private async simulateMessageSend(_data: MessageJobData): Promise<void> {
     // 模拟网络延迟
     await new Promise((resolve) => setTimeout(resolve, 10));
 

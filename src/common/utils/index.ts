@@ -9,8 +9,8 @@
  * 生成 UUID（v4）
  */
 export function generateUuid(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
+  if (typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto) {
+    return globalThis.crypto.randomUUID();
   }
 
   // 降级实现
@@ -248,7 +248,7 @@ export async function batchProcess<T, R>(
     stopOnError?: boolean;
   } = {},
 ): Promise<R[]> {
-  const { batchSize = 10, concurrency = 1, stopOnError = false } = options;
+  const { batchSize = 10, concurrency = 1 } = options;
   const results: R[] = [];
 
   // 简单批处理
@@ -453,8 +453,8 @@ export async function hash(data: string, algorithm: string = 'SHA-256'): Promise
   const encoder = new TextEncoder();
   const dataBuffer = encoder.encode(data);
 
-  if (typeof crypto !== 'undefined' && 'subtle' in crypto) {
-    const hashBuffer = await crypto.subtle.digest(algorithm, dataBuffer);
+  if (typeof globalThis.crypto !== 'undefined' && 'subtle' in globalThis.crypto) {
+    const hashBuffer = await globalThis.crypto.subtle.digest(algorithm, dataBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }

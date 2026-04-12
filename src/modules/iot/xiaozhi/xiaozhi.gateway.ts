@@ -21,7 +21,6 @@ import { XiaoZhiService } from './xiaozhi.service';
 import { XiaoZhiMessageService } from './services/xiaozhi-message.service';
 import { XiaoZhiAudioService } from './services/xiaozhi-audio.service';
 import { XiaoZhiStateService } from './services/xiaozhi-state.service';
-import { TransportType, BinaryProtocolVersion } from './xiaozhi.types';
 
 @Injectable()
 @WebSocketGateway({
@@ -56,7 +55,7 @@ export class XiaoZhiGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   /**
    * 网关初始化
    */
-  afterInit(server: Server) {
+  afterInit(_server: Server) {
     this.logger.log('XiaoZhi WebSocket Gateway initialized');
     this.logger.log(`Namespace: /xiaozhi`);
   }
@@ -189,7 +188,7 @@ export class XiaoZhiGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   /**
    * 广播消息到所有设备
    */
-  broadcastMessage(message: any, excludeDeviceId?: string) {
+  broadcastMessage(message: any, _excludeDeviceId?: string) {
     this.server.emit('message', message);
     this.logger.debug(`Broadcasted message to all devices`);
   }

@@ -22,7 +22,7 @@ export class SnakeNamingStrategy extends DefaultNamingStrategy implements Naming
     return snakeCase(relationName + '_' + referencedColumnName);
   }
 
-  joinTableName(firstTableName: string, secondTableName: string, firstPropertyName: string, secondPropertyName: string): string {
+  joinTableName(firstTableName: string, secondTableName: string, _firstPropertyName: string, _secondPropertyName: string): string {
     return snakeCase(firstTableName + '_' + secondTableName);
   }
 

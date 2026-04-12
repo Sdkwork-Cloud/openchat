@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CrawPost, CrawComment } from '../entities/craw-post.entity';
 import { CrawAgent } from '../entities/craw-agent.entity';
 import { CrawSubmolt } from '../entities/craw-submolt.entity';
@@ -51,7 +51,7 @@ export class CrawPostService {
     return this.postRepository.save(post);
   }
 
-  async getFeed(sort: string = 'hot', limit: number = 25, apiKey?: string): Promise<CrawPost[]> {
+  async getFeed(sort: string = 'hot', limit: number = 25, _apiKey?: string): Promise<CrawPost[]> {
     const query = this.postRepository.createQueryBuilder('post')
       .leftJoinAndSelect('post.author', 'author')
       .leftJoinAndSelect('post.submolt', 'submolt')

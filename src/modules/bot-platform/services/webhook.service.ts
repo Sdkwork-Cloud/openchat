@@ -153,7 +153,7 @@ export class WebhookService {
       }
 
       return crypto.timingSafeEqual(Buffer.from(normalizedSignature), Buffer.from(expected));
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -442,7 +442,7 @@ export class WebhookService {
         task.nextRetryAt = this.calculateNextRetryTime(task.attempt, task.retryPolicy);
       }
 
-    } catch (error) {
+    } catch {
       this.logger.error(`Webhook retry failed: ${bot.username} - attempt ${task.attempt}`);
       task.attempt++;
       task.nextRetryAt = this.calculateNextRetryTime(task.attempt, task.retryPolicy);

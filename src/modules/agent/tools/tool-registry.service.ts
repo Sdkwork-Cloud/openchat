@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Tool, ToolResult, ToolExecutionContext, ToolDefinition } from '../agent.interface';
+import { Tool, ToolExecutionContext, ToolDefinition } from '../agent.interface';
 import { v4 as uuidv4 } from 'uuid';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 @Injectable()
 export class ToolRegistry implements OnModuleInit {
@@ -32,7 +33,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['query'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`Web search: ${input.query}`);
         return {
           success: true,
@@ -57,7 +58,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['expression'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         try {
           const result = this.safeEval(input.expression);
           return {
@@ -67,7 +68,7 @@ export class ToolRegistry implements OnModuleInit {
         } catch (error) {
           return {
             success: false,
-            error: `Calculation error: ${error.message}`,
+            error: `Calculation error: ${getErrorMessage(error)}`,
           };
         }
       },
@@ -85,7 +86,7 @@ export class ToolRegistry implements OnModuleInit {
           },
         },
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         const now = new Date();
         return {
           success: true,
@@ -116,7 +117,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['location'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`Weather lookup: ${input.location}`);
         return {
           success: true,
@@ -154,7 +155,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['to', 'content'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`Send message to ${input.to}: ${input.content}`);
         return {
           success: true,
@@ -190,7 +191,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['language', 'code'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`Execute ${input.language} code`);
         return {
           success: true,
@@ -227,7 +228,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['query'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`Knowledge search: ${input.query}`);
         return {
           success: true,
@@ -265,7 +266,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['title'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`Create task: ${input.title}`);
         return {
           success: true,
@@ -310,7 +311,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['url'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`HTTP ${input.method || 'GET'} ${input.url}`);
         try {
           const response = await fetch(input.url, {
@@ -330,7 +331,7 @@ export class ToolRegistry implements OnModuleInit {
         } catch (error) {
           return {
             success: false,
-            error: error.message,
+            error: getErrorMessage(error),
           };
         }
       },
@@ -358,7 +359,7 @@ export class ToolRegistry implements OnModuleInit {
         },
         required: ['operation', 'path'],
       },
-      execute: async (input: any, context: ToolExecutionContext) => {
+      execute: async (input: any, _context: ToolExecutionContext) => {
         this.logger.log(`File operation: ${input.operation} ${input.path}`);
         return {
           success: true,

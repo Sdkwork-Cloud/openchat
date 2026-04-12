@@ -165,7 +165,7 @@ export class CircuitBreakerService {
       setState('half-open');
     };
 
-    const recordFailure = (error: Error) => {
+    const recordFailure = (_error: Error) => {
       failures++;
       lastFailureTime = Date.now();
 
@@ -303,8 +303,6 @@ export function CircuitBreaker(name: string, options?: CircuitBreakerOptions) {
     descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value;
-    const circuitBreakerService = new CircuitBreakerService({} as any);
-
     descriptor.value = async function (...args: any[]) {
       const service = (this as any).circuitBreakerService as CircuitBreakerService;
       if (!service) {

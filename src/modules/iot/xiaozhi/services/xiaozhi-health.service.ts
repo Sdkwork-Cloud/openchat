@@ -10,6 +10,7 @@ import { BaiduSTTService } from './stt/baidu-stt.service';
 import { BaiduTTSService } from './tts/baidu-tts.service';
 import { OpenAIChatService } from './llm/openai-chat.service';
 import { XiaozhiOpusService } from './xiaozhi-opus.service';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -77,7 +78,7 @@ export class XiaozhiHealthService implements OnModuleInit {
         status.services.stt.message = 'Using mock provider';
       }
     } catch (error) {
-      status.services.stt.message = error.message;
+      status.services.stt.message = getErrorMessage(error);
     }
 
     // 检查 TTS
@@ -92,7 +93,7 @@ export class XiaozhiHealthService implements OnModuleInit {
         status.services.tts.message = 'Using mock provider';
       }
     } catch (error) {
-      status.services.tts.message = error.message;
+      status.services.tts.message = getErrorMessage(error);
     }
 
     // 检查 LLM
@@ -107,7 +108,7 @@ export class XiaozhiHealthService implements OnModuleInit {
         status.services.llm.message = 'Using mock provider';
       }
     } catch (error) {
-      status.services.llm.message = error.message;
+      status.services.llm.message = getErrorMessage(error);
     }
 
     // 检查 Opus
@@ -116,7 +117,7 @@ export class XiaozhiHealthService implements OnModuleInit {
       status.services.opus.available = stats.initializedDevices >= 0;
       status.services.opus.message = `${stats.initializedDevices} devices initialized`;
     } catch (error) {
-      status.services.opus.message = error.message;
+      status.services.opus.message = getErrorMessage(error);
     }
 
     // 确定整体状态

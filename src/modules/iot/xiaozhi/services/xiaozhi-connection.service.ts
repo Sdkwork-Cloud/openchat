@@ -5,8 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as WebSocket from 'ws';
-import * as mqtt from 'mqtt';
+import WebSocket from 'ws';
 import { TransportType, DeviceState, ConnectionState, DeviceConnection } from '../xiaozhi.types';
 import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as crypto from 'crypto';

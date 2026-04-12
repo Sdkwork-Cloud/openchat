@@ -1,4 +1,12 @@
-import { Module, Logger, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
+import {
+  Module,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+  MiddlewareConsumer,
+  NestModule,
+  RequestMethod,
+} from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { APP_FILTER, RouterModule } from "@nestjs/core";
@@ -28,6 +36,7 @@ import {
   createTypeOrmModuleOptions,
   getDatabaseConfigSummary,
 } from "./common/config/typeorm.options";
+import { ImApiPrefixMiddleware } from "./common/http/im-api-prefix.middleware";
 
 const logger = new Logger("Database");
 loadOpenChatEnvironment();
@@ -116,13 +125,20 @@ loadOpenChatEnvironment();
     IMProviderModule,
   ],
   providers: [
+    ImApiPrefixMiddleware,
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
   ],
 })
-export class AppModule implements OnModuleInit, OnModuleDestroy {
+export class AppModule implements OnModuleInit, OnModuleDestroy, NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(ImApiPrefixMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+
   onModuleInit() {
     logger.log("AppModule 初始化完成");
   }

@@ -480,7 +480,7 @@ export class VersionControlService implements OnModuleInit, OnModuleDestroy {
     const repo = this.repositories.get(repositoryName);
     if (!repo) return false;
 
-    for (const [entityId, versions] of repo.versions) {
+    for (const [, versions] of repo.versions) {
       const index = versions.findIndex(v => v.id === versionId);
       if (index !== -1) {
         versions.splice(index, 1);

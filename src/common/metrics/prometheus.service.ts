@@ -306,7 +306,7 @@ export class PrometheusService {
       }));
 
       this.logger.log('Prometheus metrics service initialized');
-    } catch (error) {
+    } catch {
       this.logger.warn('prom-client not installed, metrics collection disabled');
       this.enabled = false;
     }

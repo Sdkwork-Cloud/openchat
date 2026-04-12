@@ -374,7 +374,7 @@ export class PerformanceOptimizer {
   /**
    * 获取建议
    */
-  private getSuggestion(type: string, record: PerformanceRecord): string {
+  private getSuggestion(type: string, _record: PerformanceRecord): string {
     const suggestions: Record<string, string> = {
       SLOW_REQUEST: 'Consider adding caching, optimizing database queries, or scaling resources',
       SLOW_QUERY: 'Consider adding indexes, optimizing joins, or caching results',

@@ -130,7 +130,6 @@ export function CacheClear(options: { key?: string | ((...args: any[]) => string
 @Injectable()
 export class CacheInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 
     // 获取缓存元数据
@@ -153,10 +152,7 @@ export class CacheInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    // 构建缓存键
-    const fullKey = this.buildCacheKey(request, cacheKey, cacheOptions);
-
-    // TODO: 从缓存获取数据
+    // TODO: 从缓存获取数据，并使用 buildCacheKey(request, cacheKey, cacheOptions) 构建缓存键
     // const cached = await cacheService.get(fullKey);
     // if (cached !== undefined) {
     //   response.setHeader('X-Cache', 'HIT');

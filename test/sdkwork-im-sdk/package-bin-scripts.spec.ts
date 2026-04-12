@@ -60,13 +60,27 @@ describe('sdkwork-im-sdk package bin scripts', () => {
         path.join(root, 'sdkwork-im-sdk-typescript', 'adapter-wukongim', 'package.json'),
         'utf8',
       ),
-    ) as { private?: boolean; main?: string; types?: string };
+    ) as {
+      private?: boolean;
+      type?: string;
+      main?: string;
+      module?: string;
+      types?: string;
+      exports?: Record<string, { import?: string; require?: string }>;
+    };
     const typescriptComposedPackage = JSON.parse(
       readFileSync(
         path.join(root, 'sdkwork-im-sdk-typescript', 'composed', 'package.json'),
         'utf8',
       ),
-    ) as { private?: boolean; main?: string; types?: string };
+    ) as {
+      private?: boolean;
+      type?: string;
+      main?: string;
+      module?: string;
+      types?: string;
+      exports?: Record<string, { import?: string; require?: string }>;
+    };
     const flutterAdapterPubspec = readFileSync(
       path.join(root, 'sdkwork-im-sdk-flutter', 'adapter-wukongim', 'pubspec.yaml'),
       'utf8',
@@ -78,10 +92,18 @@ describe('sdkwork-im-sdk package bin scripts', () => {
 
     expect(typescriptAdapterPackage.private).not.toBe(true);
     expect(typescriptComposedPackage.private).not.toBe(true);
-    expect(typescriptAdapterPackage.main).toBe('dist/index.js');
-    expect(typescriptAdapterPackage.types).toBe('dist/index.d.ts');
-    expect(typescriptComposedPackage.main).toBe('dist/index.js');
-    expect(typescriptComposedPackage.types).toBe('dist/index.d.ts');
+    expect(typescriptAdapterPackage.type).toBe('module');
+    expect(typescriptAdapterPackage.main).toBe('./dist/index.cjs');
+    expect(typescriptAdapterPackage.module).toBe('./dist/index.js');
+    expect(typescriptAdapterPackage.types).toBe('./dist/index.d.ts');
+    expect(typescriptAdapterPackage.exports?.['.']?.import).toBe('./dist/index.js');
+    expect(typescriptAdapterPackage.exports?.['.']?.require).toBe('./dist/index.cjs');
+    expect(typescriptComposedPackage.type).toBe('module');
+    expect(typescriptComposedPackage.main).toBe('./dist/index.cjs');
+    expect(typescriptComposedPackage.module).toBe('./dist/index.js');
+    expect(typescriptComposedPackage.types).toBe('./dist/index.d.ts');
+    expect(typescriptComposedPackage.exports?.['.']?.import).toBe('./dist/index.js');
+    expect(typescriptComposedPackage.exports?.['.']?.require).toBe('./dist/index.cjs');
     expect(flutterAdapterPubspec).not.toContain('publish_to: none');
     expect(flutterComposedPubspec).not.toContain('publish_to: none');
     expect(flutterComposedPubspec).not.toContain('sdkwork_common_flutter');
@@ -144,16 +166,24 @@ describe('sdkwork-im-sdk package bin scripts', () => {
       ),
     ) as { scripts?: Record<string, string> };
 
-    expect(adapterPackage.scripts?.build).toContain('tsconfig.build.json');
+    expect(adapterPackage.scripts?.build).toContain('vite.js build');
     expect(adapterPackage.scripts?.build).not.toContain('placeholder');
-    expect(composedPackage.scripts?.build).toContain('tsconfig.build.json');
+    expect(adapterPackage.scripts?.typecheck).toContain('tsconfig.build.json');
+    expect(composedPackage.scripts?.build).toContain('vite.js build');
     expect(composedPackage.scripts?.build).not.toContain('placeholder');
+    expect(composedPackage.scripts?.typecheck).toContain('tsconfig.build.json');
 
     expect(
       existsSync(path.join(root, 'sdkwork-im-sdk-typescript', 'adapter-wukongim', 'tsconfig.build.json')),
     ).toBe(true);
     expect(
       existsSync(path.join(root, 'sdkwork-im-sdk-typescript', 'composed', 'tsconfig.build.json')),
+    ).toBe(true);
+    expect(
+      existsSync(path.join(root, 'sdkwork-im-sdk-typescript', 'adapter-wukongim', 'vite.config.ts')),
+    ).toBe(true);
+    expect(
+      existsSync(path.join(root, 'sdkwork-im-sdk-typescript', 'composed', 'vite.config.ts')),
     ).toBe(true);
   });
 

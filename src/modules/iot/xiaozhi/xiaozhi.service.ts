@@ -6,8 +6,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as WebSocket from 'ws';
-import * as mqtt from 'mqtt';
+import WebSocket, { RawData } from 'ws';
 import { XiaoZhiConnectionService } from './services/xiaozhi-connection.service';
 import { XiaoZhiMessageService } from './services/xiaozhi-message.service';
 import { XiaoZhiAudioService } from './services/xiaozhi-audio.service';
@@ -19,6 +18,7 @@ import { XiaoZhiPluginService } from './services/xiaozhi-plugin.service';
 import { XiaoZhiConfigService } from './services/xiaozhi-config.service';
 import { DeviceState, ConnectionState, TransportType, DeviceConnection, XiaoZhiProtocolVersion, BinaryProtocolVersion } from './xiaozhi.types';
 import * as crypto from 'crypto';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 @Injectable()
 export class XiaoZhiService {
@@ -102,7 +102,7 @@ export class XiaoZhiService {
     this.publishDeviceConnectedEvent(deviceId, TransportType.WEBSOCKET, connection.sessionId, request.headers['device-name']);
 
     // 接收消息
-    websocket.on('message', (data: WebSocket.Data) => {
+    websocket.on('message', (data: RawData) => {
       this.handleWebSocketMessage(deviceId, data);
     });
   }
@@ -174,7 +174,7 @@ export class XiaoZhiService {
   /**
    * 处理 Socket.io 连接
    */
-  private processSocketIOConnection(deviceId: string, socket: any, request: any): DeviceConnection {
+  private processSocketIOConnection(deviceId: string, socket: any, _request: any): DeviceConnection {
     // 生成会话ID
     const sessionId = this.securityService.generateSecureSessionId(deviceId);
 
@@ -342,7 +342,7 @@ export class XiaoZhiService {
   /**
    * 处理WebSocket消息
    */
-  async handleWebSocketMessage(deviceId: string, data: WebSocket.Data): Promise<void> {
+  async handleWebSocketMessage(deviceId: string, data: RawData): Promise<void> {
     const connection = this.stateService.getConnection(deviceId);
     if (!connection) {
       this.logger.error(`Connection not found for device: ${deviceId}`);
@@ -407,7 +407,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           transport: 'websocket',
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
           type: 'system_error'
@@ -485,7 +485,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           transport: 'mqtt',
           topic,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -584,7 +584,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'stt',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -644,7 +644,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'tts',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -704,7 +704,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'tts',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -762,7 +762,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'tts',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -820,7 +820,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'llm',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -877,7 +877,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'system',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -945,7 +945,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: 'mcp',
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
@@ -995,7 +995,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
           type: 'system_error'
@@ -1111,7 +1111,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: payload.type,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),
           type: 'system_error'
@@ -1171,7 +1171,7 @@ export class XiaoZhiService {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           messageType: messageType,
           transport: connection.transport,
           details: typeof error === 'object' ? JSON.stringify(error) : String(error),

@@ -40,7 +40,7 @@ export class UserSyncService implements OnModuleInit {
    * 2. 用户更新信息时
    * 3. 批量同步历史用户
    */
-  async syncUser(userId: string, options: UserSyncOptions = {}): Promise<boolean> {
+  async syncUser(userId: string, _options: UserSyncOptions = {}): Promise<boolean> {
     if (!this.enabled) {
       this.logger.debug(`用户同步已禁用，跳过同步: ${userId}`);
       return true;
@@ -105,7 +105,7 @@ export class UserSyncService implements OnModuleInit {
   /**
    * 同步所有未同步的用户
    */
-  async syncAllUnsyncedUsers(batchSize: number = 100): Promise<{
+  async syncAllUnsyncedUsers(_batchSize: number = 100): Promise<{
     total: number;
     success: number;
     failed: number;
@@ -218,7 +218,7 @@ export class UserSyncService implements OnModuleInit {
    * 用户更新时同步
    * 由 UserController 调用
    */
-  async syncUserOnUpdate(userId: string, userData: Partial<UserEntity>): Promise<boolean> {
+  async syncUserOnUpdate(userId: string, _userData: Partial<UserEntity>): Promise<boolean> {
     this.logger.log(`用户更新同步: ${userId}`);
     return this.syncUser(userId, { skipIfExists: false });
   }

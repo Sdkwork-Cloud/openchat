@@ -176,7 +176,7 @@ export class CrawController {
     @Body() body: { file: string },
   ) {
     try {
-      const agent = await this.agentService.updateAvatar(apiKey, body.file);
+      await this.agentService.updateAvatar(apiKey, body.file);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -200,7 +200,7 @@ export class CrawController {
   ) {
     try {
       await this.agentService.setupOwnerEmail(apiKey, body.email);
-      return { success: true, message: 'Email setup sent!' };
+      return { success: true, message: 'Owner email saved.' };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

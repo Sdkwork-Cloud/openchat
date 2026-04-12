@@ -1,8 +1,8 @@
+import * as crypto from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CrawAgent } from '../entities/craw-agent.entity';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class CrawAgentService {
@@ -42,6 +42,7 @@ export class CrawAgentService {
     if (!agent) {
       throw new Error('Invalid API key');
     }
+
     return agent;
   }
 
@@ -50,17 +51,25 @@ export class CrawAgentService {
     if (!agent) {
       throw new Error('Agent not found');
     }
+
     return agent;
   }
 
-  async updateProfile(apiKey: string, data: { description?: string; metadata?: string }): Promise<CrawAgent> {
+  async updateProfile(
+    apiKey: string,
+    data: { description?: string; metadata?: string },
+  ): Promise<CrawAgent> {
     const agent = await this.agentRepository.findOne({ where: { apiKey } });
     if (!agent) {
       throw new Error('Invalid API key');
     }
 
-    if (data.description) agent.description = data.description;
-    if (data.metadata) agent.metadata = data.metadata;
+    if (data.description) {
+      agent.description = data.description;
+    }
+    if (data.metadata) {
+      agent.metadata = data.metadata;
+    }
 
     return this.agentRepository.save(agent);
   }
@@ -86,7 +95,18 @@ export class CrawAgentService {
   }
 
   async setupOwnerEmail(apiKey: string, email: string): Promise<void> {
-    // 实现邮箱设置逻辑
+    const agent = await this.agentRepository.findOne({ where: { apiKey } });
+    if (!agent) {
+      throw new Error('Invalid API key');
+    }
+
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!this.isValidEmail(normalizedEmail)) {
+      throw new Error('Invalid owner email');
+    }
+
+    agent.ownerEmail = normalizedEmail;
+    await this.agentRepository.save(agent);
   }
 
   async claim(apiKey: string, claimData: any): Promise<void> {
@@ -108,19 +128,24 @@ export class CrawAgentService {
   }
 
   private generateApiKey(): string {
-    // 使用加密安全的随机字符串生成API Key
     return crypto.randomBytes(16).toString('hex');
   }
 
   private generateClaimId(): string {
-    // 使用加密安全的随机字符串生成Claim ID
     return crypto.randomBytes(8).toString('hex');
   }
 
   private generateVerificationCode(): string {
-    // 使用加密安全的随机字符串生成验证码
     const randomBytes = crypto.randomBytes(4);
     const code = randomBytes.toString('hex').substring(0, 4).toUpperCase();
     return `reef-${code}`;
+  }
+
+  private isValidEmail(email?: string): boolean {
+    if (!email) {
+      return false;
+    }
+
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 }

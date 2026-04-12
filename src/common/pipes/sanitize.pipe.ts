@@ -101,7 +101,7 @@ export class SanitizePipe implements PipeTransform<string | object, string | obj
     this.rules = this.buildRules();
   }
 
-  transform(value: string | object, metadata: ArgumentMetadata): string | object {
+  transform(value: string | object, _metadata: ArgumentMetadata): string | object {
     if (typeof value === 'string') {
       return this.sanitizeString(value);
     }
@@ -243,7 +243,7 @@ export class SanitizeHtmlPipe implements PipeTransform<string, string> {
     ]);
   }
 
-  transform(value: string, metadata: ArgumentMetadata): string {
+  transform(value: string, _metadata: ArgumentMetadata): string {
     // 简化实现：移除所有 HTML 标签
     // 生产环境建议使用成熟的库如 DOMPurify
     return value.replace(/<[^>]*>/g, '');

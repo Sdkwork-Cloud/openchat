@@ -191,11 +191,11 @@ export class TemplateEngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   registerPartial(name: string, content: string): void {
-    const partialTemplate = this.registerTemplate(`_partial_${name}`, content);
+    this.registerTemplate(`_partial_${name}`, content);
     this.logger.debug(`Partial '${name}' registered`);
   }
 
-  registerHelper(name: string, helper: Function): void {
+  registerHelper(name: string, _helper: Function): void {
     this.logger.debug(`Helper '${name}' registered`);
   }
 
@@ -436,7 +436,7 @@ export class TemplateEngineService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-  private processLoops(content: string, data: Record<string, any>, helpers?: Record<string, Function>): string {
+  private processLoops(content: string, data: Record<string, any>, _helpers?: Record<string, Function>): string {
     let result = content;
 
     result = result.replace(/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (_, arrayPath, body) => {

@@ -95,15 +95,20 @@ describe("MessageService", () => {
     observeMessageSeqAckBatchFailedItems: jest.fn(),
   };
   const mockConfigService = {
-    get: jest.fn((key: string, defaultValue?: any) => {
-      if (key === "MESSAGE_BATCH_SIZE") {
-        return 20;
-      }
-      return defaultValue;
-    }),
+    get: jest.fn(),
   };
 
   beforeEach(async () => {
+    mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+      if (key === "MESSAGE_BATCH_SIZE") {
+        return 20;
+      }
+      if (key === "WUKONGIM_ENABLED") {
+        return "true";
+      }
+      return defaultValue;
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MessageService,
@@ -255,7 +260,7 @@ describe("MessageService", () => {
 
     it("should persist editedAt and edit history for valid edits", async () => {
       const now = new Date("2026-03-14T12:00:00.000Z");
-      jest.useFakeTimers().setSystemTime(now);
+      jest.useFakeTimers().setSystemTime(now.getTime());
       mockMessageRepository.findOne.mockResolvedValue({
         id: "msg-1",
         fromUserId: "user-1",
@@ -1204,6 +1209,146 @@ describe("MessageService", () => {
       expect(
         mockFilterService.checkSingleMessagePermission,
       ).not.toHaveBeenCalled();
+    });
+
+    it("should use local-only dispatch when WUKONGIM_ENABLED is false", async () => {
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === "MESSAGE_BATCH_SIZE") {
+          return 20;
+        }
+        if (key === "WUKONGIM_ENABLED") {
+          return "false";
+        }
+        return defaultValue;
+      });
+
+      const createdAt = new Date("2026-03-06T10:00:00.000Z");
+      const queryRunner = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        manager: {
+          save: jest.fn().mockImplementation(async (message: any) => ({
+            id: "msg-local-only",
+            retryCount: 0,
+            needReadReceipt: true,
+            createdAt,
+            updatedAt: createdAt,
+            extra: null,
+            ...message,
+          })),
+        },
+        commitTransaction: jest.fn().mockResolvedValue(undefined),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+      };
+      mockDataSource.createQueryRunner.mockReturnValue(queryRunner as any);
+      mockDeduplicationService.isDuplicate.mockResolvedValue(false);
+      mockFilterService.checkSingleMessagePermission.mockResolvedValue({
+        allowed: true,
+      });
+      mockSequenceService.getNextSequence.mockResolvedValue(1);
+      mockMessageRepository.create.mockImplementation((payload: any) => payload);
+      mockMessageRepository.save.mockImplementation(async (message: any) => message);
+      mockMessageReceiptService.upsertReceipt.mockResolvedValue(undefined);
+
+      const updateConversationSpy = jest
+        .spyOn(service as any, "updateConversationForMessageOptimized")
+        .mockResolvedValue(undefined);
+
+      const result = await service.sendMessage({
+        fromUserId: "user-1",
+        toUserId: "user-2",
+        type: "text" as any,
+        content: { text: "hello" } as any,
+      } as any);
+
+      expect(mockImProviderService.sendMessage).not.toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          message: expect.objectContaining({
+            id: "msg-local-only",
+            status: MessageStatus.SENT,
+            extra: expect.objectContaining({
+              imDispatchMode: "local-only",
+            }),
+          }),
+        }),
+      );
+      expect(updateConversationSpy).toHaveBeenCalled();
+    });
+
+    it("should wait for pending async conversation updates during shutdown", async () => {
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === "MESSAGE_BATCH_SIZE") {
+          return 20;
+        }
+        if (key === "WUKONGIM_ENABLED") {
+          return "false";
+        }
+        return defaultValue;
+      });
+
+      const createdAt = new Date("2026-03-06T10:00:00.000Z");
+      const queryRunner = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        manager: {
+          save: jest.fn().mockImplementation(async (message: any) => ({
+            id: "msg-pending-update",
+            retryCount: 0,
+            needReadReceipt: true,
+            createdAt,
+            updatedAt: createdAt,
+            extra: null,
+            ...message,
+          })),
+        },
+        commitTransaction: jest.fn().mockResolvedValue(undefined),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+      };
+      mockDataSource.createQueryRunner.mockReturnValue(queryRunner as any);
+      mockDeduplicationService.isDuplicate.mockResolvedValue(false);
+      mockFilterService.checkSingleMessagePermission.mockResolvedValue({
+        allowed: true,
+      });
+      mockSequenceService.getNextSequence.mockResolvedValue(1);
+      mockMessageRepository.create.mockImplementation((payload: any) => payload);
+      mockMessageRepository.save.mockImplementation(async (message: any) => message);
+      mockMessageReceiptService.upsertReceipt.mockResolvedValue(undefined);
+
+      let resolveConversationUpdate: (() => void) | undefined;
+      const updateConversationPromise = new Promise<void>((resolve) => {
+        resolveConversationUpdate = resolve;
+      });
+      jest
+        .spyOn(service as any, "updateConversationForMessageOptimized")
+        .mockReturnValue(updateConversationPromise);
+
+      const result = await service.sendMessage({
+        fromUserId: "user-1",
+        toUserId: "user-2",
+        type: "text" as any,
+        content: { text: "hello" } as any,
+      } as any);
+
+      expect(result.success).toBe(true);
+
+      let destroyCompleted = false;
+      const destroyPromise = Promise.resolve(
+        (service as any).onModuleDestroy?.(),
+      ).then(() => {
+        destroyCompleted = true;
+      });
+
+      await Promise.resolve();
+      expect(destroyCompleted).toBe(false);
+
+      resolveConversationUpdate?.();
+      await destroyPromise;
+
+      expect(destroyCompleted).toBe(true);
     });
   });
 

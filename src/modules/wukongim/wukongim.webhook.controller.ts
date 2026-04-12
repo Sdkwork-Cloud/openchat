@@ -19,6 +19,7 @@ import { Redis } from 'ioredis';
 import { Brackets, In, Repository } from 'typeorm';
 import { REDIS_CLIENT } from '../../common/redis/redis.module';
 import { AllowAnonymous } from '../../common/auth/guards/multi-auth.guard';
+import { WukongIMProvider } from '../im-provider/providers/wukongim/wukongim.provider';
 import { Message } from '../message/message.entity';
 import { MessageReceipt } from '../message/message-receipt.entity';
 import { MessageStatus } from '../message/message.interface';
@@ -57,6 +58,17 @@ interface UserConnectData {
   timestamp: number;
 }
 
+interface WebhookMessageData {
+  message_id?: string;
+  client_msg_no?: string;
+  from_uid: string;
+  to_uid?: string;
+  channel_id: string;
+  channel_type: number;
+  payload: string | Record<string, unknown>;
+  timestamp: number;
+}
+
 interface ReceiptScope {
   channelType: WukongIMChannelType;
   channelId: string;
@@ -85,6 +97,8 @@ export class WukongIMWebhookController {
     @Optional()
     @Inject(REDIS_CLIENT)
     private readonly redis?: Redis,
+    @Optional()
+    private readonly wukongIMProvider?: WukongIMProvider,
   ) {
     this.webhookSecret = this.readConfig(
       ['WUKONGIM_WEBHOOK_SECRET'],
@@ -125,7 +139,7 @@ export class WukongIMWebhookController {
   @Post()
   @ApiOperation({
     summary: 'Receive WukongIM Webhook',
-    description: 'Receive message ack/read and online/offline events',
+    description: 'Receive message, ack/read, and online/offline events',
   })
   async receiveWebhook(
     @Body() payload: WebhookPayload,
@@ -160,6 +174,9 @@ export class WukongIMWebhookController {
 
     try {
       switch (payload.event) {
+        case WukongIMWebhookEvent.MESSAGE:
+          this.handleRealtimeMessage(payload.data as WebhookMessageData);
+          break;
         case WukongIMWebhookEvent.MESSAGE_ACK:
           await this.handleMessageAck(payload.data as MessageAckData);
           break;
@@ -418,20 +435,48 @@ export class WukongIMWebhookController {
 
   private async handleUserConnect(data: UserConnectData): Promise<void> {
     this.logger.log(`User connected: ${data.uid}, device: ${data.device_flag}`);
+    this.wukongIMProvider?.handleWebhookUserStatus({
+      uid: data.uid,
+      online: true,
+      timestamp: data.timestamp,
+    });
   }
 
   private async handleUserDisconnect(data: UserConnectData): Promise<void> {
     this.logger.log(`User disconnected: ${data.uid}, device: ${data.device_flag}`);
+    this.wukongIMProvider?.handleWebhookUserStatus({
+      uid: data.uid,
+      online: false,
+      timestamp: data.timestamp,
+    });
   }
 
   private handleUserOnline(data: unknown): void {
     const uid = (data as Record<string, unknown>)?.uid;
     this.logger.log(`User online: ${uid}`);
+    if (typeof uid === 'string' && uid) {
+      this.wukongIMProvider?.handleWebhookUserStatus({
+        uid,
+        online: true,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   private handleUserOffline(data: unknown): void {
     const uid = (data as Record<string, unknown>)?.uid;
     this.logger.log(`User offline: ${uid}`);
+    if (typeof uid === 'string' && uid) {
+      this.wukongIMProvider?.handleWebhookUserStatus({
+        uid,
+        online: false,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  private handleRealtimeMessage(data: WebhookMessageData): void {
+    this.wukongIMProvider?.handleWebhookMessage(data);
   }
 
   private extractRawBody(payload: WebhookPayload, req?: RawBodyRequest): Buffer {

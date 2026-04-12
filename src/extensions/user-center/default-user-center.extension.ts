@@ -155,7 +155,7 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
     context.logger.info('Default user center extension deactivated');
   }
 
-  async onConfigChange(oldConfig: any, newConfig: any): Promise<void> {
+  async onConfigChange(_oldConfig: any, _newConfig: any): Promise<void> {
     this.context?.logger.info('User center config changed');
   }
 
@@ -329,7 +329,7 @@ export class DefaultUserCenterExtension implements IUserCenterExtension {
         user: this.toUserInfo(user),
         ...tokens,
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: '刷新令牌已过期，请重新登录',

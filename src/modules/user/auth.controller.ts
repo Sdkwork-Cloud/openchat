@@ -6,6 +6,7 @@ import { UserSyncService } from './user-sync.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
 import { AllowAnonymous } from '../../common/auth/guards/multi-auth.guard';
+import { sanitizeUser } from './sanitize-user.util';
 import {
   RegisterDto,
   LoginDto,
@@ -130,8 +131,7 @@ export class AuthController {
     if (!user) {
       return null;
     }
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return sanitizeUser(user);
   }
 
   @Put('password')

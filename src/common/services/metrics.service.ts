@@ -177,10 +177,11 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
       case 'gauge':
         return this.gauges.get(key);
       case 'histogram':
-      case 'timer':
+      case 'timer': {
         const values = (config.type === 'histogram' ? this.histograms : this.timers).get(key);
         if (!values || values.length === 0) return undefined;
         return values[values.length - 1];
+      }
       default:
         return undefined;
     }

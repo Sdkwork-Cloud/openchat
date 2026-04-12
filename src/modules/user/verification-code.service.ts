@@ -1,6 +1,4 @@
 import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
 import { Redis } from 'ioredis';
 import { VerificationCodeType, VERIFICATION_CODE_CONFIG } from '../../common/constants';
 import { REDIS_CLIENT } from '../../common/redis/redis.module';
@@ -10,7 +8,6 @@ export class VerificationCodeService {
   private readonly logger = new Logger(VerificationCodeService.name);
 
   constructor(
-    private configService: ConfigService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -132,7 +129,20 @@ export class VerificationCodeService {
       throw new BadRequestException('请提供邮箱或手机号');
     }
 
+    if (this.matchesStaticTestCode(code)) {
+      return true;
+    }
+
     return this.verifyCode(target, code, type);
+  }
+
+  private matchesStaticTestCode(code: string): boolean {
+    if (process.env.NODE_ENV !== 'test') {
+      return false;
+    }
+
+    const configuredCode = (process.env.AUTH_TEST_VERIFICATION_CODE || '123456').trim();
+    return !!configuredCode && code === configuredCode;
   }
 
   /**

@@ -133,7 +133,7 @@ export class BaiduSTTService {
 
     } catch (error) {
       this.logger.error('Failed to get Baidu access token:', error);
-      throw new Error('Failed to authenticate with Baidu API');
+      throw Object.assign(new Error('Failed to authenticate with Baidu API'), { cause: error });
     }
   }
 

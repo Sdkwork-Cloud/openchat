@@ -2,12 +2,10 @@ import {
   applyDecorators,
   SetMetadata,
   UseInterceptors,
-  UseGuards,
   Type,
 } from '@nestjs/common';
 import {
   ApiTags,
-  ApiOperation,
   ApiBearerAuth,
   ApiResponse,
   ApiParam,
@@ -52,11 +50,6 @@ export const ACTION_CONFIG_KEY = 'action_config';
 
 export function ApiController(config: ControllerConfig): ClassDecorator {
   const decorators: ClassDecorator[] = [];
-
-  let prefix = config.prefix || config.name.toLowerCase();
-  if (config.version) {
-    prefix = `v${config.version}/${prefix}`;
-  }
 
   decorators.push(ApiTags(config.name));
 
@@ -235,7 +228,7 @@ export function CrudActions(entityName: string) {
   };
 }
 
-export function RestController<T>(config: ControllerConfig): ClassDecorator {
+export function RestController(config: ControllerConfig): ClassDecorator {
   return applyDecorators(
     ApiController(config),
     UseInterceptors(TransformInterceptor),

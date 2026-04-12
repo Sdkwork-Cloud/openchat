@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
-import { ApiResponseDto, PagedResponseDto } from '../dto/response.dto';
+import { ApiResponseDto } from '../dto/response.dto';
 
 export interface ResponseMetadata {
   timestamp: number;

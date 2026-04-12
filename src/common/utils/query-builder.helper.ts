@@ -1,4 +1,4 @@
-import { SelectQueryBuilder, FindOptionsWhere, ObjectLiteral, OrderByCondition } from 'typeorm';
+import { SelectQueryBuilder, FindOptionsWhere, ObjectLiteral } from 'typeorm';
 
 export type SortDirection = 'ASC' | 'DESC';
 

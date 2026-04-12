@@ -165,7 +165,13 @@ export function createTypeOrmDataSourceOptions(
 export function createTypeOrmModuleOptions(
   env: NodeJS.ProcessEnv = process.env,
 ): TypeOrmModuleOptions {
-  return createTypeOrmDataSourceOptions(env) as TypeOrmModuleOptions;
+  const config = resolveDatabaseConfig(env);
+
+  return {
+    ...createTypeOrmDataSourceOptions(env),
+    retryAttempts: config.nodeEnv === "test" ? 1 : 10,
+    retryDelay: config.nodeEnv === "test" ? 0 : 3000,
+  } as TypeOrmModuleOptions;
 }
 
 export function getDatabaseConfigSummary(

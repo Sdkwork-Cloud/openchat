@@ -8,7 +8,7 @@
 import { SetMetadata, applyDecorators, CallHandler, ExecutionContext, Injectable, NestInterceptor, Logger } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 
 /**
  * 操作类型枚举
@@ -166,7 +166,6 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const response = context.switchToHttp().getResponse<Response>();
     const startTime = Date.now();
 
     // 提取审计信息

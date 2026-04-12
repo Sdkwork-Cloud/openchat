@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Skill, SkillResult, SkillExecutionContext } from '../agent.interface';
-import { v4 as uuidv4 } from 'uuid';
+import { Skill, SkillExecutionContext } from '../agent.interface';
 
 @Injectable()
 export class SkillRegistry implements OnModuleInit {

@@ -4,15 +4,13 @@
 # 支持使用外部数据库、Redis 和 WukongIM
 # ============================================
 
-version: '3.8'
-
 services:
   # ============================================
   # PostgreSQL 数据库 (可选 - 可配置为外部数据库)
   # ============================================
   postgres:
     image: postgres:${POSTGRES_VERSION:-15-alpine}
-    container_name: openchat-postgres
+    container_name: ${POSTGRES_CONTAINER_NAME:-openchat-postgres}
     restart: ${RESTART_POLICY:-unless-stopped}
     profiles:
       - database
@@ -65,7 +63,7 @@ services:
   # ============================================
   redis:
     image: redis:${REDIS_VERSION:-7-alpine}
-    container_name: openchat-redis
+    container_name: ${REDIS_CONTAINER_NAME:-openchat-redis}
     restart: ${RESTART_POLICY:-unless-stopped}
     profiles:
       - cache
@@ -249,10 +247,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
+        required: false
       wukongim:
         condition: service_started
+        required: false
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-3000}
@@ -338,8 +339,10 @@ services:
 
 volumes:
   postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-postgres_data}
     driver: local
   redis_data:
+    name: ${REDIS_VOLUME_NAME:-redis_data}
     driver: local
   wukongim_data:
     driver: local

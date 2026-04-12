@@ -17,7 +17,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { Observable, from } from 'rxjs';
+import { from } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
 import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
@@ -27,7 +27,7 @@ import { ToolRegistry } from './tools/tool-registry.service';
 import { SkillRegistry } from './skills/skill-registry.service';
 import { AgentStatus, AgentType, ChatRequest } from './agent.interface';
 import { CreateAgent, UpdateAgent, SendAgentMessage, CreateSession, AddTool, AddSkill } from './dto/agent.dto';
-import { AgentError, AgentErrorCode } from './errors/agent.errors';
+import { AgentError } from './errors/agent.errors';
 
 @ApiTags('Agent')
 @ApiBearerAuth()

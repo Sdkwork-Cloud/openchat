@@ -258,7 +258,7 @@ export class EncryptionService implements OnModuleInit {
     return randomBytes(length);
   }
 
-  generateKeyString(length: number = 32, encoding: BufferEncoding = 'hex'): string {
+  generateKeyString(length: number = 32, encoding: NodeJS.BufferEncoding = 'hex'): string {
     return randomBytes(length).toString(encoding);
   }
 
@@ -290,7 +290,7 @@ export class EncryptionService implements OnModuleInit {
   }
 }
 
-export function Encrypted(fieldKey?: string) {
+export function Encrypted(_fieldKey?: string) {
   return function (target: any, propertyKey: string) {
     const privateKey = `_${propertyKey}`;
 

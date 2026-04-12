@@ -207,7 +207,7 @@ export class AudioStreamConsumer implements OnModuleInit {
   /**
    * 讯飞语音识别
    */
-  private async xunfeiSTT(pcmData: Buffer, sampleRate: number): Promise<string> {
+  private async xunfeiSTT(pcmData: Buffer, _sampleRate: number): Promise<string> {
     // TODO: 实现讯飞语音识别 API 调用
     this.logger.warn('Xunfei STT not implemented yet, using mock');
     return this.mockSTT(pcmData);
@@ -216,7 +216,7 @@ export class AudioStreamConsumer implements OnModuleInit {
   /**
    * 阿里语音识别
    */
-  private async aliSTT(pcmData: Buffer, sampleRate: number): Promise<string> {
+  private async aliSTT(pcmData: Buffer, _sampleRate: number): Promise<string> {
     // TODO: 实现阿里语音识别 API 调用
     this.logger.warn('Ali STT not implemented yet, using mock');
     return this.mockSTT(pcmData);
@@ -225,7 +225,7 @@ export class AudioStreamConsumer implements OnModuleInit {
   /**
    * 模拟语音识别（用于测试）
    */
-  private async mockSTT(pcmData: Buffer): Promise<string> {
+  private async mockSTT(_pcmData: Buffer): Promise<string> {
     // 模拟处理延迟
     await this.delay(500);
     

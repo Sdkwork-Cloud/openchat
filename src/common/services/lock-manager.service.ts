@@ -346,7 +346,7 @@ export class LockManagerService implements OnModuleInit, OnModuleDestroy {
     type: LockType,
     ttl: number,
     waitTimeout: number,
-    options?: LockOptions,
+    _options?: LockOptions,
   ): Promise<Lock> {
     return new Promise((resolve, reject) => {
       if (!this.waitQueues.has(key)) {

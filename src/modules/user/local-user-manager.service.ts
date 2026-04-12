@@ -2,7 +2,6 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
-import { UserManager } from './user.interface';
 import { UserSyncService } from './user-sync.service';
 import { UserCacheService } from '../../common/cache/user-cache.service';
 

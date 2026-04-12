@@ -65,7 +65,6 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
     const filename = options.filename || `export_${Date.now()}.${format}`;
     const filepath = path.join(this.exportDir, filename);
 
-    let recordsCount = 0;
     const dataArray: T[] = [];
 
     if (Array.isArray(data)) {
@@ -87,8 +86,9 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
     }
 
     let finalData = processedData;
-    if (options.fields && options.fields.length > 0) {
-      finalData = processedData.map(row => this.pickFields(row, options.fields!));
+    const selectedFields = options.fields;
+    if (selectedFields && selectedFields.length > 0) {
+      finalData = processedData.map(row => this.pickFields(row, selectedFields));
     }
 
     switch (format) {
@@ -111,7 +111,7 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
         throw new Error(`Unsupported export format: ${format}`);
     }
 
-    recordsCount = finalData.length;
+    const recordsCount = finalData.length;
     const stats = await fs.promises.stat(filepath);
     const duration = Date.now() - startTime;
 
@@ -147,13 +147,9 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
     let batch: T[] = [];
 
     try {
+      await this.ensureDirectory(this.exportDir);
       const writeStream = createWriteStream(filepath);
       let headerWritten = false;
-
-      for await (const item of dataStream) {
-        const progress = this.exports.get(exportId)!;
-        progress.total++;
-      }
 
       for await (const item of dataStream) {
         let processedItem = item;
@@ -174,7 +170,7 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
 
         if (batch.length >= batchSize) {
           const dataToWrite = this.formatBatch(batch, format, options, !headerWritten);
-          writeStream.write(dataToWrite);
+          await this.writeChunk(writeStream, dataToWrite);
           if (!headerWritten) headerWritten = true;
           batch = [];
         }
@@ -185,7 +181,7 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
 
       if (batch.length > 0) {
         const dataToWrite = this.formatBatch(batch, format, options, !headerWritten);
-        writeStream.write(dataToWrite);
+        await this.writeChunk(writeStream, dataToWrite);
       }
 
       writeStream.end();
@@ -293,7 +289,7 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
     await fs.promises.writeFile(filepath, rows.join('\n'), 'utf8');
   }
 
-  private async exportToJson(data: any[], filepath: string, options: ExportOptions): Promise<void> {
+  private async exportToJson(data: any[], filepath: string, _options: ExportOptions): Promise<void> {
     const jsonContent = JSON.stringify(data, null, 2);
     await fs.promises.writeFile(filepath, jsonContent, 'utf8');
   }
@@ -320,7 +316,7 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
     await fs.promises.writeFile(filepath, xml, 'utf8');
   }
 
-  private async exportToYaml(data: any[], filepath: string, options: ExportOptions): Promise<void> {
+  private async exportToYaml(data: any[], filepath: string, _options: ExportOptions): Promise<void> {
     const yaml = this.toYaml(data, 0);
     await fs.promises.writeFile(filepath, yaml, 'utf8');
   }
@@ -465,6 +461,17 @@ export class ExportService implements OnModuleInit, OnModuleDestroy {
       progress.processed = processed;
       progress.percentage = progress.total > 0 ? Math.round((processed / progress.total) * 100) : 0;
     }
+  }
+
+  private async writeChunk(writeStream: WriteStream, chunk: string): Promise<void> {
+    if (writeStream.write(chunk)) {
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      writeStream.once('drain', resolve);
+      writeStream.once('error', reject);
+    });
   }
 
   private async ensureDirectory(dirPath: string): Promise<void> {

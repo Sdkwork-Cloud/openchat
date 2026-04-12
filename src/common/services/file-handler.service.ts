@@ -119,7 +119,7 @@ export class FileHandlerService implements OnModuleInit {
     };
   }
 
-  async readFile(filePath: string, encoding: BufferEncoding = 'utf8'): Promise<string> {
+  async readFile(filePath: string, encoding: NodeJS.BufferEncoding = 'utf8'): Promise<string> {
     return fs.promises.readFile(filePath, encoding);
   }
 

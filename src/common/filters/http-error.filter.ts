@@ -12,7 +12,6 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-  Inject,
   Optional,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -120,7 +119,7 @@ export class HttpErrorFilter implements ExceptionFilter {
     requestId: string,
   ): HttpErrorResponse {
     const timestamp = new Date().toISOString();
-    const path = request.url;
+    const path = request.originalUrl || request.url;
     const method = request.method;
 
     // 业务异常
@@ -154,7 +153,6 @@ export class HttpErrorFilter implements ExceptionFilter {
     method: string,
   ): HttpErrorResponse {
     const statusCode = this.getHttpStatusForBusinessCode(exception.code);
-    const errorDetails = this.getErrorDetails(exception.code);
 
     const errorResponse: HttpErrorResponse = {
       timestamp,
@@ -373,7 +371,7 @@ export class HttpErrorFilter implements ExceptionFilter {
   /**
    * 获取错误详情
    */
-  protected getErrorDetails(code: number): any {
+  protected getErrorDetails(_code: number): any {
     // 简化版本，返回基本错误信息
     return undefined;
   }

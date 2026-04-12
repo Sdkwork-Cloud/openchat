@@ -18,6 +18,7 @@ import { XiaozhiOpusService } from './xiaozhi-opus.service';
 import { XiaozhiAudioProcessingService, AudioProcessingConfig as XiaozhiAudioProcessingConfig } from './xiaozhi-audio-processing.service';
 import * as crypto from 'crypto';
 import * as dgram from 'dgram';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 /**
  * 音频缓存配置接口
@@ -62,15 +63,6 @@ interface AudioQualityStats {
 /**
  * 音频处理配置接口
  */
-interface AudioProcessingConfig {
-  enableNoiseReduction: boolean;
-  enableVoiceActivityDetection: boolean;
-  enableAutomaticGainControl: boolean;
-  silenceThreshold: number;
-  voiceActivityTimeout: number;
-  minSilenceDuration: number;
-  maxSilenceDuration: number;
-}
 
 @Injectable()
 export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
@@ -155,7 +147,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           type: 'audio_error'
         },
         {
@@ -467,7 +459,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         EventTypeConstants.CUSTOM_EVENT,
         {
           deviceId,
-          error: error.message,
+          error: getErrorMessage(error),
           type: 'audio_send_error',
           transport: connection.transport,
         },
@@ -492,7 +484,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         // V1: 直接发送 Opus 数据
         return opusData;
         
-      case BinaryProtocolVersion.V2:
+      case BinaryProtocolVersion.V2: {
         // V2: 带时间戳的协议
         // | version (2B) | type (2B) | reserved (4B) | timestamp (4B) | payload_size (4B) | payload |
         const v2Header = Buffer.alloc(16);
@@ -502,8 +494,9 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         v2Header.writeUInt32BE(timestamp, 8);   // timestamp
         v2Header.writeUInt32BE(opusData.length, 12); // payload_size
         return Buffer.concat([v2Header, opusData]);
-        
-      case BinaryProtocolVersion.V3:
+      }
+
+      case BinaryProtocolVersion.V3: {
         // V3: 简化协议
         // | type (1B) | reserved (1B) | payload_size (2B) | payload |
         const v3Header = Buffer.alloc(4);
@@ -511,7 +504,8 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
         v3Header.writeUInt8(0, 1);              // reserved
         v3Header.writeUInt16BE(opusData.length, 2); // payload_size
         return Buffer.concat([v3Header, opusData]);
-        
+      }
+
       default:
         return opusData;
     }
@@ -650,7 +644,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
           EventTypeConstants.CUSTOM_EVENT,
           {
             deviceId,
-            error: error.message,
+            error: getErrorMessage(error),
             type: 'udp_error'
           },
           {
@@ -810,7 +804,7 @@ export class XiaoZhiAudioService implements OnModuleInit, OnModuleDestroy {
   /**
    * 查找设备连接
    */
-  private findConnection(deviceId: string, sessionId: string): any {
+  private findConnection(_deviceId: string, _sessionId: string): any {
     // 这里需要从连接管理服务中查找连接
     // 实际应用中应该注入连接管理服务
     return null;

@@ -5,7 +5,6 @@
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DeviceConnection } from '../xiaozhi.types';
 import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';

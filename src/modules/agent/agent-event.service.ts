@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Subject, Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { AgentEvent, AgentEventType } from './agent.interface';
+import { AgentEvent } from './agent.interface';
 
 @Injectable()
 export class AgentEventService {

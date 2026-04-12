@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan, LessThan, In } from 'typeorm';
+import { Repository, LessThan, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   AgentMemory,
@@ -24,11 +24,13 @@ import {
   MemoryConsolidationResult,
   MemoryRetrievalOptions,
   AdvancedMemoryStore,
+  HybridSearchOptions,
   MemoryEvent,
   MemoryEventHandler,
 } from './memory.interface';
 import { EmbeddingService } from './embedding.service';
 import { MemoryCacheService } from './memory-cache.service';
+import { getErrorMessage } from '@/common/utils/error.util';
 
 @Injectable()
 export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, OnModuleDestroy {
@@ -341,7 +343,12 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
     }));
   }
 
-  async hybridSearch(query: string, agentId: string, limit: number = 10): Promise<MemorySearchResult[]> {
+  async hybridSearch(
+    query: string,
+    agentId: string,
+    limit: number = 10,
+    options: HybridSearchOptions = {},
+  ): Promise<MemorySearchResult[]> {
     const [semanticResults, fullTextResults] = await Promise.all([
       this.semanticSearch(query, agentId, limit),
       this.fullTextSearch(query, agentId, limit),
@@ -368,7 +375,12 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
       }
     }
 
-    return Array.from(mergedMap.values())
+    const threshold = options.threshold ?? 0;
+    const filteredResults = Array.from(mergedMap.values())
+      .filter((result) => options.type === undefined || result.memory.type === options.type)
+      .filter((result) => result.relevance >= threshold);
+
+    return filteredResults
       .sort((a, b) => b.relevance - a.relevance)
       .slice(0, limit);
   }
@@ -703,7 +715,7 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
 
       this.logger.log(`Memory consolidation completed for agent ${agentId}: ${JSON.stringify(result)}`);
     } catch (error) {
-      result.errors.push(error.message);
+      result.errors.push(getErrorMessage(error));
     }
 
     return result;
@@ -733,7 +745,7 @@ export class MemoryManagerService implements AdvancedMemoryStore, OnModuleInit, 
         try {
           handler(event);
         } catch (error) {
-          this.logger.error(`Error in memory event handler: ${error.message}`);
+          this.logger.error(`Error in memory event handler: ${getErrorMessage(error)}`);
         }
       }
     }

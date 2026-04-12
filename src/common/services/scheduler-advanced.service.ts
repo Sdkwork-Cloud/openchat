@@ -85,7 +85,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     this.stopScheduler();
-    for (const [jobId, timer] of this.timers) {
+    for (const [, timer] of this.timers) {
       clearTimeout(timer);
     }
     this.timers.clear();
@@ -494,7 +494,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     return jobResult;
   }
 
-  private getNextCronRun(cron: string, timezone?: string): number {
+  private getNextCronRun(cron: string, _timezone?: string): number {
     const parts = cron.split(' ');
     if (parts.length !== 5) {
       throw new Error(`Invalid cron expression: ${cron}`);
@@ -531,7 +531,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     return true;
   }
 
-  private matchesCronPart(value: number, pattern: string, min: number, max: number): boolean {
+  private matchesCronPart(value: number, pattern: string, min: number, _max: number): boolean {
     if (pattern === '*') return true;
 
     if (pattern.includes('/')) {

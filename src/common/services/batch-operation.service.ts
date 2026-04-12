@@ -92,7 +92,6 @@ export class BatchOperationService {
   ): Promise<BatchResult<R>> {
     const {
       batchSize = 20,
-      concurrency = 1,
       stopOnError = false,
       retries = 0,
       retryDelay = 1000,
@@ -189,7 +188,6 @@ export class BatchOperationService {
   ): Promise<BatchResult<R>> {
     const {
       maxConcurrency = 10,
-      batchSize = 20,
       retries = 0,
       retryDelay = 1000,
       onProgress,
@@ -205,7 +203,7 @@ export class BatchOperationService {
     let activeCount = 0;
     let nextIndex = 0;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       const processNext = async () => {
         while (activeCount < maxConcurrency && nextIndex < items.length) {
           const currentIndex = nextIndex++;
@@ -281,7 +279,7 @@ export class BatchOperationService {
         const results = await creator(batch);
         success.push(...results);
       }
-    } catch (error) {
+    } catch {
       // 如果批量失败，尝试单个处理
       this.logger.warn('Bulk operation failed, falling back to individual processing');
 

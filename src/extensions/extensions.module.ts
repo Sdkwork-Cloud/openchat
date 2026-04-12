@@ -1,47 +1,24 @@
-/**
- * 扩展插件模块
- *
- * 职责：
- * 1. 注册扩展插件核心服务
- * 2. 注册默认用户中心插件
- * 3. 提供扩展插件配置
- * 4. 集成健康检查和生命周期管理
- */
-
-import { Module, DynamicModule, Global, Provider } from '@nestjs/common';
+import { DynamicModule, Global, Module, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
-
-import { ExtensionRegistry } from './core/extension-registry.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { CommonModule } from '../common/common.module';
+import { RedisModule } from '../common/redis/redis.module';
+import { UserEntity } from '../modules/user/entities/user.entity';
+import { UserModule } from '../modules/user/user.module';
+import { WukongIMModule } from '../modules/wukongim/wukongim.module';
 import { ExtensionConfigValidator } from './core/extension-config.validator';
-import { ExtensionLifecycleManager } from './core/extension-lifecycle.manager';
 import { ExtensionHealthService } from './core/extension-health.service';
+import { ExtensionLifecycleManager } from './core/extension-lifecycle.manager';
+import { ExtensionRegistry } from './core/extension-registry.service';
+import { EXTENSIONS_OPTIONS, ExtensionsModuleOptions } from './extensions.options';
 import { DefaultUserCenterExtension } from './user-center/default-user-center.extension';
 import { RemoteUserCenterExtension } from './user-center/remote-user-center.extension';
 import { UserCenterProxy } from './user-center/user-center.proxy';
-import { RedisModule } from '../common/redis/redis.module';
-import { CommonModule } from '../common/common.module';
-import { UserEntity } from '../modules/user/entities/user.entity';
-import { WukongIMModule } from '../modules/wukongim/wukongim.module';
-import { UserModule } from '../modules/user/user.module';
 
-export interface ExtensionsModuleOptions {
-  /** 是否启用默认用户中心 */
-  useDefaultUserCenter?: boolean;
-  /** 是否启用远程用户中心 */
-  useRemoteUserCenter?: boolean;
-  /** 主用户中心插件ID */
-  primaryUserCenterId?: string;
-  /** 是否启用健康检查 */
-  enableHealthCheck?: boolean;
-  /** 是否启用自动恢复 */
-  enableAutoRecovery?: boolean;
-  /** 额外的扩展插件 */
-  extensions?: Provider[];
-}
+export type { ExtensionsModuleOptions } from './extensions.options';
 
 @Global()
 @Module({})
@@ -50,20 +27,21 @@ export class ExtensionsModule {
     const {
       useDefaultUserCenter = true,
       useRemoteUserCenter = false,
-      primaryUserCenterId,
       enableHealthCheck = true,
-      enableAutoRecovery = true,
       extensions = [],
     } = options;
 
     const coreProviders: Provider[] = [
+      {
+        provide: EXTENSIONS_OPTIONS,
+        useValue: options,
+      },
       ExtensionRegistry,
       ExtensionConfigValidator,
       ExtensionLifecycleManager,
     ];
 
     const userCenterProviders: Provider[] = [UserCenterProxy];
-
     const imports: any[] = [
       ConfigModule,
       EventEmitterModule.forRoot(),
@@ -97,29 +75,25 @@ export class ExtensionsModule {
       userCenterProviders.push(RemoteUserCenterExtension);
     }
 
-    const allProviders = [
-      ...coreProviders,
-      ...userCenterProviders,
-      ...extensions,
-    ];
-
-    const allExports = [
-      ExtensionRegistry,
-      ExtensionConfigValidator,
-      ExtensionLifecycleManager,
-      UserCenterProxy,
-      UserModule,
-      WukongIMModule,
-      ...(enableHealthCheck ? [ExtensionHealthService] : []),
-      ...(useDefaultUserCenter ? [DefaultUserCenterExtension] : []),
-      ...(useRemoteUserCenter ? [RemoteUserCenterExtension] : []),
-    ];
-
     return {
       module: ExtensionsModule,
       imports,
-      providers: allProviders,
-      exports: allExports,
+      providers: [
+        ...coreProviders,
+        ...userCenterProviders,
+        ...extensions,
+      ],
+      exports: [
+        ExtensionRegistry,
+        ExtensionConfigValidator,
+        ExtensionLifecycleManager,
+        UserCenterProxy,
+        UserModule,
+        WukongIMModule,
+        ...(enableHealthCheck ? [ExtensionHealthService] : []),
+        ...(useDefaultUserCenter ? [DefaultUserCenterExtension] : []),
+        ...(useRemoteUserCenter ? [RemoteUserCenterExtension] : []),
+      ],
     };
   }
 
@@ -149,7 +123,7 @@ export class ExtensionsModule {
         ExtensionHealthService,
         UserCenterProxy,
         {
-          provide: 'EXTENSIONS_OPTIONS',
+          provide: EXTENSIONS_OPTIONS,
           useFactory: options.useFactory,
           inject: options.inject || [],
         },

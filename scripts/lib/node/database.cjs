@@ -16,6 +16,11 @@ const {
   resolveEnvironmentFile,
   runCommand,
 } = require('./shared.cjs');
+const {
+  formatDockerTransport,
+  resolveDockerTransport,
+  runDocker,
+} = require('./docker-transport.cjs');
 
 const MIGRATION_TABLE = 'chat_schema_migrations';
 
@@ -44,36 +49,144 @@ function resolveDatabaseConfig(projectRoot, environmentInput) {
     user: values.DB_USERNAME || 'openchat',
     password: values.DB_PASSWORD || '',
     database: values.DB_NAME || 'openchat',
+    postgresContainerName: values.POSTGRES_CONTAINER_NAME || '',
   };
 
   return config;
 }
 
-function ensurePsqlAvailable() {
-  if (!commandExists('psql')) {
-    throw new Error('psql was not found in PATH. Install the PostgreSQL client before running database commands.');
+function resolvePsqlTransport(config) {
+  if (config.psqlTransport) {
+    return config.psqlTransport;
   }
-}
 
-function runPsql(config, databaseName, args) {
-  const result = runCommand(
-    'psql',
-    ['-h', config.host, '-p', String(config.port), '-U', config.user, '-d', databaseName, ...args],
-    {
-      cwd: config.projectRoot,
+  if (commandExists('psql')) {
+    config.psqlTransport = {
+      kind: 'host',
+      argsPrefix: ['-h', config.host, '-p', String(config.port), '-U', config.user],
+      command: 'psql',
       env: {
         ...process.env,
         PGPASSWORD: config.password,
       },
+    };
+    return config.psqlTransport;
+  }
+
+  if (config.postgresContainerName) {
+    const dockerTransport = resolveDockerTransport(config.projectRoot, {
+      requireCompose: false,
+    });
+    config.psqlTransport = {
+      kind: 'docker',
+      argsPrefix: [
+        'exec',
+        '-i',
+        '-e',
+        `PGPASSWORD=${config.password}`,
+        config.postgresContainerName,
+        'psql',
+        '-U',
+        config.user,
+      ],
+      dockerTransport,
+      label: `${formatDockerTransport(dockerTransport)} docker exec psql`,
+      env: process.env,
+    };
+    return config.psqlTransport;
+  }
+
+  throw new Error(
+    'psql was not found in PATH. Install the PostgreSQL client or configure POSTGRES_CONTAINER_NAME so OpenChat can fall back to `docker exec ... psql`.',
+  );
+}
+
+function extractPsqlFileInput(args) {
+  const fileIndex = args.indexOf('-f');
+  if (fileIndex === -1) {
+    return {
+      args,
+      input: undefined,
+    };
+  }
+
+  const filePath = args[fileIndex + 1];
+  if (!filePath) {
+    throw new Error('psql -f requires a file path');
+  }
+
+  return {
+    args: args.filter((_, index) => index !== fileIndex && index !== fileIndex + 1),
+    input: fs.readFileSync(filePath, 'utf8'),
+  };
+}
+
+function runPsql(config, databaseName, args) {
+  const transport = resolvePsqlTransport(config);
+  const preparedInput = transport.kind === 'docker'
+    ? extractPsqlFileInput(args)
+    : { args, input: undefined };
+  const { args: preparedArgs, input } = preparedInput;
+  const commandArgs = [...transport.argsPrefix, '-d', databaseName, ...preparedArgs];
+
+  if (transport.kind === 'docker') {
+    const result = runDocker(
+      config.projectRoot,
+      transport.dockerTransport,
+      commandArgs,
+      {
+        env: transport.env,
+        input,
+      },
+    );
+
+    return assertCommandSucceeded(result, transport.label);
+  }
+
+  const result = runCommand(
+    transport.command,
+    commandArgs,
+    {
+      cwd: config.projectRoot,
+      env: transport.env,
+      input,
     },
   );
 
-  return assertCommandSucceeded(result, 'psql');
+  return assertCommandSucceeded(result, transport.command);
 }
 
 function runPsqlQuery(config, databaseName, sql) {
   const result = runPsql(config, databaseName, ['-v', 'ON_ERROR_STOP=1', '-tA', '-c', sql]);
   return (result.stdout || '').trim();
+}
+
+function recreateDatabase(config) {
+  runPsql(
+    config,
+    'postgres',
+    [
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      `
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = ${quoteSqlLiteral(config.database)}
+  AND pid <> pg_backend_pid();
+      `,
+    ],
+  );
+  runPsql(
+    config,
+    'postgres',
+    ['-v', 'ON_ERROR_STOP=1', '-c', `DROP DATABASE ${quoteSqlIdentifier(config.database)};`],
+  );
+  runPsql(
+    config,
+    'postgres',
+    ['-v', 'ON_ERROR_STOP=1', '-c', `CREATE DATABASE ${quoteSqlIdentifier(config.database)};`],
+  );
 }
 
 function listPatchEntries(patchDirectory) {
@@ -120,7 +233,6 @@ async function confirmAction(question, yes) {
 }
 
 async function runDatabaseInit(projectRoot, options = {}) {
-  ensurePsqlAvailable();
   const config = resolveDatabaseConfig(projectRoot, options.environment);
 
   logInfo(`Environment: ${config.environment}`);
@@ -155,8 +267,16 @@ async function runDatabaseInit(projectRoot, options = {}) {
       ['-v', 'ON_ERROR_STOP=1', '-c', `CREATE DATABASE ${quoteSqlIdentifier(config.database)};`],
     );
     logSuccess(`Database created: ${config.database}`);
+  } else if (config.environment !== 'production') {
+    logWarn(
+      `Database already exists: ${config.database}. Recreating the non-production database to ensure a clean baseline.`,
+    );
+    recreateDatabase(config);
+    logSuccess(`Database recreated: ${config.database}`);
   } else {
-    logInfo(`Database already exists: ${config.database}`);
+    throw new Error(
+      `Database ${config.database} already exists in production. Use the patch flow instead of init, or drop the database manually before retrying.`,
+    );
   }
 
   const schemaPath = path.join(projectRoot, 'database', 'schema.sql');
@@ -335,7 +455,6 @@ function syncMigrationRecord(config, patchName, version, checksum) {
 }
 
 async function runDatabasePatch(projectRoot, options = {}) {
-  ensurePsqlAvailable();
   const config = resolveDatabaseConfig(projectRoot, options.environment);
   const patchDirectory = path.join(projectRoot, 'database', 'patches');
 

@@ -82,7 +82,7 @@ export class TaskQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    for (const [name, queue] of this.queues) {
+    for (const [, queue] of this.queues) {
       if (queue.pollTimer) {
         clearInterval(queue.pollTimer);
       }

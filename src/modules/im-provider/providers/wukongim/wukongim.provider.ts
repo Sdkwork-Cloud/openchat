@@ -1,5 +1,4 @@
-import { randomBytes } from 'crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { IMProviderBase } from '../../im-provider.base';
 import {
   IMMessage,
@@ -9,14 +8,35 @@ import {
   IMProviderConfig,
 } from '../../im-provider.interface';
 import { WukongIMChannelType } from '../../../wukongim/wukongim.constants';
+import { WukongIMTokenService } from '../../../wukongim/wukongim-token.service';
 import { WukongIMUtils } from '../../../wukongim/wukongim.utils';
 import { WukongIMClient } from '../../../wukongim/wukongim.client';
+
+interface WukongIMWebhookPresenceEvent {
+  uid: string;
+  online: boolean;
+  timestamp?: number;
+}
+
+interface WukongIMWebhookMessageEvent {
+  message_id?: string;
+  client_msg_no?: string;
+  from_uid: string;
+  to_uid?: string;
+  channel_id: string;
+  channel_type: number;
+  payload: string | Record<string, unknown>;
+  timestamp?: number;
+}
 
 @Injectable()
 export class WukongIMProvider extends IMProviderBase {
   private isConnected: boolean = false;
 
-  constructor(private readonly wukongIMClient: WukongIMClient) {
+  constructor(
+    private readonly wukongIMClient: WukongIMClient,
+    private readonly wukongIMTokenService: WukongIMTokenService,
+  ) {
     super();
   }
 
@@ -403,29 +423,35 @@ export class WukongIMProvider extends IMProviderBase {
     return this.removeGroupMember(groupId, userId);
   }
 
-  async connect(userId: string, token?: string): Promise<IMConnectionStatus> {
+  async connect(_userId: string, _token?: string): Promise<IMConnectionStatus> {
     this.isConnected = true;
-    return {
+    const status: IMConnectionStatus = {
       status: 'connected',
       timestamp: Date.now(),
     };
+    this.triggerConnectionStatusCallbacks(status);
+    return status;
   }
 
   async disconnect(): Promise<boolean> {
     this.isConnected = false;
+    this.triggerConnectionStatusCallbacks({
+      status: 'disconnected',
+      timestamp: Date.now(),
+    });
     return true;
   }
 
   subscribeToMessages(callback: (message: IMMessage) => void): void {
-    this.logger.warn('subscribeToMessages is not implemented. Use WebSocket gateway for real-time messages.');
+    super.subscribeToMessages(callback);
   }
 
   subscribeToConnectionStatus(callback: (status: IMConnectionStatus) => void): void {
-    this.logger.warn('subscribeToConnectionStatus is not implemented. Use WebSocket gateway for connection status.');
+    super.subscribeToConnectionStatus(callback);
   }
 
   subscribeToUserStatus(callback: (userId: string, status: 'online' | 'offline') => void): void {
-    this.logger.warn('subscribeToUserStatus is not implemented. Use WebSocket gateway for user status.');
+    super.subscribeToUserStatus(callback);
   }
 
   async markMessageAsRead(messageId: string): Promise<boolean> {
@@ -452,7 +478,7 @@ export class WukongIMProvider extends IMProviderBase {
     this.validateInitialized();
 
     try {
-      const token = randomBytes(24).toString('hex');
+      const token = this.wukongIMTokenService.generateToken(userId, expiresIn);
       await this.wukongIMClient.upsertUserToken({
         uid: userId,
         token,
@@ -467,12 +493,44 @@ export class WukongIMProvider extends IMProviderBase {
   }
 
   async validateToken(token: string): Promise<{ userId: string; valid: boolean }> {
-    this.logger.warn('validateToken is not supported by current WukongIM provider implementation');
-    return { userId: '', valid: false };
+    return this.wukongIMTokenService.validateToken(token);
   }
 
   async healthCheck(): Promise<boolean> {
     return this.wukongIMClient.healthCheck();
+  }
+
+  handleWebhookUserStatus(event: WukongIMWebhookPresenceEvent): void {
+    if (!event?.uid) {
+      return;
+    }
+
+    this.triggerUserStatusCallbacks(event.uid, event.online ? 'online' : 'offline');
+  }
+
+  handleWebhookMessage(event: WukongIMWebhookMessageEvent): void {
+    if (!event?.from_uid || !event.channel_id) {
+      return;
+    }
+
+    const decodedPayload = typeof event.payload === 'string'
+      ? WukongIMUtils.decodePayload(event.payload)
+      : event.payload;
+
+    const isGroup = event.channel_type === WukongIMChannelType.GROUP;
+    const message: IMMessage = {
+      id: event.message_id || event.client_msg_no || `${event.from_uid}_${event.timestamp || Date.now()}`,
+      type: (decodedPayload as { type?: IMMessage['type'] })?.type || 'text',
+      content: (decodedPayload as { content?: IMMessage['content'] })?.content || {},
+      from: event.from_uid,
+      to: isGroup ? event.channel_id : event.to_uid || event.channel_id,
+      roomId: isGroup ? event.channel_id : undefined,
+      timestamp: event.timestamp || Date.now(),
+      status: 'sent',
+      clientMsgNo: event.client_msg_no,
+    };
+
+    this.triggerMessageCallbacks(message);
   }
 
   protected validateInitialized(): void {

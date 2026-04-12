@@ -23,7 +23,7 @@ try {
   OpusEncoder = opus.OpusEncoder;
   opusLibraryName = '@discordjs/opus';
   Logger.log('Using @discordjs/opus for audio encoding', 'XiaozhiOpus');
-} catch (error) {
+} catch {
   Logger.warn('@discordjs/opus not available, falling back to opusscript', 'XiaozhiOpus');
   try {
     const opusscript = require('opusscript');
@@ -45,7 +45,7 @@ try {
     };
     opusLibraryName = 'opusscript';
     Logger.log('Using opusscript for audio encoding', 'XiaozhiOpus');
-  } catch (e) {
+  } catch {
     Logger.error('No Opus library available', '', 'XiaozhiOpus');
   }
 }

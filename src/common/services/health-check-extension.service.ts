@@ -59,7 +59,7 @@ export class HealthCheckExtensionService implements OnModuleInit, OnModuleDestro
   }
 
   onModuleDestroy() {
-    for (const [name, interval] of this.intervals) {
+    for (const [, interval] of this.intervals) {
       clearInterval(interval);
     }
   }

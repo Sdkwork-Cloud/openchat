@@ -13,7 +13,7 @@ import { IoTException, IoTErrorCode } from './exceptions/iot.exception';
 import { DeviceCacheService } from './services/device-cache.service';
 
 @Injectable()
-export class IoTService {
+export class IoTService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(IoTService.name);
 
   constructor(
@@ -386,7 +386,7 @@ export class IoTService {
   ): Promise<boolean> {
     try {
       // 检查设备是否存在
-      const device = await this.getDevice(deviceId);
+      await this.getDevice(deviceId);
 
       // 创建控制消息
       const message = {

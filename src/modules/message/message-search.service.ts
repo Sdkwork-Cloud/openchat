@@ -423,7 +423,7 @@ export class MessageSearchService {
   /**
    * 获取热搜关键词（基于搜索日志）
    */
-  async getHotKeywords(limit: number = 10): Promise<string[]> {
+  async getHotKeywords(_limit: number = 10): Promise<string[]> {
     // 实际项目中可以从搜索日志表中统计
     // 这里返回空数组作为占位
     return [];
@@ -436,7 +436,7 @@ export class MessageSearchService {
   async getSearchSuggestions(
     userId: string,
     prefix: string,
-    limit: number = 10,
+    _limit: number = 10,
   ): Promise<string[]> {
     // 实际项目中可以从搜索日志表中获取
     // 这里返回基于前缀的简单建议

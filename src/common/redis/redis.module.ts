@@ -1,4 +1,12 @@
-import { Module, Global, OnModuleInit, OnModuleDestroy, Logger, Inject, Optional } from '@nestjs/common';
+import {
+  Module,
+  Global,
+  OnModuleInit,
+  OnModuleDestroy,
+  OnApplicationShutdown,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT } from './redis.constants';
@@ -15,6 +23,36 @@ export interface RedisModuleOptions {
   password?: string;
   db?: number;
   keyPrefix?: string;
+}
+
+const trackedRedisClients = new Map<Redis, string>();
+
+function trackRedisClient(client: Redis, label: string): Redis {
+  trackedRedisClients.set(client, label);
+  return client;
+}
+
+async function closeRedisClient(client: Redis, label: string, logger: Logger): Promise<void> {
+  if (client.status === 'end') {
+    trackedRedisClients.delete(client);
+    return;
+  }
+
+  try {
+    await client.quit();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`Failed to quit Redis ${label} client gracefully: ${message}`);
+    try {
+      client.disconnect();
+    } catch (disconnectError) {
+      const disconnectMessage =
+        disconnectError instanceof Error ? disconnectError.message : String(disconnectError);
+      logger.error(`Failed to disconnect Redis ${label} client: ${disconnectMessage}`);
+    }
+  } finally {
+    trackedRedisClients.delete(client);
+  }
 }
 
 /**
@@ -76,7 +114,7 @@ export interface RedisModuleOptions {
         });
         
         logger.log('Redis primary client connected');
-        return client;
+        return trackRedisClient(client, 'primary');
       },
       inject: [ConfigService],
     },
@@ -108,7 +146,7 @@ export interface RedisModuleOptions {
         });
         
         logger.log('Redis pub client connected');
-        return pubClient;
+        return trackRedisClient(pubClient, 'publish');
       },
       inject: [REDIS_CLIENT],
     },
@@ -140,7 +178,7 @@ export interface RedisModuleOptions {
         });
         
         logger.log('Redis sub client connected');
-        return subClient;
+        return trackRedisClient(subClient, 'subscribe');
       },
       inject: [REDIS_CLIENT],
     },
@@ -148,7 +186,7 @@ export interface RedisModuleOptions {
   ],
   exports: [REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT, RedisService],
 })
-export class RedisModule implements OnModuleInit, OnModuleDestroy {
+export class RedisModule implements OnModuleInit, OnModuleDestroy, OnApplicationShutdown {
   private readonly logger = new Logger(RedisModule.name);
 
   constructor(@Optional() private readonly configService?: ConfigService) {}
@@ -159,6 +197,13 @@ export class RedisModule implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('RedisModule destroying...');
+  }
+
+  async onApplicationShutdown() {
+    const clients = Array.from(trackedRedisClients.entries()).reverse();
+    for (const [client, label] of clients) {
+      await closeRedisClient(client, label, this.logger);
+    }
     this.logger.log('RedisModule destroyed');
   }
 }

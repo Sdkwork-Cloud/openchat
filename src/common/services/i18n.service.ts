@@ -442,6 +442,6 @@ export class I18nService implements OnModuleInit {
   }
 }
 
-export function i18n(key: string, args?: Record<string, any>): string {
+export function i18n(key: string, _args?: Record<string, any>): string {
   return key;
 }

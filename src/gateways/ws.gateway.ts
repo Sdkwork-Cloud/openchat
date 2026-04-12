@@ -10,7 +10,6 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, Inject, UseGuards, Injectable, OnModuleDestroy, Optional } from '@nestjs/common';
-import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { WsThrottlerGuard } from '../common/throttler/ws-throttler.guard';
@@ -209,6 +208,8 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
 
   // 标记是否已订阅跨服务器消息
   private isSubscribed = false;
+  private initializationPromise?: Promise<void>;
+  private isShuttingDown = false;
 
   constructor(
     @Inject(REDIS_PUB_CLIENT) private readonly pubClient: Redis,
@@ -242,7 +243,12 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     );
   }
 
-  async afterInit(server: Server) {
+  async afterInit(_server: Server) {
+    this.initializationPromise = this.initializeGateway();
+    await this.initializationPromise;
+  }
+
+  private async initializeGateway(): Promise<void> {
     try {
       this.logger.log('WebSocket gateway initialized successfully');
 
@@ -250,6 +256,10 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
         await this.redisService.registerServer(this.serverId);
       } catch (redisError: any) {
         this.logger.warn('Failed to register server with Redis, running in single-instance mode:', redisError.message);
+      }
+
+      if (this.isShuttingDown) {
+        return;
       }
 
       this.startServerHeartbeat();
@@ -265,6 +275,8 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       }
     } catch (error: any) {
       this.logger.error('Failed to initialize WebSocket gateway', error);
+    } finally {
+      this.initializationPromise = undefined;
     }
   }
 
@@ -1137,9 +1149,10 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       return { error: 'Presence ACL service unavailable', errorCode: 'acl_unavailable' };
     }
 
-    let friendIds: string[] = [];
+    let allowedTargets: Set<string>;
     try {
-      friendIds = await this.friendService.getFriendIds(normalizedRequesterUserId);
+      const friendIds = await this.friendService.getFriendIds(normalizedRequesterUserId);
+      allowedTargets = new Set<string>([normalizedRequesterUserId, ...friendIds]);
     } catch (error: any) {
       this.logger.error(
         `Failed to evaluate presence ACL for ${normalizedRequesterUserId}: ${error?.message || error}`,
@@ -1147,7 +1160,6 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       return { error: 'Presence ACL service unavailable', errorCode: 'acl_unavailable' };
     }
 
-    const allowedTargets = new Set<string>([normalizedRequesterUserId, ...friendIds]);
     const pendingGroupAclTargets: string[] = [];
     for (const targetUserId of targetUserIds) {
       if (allowedTargets.has(targetUserId)) {
@@ -1645,8 +1657,13 @@ export class WSGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     };
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
+    this.isShuttingDown = true;
     this.logger.log('Cleaning up WebSocket gateway resources...');
+
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
 
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);

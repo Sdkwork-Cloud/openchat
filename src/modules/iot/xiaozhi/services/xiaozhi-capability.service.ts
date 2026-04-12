@@ -5,7 +5,6 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { EventBusService, EventTypeConstants, EventPriority } from '../../../../common/events/event-bus.service';
-import { DeviceConnection } from '../xiaozhi.types';
 
 /**
  * 设备能力接口

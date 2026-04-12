@@ -121,9 +121,14 @@ curl http://127.0.0.1:7200/health
 ### 测试环境
 
 ```bash
+npm run test:env:status
+npm run test:env:up
+npm run db:init:test -- --yes --seed
 npm run test
 npm run test:e2e
 ```
+
+`npm run test:env:*` 是新的跨平台测试依赖入口，统一负责 Windows、Linux、macOS 上的 PostgreSQL / Redis 测试环境启动与状态检查。
 
 如果需要直接用测试配置启动服务：
 
@@ -191,6 +196,14 @@ OPENCHAT_ENV_FILE=.env.production ./scripts/health-check.sh full
 
 `Makefile` 已切换为按环境文件直接启动，不再依赖把配置手工复制到 `.env`。
 
+跨平台测试依赖管理现在优先使用：
+
+```bash
+npm run test:env:status
+npm run test:env:up
+npm run test:env:down
+```
+
 ```bash
 make dev
 make test-env
@@ -225,6 +238,9 @@ make health-full
 | `npm run start:prod`                                                     | 使用 `.env.production` 启动编译产物  |
 | `npm run test`                                                           | 使用测试环境运行单测                 |
 | `npm run test:e2e`                                                       | 使用测试环境运行 E2E                 |
+| `npm run test:env:up`                                                    | 启动 E2E 所需 PostgreSQL / Redis     |
+| `npm run test:env:down`                                                  | 停止 E2E 所需 PostgreSQL / Redis     |
+| `npm run test:env:status`                                                | 检查 E2E 依赖状态                    |
 | `npm run db:init:dev`                                                    | 开发环境数据库初始化快捷入口         |
 | `npm run db:init:test`                                                   | 测试环境数据库初始化快捷入口         |
 | `npm run db:init:prod`                                                   | 生产环境数据库初始化快捷入口         |

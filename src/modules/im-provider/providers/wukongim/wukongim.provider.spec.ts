@@ -1,5 +1,6 @@
 import { WukongIMProvider } from './wukongim.provider';
 import { WukongIMChannelType } from '../../../wukongim/wukongim.constants';
+import { WukongIMTokenService } from '../../../wukongim/wukongim-token.service';
 import { WukongIMUtils } from '../../../wukongim/wukongim.utils';
 
 describe('WukongIMProvider', () => {
@@ -13,9 +14,18 @@ describe('WukongIMProvider', () => {
         { message_id: 'msg-1', client_msg_no: 'client-1' },
         { message_id: 'msg-2', client_msg_no: 'client-2' },
       ]),
+      upsertUserToken: jest.fn().mockResolvedValue({ status: 200 }),
     };
+    const tokenService = new WukongIMTokenService({
+      get: jest.fn((key: string, defaultValue?: string) => {
+        if (key === 'WUKONGIM_SECRET') {
+          return 'wukongim-provider-test-secret';
+        }
+        return defaultValue;
+      }),
+    } as any);
 
-    const provider = new WukongIMProvider(wukongIMClient as any);
+    const provider = new WukongIMProvider(wukongIMClient as any, tokenService);
     await provider.initialize({
       provider: 'wukongim',
       endpoint: 'http://127.0.0.1:15001',
@@ -105,5 +115,68 @@ describe('WukongIMProvider', () => {
         from_uid: '2',
       }),
     ]);
+  });
+
+  it('generates provider tokens that can be validated back to the issuing user', async () => {
+    const { provider, wukongIMClient } = await createProvider();
+
+    const token = await provider.generateToken('user-100');
+
+    expect(wukongIMClient.upsertUserToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uid: 'user-100',
+        token,
+        device_flag: 1,
+        device_level: 1,
+      }),
+    );
+    await expect(provider.validateToken(token)).resolves.toEqual({
+      userId: 'user-100',
+      valid: true,
+    });
+  });
+
+  it('registers callbacks and dispatches provider lifecycle and webhook events', async () => {
+    const { provider } = await createProvider();
+    const statusCallback = jest.fn();
+    const userStatusCallback = jest.fn();
+    const messageCallback = jest.fn();
+
+    provider.subscribeToConnectionStatus(statusCallback);
+    provider.subscribeToUserStatus(userStatusCallback);
+    provider.subscribeToMessages(messageCallback);
+
+    await provider.connect('user-200');
+    provider.handleWebhookUserStatus({
+      uid: 'user-201',
+      online: true,
+      timestamp: 1712400000000,
+    });
+    provider.handleWebhookMessage({
+      message_id: 'msg-200',
+      client_msg_no: 'client-msg-200',
+      from_uid: 'user-200',
+      channel_id: 'group-200',
+      channel_type: WukongIMChannelType.GROUP,
+      payload: WukongIMUtils.encodePayload({
+        type: 'text',
+        content: { text: 'hello webhook' },
+      }),
+      timestamp: 1712400001000,
+    });
+
+    expect(statusCallback).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'connected' }),
+    );
+    expect(userStatusCallback).toHaveBeenCalledWith('user-201', 'online');
+    expect(messageCallback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'msg-200',
+        from: 'user-200',
+        to: 'group-200',
+        roomId: 'group-200',
+        type: 'text',
+      }),
+    );
   });
 });

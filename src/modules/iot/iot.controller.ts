@@ -3,14 +3,13 @@
  * 处理IoT相关的HTTP请求
  */
 
-import { Controller, Post, Get, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, Request, Logger, ForbiddenException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { Controller, Post, Get, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, Request, ForbiddenException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { IoTService } from './iot.service';
 import { JwtAuthGuard } from '../user/guards/jwt-auth.guard';
 import { DeviceType, DeviceStatus } from './entities/device.entity';
 import { AuthenticatedRequest } from '../../common/auth/interfaces/authenticated-request.interface';
 import { DeviceMessageType } from './entities/device-message.entity';
-import { IoTException } from './exceptions/iot.exception';
 
 @ApiTags('iot')
 @Controller('iot')

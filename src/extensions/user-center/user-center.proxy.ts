@@ -8,8 +8,9 @@
  * 4. 支持健康检查和状态监控
  */
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EXTENSIONS_OPTIONS, ExtensionsModuleOptions } from '../extensions.options';
 import { ExtensionRegistry } from '../core/extension-registry.service';
 import { ExtensionType, ExtensionStatus } from '../core/extension.interface';
 import {
@@ -59,10 +60,14 @@ export class UserCenterProxy implements OnModuleInit {
   constructor(
     private readonly extensionRegistry: ExtensionRegistry,
     private readonly configService: ConfigService,
+    @Optional()
+    @Inject(EXTENSIONS_OPTIONS)
+    private readonly moduleOptions?: ExtensionsModuleOptions,
   ) {}
 
   async onModuleInit() {
-    const primaryId = this.configService.get<string>('USER_CENTER_EXTENSION');
+    const primaryId = this.moduleOptions?.primaryUserCenterId
+      || this.configService.get<string>('USER_CENTER_EXTENSION');
 
     if (primaryId) {
       const extension = this.extensionRegistry.get(primaryId);

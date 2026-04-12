@@ -34,7 +34,7 @@ export interface TrimOptions {
 export class TrimPipe implements PipeTransform<string | undefined, string | undefined> {
   constructor(private readonly options: TrimOptions = {}) {}
 
-  transform(value: string | undefined, metadata: ArgumentMetadata): string | undefined {
+  transform(value: string | undefined, _metadata: ArgumentMetadata): string | undefined {
     if (value === undefined) {
       return undefined;
     }

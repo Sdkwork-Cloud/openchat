@@ -114,7 +114,7 @@ export class XiaozhiAudioProcessingService {
     let processed = pcmData;
     let hasVoice = true;
     let noiseLevel = 0;
-    let voiceLevel = 0;
+    let voiceLevel: number;
     let appliedGain = 1.0;
 
     try {

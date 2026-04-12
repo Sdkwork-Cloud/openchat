@@ -9,6 +9,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { asRecord, getErrorMessage, toError } from '@/common/utils/error.util';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -134,22 +135,30 @@ export class OpenAIChatService {
       this.logger.error('OpenAI chat request failed:', error);
       
       // 处理特定错误
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
+      const errorRecord = asRecord(error);
+      const responseRecord = asRecord(errorRecord?.response);
+      if (responseRecord) {
+        const status = typeof responseRecord.status === 'number' ? responseRecord.status : undefined;
+        const dataRecord = asRecord(responseRecord.data);
+        const apiErrorRecord = asRecord(dataRecord?.error);
+        const apiErrorMessage = typeof apiErrorRecord?.message === 'string'
+          ? apiErrorRecord.message
+          : getErrorMessage(error);
         
         if (status === 401) {
-          throw new Error('OpenAI API key invalid');
-        } else if (status === 429) {
-          throw new Error('OpenAI rate limit exceeded');
-        } else if (status === 500) {
-          throw new Error('OpenAI server error');
+          throw Object.assign(new Error('OpenAI API key invalid'), { cause: error });
+        }
+        if (status === 429) {
+          throw Object.assign(new Error('OpenAI rate limit exceeded'), { cause: error });
+        }
+        if (status === 500) {
+          throw Object.assign(new Error('OpenAI server error'), { cause: error });
         }
         
-        throw new Error(`OpenAI API error: ${data?.error?.message || 'Unknown error'}`);
+        throw Object.assign(new Error(`OpenAI API error: ${apiErrorMessage}`), { cause: error });
       }
       
-      throw error;
+      throw toError(error);
     }
   }
 
@@ -235,7 +244,7 @@ export class OpenAIChatService {
                 if (content) {
                   onChunk(content);
                 }
-              } catch (e) {
+              } catch {
                 // 忽略解析错误
               }
             }

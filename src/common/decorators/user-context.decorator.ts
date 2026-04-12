@@ -175,6 +175,7 @@ export interface PaginationParams {
   limit: number;
 }
 
+// eslint-disable-next-line no-redeclare
 export const PaginationParams = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): PaginationParams => {
     const request = ctx.switchToHttp().getRequest<Request>();
@@ -206,6 +207,7 @@ export interface SortParams {
   sortOrder: 'asc' | 'desc';
 }
 
+// eslint-disable-next-line no-redeclare
 export const SortParams = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): SortParams => {
     const request = ctx.switchToHttp().getRequest<Request>();
@@ -235,6 +237,7 @@ export interface SearchParams extends PaginationParams, SortParams {
   filters?: Record<string, any>;
 }
 
+// eslint-disable-next-line no-redeclare
 export const SearchParams = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): SearchParams => {
     const request = ctx.switchToHttp().getRequest<Request>();

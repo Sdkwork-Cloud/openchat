@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('craw_agents')
 export class CrawAgent {
@@ -58,6 +58,9 @@ export class CrawAgent {
 
   @Column({ default: false })
   ownerXVerified: boolean;
+
+  @Column({ nullable: true })
+  ownerEmail: string;
 
   @Column({ nullable: true })
   metadata: string;

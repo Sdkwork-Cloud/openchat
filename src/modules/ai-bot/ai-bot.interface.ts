@@ -1,5 +1,3 @@
-import { User } from '../user/user.interface';
-
 // AI Bot接口
 export interface AIBot {
   id: string;

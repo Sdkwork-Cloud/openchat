@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { toError } from './error.util';
 
 interface ConcurrencyConfig {
   maxConcurrent: number;
@@ -98,7 +99,7 @@ export class ConcurrencyControlService {
       ]);
       item.resolve(result);
     } catch (error) {
-      item.reject(error);
+      item.reject(toError(error));
     }
   }
 

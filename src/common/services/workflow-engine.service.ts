@@ -334,7 +334,7 @@ export class WorkflowEngineService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async executeStep(execution: WorkflowExecution, step: WorkflowStep, definition: WorkflowDefinition): Promise<void> {
+  private async executeStep(execution: WorkflowExecution, step: WorkflowStep, _definition: WorkflowDefinition): Promise<void> {
     const stepExecution: StepExecution = {
       stepId: step.id,
       stepName: step.name,
@@ -402,7 +402,7 @@ export class WorkflowEngineService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (step.condition) {
-      const matchingIndex = step.next.findIndex((_, index) => {
+      const matchingIndex = step.next.findIndex(() => {
         return step.condition!(execution.context);
       });
       return matchingIndex >= 0 ? step.next[matchingIndex] : step.next[0];

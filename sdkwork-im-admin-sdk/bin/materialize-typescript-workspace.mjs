@@ -27,11 +27,16 @@ function ensurePackageDir(dirPath, label) {
   }
 }
 
+function ensureNodeModulesDir(dirPath, label) {
+  if (!existsSync(path.join(dirPath, 'node_modules'))) {
+    fail(`Missing node_modules for ${label}: ${dirPath}. Run pnpm install from the owning workspace first.`);
+  }
+}
+
 function main() {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const workspaceRoot = path.resolve(scriptDir, '..');
   const repoRoot = path.resolve(workspaceRoot, '..');
-  const npmCommand = 'npm';
 
   const packages = [
     {
@@ -65,15 +70,10 @@ function main() {
 
   for (const sdkPackage of packages) {
     ensurePackageDir(sdkPackage.dir, sdkPackage.label);
+    ensureNodeModulesDir(sdkPackage.dir, sdkPackage.label);
     process.stdout.write(`[sdkwork-im-admin-sdk] materializing ${sdkPackage.label}\n`);
     run(
-      npmCommand,
-      ['install', '--no-fund', '--no-audit'],
-      sdkPackage.dir,
-      `${sdkPackage.label}:install`,
-    );
-    run(
-      npmCommand,
+      'npm',
       ['run', 'build'],
       sdkPackage.dir,
       `${sdkPackage.label}:build`,

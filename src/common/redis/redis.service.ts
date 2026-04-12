@@ -1,6 +1,18 @@
 import { Injectable, Inject, Logger, OnModuleDestroy } from '@nestjs/common';
-import Redis, { Pipeline } from 'ioredis';
+import Redis from 'ioredis';
 import { REDIS_CLIENT, REDIS_PUB_CLIENT, REDIS_SUB_CLIENT } from './redis.constants';
+
+type MessageSubscriptionListener = {
+  event: 'message';
+  listener: (receivedChannel: string, message: string) => void;
+};
+
+type PatternSubscriptionListener = {
+  event: 'pmessage';
+  listener: (pattern: string, receivedChannel: string, message: string) => void;
+};
+
+type RedisSubscriptionListener = MessageSubscriptionListener | PatternSubscriptionListener;
 
 /**
  * Redis 服务封装
@@ -11,10 +23,7 @@ export class RedisService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private readonly subscriptionListeners: Map<
     string,
-    Array<{
-      event: 'message' | 'pmessage';
-      listener: (...args: unknown[]) => void;
-    }>
+    RedisSubscriptionListener[]
   > = new Map();
 
   // Redis Key 前缀
@@ -446,8 +455,12 @@ export class RedisService implements OnModuleDestroy {
   async unsubscribe(channel?: string): Promise<void> {
     if (channel) {
       const listeners = this.subscriptionListeners.get(channel) || [];
-      for (const { event, listener } of listeners) {
-        this.subRedis.off(event, listener);
+      for (const listener of listeners) {
+        if (listener.event === 'pmessage') {
+          this.subRedis.off('pmessage', listener.listener);
+          continue;
+        }
+        this.subRedis.off('message', listener.listener);
       }
       this.subscriptionListeners.delete(channel);
 
@@ -458,8 +471,12 @@ export class RedisService implements OnModuleDestroy {
       await this.subRedis.unsubscribe(channel);
     } else {
       for (const listeners of this.subscriptionListeners.values()) {
-        for (const { event, listener } of listeners) {
-          this.subRedis.off(event, listener);
+        for (const listener of listeners) {
+          if (listener.event === 'pmessage') {
+            this.subRedis.off('pmessage', listener.listener);
+            continue;
+          }
+          this.subRedis.off('message', listener.listener);
         }
       }
       this.subscriptionListeners.clear();

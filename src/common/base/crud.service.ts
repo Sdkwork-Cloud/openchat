@@ -16,7 +16,6 @@ import {
 } from 'typeorm';
 import { BaseEntity } from '../base.entity';
 import { BusinessException, BusinessErrorCode } from '../exceptions/business.exception';
-import { PaginationQueryDto } from '../dto/base.dto';
 import { PaginationDto, CursorPaginationDto, CursorResponseDto } from '../dto/pagination.dto';
 import { PagedResponseDto } from '../dto/response.dto';
 
@@ -86,7 +85,7 @@ export abstract class CrudService<T extends BaseEntity & ObjectLiteral> implemen
         const entities = this.repository.create(batch);
         const saved = await this.repository.save(entities);
         success.push(...saved);
-      } catch (error) {
+      } catch {
         for (const dto of batch) {
           try {
             const entity = this.repository.create(dto);

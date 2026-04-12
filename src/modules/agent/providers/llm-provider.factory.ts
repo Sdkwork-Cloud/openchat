@@ -4,7 +4,6 @@ import {
   ChatRequest,
   ChatResponse,
   ChatStreamChunk,
-  LLMProvider,
   LLMConfig,
 } from '../agent.interface';
 
@@ -93,7 +92,11 @@ export class LLMProviderFactory {
     const provider = this.providers.get(providerName);
     if (!provider) {
       this.logger.warn(`Provider ${providerName} not found, falling back to openai`);
-      return this.providers.get('openai') || this.providers.values().next().value;
+      const fallbackProvider = this.providers.get('openai') ?? this.providers.values().next().value;
+      if (!fallbackProvider) {
+        throw new Error('No LLM providers are configured');
+      }
+      return fallbackProvider;
     }
     return provider;
   }
@@ -208,7 +211,7 @@ export class OpenAIProvider implements ILLMProvider {
           try {
             const json = JSON.parse(line.slice(6));
             yield this.transformStreamChunk(json);
-          } catch (e) {
+          } catch {
             // Ignore parse errors
           }
         }
@@ -378,7 +381,7 @@ export class AnthropicProvider implements ILLMProvider {
                 }],
               };
             }
-          } catch (e) {
+          } catch {
             // Ignore parse errors
           }
         }

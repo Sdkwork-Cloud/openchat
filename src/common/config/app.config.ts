@@ -4,11 +4,9 @@ import {
   IsNumber,
   IsBoolean,
   IsOptional,
-  IsEmail,
   Min,
   Max,
   MinLength,
-  MaxLength,
   validateSync,
 } from 'class-validator';
 

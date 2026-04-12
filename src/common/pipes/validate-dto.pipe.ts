@@ -38,7 +38,7 @@ export class ValidateDtoPipe<T extends object> implements PipeTransform<any, Pro
     private readonly options: ValidateDtoOptions = {},
   ) {}
 
-  async transform(value: any, metadata: ArgumentMetadata): Promise<T> {
+  async transform(value: any, _metadata: ArgumentMetadata): Promise<T> {
     if (!value) {
       throw new BusinessException(
         BusinessErrorCode.INVALID_PARAMETER,

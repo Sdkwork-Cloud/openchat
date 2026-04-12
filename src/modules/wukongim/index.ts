@@ -3,6 +3,7 @@
  */
 
 export { WukongIMService } from './wukongim.service';
+export { WukongIMTokenService } from './wukongim-token.service';
 export { WukongIMAppController } from './wukongim-app.controller';
 export { WukongIMAdminController } from './wukongim-admin.controller';
 export { WukongIMWebhookController } from './wukongim.webhook.controller';

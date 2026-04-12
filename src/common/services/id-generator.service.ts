@@ -128,12 +128,13 @@ export class IdGeneratorService implements OnModuleInit {
     let metadata: Record<string, any> | undefined;
 
     switch (strategy) {
-      case 'snowflake':
+      case 'snowflake': {
         const snowflakeResult = this.generateSnowflake();
         id = snowflakeResult.id;
         idNum = snowflakeResult.idNum;
         metadata = snowflakeResult.metadata;
         break;
+      }
       case 'uuid':
       case 'uuidv4':
         id = this.generateUUID();
@@ -351,9 +352,10 @@ export class IdGeneratorService implements OnModuleInit {
    */
   extractTimestamp(id: string, strategy?: IdStrategy): number | null {
     switch (strategy || this.defaultStrategy) {
-      case 'snowflake':
+      case 'snowflake': {
         const parsed = this.parseSnowflake(id);
         return parsed?.timestamp || null;
+      }
       case 'uuidv7':
       case 'ulid':
       case 'ksuid':

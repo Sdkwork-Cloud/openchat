@@ -8,7 +8,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^uuid$': '<rootDir>/test/__mocks__/uuid.ts',
+    '^uuid$': '<rootDir>/test/mocks/uuid.ts',
   },
   transform: {
     '^.+\\.tsx?$': [

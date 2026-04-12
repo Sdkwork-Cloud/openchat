@@ -137,7 +137,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
   async trigger(event: string, data: any): Promise<string[]> {
     const payloadIds: string[] = [];
 
-    for (const [id, endpoint] of this.endpoints) {
+    for (const [, endpoint] of this.endpoints) {
       if (!endpoint.enabled) continue;
       if (!endpoint.events.includes(event) && !endpoint.events.includes('*')) continue;
 
@@ -245,7 +245,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
   private async processDeliveries(): Promise<void> {
     const now = Date.now();
 
-    for (const [id, delivery] of this.deliveries) {
+    for (const [, delivery] of this.deliveries) {
       if (delivery.status !== 'pending') continue;
       if (delivery.nextAttemptAt && delivery.nextAttemptAt > now) continue;
 

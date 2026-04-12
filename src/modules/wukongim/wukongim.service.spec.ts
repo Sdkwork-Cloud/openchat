@@ -1,4 +1,5 @@
 import { WukongIMService } from './wukongim.service';
+import { WukongIMTokenService } from './wukongim-token.service';
 
 describe('WukongIMService', () => {
   function createService() {
@@ -18,21 +19,31 @@ describe('WukongIMService', () => {
       endTimer: jest.fn(),
       recordMetric: jest.fn(),
     };
+    const tokenService = new WukongIMTokenService({
+      get: jest.fn((key: string, defaultValue?: string) => {
+        if (key === 'WUKONGIM_SECRET') {
+          return 'wukongim-service-test-secret';
+        }
+        return defaultValue;
+      }),
+    } as any);
 
     const service = new WukongIMService(
       wukongIMClient as any,
       metricsService as any,
+      tokenService,
     );
 
     return {
       service,
       wukongIMClient,
       metricsService,
+      tokenService,
     };
   }
 
   it('registers a generated token via the current /user/token contract and returns it', async () => {
-    const { service, wukongIMClient } = createService();
+    const { service, wukongIMClient, tokenService } = createService();
     wukongIMClient.upsertUserToken.mockResolvedValue({ status: 200 });
 
     const token = await service.getUserToken('user-1');
@@ -48,6 +59,10 @@ describe('WukongIMService', () => {
     expect(token).toBe(
       wukongIMClient.upsertUserToken.mock.calls[0][0].token,
     );
+    expect(tokenService.validateToken(token)).toEqual({
+      userId: 'user-1',
+      valid: true,
+    });
     expect(wukongIMClient.createUser).not.toHaveBeenCalled();
   });
 

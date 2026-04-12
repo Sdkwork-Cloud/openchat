@@ -251,7 +251,7 @@ export class WsMessageCommandService {
           ackQueued = true;
         } catch (error) {
           this.logger.warn(
-            `Failed to store pending ACK for message ${persistedMessageId}: ${error?.message || error}`,
+            `Failed to store pending ACK for message ${persistedMessageId}: ${this.extractErrorMessage(error)}`,
           );
         }
       }

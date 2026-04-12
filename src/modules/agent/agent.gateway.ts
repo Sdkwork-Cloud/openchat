@@ -14,7 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { AgentService } from './agent.service';
 import { AgentRuntimeService } from './services/agent-runtime.service';
 import { AgentEventService } from './agent-event.service';
-import { AgentEventType, ChatRequest } from './agent.interface';
+import { ChatRequest } from './agent.interface';
 
 interface AgentGatewayJwtPayload {
   userId?: string;

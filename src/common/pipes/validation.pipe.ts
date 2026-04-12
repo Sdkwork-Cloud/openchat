@@ -2,7 +2,6 @@ import {
   Injectable,
   PipeTransform,
   ArgumentMetadata,
-  BadRequestException,
 } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
@@ -55,7 +54,7 @@ export class ValidationPipe implements PipeTransform<any> {
 
 @Injectable()
 export class ParseIntPipe implements PipeTransform<string, number> {
-  transform(value: string, metadata: ArgumentMetadata): number {
+  transform(value: string, _metadata: ArgumentMetadata): number {
     const parsed = parseInt(value, 10);
     if (isNaN(parsed)) {
       throw new BusinessException(
@@ -69,7 +68,7 @@ export class ParseIntPipe implements PipeTransform<string, number> {
 
 @Injectable()
 export class ParseBoolPipe implements PipeTransform<string, boolean> {
-  transform(value: string, metadata: ArgumentMetadata): boolean {
+  transform(value: string, _metadata: ArgumentMetadata): boolean {
     if (value === 'true' || value === '1') {
       return true;
     }
@@ -85,7 +84,7 @@ export class ParseBoolPipe implements PipeTransform<string, boolean> {
 
 @Injectable()
 export class TrimPipe implements PipeTransform<string, string> {
-  transform(value: string, metadata: ArgumentMetadata): string {
+  transform(value: string, _metadata: ArgumentMetadata): string {
     if (typeof value === 'string') {
       return value.trim();
     }
@@ -97,7 +96,7 @@ export class TrimPipe implements PipeTransform<string, string> {
 export class DefaultValuePipe<T> implements PipeTransform<T | undefined, T> {
   constructor(private readonly defaultValue: T) {}
 
-  transform(value: T | undefined, metadata: ArgumentMetadata): T {
+  transform(value: T | undefined, _metadata: ArgumentMetadata): T {
     return value === undefined ? this.defaultValue : value;
   }
 }

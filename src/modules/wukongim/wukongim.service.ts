@@ -1,9 +1,9 @@
-import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { WukongIMChannelType } from './wukongim.constants';
 import { WukongIMUtils } from './wukongim.utils';
 import { WukongIMClient } from './wukongim.client';
 import { MetricsService } from '../../common/metrics/metrics.service';
+import { WukongIMTokenService } from './wukongim-token.service';
 
 export interface SendMessageOptions {
   channelId: string;
@@ -45,6 +45,7 @@ export class WukongIMService {
   constructor(
     private readonly wukongIMClient: WukongIMClient,
     private readonly metricsService: MetricsService,
+    private readonly wukongIMTokenService: WukongIMTokenService,
   ) {
     this.logger.log('WukongIM Service initialized');
   }
@@ -294,7 +295,7 @@ export class WukongIMService {
   ) {
     return {
       uid,
-      token: options.token ?? randomBytes(24).toString('hex'),
+      token: options.token ?? this.wukongIMTokenService.generateToken(uid),
       device_flag: options.deviceFlag ?? DEFAULT_WUKONGIM_DEVICE_FLAG,
       device_level: options.deviceLevel ?? DEFAULT_WUKONGIM_DEVICE_LEVEL,
     };

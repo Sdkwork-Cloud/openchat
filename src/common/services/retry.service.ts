@@ -313,15 +313,18 @@ export class RetryService {
 }
 
 export function WithRetry(options?: Partial<RetryOptions>) {
+  type RetriableMethodThis = {
+    configService: ConfigService;
+  };
+
   return function (
     target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value;
-    const logger = new Logger(target.constructor.name);
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (this: RetriableMethodThis, ...args: any[]) {
       const retryService = new RetryService(this.configService);
       const operationName = `${target.constructor.name}.${propertyKey}`;
 
